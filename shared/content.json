@@ -1,0 +1,134 @@
+{
+  "coinPayout": [10, 7, 5, 3, 2, 1, 0],
+  "players": [
+    { "id": "javi", "name": "Javi", "groom": true, "color": "#f59e0b" },
+    { "id": "nico", "name": "Nico", "color": "#ef4444" },
+    { "id": "frang", "name": "FranG", "color": "#3b82f6" },
+    { "id": "lucho", "name": "Lucho", "color": "#22c55e" },
+    { "id": "tincho", "name": "Tincho", "color": "#a855f7" },
+    { "id": "mati", "name": "Mati", "color": "#ec4899" },
+    { "id": "seba", "name": "Seba", "color": "#14b8a6" }
+  ],
+  "board": [
+    { "id": 0, "type": "start", "label": "Salida" },
+    { "id": 1, "type": "reaction", "minigameId": "reaction-1" },
+    { "id": 2, "type": "vote", "minigameId": "mas-probable-1" },
+    { "id": 3, "type": "dare", "dareId": "shot-1" },
+    { "id": 4, "type": "minigame", "minigameId": "bostezo" },
+    { "id": 5, "type": "estimate", "minigameId": "estimate-frang" },
+    { "id": 6, "type": "fate", "fateId": "retroceder-2" },
+    { "id": 7, "type": "judge", "minigameId": "lujan" },
+    { "id": 8, "type": "vote", "minigameId": "quien-dijo-1" },
+    { "id": 9, "type": "star", "minigameId": "whack-amigos" },
+    { "id": 10, "type": "trivia", "minigameId": "trivia-novio-1" },
+    { "id": 11, "type": "dare", "dareId": "reto-1" },
+    { "id": 12, "type": "minigame", "minigameId": "bostezo" },
+    { "id": 13, "type": "vote", "minigameId": "mas-probable-2" },
+    { "id": 14, "type": "fate", "fateId": "monedas-bonus" },
+    { "id": 15, "type": "groom", "minigameId": "trivia-novio-2" },
+    { "id": 16, "type": "estimate", "minigameId": "estimate-noche" },
+    { "id": 17, "type": "judge", "minigameId": "lujan" },
+    { "id": 18, "type": "vote", "minigameId": "dos-verdades-1" },
+    { "id": 19, "type": "reaction", "minigameId": "reaction-1" },
+    { "id": 20, "type": "star", "minigameId": "whack-amigos" },
+    { "id": 21, "type": "dare", "dareId": "shot-2" },
+    { "id": 22, "type": "trivia", "minigameId": "trivia-novio-1" },
+    { "id": 23, "type": "finish", "label": "Llegada" }
+  ],
+  "minigames": {
+    "bostezo": {
+      "type": "timing",
+      "skin": "bostezo",
+      "content": {
+        "windowMs": 350,
+        "label": "Tocá cuando no te vea la profe",
+        "loseFlavor": "Te vio la profe bostezar."
+      },
+      "rigged": { "losers": ["nico"] }
+    },
+    "lujan": {
+      "type": "judge",
+      "skin": "lujan",
+      "content": {
+        "persona": "lujan",
+        "prompt": "Escribí un mensajito para invitar a Luján Eppens a tomar un helado.",
+        "placeholder": "Hola Luján, ¿te invito un helado...?"
+      },
+      "rigged": { "losers": ["frang"] }
+    },
+    "mas-probable-1": {
+      "type": "vote",
+      "content": { "question": "¿Quién se queda dormido primero esta noche?" }
+    },
+    "mas-probable-2": {
+      "type": "vote",
+      "content": { "question": "¿Quién es más probable que pierda el celular esta noche?" }
+    },
+    "quien-dijo-1": {
+      "type": "vote",
+      "content": { "question": "¿Quién dijo 'esta es la última y nos vamos' y se quedó 3 horas más?" }
+    },
+    "dos-verdades-1": {
+      "type": "vote",
+      "content": { "question": "Dos verdades y una mentira: ¿cuál creés que es la mentira del novio?" }
+    },
+    "estimate-frang": {
+      "type": "estimate",
+      "content": {
+        "question": "¿Cuántas veces rechazaron a FranG en 15 años?",
+        "unit": "veces",
+        "answer": 42
+      }
+    },
+    "estimate-noche": {
+      "type": "estimate",
+      "content": {
+        "question": "¿A qué hora (en formato 24h, ej. 4 = 4am) se va el primero a dormir?",
+        "unit": "hs",
+        "answer": 5
+      }
+    },
+    "reaction-1": {
+      "type": "reaction",
+      "content": {
+        "label": "Esperá el verde. El primero gana. Si tocás antes, penalización.",
+        "minDelayMs": 1500,
+        "maxDelayMs": 5000
+      }
+    },
+    "trivia-novio-1": {
+      "type": "buzzer",
+      "content": {
+        "question": "¿Cuántas veces dijo Javi 'esta es la última y nos vamos'?",
+        "options": ["3", "7", "infinitas"],
+        "answer": 2
+      }
+    },
+    "trivia-novio-2": {
+      "type": "buzzer",
+      "skin": "groom",
+      "content": {
+        "question": "¿En qué viaje del grupo Javi se olvidó el bolso en el aeropuerto?",
+        "options": ["Brasil", "Bariloche", "Nunca pasó (mentira: sí pasó)"],
+        "answer": 0
+      }
+    },
+    "whack-amigos": {
+      "type": "whack",
+      "content": {
+        "label": "¡Golpeá la cara correcta!",
+        "durationMs": 20000,
+        "targets": ["javi", "nico", "frang", "lucho", "tincho", "mati", "seba"]
+      }
+    }
+  },
+  "dares": {
+    "shot-1": { "text": "Tomá un shot. El último que reaccione, dos." },
+    "shot-2": { "text": "Brindis obligatorio: todos toman, el novio elige con qué." },
+    "reto-1": { "text": "Hacé 10 flexiones o tomá un shot. Vos decidís." }
+  },
+  "fates": {
+    "retroceder-2": { "text": "Te volviste a dormir. Retrocedés 2 casilleros.", "delta": -2 },
+    "monedas-bonus": { "text": "Carta del destino: ¡ganás 5 monedas!", "coins": 5 }
+  }
+}
