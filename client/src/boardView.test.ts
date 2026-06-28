@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { board3DSlots, layoutToWorldPosition } from "./board3d";
+import {
+  board3DSlots,
+  cameraFollowPosition,
+  layoutToWorldPosition,
+  tokenPathPositions,
+  tokenWorldPosition,
+} from "./board3d";
 import { cameraFocus, movementPath, screenPosition } from "./boardView";
 
 const max = 6;
@@ -23,6 +29,10 @@ assert.deepEqual(movementPath(5, null, 24), []);
 
 assert.deepEqual(layoutToWorldPosition({ x: 0, y: 0 }, max, max, 2), [-6, 0, -6]);
 assert.deepEqual(layoutToWorldPosition({ x: 6, y: 6, z: 0.5 }, max, max, 2), [6, 0.5, 6]);
+assert.deepEqual(tokenWorldPosition([1, 0, 2], 0, 1), [1, 0.36, 2]);
+assert.deepEqual(tokenWorldPosition([1, 0, 2], 0, 2), [0.86, 0.36, 2]);
+assert.deepEqual(tokenWorldPosition([1, 0, 2], 1, 2), [1.14, 0.36, 2]);
+assert.deepEqual(cameraFollowPosition([2, 0, 3]), [2, 6.6, 10.5]);
 
 const worldSlots = board3DSlots(
   Array.from({ length: 24 }, (_, id) => ({ id })),
@@ -32,3 +42,10 @@ assert.equal(worldSlots.length, 24);
 assert.deepEqual(worldSlots[0], { id: 0, position: [-6, 0, -6], rotationY: 0 });
 assert.deepEqual(worldSlots[6], { id: 6, position: [6, 0, -6], rotationY: Math.PI / 2 });
 assert.deepEqual(worldSlots[12], { id: 12, position: [6, 0, 6], rotationY: Math.PI });
+
+const slotPositions = new Map(worldSlots.map((slot) => [slot.id, slot.position] as const));
+assert.deepEqual(tokenPathPositions(slotPositions, [0, 1, 2], 0, 1), [
+  [-6, 0.36, -6],
+  [-4, 0.36, -6],
+  [-2, 0.36, -6],
+]);

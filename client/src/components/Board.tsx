@@ -64,7 +64,13 @@ export default function Board({ state }: { state: GameState }) {
         className="relative isolate mx-auto aspect-[4/3] w-full max-w-[32rem] transition-transform duration-500 ease-out motion-reduce:transition-none"
         style={{ transform: `translate(${camera.x}%, ${camera.y}%) scale(${camera.scale})` }}
       >
-        <Board3DShell tiles={state.board} />
+        <Board3DShell
+          tiles={state.board}
+          players={state.players}
+          activeId={activeId}
+          lastRoll={state.lastRoll}
+          boardLength={state.boardLength}
+        />
         <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 text-center">
           <p className="text-[10px] uppercase tracking-[0.35em] text-white/30">tablero</p>
           {activePlayer && (
@@ -76,8 +82,7 @@ export default function Board({ state }: { state: GameState }) {
 
         {slots.map(({ tile, layout }) => {
           const here = state.players.filter((p) => p.position === tile.id);
-          const visible = here.slice(0, 3);
-          const hidden = here.length - visible.length;
+          const playersHere = here.map((player) => player.name).join(", ");
           const isActive = tile.id === activePosition;
           const isPath = movementTileIds.has(tile.id);
           const pos = screenPosition(layout, maxX, maxY);
@@ -88,8 +93,8 @@ export default function Board({ state }: { state: GameState }) {
               key={tile.id}
               role="group"
               aria-label={`Casillero ${tile.id}${tile.label ? `, ${tile.label}` : ""}, ${tile.type}${
-                isActive && activePlayer ? `, turno de ${activePlayer.name}` : ""
-              }`}
+                playersHere ? `, jugadores: ${playersHere}` : ""
+              }${isActive && activePlayer ? `, turno de ${activePlayer.name}` : ""}`}
               className={`absolute h-12 w-12 rounded-2xl border bg-gradient-to-br ${TILE_COLOR[tile.type]} text-xs shadow-lg transition duration-300 motion-reduce:transition-none sm:h-14 sm:w-14 ${
                 isActive
                   ? "border-white ring-2 ring-amber-300 shadow-amber-300/30"
@@ -117,28 +122,7 @@ export default function Board({ state }: { state: GameState }) {
                 </span>
                 {tile.label && <span className="mt-0.5 max-w-10 truncate text-[8px] text-white/70">{tile.label}</span>}
 
-                {here.length > 0 && (
-                  <div className="absolute -bottom-2 left-1/2 flex -translate-x-1/2 items-center">
-                    {visible.map((p, index) => (
-                      <span
-                        key={p.id}
-                        title={p.name}
-                        aria-label={`${p.name}${p.id === activeId ? ", jugador activo" : ""}`}
-                        className={`flex h-5 w-5 items-center justify-center rounded-full border border-white/70 text-[9px] font-black text-white shadow transition-transform duration-300 motion-reduce:transition-none ${
-                          p.id === activeId ? "-translate-y-1 scale-110 ring-2 ring-white" : ""
-                        } ${state.lastRoll && p.id === activeId ? "animate-pop" : ""} ${p.connected ? "" : "opacity-40"}`}
-                        style={{ background: p.color, marginLeft: index ? -4 : 0 }}
-                      >
-                        {p.name.slice(0, 1)}
-                      </span>
-                    ))}
-                    {hidden > 0 && (
-                      <span className="ml-0.5 rounded-full border border-white/30 bg-black/70 px-1 text-[9px] font-bold text-white">
-                        +{hidden}
-                      </span>
-                    )}
-                  </div>
-                )}
+                {playersHere && <span className="sr-only">Jugadores en este casillero: {playersHere}</span>}
               </div>
             </div>
           );
