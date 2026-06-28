@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import {
   board3DSlots,
+  boardMotionSettings,
   cameraFollowPosition,
+  frameLerp,
   layoutToWorldPosition,
+  orbitLightPosition,
+  slotMaterialStyle,
+  supportsWebGL,
   tokenPathPositions,
   tokenWorldPosition,
 } from "./board3d";
@@ -49,3 +54,30 @@ assert.deepEqual(tokenPathPositions(slotPositions, [0, 1, 2], 0, 1), [
   [-4, 0.36, -6],
   [-2, 0.36, -6],
 ]);
+
+assert.deepEqual(boardMotionSettings(false), {
+  cameraLerpSpeed: 3,
+  tokenStepSeconds: 0.22,
+  orbitLights: true,
+});
+assert.deepEqual(boardMotionSettings(true), {
+  cameraLerpSpeed: 0,
+  tokenStepSeconds: 0,
+  orbitLights: false,
+});
+assert.equal(frameLerp(0.1, 3), 0.3);
+assert.equal(frameLerp(0.1, 0), 1);
+assert.deepEqual(orbitLightPosition(0, false), [5.5, 4.8, 0]);
+assert.deepEqual(orbitLightPosition(10, true), [-4.5, 5.2, -3.5]);
+assert.equal(slotMaterialStyle("star").decal, "star");
+assert.equal(slotMaterialStyle("reaction").decal, "bolt");
+assert.equal(supportsWebGL({ getContext: (name) => (name === "webgl" ? {} : null) }), true);
+assert.equal(supportsWebGL({ getContext: () => null }), false);
+assert.equal(
+  supportsWebGL({
+    getContext: () => {
+      throw new Error("no canvas");
+    },
+  }),
+  false
+);
