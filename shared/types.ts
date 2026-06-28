@@ -22,12 +22,11 @@ export type TileType =
   | "estimate";
 
 export interface TileLayout {
-  /** coordenadas de casillero; el cliente decide cómo proyectarlas */
+  /** coordenadas visuales de casillero; x/y son plano de tablero, z es altura opcional */
   x: number;
   y: number;
-  /** profundidad opcional para tableros con relieve */
   z?: number;
-  /** orientación visual opcional, en grados */
+  /** orientación visual opcional, en grados alrededor del eje vertical */
   rot?: number;
 }
 
