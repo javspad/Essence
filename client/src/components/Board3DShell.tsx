@@ -5,6 +5,7 @@ import type { Player, Tile } from "@essence/shared";
 import {
   board3DSlots,
   boardMotionSettings,
+  boardRenderSettings,
   cameraFollowPosition,
   frameLerp,
   orbitLightPosition,
@@ -35,7 +36,13 @@ export default function Board3DShell({
   boardLength = tiles.length,
 }: Board3DShellProps) {
   const reducedMotion = useReducedMotion();
-  const motion = useMemo(() => boardMotionSettings(reducedMotion), [reducedMotion]);
+  const visible = usePageVisible();
+  const renderViewport = useRenderViewport();
+  const motion = useMemo(() => boardMotionSettings(reducedMotion, visible), [reducedMotion, visible]);
+  const renderSettings = useMemo(
+    () => boardRenderSettings({ ...renderViewport, visible }),
+    [renderViewport.devicePixelRatio, renderViewport.viewportWidth, visible]
+  );
   const [webGLAvailable, setWebGLAvailable] = useState(() => supportsWebGL());
   const disableWebGL = useCallback(() => setWebGLAvailable(false), []);
   const slots = useMemo(() => board3DSlots(tiles), [tiles]);
@@ -72,10 +79,11 @@ export default function Board3DShell({
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[1.5rem] bg-slate-950/60">
       <Canvas
         camera={{ position: [0, 7.2, 9], fov: 42, near: 0.1, far: 100 }}
-        dpr={[1, 1.5]}
+        dpr={renderSettings.dpr}
         fallback={<Board3DFallback />}
-        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-        shadows
+        frameloop={renderSettings.frameloop}
+        gl={{ antialias: renderSettings.antialias, alpha: true, powerPreference: renderSettings.powerPreference }}
+        shadows={renderSettings.shadows}
       >
         <WebGLContextGuard onLost={disableWebGL} />
         <FollowCamera target={activeSlot} motion={motion} />
@@ -404,7 +412,11 @@ function WebGLContextGuard({ onLost }: { onLost: () => void }) {
       onLost();
     };
     canvas.addEventListener("webglcontextlost", handleLost);
-    return () => canvas.removeEventListener("webglcontextlost", handleLost);
+    return () => {
+      canvas.removeEventListener("webglcontextlost", handleLost);
+      gl.renderLists.dispose();
+      gl.info.reset();
+    };
   }, [gl, onLost]);
 
   return null;
@@ -418,6 +430,48 @@ function Board3DFallback() {
       <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rotate-12 rounded-[1.5rem] bg-yellow-300/20" />
     </div>
   );
+}
+
+function useRenderViewport(): { devicePixelRatio: number; viewportWidth: number } {
+  const [viewport, setViewport] = useState(readRenderViewport);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => setViewport(readRenderViewport());
+    update();
+    window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+    };
+  }, []);
+
+  return viewport;
+}
+
+function readRenderViewport(): { devicePixelRatio: number; viewportWidth: number } {
+  return {
+    devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+    viewportWidth: typeof window === "undefined" ? 1024 : window.innerWidth,
+  };
+}
+
+function usePageVisible(): boolean {
+  const [visible, setVisible] = useState(readPageVisible);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const update = () => setVisible(readPageVisible());
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
+
+  return visible;
+}
+
+function readPageVisible(): boolean {
+  return typeof document === "undefined" || !document.hidden;
 }
 
 function useReducedMotion(): boolean {

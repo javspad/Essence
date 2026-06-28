@@ -1,6 +1,9 @@
+import { lazy, Suspense, useState } from "react";
 import type { GameState, Tile, TileLayout, TileType } from "@essence/shared";
+import { supportsWebGL } from "../board3d";
 import { cameraFocus, movementPath, perimeterLayout, screenPosition } from "../boardView";
-import Board3DShell from "./Board3DShell";
+
+const Board3DShell = lazy(() => import("./Board3DShell"));
 
 const TILE_ICON: Record<TileType, string> = {
   start: "🏁",
@@ -51,6 +54,7 @@ export default function Board({ state }: { state: GameState }) {
   const activePoint = activeSlot ? screenPosition(activeSlot.layout, maxX, maxY) : { left: 50, top: 50 };
   const camera = cameraFocus(activePoint);
   const movementTileIds = new Set(movementPath(activePosition, state.lastRoll, state.boardLength));
+  const [canLoad3D] = useState(() => supportsWebGL());
   const boardStatus = activePlayer
     ? state.lastRoll
       ? `${activePlayer.name} sacó ${state.lastRoll} y avanzó al casillero ${activePosition}.`
@@ -64,13 +68,19 @@ export default function Board({ state }: { state: GameState }) {
         className="relative isolate mx-auto aspect-[4/3] w-full max-w-[32rem] transition-transform duration-500 ease-out motion-reduce:transition-none"
         style={{ transform: `translate(${camera.x}%, ${camera.y}%) scale(${camera.scale})` }}
       >
-        <Board3DShell
-          tiles={state.board}
-          players={state.players}
-          activeId={activeId}
-          lastRoll={state.lastRoll}
-          boardLength={state.boardLength}
-        />
+        {canLoad3D ? (
+          <Suspense fallback={<Board3DLoadFallback />}>
+            <Board3DShell
+              tiles={state.board}
+              players={state.players}
+              activeId={activeId}
+              lastRoll={state.lastRoll}
+              boardLength={state.boardLength}
+            />
+          </Suspense>
+        ) : (
+          <Board3DLoadFallback />
+        )}
         <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 text-center">
           <p className="text-[10px] uppercase tracking-[0.35em] text-white/30">tablero</p>
           {activePlayer && (
@@ -129,5 +139,15 @@ export default function Board({ state }: { state: GameState }) {
         })}
       </div>
     </section>
+  );
+}
+
+function Board3DLoadFallback() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[1.5rem] bg-slate-950/70">
+      <div className="absolute left-1/2 top-1/2 h-[78%] w-[88%] -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-amber-300/25 bg-teal-700/20 shadow-inner" />
+      <div className="absolute left-1/2 top-1/2 h-[52%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-cyan-200/5" />
+      <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rotate-12 rounded-[1.5rem] bg-yellow-300/20" />
+    </div>
   );
 }

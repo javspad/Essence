@@ -27,6 +27,20 @@ export interface BoardMotionSettings {
   orbitLights: boolean;
 }
 
+export interface BoardRenderSignals {
+  devicePixelRatio: number;
+  viewportWidth: number;
+  visible: boolean;
+}
+
+export interface BoardRenderSettings {
+  dpr: [number, number];
+  antialias: boolean;
+  shadows: boolean;
+  frameloop: "always" | "demand";
+  powerPreference: WebGLPowerPreference;
+}
+
 const DEFAULT_SLOT_STYLE: SlotMaterialStyle = {
   top: "#64748b",
   side: "#334155",
@@ -101,10 +115,23 @@ export function cameraFollowPosition(slotPosition: Vec3): Vec3 {
   return [slotPosition[0], 6.6, slotPosition[2] + 7.5];
 }
 
-export function boardMotionSettings(prefersReducedMotion: boolean): BoardMotionSettings {
-  return prefersReducedMotion
+export function boardMotionSettings(prefersReducedMotion: boolean, visible = true): BoardMotionSettings {
+  return prefersReducedMotion || !visible
     ? { cameraLerpSpeed: 0, tokenStepSeconds: 0, orbitLights: false }
     : { cameraLerpSpeed: 3, tokenStepSeconds: 0.22, orbitLights: true };
+}
+
+export function boardRenderSettings(signals: BoardRenderSignals): BoardRenderSettings {
+  const mobileBudget = signals.viewportWidth < 640 || signals.devicePixelRatio > 2;
+  const maxDpr = mobileBudget ? 1 : Math.min(1.5, Math.max(1, signals.devicePixelRatio || 1));
+
+  return {
+    dpr: [1, round(maxDpr)],
+    antialias: !mobileBudget,
+    shadows: signals.visible && !mobileBudget,
+    frameloop: signals.visible ? "always" : "demand",
+    powerPreference: mobileBudget ? "default" : "high-performance",
+  };
 }
 
 export function frameLerp(deltaSeconds: number, speed: number): number {

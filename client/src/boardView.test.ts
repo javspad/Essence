@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   board3DSlots,
   boardMotionSettings,
+  boardRenderSettings,
   cameraFollowPosition,
   frameLerp,
   layoutToWorldPosition,
@@ -55,15 +56,41 @@ assert.deepEqual(tokenPathPositions(slotPositions, [0, 1, 2], 0, 1), [
   [-2, 0.36, -6],
 ]);
 
-assert.deepEqual(boardMotionSettings(false), {
+assert.deepEqual(boardMotionSettings(false, true), {
   cameraLerpSpeed: 3,
   tokenStepSeconds: 0.22,
   orbitLights: true,
 });
-assert.deepEqual(boardMotionSettings(true), {
+assert.deepEqual(boardMotionSettings(true, true), {
   cameraLerpSpeed: 0,
   tokenStepSeconds: 0,
   orbitLights: false,
+});
+assert.deepEqual(boardMotionSettings(false, false), {
+  cameraLerpSpeed: 0,
+  tokenStepSeconds: 0,
+  orbitLights: false,
+});
+assert.deepEqual(boardRenderSettings({ devicePixelRatio: 2, viewportWidth: 900, visible: true }), {
+  dpr: [1, 1.5],
+  antialias: true,
+  shadows: true,
+  frameloop: "always",
+  powerPreference: "high-performance",
+});
+assert.deepEqual(boardRenderSettings({ devicePixelRatio: 3, viewportWidth: 390, visible: true }), {
+  dpr: [1, 1],
+  antialias: false,
+  shadows: false,
+  frameloop: "always",
+  powerPreference: "default",
+});
+assert.deepEqual(boardRenderSettings({ devicePixelRatio: 2, viewportWidth: 900, visible: false }), {
+  dpr: [1, 1.5],
+  antialias: true,
+  shadows: false,
+  frameloop: "demand",
+  powerPreference: "high-performance",
 });
 assert.equal(frameLerp(0.1, 3), 0.3);
 assert.equal(frameLerp(0.1, 0), 1);
