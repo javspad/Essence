@@ -17,7 +17,19 @@ export type TileType =
   | "dare"
   | "fate"
   | "groom"
-  | "star";
+  | "star"
+  | "reaction"
+  | "estimate";
+
+export interface TileLayout {
+  /** coordenadas de casillero; el cliente decide cómo proyectarlas */
+  x: number;
+  y: number;
+  /** profundidad opcional para tableros con relieve */
+  z?: number;
+  /** orientación visual opcional, en grados */
+  rot?: number;
+}
 
 export interface Tile {
   id: number;
@@ -28,6 +40,8 @@ export interface Tile {
   dareId?: string;
   /** id dentro del catálogo de fates */
   fateId?: string;
+  /** contrato visual: no afecta la mecánica del server */
+  layout?: TileLayout;
   label?: string;
 }
 
