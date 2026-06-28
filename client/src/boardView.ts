@@ -11,6 +11,19 @@ export interface CameraFocus {
   scale: number;
 }
 
+export interface TableCanvasPoint extends ScreenPosition {
+  id: number;
+}
+
+export interface TableBaseBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+}
+
 export function screenPosition(layout: TileLayout, maxX: number, maxY: number): ScreenPosition {
   const x = layout.x / maxX;
   const y = layout.y / maxY;
@@ -26,6 +39,25 @@ export function cameraFocus(pos: ScreenPosition): CameraFocus {
     y: clamp(50 - pos.top, -14, 18),
     scale: 1.08,
   };
+}
+
+export function tableCanvasPoints(
+  slots: Array<{ id: number; layout: TileLayout }>,
+  maxX: number,
+  maxY: number
+): TableCanvasPoint[] {
+  return slots.map(({ id, layout }) => ({ id, ...screenPosition(layout, maxX, maxY) }));
+}
+
+export function tableBaseBounds(points: ScreenPosition[], padding = 8): TableBaseBounds {
+  if (!points.length) return { left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100 };
+
+  const left = clamp(Math.min(...points.map((point) => point.left)) - padding, 0, 100);
+  const top = clamp(Math.min(...points.map((point) => point.top)) - padding, 0, 100);
+  const right = clamp(Math.max(...points.map((point) => point.left)) + padding, 0, 100);
+  const bottom = clamp(Math.max(...points.map((point) => point.top)) + padding, 0, 100);
+
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
 }
 
 export function movementPath(position: number, lastRoll: number | null, boardLength: number): number[] {

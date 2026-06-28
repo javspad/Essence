@@ -1,4 +1,6 @@
-import { cameraFocus, movementPath, perimeterLayout, screenPosition } from "../boardView";
+import { useEffect, useRef } from "react";
+import { cameraFocus, movementPath, perimeterLayout, screenPosition, tableBaseBounds, tableCanvasPoints } from "../boardView";
+import type { TableCanvasPoint } from "../boardView";
 import type { GameState, Tile, TileLayout, TileType } from "@essence/shared";
 
 const TILE_ICON: Record<TileType, string> = {
@@ -50,6 +52,11 @@ export default function Board({ state }: { state: GameState }) {
   const activePoint = activeSlot ? screenPosition(activeSlot.layout, maxX, maxY) : { left: 50, top: 50 };
   const camera = cameraFocus(activePoint);
   const movementTileIds = new Set(movementPath(activePosition, state.lastRoll, state.boardLength));
+  const canvasPoints = tableCanvasPoints(
+    slots.map(({ tile, layout }) => ({ id: tile.id, layout })),
+    maxX,
+    maxY
+  );
   const boardStatus = activePlayer
     ? state.lastRoll
       ? `${activePlayer.name} sacó ${state.lastRoll} y avanzó al casillero ${activePosition}.`
@@ -60,11 +67,11 @@ export default function Board({ state }: { state: GameState }) {
     <section aria-label="Tablero de juego" className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/35 p-3 shadow-2xl">
       <p className="sr-only" aria-live="polite">{boardStatus}</p>
       <div
-        className="relative mx-auto aspect-[4/3] w-full max-w-[32rem] transition-transform duration-500 ease-out motion-reduce:transition-none"
+        className="relative isolate mx-auto aspect-[4/3] w-full max-w-[32rem] transition-transform duration-500 ease-out motion-reduce:transition-none"
         style={{ transform: `translate(${camera.x}%, ${camera.y}%) scale(${camera.scale})` }}
       >
-        <div className="absolute left-1/2 top-1/2 h-[54%] w-[54%] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[2rem] border border-emerald-200/10 bg-gradient-to-br from-emerald-950/80 via-violet-950/80 to-slate-950/90 shadow-inner" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2 text-center">
+        <BoardBackdropCanvas points={canvasPoints} activeId={activePosition} pathIds={movementTileIds} />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 text-center">
           <p className="text-[10px] uppercase tracking-[0.35em] text-white/30">tablero</p>
           {activePlayer && (
             <p className="mt-1 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-bold text-white/80">
@@ -145,4 +152,145 @@ export default function Board({ state }: { state: GameState }) {
       </div>
     </section>
   );
+}
+
+function BoardBackdropCanvas({
+  points,
+  activeId,
+  pathIds,
+}: {
+  points: TableCanvasPoint[];
+  activeId: number;
+  pathIds: Set<number>;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pathKey = Array.from(pathIds).join(",");
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const draw = () => paintBoardBackdrop(canvas, points, activeId, pathIds);
+    draw();
+
+    if (!("ResizeObserver" in window)) {
+      window.addEventListener("resize", draw);
+      return () => window.removeEventListener("resize", draw);
+    }
+
+    const observer = new ResizeObserver(draw);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [activeId, pathKey, pathIds, points]);
+
+  return <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 h-full w-full" />;
+}
+
+function paintBoardBackdrop(canvas: HTMLCanvasElement, points: TableCanvasPoint[], activeId: number, pathIds: Set<number>) {
+  const width = Math.max(1, canvas.clientWidth);
+  const height = Math.max(1, canvas.clientHeight);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const pixelWidth = Math.floor(width * dpr);
+  const pixelHeight = Math.floor(height * dpr);
+
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+  }
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const bounds = tableBaseBounds(points, 12);
+  const x = (pct: number) => (pct / 100) * width;
+  const y = (pct: number) => (pct / 100) * height;
+  const centerX = x((bounds.left + bounds.right) / 2);
+  const centerY = y((bounds.top + bounds.bottom) / 2) + height * 0.04;
+  const baseWidth = x(bounds.width) * 0.72;
+  const baseHeight = y(bounds.height) * 0.58;
+
+  const tableGradient = ctx.createRadialGradient(centerX, centerY, Math.max(12, baseWidth * 0.08), centerX, centerY, Math.max(baseWidth, baseHeight));
+  tableGradient.addColorStop(0, "rgba(80, 200, 160, 0.32)");
+  tableGradient.addColorStop(0.58, "rgba(67, 56, 202, 0.36)");
+  tableGradient.addColorStop(1, "rgba(15, 23, 42, 0.92)");
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetY = 16;
+  ctx.beginPath();
+  ctx.ellipse(centerX, centerY, baseWidth, baseHeight, 0, 0, Math.PI * 2);
+  ctx.fillStyle = tableGradient;
+  ctx.fill();
+  ctx.restore();
+
+  if (points.length > 1) {
+    const slabGradient = ctx.createLinearGradient(0, y(bounds.top), width, y(bounds.bottom));
+    slabGradient.addColorStop(0, "rgba(45, 212, 191, 0.18)");
+    slabGradient.addColorStop(0.45, "rgba(99, 102, 241, 0.16)");
+    slabGradient.addColorStop(1, "rgba(15, 23, 42, 0.42)");
+
+    drawPointPath(ctx, points, width, height);
+    ctx.fillStyle = slabGradient;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+    ctx.stroke();
+
+    drawPointPath(ctx, points, width, height);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 18;
+    ctx.strokeStyle = "rgba(2, 6, 23, 0.48)";
+    ctx.stroke();
+
+    drawPointPath(ctx, points, width, height);
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.stroke();
+  }
+
+  for (const point of points) {
+    const px = x(point.left);
+    const py = y(point.top);
+    const isPath = pathIds.has(point.id);
+    const isActive = point.id === activeId;
+
+    if (isActive) {
+      const glow = ctx.createRadialGradient(px, py, 4, px, py, 44);
+      glow.addColorStop(0, "rgba(253, 224, 71, 0.42)");
+      glow.addColorStop(1, "rgba(253, 224, 71, 0)");
+      ctx.beginPath();
+      ctx.arc(px, py, 44, 0, Math.PI * 2);
+      ctx.fillStyle = glow;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.ellipse(px, py + 15, 27, 10, 0, 0, Math.PI * 2);
+    ctx.fillStyle = isPath ? "rgba(251, 191, 36, 0.34)" : "rgba(2, 6, 23, 0.48)";
+    ctx.fill();
+
+    if (isActive) {
+      ctx.beginPath();
+      ctx.arc(px, py, 30, 0, Math.PI * 2);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(253, 224, 71, 0.78)";
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPointPath(ctx: CanvasRenderingContext2D, points: TableCanvasPoint[], width: number, height: number) {
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    const px = (point.left / 100) * width;
+    const py = (point.top / 100) * height;
+    if (index === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  });
+  ctx.closePath();
 }
