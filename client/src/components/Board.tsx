@@ -1,3 +1,4 @@
+import { cameraFocus, movementPath, perimeterLayout, screenPosition } from "../boardView";
 import type { GameState, Tile, TileLayout, TileType } from "@essence/shared";
 
 const TILE_ICON: Record<TileType, string> = {
@@ -45,10 +46,23 @@ export default function Board({ state }: { state: GameState }) {
   }));
   const maxX = Math.max(1, ...slots.map((slot) => slot.layout.x));
   const maxY = Math.max(1, ...slots.map((slot) => slot.layout.y));
+  const activeSlot = slots.find((slot) => slot.tile.id === activePosition);
+  const activePoint = activeSlot ? screenPosition(activeSlot.layout, maxX, maxY) : { left: 50, top: 50 };
+  const camera = cameraFocus(activePoint);
+  const movementTileIds = new Set(movementPath(activePosition, state.lastRoll, state.boardLength));
+  const boardStatus = activePlayer
+    ? state.lastRoll
+      ? `${activePlayer.name} sacó ${state.lastRoll} y avanzó al casillero ${activePosition}.`
+      : `El tablero está centrado en ${activePlayer.name}, casillero ${activePosition}.`
+    : "Tablero de juego.";
 
   return (
-    <section className="relative w-full overflow-visible rounded-[2rem] border border-white/10 bg-slate-950/35 p-3 shadow-2xl">
-      <div className="relative mx-auto aspect-[4/3] w-full max-w-[32rem]">
+    <section aria-label="Tablero de juego" className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/35 p-3 shadow-2xl">
+      <p className="sr-only" aria-live="polite">{boardStatus}</p>
+      <div
+        className="relative mx-auto aspect-[4/3] w-full max-w-[32rem] transition-transform duration-500 ease-out motion-reduce:transition-none"
+        style={{ transform: `translate(${camera.x}%, ${camera.y}%) scale(${camera.scale})` }}
+      >
         <div className="absolute left-1/2 top-1/2 h-[54%] w-[54%] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[2rem] border border-emerald-200/10 bg-gradient-to-br from-emerald-950/80 via-violet-950/80 to-slate-950/90 shadow-inner" />
         <div className="pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2 text-center">
           <p className="text-[10px] uppercase tracking-[0.35em] text-white/30">tablero</p>
@@ -64,16 +78,23 @@ export default function Board({ state }: { state: GameState }) {
           const visible = here.slice(0, 3);
           const hidden = here.length - visible.length;
           const isActive = tile.id === activePosition;
+          const isPath = movementTileIds.has(tile.id);
           const pos = screenPosition(layout, maxX, maxY);
           const rot = layout.rot ?? 0;
 
           return (
             <div
               key={tile.id}
-              className={`absolute h-12 w-12 rounded-2xl border bg-gradient-to-br ${TILE_COLOR[tile.type]} text-xs shadow-lg transition sm:h-14 sm:w-14 ${
+              role="group"
+              aria-label={`Casillero ${tile.id}${tile.label ? `, ${tile.label}` : ""}, ${tile.type}${
+                isActive && activePlayer ? `, turno de ${activePlayer.name}` : ""
+              }`}
+              className={`absolute h-12 w-12 rounded-2xl border bg-gradient-to-br ${TILE_COLOR[tile.type]} text-xs shadow-lg transition duration-300 motion-reduce:transition-none sm:h-14 sm:w-14 ${
                 isActive
                   ? "border-white ring-2 ring-amber-300 shadow-amber-300/30"
-                  : "border-white/15"
+                  : isPath
+                    ? "border-amber-200/50 shadow-amber-200/20"
+                    : "border-white/15"
               }`}
               style={{
                 left: `${pos.left}%`,
@@ -88,8 +109,9 @@ export default function Board({ state }: { state: GameState }) {
                     TURNO
                   </span>
                 )}
+                {isPath && !isActive && <span aria-hidden="true" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-200 shadow shadow-amber-200/50" />}
                 <span className="absolute left-1 top-1 text-[9px] font-bold text-white/45">{tile.id}</span>
-                <span className="text-lg drop-shadow sm:text-xl" aria-label={tile.type}>
+                <span className="text-lg drop-shadow sm:text-xl" aria-hidden="true">
                   {TILE_ICON[tile.type]}
                 </span>
                 {tile.label && <span className="mt-0.5 max-w-10 truncate text-[8px] text-white/70">{tile.label}</span>}
@@ -100,9 +122,10 @@ export default function Board({ state }: { state: GameState }) {
                       <span
                         key={p.id}
                         title={p.name}
-                        className={`flex h-5 w-5 items-center justify-center rounded-full border border-white/70 text-[9px] font-black text-white shadow ${
-                          p.id === activeId ? "ring-2 ring-white" : ""
-                        } ${p.connected ? "" : "opacity-40"}`}
+                        aria-label={`${p.name}${p.id === activeId ? ", jugador activo" : ""}`}
+                        className={`flex h-5 w-5 items-center justify-center rounded-full border border-white/70 text-[9px] font-black text-white shadow transition-transform duration-300 motion-reduce:transition-none ${
+                          p.id === activeId ? "-translate-y-1 scale-110 ring-2 ring-white" : ""
+                        } ${state.lastRoll && p.id === activeId ? "animate-pop" : ""} ${p.connected ? "" : "opacity-40"}`}
                         style={{ background: p.color, marginLeft: index ? -4 : 0 }}
                       >
                         {p.name.slice(0, 1)}
@@ -122,23 +145,4 @@ export default function Board({ state }: { state: GameState }) {
       </div>
     </section>
   );
-}
-
-function screenPosition(layout: TileLayout, maxX: number, maxY: number): { left: number; top: number } {
-  const x = layout.x / maxX;
-  const y = layout.y / maxY;
-  return {
-    left: 50 + (x - y) * 34,
-    top: 18 + (x + y) * 32,
-  };
-}
-
-function perimeterLayout(index: number, count: number): TileLayout {
-  const edge = Math.max(1, Math.ceil(count / 4));
-  const i = index % (edge * 4);
-
-  if (i <= edge) return { x: i, y: 0, rot: 0 };
-  if (i <= edge * 2) return { x: edge, y: i - edge, rot: 90 };
-  if (i <= edge * 3) return { x: edge - (i - edge * 2), y: edge, rot: 180 };
-  return { x: 0, y: edge - (i - edge * 3), rot: -90 };
 }
