@@ -1,8 +1,0 @@
-{
-  "setup": [
-    "npm install",
-    "if [ -f \"$SUPERSET_ROOT_PATH/server/.env\" ] && [ \"$SUPERSET_ROOT_PATH\" != \"$PWD\" ]; then cp \"$SUPERSET_ROOT_PATH/server/.env\" server/.env; elif [ ! -f server/.env ] && [ -f server/.env.example ]; then cp server/.env.example server/.env; fi"
-  ],
-  "teardown": [],
-  "run": ["npm run dev"]
-}
