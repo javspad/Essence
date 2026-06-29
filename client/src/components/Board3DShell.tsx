@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { DoubleSide, Vector3, type Group, type PointLight } from "three";
 import type { Player, Tile } from "@essence/shared";
@@ -26,6 +26,9 @@ interface Board3DShellProps {
   activeId?: string;
   lastRoll?: number | null;
   boardLength?: number;
+  children?: ReactNode;
+  className?: string;
+  interactive?: boolean;
 }
 
 export default function Board3DShell({
@@ -34,6 +37,9 @@ export default function Board3DShell({
   activeId,
   lastRoll = null,
   boardLength = tiles.length,
+  children,
+  className,
+  interactive = false,
 }: Board3DShellProps) {
   const reducedMotion = useReducedMotion();
   const visible = usePageVisible();
@@ -73,10 +79,14 @@ export default function Board3DShell({
     [activeId, boardLength, lastRoll, occupancy, players, slotPositions]
   );
 
-  if (!webGLAvailable) return <Board3DFallback />;
+  const shellClassName =
+    className ??
+    `${interactive ? "" : "pointer-events-none"} absolute inset-0 z-0 overflow-hidden rounded-[1.5rem] bg-slate-950/60`;
+
+  if (!webGLAvailable) return <Board3DFallback className={shellClassName} />;
 
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[1.5rem] bg-slate-950/60">
+    <div aria-hidden={interactive ? undefined : true} className={shellClassName}>
       <Canvas
         camera={{ position: [0, 7.2, 9], fov: 42, near: 0.1, far: 100 }}
         dpr={renderSettings.dpr}
@@ -106,6 +116,8 @@ export default function Board3DShell({
         {tokens.map(({ player, active, path }) => (
           <PlayerToken key={player.id} player={player} active={active} path={path} motion={motion} />
         ))}
+
+        {children}
       </Canvas>
     </div>
   );
@@ -422,9 +434,9 @@ function WebGLContextGuard({ onLost }: { onLost: () => void }) {
   return null;
 }
 
-function Board3DFallback() {
+function Board3DFallback({ className = "pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[1.5rem] bg-slate-950/70" }: { className?: string }) {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[1.5rem] bg-slate-950/70">
+    <div aria-hidden="true" className={className}>
       <div className="absolute left-1/2 top-1/2 h-[78%] w-[88%] -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-amber-300/25 bg-teal-700/20 shadow-inner" />
       <div className="absolute left-1/2 top-1/2 h-[52%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-cyan-200/5" />
       <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rotate-12 rounded-[1.5rem] bg-yellow-300/20" />
