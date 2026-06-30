@@ -59,6 +59,8 @@ export default function GameScene3D({
     <main className="fixed inset-0 overflow-hidden bg-[#1b1309]">
       <Board3DShell
         tiles={state.board}
+        routes={state.routes}
+        artifacts={state.artifacts}
         players={state.players}
         activeId={activeId}
         lastRoll={state.lastRoll}

@@ -1,4 +1,4 @@
-import type { Tile, TileLayout, TileType } from "@essence/shared";
+import type { MapArtifact, MapRoute, MapTerrain, Tile, TileLayout, TileType } from "@essence/shared";
 import { perimeterLayout } from "./boardView";
 
 type Board3DTile = Pick<Tile, "id" | "layout"> & Partial<Pick<Tile, "type">>;
@@ -11,6 +11,12 @@ export interface Board3DSlot {
   rotationY: number;
 }
 
+export interface Board3DMapBounds {
+  maxX: number;
+  maxY: number;
+  spacing: number;
+}
+
 export type SlotDecal = "ring" | "coin" | "star" | "diamond" | "bolt";
 
 export interface SlotMaterialStyle {
@@ -19,6 +25,13 @@ export interface SlotMaterialStyle {
   accent: string;
   emissive: string;
   decal: SlotDecal;
+}
+
+export interface TerrainMaterialStyle {
+  top: string;
+  side: string;
+  glow: string;
+  width: number;
 }
 
 export interface BoardMotionSettings {
@@ -64,15 +77,44 @@ const SLOT_STYLE: Record<TileType, SlotMaterialStyle> = {
   estimate: { top: "#06b6d4", side: "#0e7490", accent: "#cffafe", emissive: "#22d3ee", decal: "ring" },
 };
 
-export function board3DSlots(tiles: Board3DTile[], spacing = 1.35): Board3DSlot[] {
+const TERRAIN_STYLE: Record<MapTerrain, TerrainMaterialStyle> = {
+  stone: { top: "#d8c28a", side: "#9a7b43", glow: "#fff7c2", width: 0.38 },
+  grass: { top: "#7ccf63", side: "#3f8f3f", glow: "#d9f99d", width: 0.34 },
+  sand: { top: "#f0c878", side: "#b9823c", glow: "#fde68a", width: 0.42 },
+  water: { top: "#67d6f7", side: "#0e7490", glow: "#bae6fd", width: 0.34 },
+  asphalt: { top: "#8b95a3", side: "#475569", glow: "#e2e8f0", width: 0.36 },
+  magic: { top: "#d8b4fe", side: "#7e22ce", glow: "#f5d0fe", width: 0.4 },
+};
+
+export function board3DMapBounds(
+  tiles: Board3DTile[],
+  routes: Pick<MapRoute, "points">[] = [],
+  artifacts: Pick<MapArtifact, "position">[] = [],
+  spacing = 1.35
+): Board3DMapBounds {
+  const layouts = [
+    ...tiles.map((tile, index) => tile.layout ?? perimeterLayout(index, tiles.length)),
+    ...routes.flatMap((route) => route.points ?? []),
+    ...artifacts.map((artifact) => artifact.position),
+  ];
+  return {
+    maxX: Math.max(1, ...layouts.map((layout) => layout.x)),
+    maxY: Math.max(1, ...layouts.map((layout) => layout.y)),
+    spacing,
+  };
+}
+
+export function board3DSlots(
+  tiles: Board3DTile[],
+  spacing = 1.35,
+  bounds = board3DMapBounds(tiles, [], [], spacing)
+): Board3DSlot[] {
   const layouts = tiles.map((tile, index) => tile.layout ?? perimeterLayout(index, tiles.length));
-  const maxX = Math.max(1, ...layouts.map((layout) => layout.x));
-  const maxY = Math.max(1, ...layouts.map((layout) => layout.y));
 
   return tiles.map((tile, index) => ({
     id: tile.id,
     ...(tile.type ? { type: tile.type } : {}),
-    position: layoutToWorldPosition(layouts[index], maxX, maxY, spacing),
+    position: layoutToWorldPosition(layouts[index], bounds.maxX, bounds.maxY, bounds.spacing),
     rotationY: ((layouts[index].rot ?? 0) / 180) * Math.PI,
   }));
 }
@@ -111,6 +153,20 @@ export function tokenPathPositions(
   });
 }
 
+export function routeWorldPoints(
+  route: MapRoute,
+  slotPositions: Map<number, Vec3>,
+  bounds: Board3DMapBounds
+): Vec3[] {
+  const from = slotPositions.get(route.from);
+  const to = slotPositions.get(route.to);
+  if (!from || !to) return [];
+  const points = (route.points ?? []).map((point) =>
+    layoutToWorldPosition(point, bounds.maxX, bounds.maxY, bounds.spacing)
+  );
+  return [from, ...points, to];
+}
+
 export function cameraFollowPosition(slotPosition: Vec3): Vec3 {
   return [slotPosition[0], 6.6, slotPosition[2] + 7.5];
 }
@@ -147,6 +203,10 @@ export function orbitLightPosition(timeSeconds: number, reducedMotion: boolean):
 
 export function slotMaterialStyle(type?: TileType): SlotMaterialStyle {
   return type ? SLOT_STYLE[type] : DEFAULT_SLOT_STYLE;
+}
+
+export function terrainMaterialStyle(terrain: MapTerrain = "stone"): TerrainMaterialStyle {
+  return TERRAIN_STYLE[terrain];
 }
 
 export function supportsWebGL(canvas?: { getContext: (name: string) => unknown } | null): boolean {

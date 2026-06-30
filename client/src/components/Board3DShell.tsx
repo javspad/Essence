@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { CanvasTexture, DoubleSide, LinearFilter, SRGBColorSpace, Vector3, type Group, type PointLight } from "three";
-import type { Player, Tile } from "@essence/shared";
+import type { MapArtifact, MapRoute, Player, Tile } from "@essence/shared";
 import {
+  board3DMapBounds,
   board3DSlots,
   boardMotionSettings,
   boardRenderSettings,
   cameraFollowPosition,
   frameLerp,
+  routeWorldPoints,
   orbitLightPosition,
   slotMaterialStyle,
   supportsWebGL,
+  terrainMaterialStyle,
   tokenPathPositions,
   tokenWorldPosition,
+  type Board3DMapBounds,
   type Board3DSlot,
   type BoardMotionSettings,
   type SlotDecal,
@@ -23,6 +27,8 @@ import { movementPath } from "../boardView";
 interface Board3DShellProps {
   tiles: Tile[];
   players?: Player[];
+  routes?: MapRoute[];
+  artifacts?: MapArtifact[];
   activeId?: string;
   lastRoll?: number | null;
   boardLength?: number;
@@ -34,6 +40,8 @@ interface Board3DShellProps {
 export default function Board3DShell({
   tiles,
   players = [],
+  routes = [],
+  artifacts = [],
   activeId,
   lastRoll = null,
   boardLength = tiles.length,
@@ -51,7 +59,8 @@ export default function Board3DShell({
   );
   const [webGLAvailable, setWebGLAvailable] = useState(() => supportsWebGL());
   const disableWebGL = useCallback(() => setWebGLAvailable(false), []);
-  const slots = useMemo(() => board3DSlots(tiles), [tiles]);
+  const bounds = useMemo(() => board3DMapBounds(tiles, routes, artifacts), [artifacts, routes, tiles]);
+  const slots = useMemo(() => board3DSlots(tiles, 1.35, bounds), [bounds, tiles]);
   const slotPositions = useMemo(() => new Map(slots.map((slot) => [slot.id, slot.position] as const)), [slots]);
   const activePlayer = activeId ? players.find((player) => player.id === activeId) : undefined;
   const activeSlot = slotPositions.get(activePlayer?.position ?? 0) ?? [0, 0, 0];
@@ -101,8 +110,8 @@ export default function Board3DShell({
         <directionalLight position={[4, 8, 6]} intensity={1.9} castShadow />
         <AnimatedPartyLights motion={motion} />
 
-        <BoardTable />
-        <PathRibbons slots={slots} />
+        <BoardTable artifacts={artifacts} bounds={bounds} />
+        <PathRibbons slots={slots} routes={routes} slotPositions={slotPositions} bounds={bounds} />
 
         {slots.map((slot) => (
           <SlotPlatform
@@ -124,25 +133,7 @@ export default function Board3DShell({
   );
 }
 
-function BoardTable() {
-  const trees = useMemo(
-    () =>
-      [
-        [-5.2, 0.14, 2.9],
-        [-4.6, 0.14, 3.15],
-        [-3.6, 0.14, 2.55],
-        [-2.2, 0.14, -2.9],
-        [-1.6, 0.14, -3.15],
-        [0.7, 0.14, 1.0],
-        [1.2, 0.14, 1.35],
-        [2.9, 0.14, 0.6],
-        [3.6, 0.14, 0.95],
-        [4.6, 0.14, -2.8],
-        [5.1, 0.14, -2.35],
-      ].map((position, id) => ({ id, position: position as Vec3 })),
-    []
-  );
-
+function BoardTable({ artifacts, bounds }: { artifacts: MapArtifact[]; bounds: Board3DMapBounds }) {
   return (
     <group>
       <mesh position={[0, -0.78, 0]} receiveShadow>
@@ -161,78 +152,167 @@ function BoardTable() {
         <boxGeometry args={[12.05, 0.12, 7.35]} />
         <meshStandardMaterial color="#6fbe54" roughness={0.78} />
       </mesh>
-
-      <mesh position={[1.0, -0.02, -0.82]} rotation={[0, -0.22, 0]} receiveShadow>
-        <boxGeometry args={[5.15, 0.05, 0.5]} />
-        <meshStandardMaterial color="#38bdf8" roughness={0.28} metalness={0.03} transparent opacity={0.8} />
-      </mesh>
-      <mesh position={[2.65, 0.01, -2.25]} receiveShadow>
-        <cylinderGeometry args={[0.9, 1.05, 0.06, 36]} />
-        <meshStandardMaterial color="#0ea5e9" roughness={0.25} transparent opacity={0.78} />
-      </mesh>
-      <mesh position={[4.25, 0.0, -1.9]} receiveShadow>
-        <boxGeometry args={[2.2, 0.06, 1.35]} />
-        <meshStandardMaterial color="#f4d790" roughness={0.65} />
-      </mesh>
-
-      <Court />
-      <School />
-      <GlassBuilding />
-      <Mountains />
-      <Van position={[1.85, 0.26, 2.25]} rotationY={-0.15} />
-      <Van position={[3.45, 0.26, -1.65]} rotationY={0.25} />
-
-      <mesh position={[5.75, 0.03, -2.25]} receiveShadow>
-        <cylinderGeometry args={[1.18, 1.32, 0.32, 48]} />
-        <meshStandardMaterial color="#8b3f25" roughness={0.68} />
-      </mesh>
-      <mesh position={[5.75, 0.22, -2.25]} receiveShadow>
-        <cylinderGeometry args={[0.96, 1.05, 0.12, 48]} />
-        <meshStandardMaterial color="#86bf4f" roughness={0.7} />
-      </mesh>
-      <mesh position={[5.75, 0.3, -2.25]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.62, 40]} />
-        <meshStandardMaterial color="#f4d47b" roughness={0.48} />
-      </mesh>
-      <TextSign text="THE END" position={[5.75, 0.95, -2.65]} rotationY={0} background="#34415f" color="#fff7ed" />
-      <TextSign text="START" position={[-5.85, 0.82, 2.8]} rotationY={0.58} background="#475569" color="#fff7ed" />
-
-      {trees.map((tree) => (
-        <Tree key={tree.id} position={tree.position} />
-      ))}
+      <MapArtifacts artifacts={artifacts} bounds={bounds} />
     </group>
   );
 }
 
-function PathRibbons({ slots }: { slots: Board3DSlot[] }) {
+function PathRibbons({
+  slots,
+  routes,
+  slotPositions,
+  bounds,
+}: {
+  slots: Board3DSlot[];
+  routes: MapRoute[];
+  slotPositions: Map<number, Vec3>;
+  bounds: Board3DMapBounds;
+}) {
+  const renderedRoutes =
+    routes.length > 0
+      ? routes
+      : slots.slice(0, -1).map((slot, index) => ({
+          id: `linear-${slot.id}-${slots[index + 1].id}`,
+          from: slot.id,
+          to: slots[index + 1].id,
+          terrain: "stone" as const,
+        }));
+
   return (
     <group>
-      {slots.slice(0, -1).map((slot, index) => {
-        const next = slots[index + 1];
-        const dx = next.position[0] - slot.position[0];
-        const dz = next.position[2] - slot.position[2];
-        const length = Math.hypot(dx, dz);
-        if (length < 0.01) return null;
-        const y = (slot.position[1] + next.position[1]) / 2 + 0.08;
-        return (
-          <mesh
-            key={`${slot.id}-${next.id}`}
-            position={[(slot.position[0] + next.position[0]) / 2, y, (slot.position[2] + next.position[2]) / 2]}
-            rotation={[0, -Math.atan2(dz, dx), 0]}
-            receiveShadow
-          >
-            <boxGeometry args={[Math.max(0.2, length - 0.6), 0.05, 0.36]} />
-            <meshStandardMaterial color="#f1d081" roughness={0.48} metalness={0.04} />
-          </mesh>
-        );
+      {renderedRoutes.flatMap((route) => {
+        const style = terrainMaterialStyle(route.terrain);
+        const points = routeWorldPoints(route, slotPositions, bounds);
+        return points.slice(0, -1).map((point, index) => {
+          const next = points[index + 1];
+          const dx = next[0] - point[0];
+          const dz = next[2] - point[2];
+          const length = Math.hypot(dx, dz);
+          if (length < 0.01) return null;
+          const y = (point[1] + next[1]) / 2 + 0.08;
+          return (
+            <group key={`${route.id}-${index}`}>
+              <mesh
+                position={[(point[0] + next[0]) / 2, y, (point[2] + next[2]) / 2]}
+                rotation={[0, -Math.atan2(dz, dx), 0]}
+                receiveShadow
+              >
+                <boxGeometry args={[Math.max(0.2, length - 0.6), 0.05, style.width]} />
+                <meshStandardMaterial color={style.top} roughness={0.48} metalness={0.04} />
+              </mesh>
+              <mesh
+                position={[(point[0] + next[0]) / 2, y - 0.035, (point[2] + next[2]) / 2]}
+                rotation={[0, -Math.atan2(dz, dx), 0]}
+              >
+                <boxGeometry args={[Math.max(0.2, length - 0.55), 0.04, style.width + 0.14]} />
+                <meshStandardMaterial color={style.side} roughness={0.65} transparent opacity={0.52} />
+              </mesh>
+              {route.choiceLabel && index === 0 && (
+                <mesh position={[(point[0] + next[0]) / 2, y + 0.05, (point[2] + next[2]) / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+                  <ringGeometry args={[0.16, 0.21, 24]} />
+                  <meshStandardMaterial color={style.glow} emissive={style.glow} emissiveIntensity={0.12} transparent opacity={0.82} side={DoubleSide} />
+                </mesh>
+              )}
+            </group>
+          );
+        });
       })}
     </group>
   );
 }
 
-function Court() {
+function MapArtifacts({ artifacts, bounds }: { artifacts: MapArtifact[]; bounds: Board3DMapBounds }) {
   return (
-    <group position={[-5.15, 0.03, 2.0]}>
+    <group>
+      {artifacts
+        .filter((artifact) => artifact.visible !== false)
+        .map((artifact) => (
+          <MapArtifactMesh key={artifact.id} artifact={artifact} bounds={bounds} />
+        ))}
+    </group>
+  );
+}
+
+function MapArtifactMesh({ artifact, bounds }: { artifact: MapArtifact; bounds: Board3DMapBounds }) {
+  const position = layoutToWorldVec(artifact.position, bounds);
+  const rotationY = ((artifact.position.rot ?? 0) / 180) * Math.PI;
+  const scale = artifact.scale ?? 1;
+
+  if (artifact.assetId === "river") return <River position={position} rotationY={rotationY} scale={scale} />;
+  if (artifact.assetId === "pond") return <Pond position={position} scale={scale} />;
+  if (artifact.assetId === "plaza") return <Plaza position={position} scale={scale} />;
+  if (artifact.assetId === "mini-court") return <Court position={position} rotationY={rotationY} scale={scale} />;
+  if (artifact.assetId === "club-house") return <School position={position} rotationY={rotationY} scale={scale} />;
+  if (artifact.assetId === "glass-building") return <GlassBuilding position={position} rotationY={rotationY} scale={scale} />;
+  if (artifact.assetId === "mountain-cluster") return <Mountains position={position} rotationY={rotationY} scale={scale} />;
+  if (artifact.assetId === "party-van") return <Van position={position} rotationY={rotationY} scale={scale} />;
+  if (artifact.assetId === "start-sign" || artifact.assetId === "finish-sign") {
+    return (
+      <TextSign
+        text={artifact.label ?? (artifact.assetId === "start-sign" ? "START" : "THE END")}
+        position={position}
+        rotationY={rotationY}
+        background={artifact.assetId === "start-sign" ? "#475569" : "#34415f"}
+        color="#fff7ed"
+        scale={scale}
+      />
+    );
+  }
+  return <Tree position={position} scale={scale} tint={artifact.tint} />;
+}
+
+function layoutToWorldVec(layout: { x: number; y: number; z?: number }, bounds: Board3DMapBounds): Vec3 {
+  return [
+    (layout.x - bounds.maxX / 2) * bounds.spacing,
+    layout.z ?? 0,
+    (layout.y - bounds.maxY / 2) * bounds.spacing,
+  ];
+}
+
+function River({ position, rotationY, scale = 1 }: { position: Vec3; rotationY: number; scale?: number }) {
+  return (
+    <mesh position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]} receiveShadow>
+      <boxGeometry args={[5.15, 0.05, 0.5]} />
+      <meshStandardMaterial color="#38bdf8" roughness={0.28} metalness={0.03} transparent opacity={0.8} />
+    </mesh>
+  );
+}
+
+function Pond({ position, scale = 1 }: { position: Vec3; scale?: number }) {
+  return (
+    <mesh position={position} scale={[scale, scale, scale]} receiveShadow>
+      <cylinderGeometry args={[0.9, 1.05, 0.06, 36]} />
+      <meshStandardMaterial color="#0ea5e9" roughness={0.25} transparent opacity={0.78} />
+    </mesh>
+  );
+}
+
+function Plaza({ position, scale = 1 }: { position: Vec3; scale?: number }) {
+  return (
+    <group position={position} scale={[scale, scale, scale]}>
+      <mesh receiveShadow>
+        <boxGeometry args={[2.2, 0.06, 1.35]} />
+        <meshStandardMaterial color="#f4d790" roughness={0.65} />
+      </mesh>
+      <mesh position={[0, 0.18, 0]} receiveShadow>
+        <cylinderGeometry args={[1.18, 1.32, 0.32, 48]} />
+        <meshStandardMaterial color="#8b3f25" roughness={0.68} />
+      </mesh>
+      <mesh position={[0, 0.37, 0]} receiveShadow>
+        <cylinderGeometry args={[0.96, 1.05, 0.12, 48]} />
+        <meshStandardMaterial color="#86bf4f" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 0.45, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.62, 40]} />
+        <meshStandardMaterial color="#f4d47b" roughness={0.48} />
+      </mesh>
+    </group>
+  );
+}
+
+function Court({ position, rotationY = 0, scale = 1 }: { position: Vec3; rotationY?: number; scale?: number }) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
       <mesh receiveShadow>
         <boxGeometry args={[1.6, 0.04, 1.05]} />
         <meshStandardMaterial color="#7cc879" roughness={0.6} />
@@ -253,9 +333,9 @@ function Court() {
   );
 }
 
-function School() {
+function School({ position, rotationY = 0, scale = 1 }: { position: Vec3; rotationY?: number; scale?: number }) {
   return (
-    <group position={[-4.35, 0.52, -0.92]} rotation={[0, 0.08, 0]}>
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[2.15, 1.1, 1.2]} />
         <meshStandardMaterial color="#b35a37" roughness={0.76} />
@@ -278,9 +358,9 @@ function School() {
   );
 }
 
-function GlassBuilding() {
+function GlassBuilding({ position, rotationY = 0, scale = 1 }: { position: Vec3; rotationY?: number; scale?: number }) {
   return (
-    <group position={[2.2, 0.43, 0.5]} rotation={[0, -0.06, 0]}>
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[2.0, 0.85, 1.1]} />
         <meshStandardMaterial color="#dbeafe" roughness={0.18} metalness={0.05} transparent opacity={0.72} />
@@ -301,10 +381,10 @@ function GlassBuilding() {
   );
 }
 
-function Mountains() {
+function Mountains({ position, rotationY = 0, scale = 1 }: { position: Vec3; rotationY?: number; scale?: number }) {
   return (
-    <group>
-      {[[-1.55, 0.42, -3.15, 0.9], [-0.78, 0.52, -3.35, 1.15], [-2.35, 0.34, -2.92, 0.72]].map(([x, y, z, scale], index) => (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      {[[-0.42, 0.42, 0.12, 0.9], [0.24, 0.52, -0.08, 1.15], [-0.95, 0.34, 0.34, 0.72]].map(([x, y, z, scale], index) => (
         <group key={index} position={[x, y, z]} scale={[scale, scale, scale]}>
           <mesh castShadow receiveShadow>
             <coneGeometry args={[0.56, 1.35, 5]} />
@@ -320,24 +400,24 @@ function Mountains() {
   );
 }
 
-function Tree({ position }: { position: Vec3 }) {
+function Tree({ position, scale = 1, tint }: { position: Vec3; scale?: number; tint?: string }) {
   return (
-    <group position={position}>
+    <group position={position} scale={[scale, scale, scale]}>
       <mesh castShadow position={[0, 0.11, 0]}>
         <cylinderGeometry args={[0.045, 0.055, 0.22, 8]} />
         <meshStandardMaterial color="#7c2d12" />
       </mesh>
       <mesh castShadow position={[0, 0.34, 0]}>
         <coneGeometry args={[0.22, 0.48, 10]} />
-        <meshStandardMaterial color="#166534" roughness={0.7} />
+        <meshStandardMaterial color={tint ?? "#166534"} roughness={0.7} />
       </mesh>
     </group>
   );
 }
 
-function Van({ position, rotationY }: { position: Vec3; rotationY: number }) {
+function Van({ position, rotationY, scale = 1 }: { position: Vec3; rotationY: number; scale?: number }) {
   return (
-    <group position={position} rotation={[0, rotationY, 0]}>
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
       <mesh castShadow>
         <boxGeometry args={[0.62, 0.32, 0.32]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.5} />
@@ -362,18 +442,20 @@ function TextSign({
   rotationY = 0,
   background,
   color,
+  scale = 1,
 }: {
   text: string;
   position: Vec3;
   rotationY?: number;
   background: string;
   color: string;
+  scale?: number;
 }) {
   const texture = useMemo(() => makeLabelTexture(text, background, color), [background, color, text]);
   useEffect(() => () => texture.dispose(), [texture]);
 
   return (
-    <group position={position} rotation={[0, rotationY, 0]}>
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
       <mesh position={[0, -0.32, 0]}>
         <cylinderGeometry args={[0.035, 0.035, 0.62, 8]} />
         <meshStandardMaterial color="#5b3418" roughness={0.7} />
