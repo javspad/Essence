@@ -1,13 +1,10 @@
+import { lazy, Suspense } from "react";
 import { useGame } from "./useGame";
 import JoinScreen from "./components/JoinScreen";
 import Lobby from "./components/Lobby";
-import Board from "./components/Board";
-import Scoreboard from "./components/Scoreboard";
-import TurnControls from "./components/TurnControls";
-import EventCard from "./components/EventCard";
 import MinigameHost from "./components/MinigameHost";
-import Reveal from "./components/Reveal";
-import Victory from "./components/Victory";
+
+const GameScene3D = lazy(() => import("./components/GameScene3D"));
 
 export default function App() {
   const { connected, state, me, activeId, isMyTurn, isHost, error, actions } = useGame();
@@ -22,25 +19,29 @@ export default function App() {
     );
   }
 
-  // El jugador activo o el host pueden avanzar desde reveal/event.
-  const canAdvance = isHost || isMyTurn;
+  if (["turn", "moving", "event", "reveal", "finished"].includes(state.phase)) {
+    return (
+      <Suspense fallback={<SceneLoading code={state.code} />}>
+        <GameScene3D
+          connected={connected}
+          state={state}
+          me={me}
+          activeId={activeId ?? undefined}
+          isMyTurn={isMyTurn}
+          isHost={isHost}
+          onRoll={actions.roll}
+          onNext={actions.next}
+          onLeave={actions.leave}
+        />
+      </Suspense>
+    );
+  }
 
   return (
     <div className="min-h-full flex flex-col">
       <ConnBadge connected={connected} code={state.code} />
 
       {state.phase === "lobby" && <Lobby state={state} isHost={isHost} onStart={actions.start} />}
-
-      {(state.phase === "turn" || state.phase === "moving" || state.phase === "event") && (
-        <div className="flex flex-col gap-5 p-4 max-w-lg mx-auto w-full">
-          <Scoreboard state={state} activeId={activeId ?? undefined} />
-          <TurnControls state={state} me={me} isMyTurn={isMyTurn} onRoll={actions.roll} />
-          <Board state={state} />
-          {state.phase === "event" && (
-            <EventCard state={state} canAdvance={canAdvance} onNext={actions.next} />
-          )}
-        </div>
-      )}
 
       {state.phase === "minigame" && (
         <MinigameHost
@@ -52,12 +53,14 @@ export default function App() {
           onForce={actions.forceResolve}
         />
       )}
+    </div>
+  );
+}
 
-      {state.phase === "reveal" && (
-        <Reveal state={state} canAdvance={canAdvance} onNext={actions.next} />
-      )}
-
-      {state.phase === "finished" && <Victory state={state} onLeave={actions.leave} />}
+function SceneLoading({ code }: { code: string }) {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-slate-950 text-sm font-bold tracking-[0.3em] text-amber-300">
+      SALA {code} · CARGANDO 3D
     </div>
   );
 }
