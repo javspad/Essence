@@ -42,6 +42,78 @@ export interface Tile {
   /** contrato visual: no afecta la mecánica del server */
   layout?: TileLayout;
   label?: string;
+  /** reservado para eventos futuros que no entren en los catálogos actuales */
+  eventKind?: "none" | "minigame" | "dare" | "fate" | "custom";
+  eventId?: string;
+}
+
+export type MapTerrain =
+  | "stone"
+  | "grass"
+  | "sand"
+  | "water"
+  | "asphalt"
+  | "magic";
+
+export interface MapRoute {
+  id: string;
+  from: number;
+  to: number;
+  terrain: MapTerrain;
+  /** texto mostrado al elegir una rama, ej. "Izquierda" */
+  choiceLabel?: string;
+  /** puntos intermedios para dibujar curvas/quiebres de la ruta */
+  points?: TileLayout[];
+  label?: string;
+  bidirectional?: boolean;
+}
+
+export type MapArtifactKind =
+  | "tree"
+  | "house"
+  | "court"
+  | "vehicle"
+  | "mountain"
+  | "water"
+  | "sign"
+  | "plaza"
+  | "custom";
+
+export interface MapAssetDef {
+  id: string;
+  name: string;
+  kind: MapArtifactKind;
+  defaultScale?: number;
+  color?: string;
+  tags?: string[];
+}
+
+export interface MapArtifact {
+  id: string;
+  assetId: string;
+  label?: string;
+  position: TileLayout;
+  scale?: number;
+  visible?: boolean;
+  tint?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface MapTheme {
+  base?: string;
+  path?: string;
+  accent?: string;
+  sky?: string;
+}
+
+export interface MapDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  board: Tile[];
+  routes: MapRoute[];
+  artifacts: MapArtifact[];
+  theme?: MapTheme;
 }
 
 export interface RiggedConfig {
@@ -96,6 +168,9 @@ export interface PlayerDef {
 
 export interface GameContent {
   board: Tile[];
+  activeMapId?: string;
+  maps?: MapDefinition[];
+  assetCatalog?: MapAssetDef[];
   minigames: Record<string, MinigameDef>;
   dares: Record<string, DareDef>;
   fates: Record<string, FateDef>;
@@ -151,8 +226,11 @@ export interface ActiveEvent {
 export interface GameState {
   code: string;
   phase: Phase;
+  mapId?: string;
   /** layout del tablero (tipos/labels); el contenido sensible no viaja */
   board: Tile[];
+  routes?: MapRoute[];
+  artifacts?: MapArtifact[];
   players: Player[];
   /** orden de turnos por id */
   turnOrder: string[];
