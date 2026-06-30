@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "tsx src/boardView.test.ts",
+    "test": "tsx src/boardView.test.ts && tsx src/mapBuilder.test.ts",
     "build": "vite build",
     "preview": "vite preview"
   },
