@@ -295,8 +295,8 @@ function ActionButton({ children, disabled, onClick }: { children: ReactNode; di
 function SceneEditHint({ active }: { active?: Player }) {
   return (
     <aside className="hidden max-w-xs rounded-3xl border border-sky-200/30 bg-sky-950/65 p-4 text-sm font-bold text-sky-100 shadow-2xl shadow-black/30 backdrop-blur-md md:block">
-      <p className="font-black text-sky-200">sceneEdit=1</p>
-      <p className="mt-1">Editá casilleros en shared/content.json → board.layout.</p>
+      <p className="font-black text-sky-200">Map builder</p>
+      <p className="mt-1">Abrí /map-builder para editar casilleros, rutas, terrenos y artefactos.</p>
       <p className="mt-1 text-sky-200/80">{active ? `Cámara siguiendo a ${active.name}` : "Mapa tipo Game of Life"}</p>
     </aside>
   );
