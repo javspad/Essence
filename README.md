@@ -49,6 +49,10 @@ Todo el "alma" vive en [`shared/content.json`](shared/content.json): tablero, mi
 - `minigames`: cada entrada elige un **motor** (`type`) y le pasa `content` + `rigged`.
 - `rigged: { losers: [...], winners: [...] }`: se aplica **en el server** después de los scores reales. El cliente nunca se entera.
 
+### Map builder
+
+Abrí `http://localhost:5173/map-builder` para editar mapas visualmente. El builder permite crear/duplicar mapas, mover casilleros, conectar rutas tipo grafo, cambiar terreno, asignar minijuegos/prendas/destinos, colocar artefactos y exportar/importar el JSON completo. El modo **Test map** mueve una ficha de prueba por cualquier casillero, ya sea desde el selector, clickeando el mapa o siguiendo rutas salientes. **3D playtest** abre la escena en pantalla completa, como una vista real de partida; también se puede abrir directo con `http://localhost:5173/map-builder?playtest3d=1`. El borrador queda guardado en `localStorage`; para usarlo como contenido del juego, descargá o copiá el JSON exportado y reemplazá `shared/content.json`.
+
 ## Motores de minijuego disponibles
 
 `vote`, `buzzer`, `timing` (skin *bostezo*), `judge` (skin *lujan*, usa Anthropic), `reaction`, `estimate`, `whack`.
