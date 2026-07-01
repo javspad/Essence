@@ -113,3 +113,15 @@ body {
   font-size: 0.62rem;
   text-transform: uppercase;
 }
+
+.map-builder-shell,
+.map-builder-shell svg,
+.map-builder-shell svg * {
+  user-select: none;
+}
+
+.map-builder-shell input,
+.map-builder-shell textarea,
+.map-builder-shell select {
+  user-select: text;
+}

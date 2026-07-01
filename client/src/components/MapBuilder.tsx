@@ -3,7 +3,11 @@ import type {
   GameContent,
   MapArtifact,
   MapAssetDef,
+  MapAssetFootprint,
+  MapBoardShape,
+  MapBorderEdge,
   MapDefinition,
+  MapGridPoint,
   MapRoute,
   MapTerrain,
   Player,
@@ -78,12 +82,13 @@ const TOOL_CONFIG: { tool: BuilderTool; icon: string; label: string; title: stri
   { tool: "cell", icon: "●", label: "Cells", title: "Crear casilleros" },
   { tool: "route", icon: "⇄", label: "Routes", title: "Conectar casilleros" },
   { tool: "artifact", icon: "◆", label: "Props", title: "Colocar artefactos" },
-  { tool: "json", icon: "{}", label: "JSON", title: "Importar y exportar" },
 ];
 
 type DragTarget =
   | { kind: "node"; id: number }
   | { kind: "artifact"; id: string }
+  | { kind: "artifact-scale"; id: string }
+  | { kind: "artifact-rotate"; id: string }
   | { kind: "route-point"; id: string; index: number };
 
 export default function MapBuilder() {
@@ -116,7 +121,10 @@ export default function MapBuilder() {
   );
   const validation = useMemo(() => validateMap(activeMap), [activeMap]);
   const [assetId, setAssetId] = useState(state.content.assetCatalog[0]?.id ?? "oak-tree");
+  const [tileType, setTileType] = useState<TileType>("minigame");
   const [importText, setImportText] = useState("");
+  const [jsonModalOpen, setJsonModalOpen] = useState(false);
+  const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
   const exportContent = useMemo(() => builderContentToGameContent(BASE_CONTENT, state.content), [state.content]);
   const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
 
@@ -148,6 +156,7 @@ export default function MapBuilder() {
       const parsed = JSON.parse(importText) as GameContent;
       dispatch({ type: "replace_content", content: normalizeBuilderContent(parsed) });
       setImportText("");
+      setJsonModalOpen(false);
     } catch {
       window.alert("JSON inválido");
     }
@@ -163,14 +172,38 @@ export default function MapBuilder() {
     setPlaytest3DOpen(true);
   };
 
+  const createMap = () => {
+    dispatch({ type: "create_map" });
+    setMapDetailsOpen(true);
+  };
+
+  const duplicateMap = () => {
+    dispatch({ type: "duplicate_map" });
+    setMapDetailsOpen(true);
+  };
+
   return (
-    <main className="min-h-full bg-[#101510] text-slate-100">
-      <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#111812]/95 px-4 py-3">
-        <div>
+    <main className="map-builder-shell min-h-full bg-[#101510] text-slate-100">
+      <header className="flex min-h-16 flex-wrap items-center gap-3 border-b border-white/10 bg-[#111812]/95 px-4 py-3">
+        <div className="min-w-[10rem]">
           <p className="text-[0.65rem] font-black uppercase tracking-[0.24em] text-emerald-300">Essence tools</p>
           <h1 className="text-xl font-black tracking-normal text-white">Map builder</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-300">
+
+        <MapTopBar
+          state={state}
+          map={activeMap}
+          dispatch={dispatch}
+          onCreate={createMap}
+          onDuplicate={duplicateMap}
+          onEdit={() => setMapDetailsOpen(true)}
+          onImport={() => setJsonModalOpen(true)}
+          onCopy={copyJson}
+          onDownload={downloadJson}
+          onReset={resetDraft}
+        />
+
+        <div className="ml-auto flex flex-wrap items-center gap-2 text-xs font-bold text-slate-300">
           <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1">{activeMap.board.length} cells</span>
           <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1">{activeMap.routes.length} routes</span>
           <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1">{activeMap.artifacts.length} props</span>
@@ -198,57 +231,37 @@ export default function MapBuilder() {
         </div>
       </header>
 
-      <div className="grid min-h-[calc(100dvh-4rem)] grid-cols-1 lg:grid-cols-[18rem_minmax(0,1fr)_22rem]">
-        <aside className="border-b border-white/10 bg-[#151c16] p-3 lg:border-b-0 lg:border-r">
-          <MapPanel state={state} dispatch={dispatch} />
-          <TestPanel
-            map={activeMap}
-            enabled={testMode}
-            cellId={testCellId}
-            onToggle={() => setTestMode((value) => !value)}
-            onCellChange={setTestCellId}
-            onOpen3D={open3DPlaytest}
-          />
-          <ToolPanel state={state} dispatch={dispatch} assetCatalog={state.content.assetCatalog} assetId={assetId} setAssetId={setAssetId} />
-          <ExportPanel
-            active={state.tool === "json"}
-            exportJson={exportJson}
-            importText={importText}
-            setImportText={setImportText}
-            onCopy={copyJson}
-            onDownload={downloadJson}
-            onImport={importJson}
-            onReset={resetDraft}
-          />
-        </aside>
-
+      <div className="grid min-h-[calc(100dvh-4rem)] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="min-w-0 bg-[#182318] p-3">
-          <div className="grid h-full min-h-[42rem] grid-rows-[minmax(24rem,1fr)_16rem] gap-3">
-            <div className="overflow-hidden rounded-lg border border-white/10 bg-[#e8e1c6] text-slate-900 shadow-2xl shadow-black/30">
-              <MapCanvas
-                state={state}
-                map={activeMap}
-                dispatch={dispatch}
-                assetId={assetId}
-                testMode={testMode}
-                testCellId={testCellId}
-                onTestCellChange={setTestCellId}
-              />
-            </div>
-            <div className="relative overflow-hidden rounded-lg border border-white/10 bg-[#172114]">
-              <Board3DShell
-                tiles={activeMap.board}
-                routes={activeMap.routes}
-                artifacts={activeMap.artifacts}
-                players={previewPlayers}
-                activeId="test-player"
-                interactive
-                className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,#f0c878_0%,#5d8b45_45%,#172114_100%)]"
-              />
-              <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-white/10 bg-black/35 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-white/80 backdrop-blur">
-                {testMode ? `Test cell ${testCellId}` : "3D preview"}
-              </div>
-            </div>
+          <div className="relative h-full min-h-[42rem] overflow-hidden rounded-lg border border-white/10 bg-[#e8e1c6] text-slate-900 shadow-2xl shadow-black/30">
+            <MapCanvas
+              state={state}
+              map={activeMap}
+              dispatch={dispatch}
+              assetId={assetId}
+              tileType={tileType}
+              testMode={testMode}
+              testCellId={testCellId}
+              onTestCellChange={setTestCellId}
+            />
+
+            <Floating3DPreview
+              map={activeMap}
+              players={previewPlayers}
+              testMode={testMode}
+              testCellId={testCellId}
+              onOpen={open3DPlaytest}
+            />
+
+            <FloatingToolBar
+              state={state}
+              dispatch={dispatch}
+              assetCatalog={state.content.assetCatalog}
+              assetId={assetId}
+              setAssetId={setAssetId}
+              tileType={tileType}
+              setTileType={setTileType}
+            />
           </div>
         </section>
 
@@ -266,6 +279,23 @@ export default function MapBuilder() {
         </aside>
       </div>
 
+      {jsonModalOpen && (
+        <JsonModal
+          exportJson={exportJson}
+          importText={importText}
+          setImportText={setImportText}
+          onCopy={copyJson}
+          onDownload={downloadJson}
+          onImport={importJson}
+          onReset={resetDraft}
+          onClose={() => setJsonModalOpen(false)}
+        />
+      )}
+
+      {mapDetailsOpen && (
+        <MapDetailsModal map={activeMap} dispatch={dispatch} onClose={() => setMapDetailsOpen(false)} />
+      )}
+
       {playtest3DOpen && (
         <Playtest3DOverlay
           map={activeMap}
@@ -279,14 +309,36 @@ export default function MapBuilder() {
   );
 }
 
-function MapPanel({ state, dispatch }: { state: MapBuilderState; dispatch: Dispatch<any> }) {
+function MapTopBar({
+  state,
+  map,
+  dispatch,
+  onCreate,
+  onDuplicate,
+  onEdit,
+  onImport,
+  onCopy,
+  onDownload,
+  onReset,
+}: {
+  state: MapBuilderState;
+  map: MapDefinition;
+  dispatch: Dispatch<any>;
+  onCreate: () => void;
+  onDuplicate: () => void;
+  onEdit: () => void;
+  onImport: () => void;
+  onCopy: () => void;
+  onDownload: () => void;
+  onReset: () => void;
+}) {
   return (
-    <section className="mb-4">
-      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Maps</h2>
+    <section className="flex min-w-[min(44rem,100%)] flex-wrap items-end gap-2 rounded-md border border-white/10 bg-white/[0.035] p-2">
       <select
         value={state.activeMapId}
         onChange={(event) => dispatch({ type: "select_map", mapId: event.target.value })}
-        className="w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm font-bold text-white outline-none focus:border-emerald-300"
+        aria-label="Active map"
+        className="min-w-[12rem] flex-1 rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm font-bold text-white outline-none focus:border-emerald-300"
       >
         {state.content.maps.map((map) => (
           <option key={map.id} value={map.id}>
@@ -294,15 +346,30 @@ function MapPanel({ state, dispatch }: { state: MapBuilderState; dispatch: Dispa
           </option>
         ))}
       </select>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => dispatch({ type: "create_map" })} className="builder-button">
-          New
-        </button>
-        <button type="button" onClick={() => dispatch({ type: "duplicate_map" })} className="builder-button">
-          Duplicate
-        </button>
-      </div>
-      <p className="mt-2 min-h-5 text-xs font-bold text-emerald-200/80">{state.message}</p>
+      <button type="button" onClick={onEdit} className="builder-button">
+        Edit
+      </button>
+      <button type="button" onClick={onCreate} className="builder-button">
+        New
+      </button>
+      <button type="button" onClick={onDuplicate} className="builder-button">
+        Duplicate
+      </button>
+      <button type="button" onClick={onImport} data-json-open="true" className="builder-button">
+        Import
+      </button>
+      <button type="button" onClick={onCopy} className="builder-button">
+        Copy
+      </button>
+      <button type="button" onClick={onDownload} className="builder-button">
+        Download
+      </button>
+      <button type="button" onClick={onReset} className="builder-button danger">
+        Reset
+      </button>
+      <p className="basis-full truncate text-xs font-bold text-emerald-200/80">
+        {map.name} · {state.message}
+      </p>
     </section>
   );
 }
@@ -388,23 +455,63 @@ function TestPanel({
   );
 }
 
-function ToolPanel({
+function FloatingToolBar({
   state,
   dispatch,
   assetCatalog,
   assetId,
   setAssetId,
+  tileType,
+  setTileType,
 }: {
   state: MapBuilderState;
   dispatch: Dispatch<any>;
   assetCatalog: MapAssetDef[];
   assetId: string;
   setAssetId: (id: string) => void;
+  tileType: TileType;
+  setTileType: (type: TileType) => void;
 }) {
   return (
-    <section className="mb-4">
-      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Tools</h2>
-      <div className="grid grid-cols-5 gap-1">
+    <section data-map-builder-toolbar="true" className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-3">
+      <div className="pointer-events-auto relative rounded-lg border border-slate-900/15 bg-slate-950/82 p-2 shadow-2xl shadow-black/30 backdrop-blur-md">
+        {(state.tool === "artifact" || state.tool === "cell") && (
+          <div className="absolute bottom-[calc(100%+0.5rem)] left-1/2 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-white/15 bg-slate-950/92 p-3 text-white shadow-2xl shadow-black/30 backdrop-blur-md">
+            {state.tool === "artifact" && (
+              <label className="block text-xs font-bold text-slate-300">
+                Asset
+                <select
+                  value={assetId}
+                  onChange={(event) => setAssetId(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
+                >
+                  {assetCatalog.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {state.tool === "cell" && (
+              <label className="block text-xs font-bold text-slate-300">
+                Cell type
+                <select
+                  value={tileType}
+                  onChange={(event) => setTileType(event.target.value as TileType)}
+                  className="mt-1 w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
+                >
+                  {TILE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {TILE_LABEL[type]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
+        <div className="grid grid-cols-4 gap-1">
         {TOOL_CONFIG.map((tool) => (
           <button
             key={tool.tool}
@@ -423,23 +530,138 @@ function ToolPanel({
           </button>
         ))}
       </div>
-      {state.tool === "artifact" && (
-        <label className="mt-3 block text-xs font-bold text-slate-300">
-          Asset
-          <select
-            value={assetId}
-            onChange={(event) => setAssetId(event.target.value)}
-            className="mt-1 w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
-          >
-            {assetCatalog.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      </div>
     </section>
+  );
+}
+
+function Floating3DPreview({
+  map,
+  players,
+  testMode,
+  testCellId,
+  onOpen,
+}: {
+  map: MapDefinition;
+  players: Player[];
+  testMode: boolean;
+  testCellId: number;
+  onOpen: () => void;
+}) {
+  return (
+    <section data-map-builder-preview="true" className="absolute right-4 top-4 z-20 h-44 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-950/20 bg-[#172114] text-white shadow-2xl shadow-black/35">
+      <Board3DShell
+        tiles={map.board}
+        routes={map.routes}
+        artifacts={map.artifacts}
+        players={players}
+        activeId="test-player"
+        interactive
+        className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,#f0c878_0%,#5d8b45_45%,#172114_100%)]"
+      />
+      <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-white/10 bg-black/35 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-white/80 backdrop-blur">
+        {testMode ? `Test cell ${testCellId}` : "3D preview"}
+      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="absolute bottom-3 right-3 rounded-md border border-white/20 bg-slate-950/70 px-3 py-2 text-xs font-black text-white backdrop-blur transition hover:bg-white/10"
+      >
+        Open
+      </button>
+    </section>
+  );
+}
+
+function JsonModal({
+  exportJson,
+  importText,
+  setImportText,
+  onCopy,
+  onDownload,
+  onImport,
+  onReset,
+  onClose,
+}: {
+  exportJson: string;
+  importText: string;
+  setImportText: (value: string) => void;
+  onCopy: () => void;
+  onDownload: () => void;
+  onImport: () => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div data-json-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3">
+      <section className="w-[min(56rem,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-white/15 bg-[#121812] text-slate-100 shadow-2xl shadow-black/45">
+        <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-300">Import / export JSON</h2>
+          <button type="button" onClick={onClose} className="builder-button compact">
+            Close
+          </button>
+        </header>
+        <div className="grid max-h-[calc(100dvh-8rem)] gap-3 overflow-auto p-4 lg:grid-cols-2">
+          <div>
+            <label className="block text-xs font-bold text-slate-300">
+              Import content
+              <textarea
+                value={importText}
+                onChange={(event) => setImportText(event.target.value)}
+                placeholder="Pegá un content.json para importar"
+                className="mt-1 h-72 w-full resize-none rounded-md border border-white/10 bg-[#0d120d] p-2 font-mono text-xs text-slate-100 outline-none focus:border-emerald-300"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={onImport} disabled={!importText.trim()} className="builder-button disabled:opacity-40">
+                Import
+              </button>
+              <button type="button" onClick={onReset} className="builder-button danger">
+                Reset draft
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-300">
+              Current export
+              <textarea
+                readOnly
+                value={exportJson}
+                className="mt-1 h-72 w-full resize-none rounded-md border border-white/10 bg-black/30 p-2 font-mono text-[0.65rem] text-slate-200"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={onCopy} className="builder-button">
+                Copy
+              </button>
+              <button type="button" onClick={onDownload} className="builder-button">
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MapDetailsModal({ map, dispatch, onClose }: { map: MapDefinition; dispatch: Dispatch<any>; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3">
+      <section className="w-[min(34rem,calc(100vw-1.5rem))] rounded-lg border border-white/15 bg-[#121812] p-4 text-slate-100 shadow-2xl shadow-black/45">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[0.65rem] font-black uppercase tracking-[0.2em] text-emerald-300">Map details</p>
+            <h2 className="text-xl font-black text-white">{map.name}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="builder-button compact">
+            Done
+          </button>
+        </div>
+        <TextInput label="Name" value={map.name} onChange={(name) => dispatch({ type: "update_map", patch: { name } })} />
+        <TextArea label="Description" value={map.description ?? ""} onChange={(description) => dispatch({ type: "update_map", patch: { description } })} />
+      </section>
+    </div>
   );
 }
 
@@ -503,6 +725,7 @@ function MapCanvas({
   map,
   dispatch,
   assetId,
+  tileType,
   testMode,
   testCellId,
   onTestCellChange,
@@ -511,6 +734,7 @@ function MapCanvas({
   map: MapDefinition;
   dispatch: Dispatch<any>;
   assetId: string;
+  tileType: TileType;
   testMode: boolean;
   testCellId: number;
   onTestCellChange: (id: number) => void;
@@ -534,9 +758,10 @@ function MapCanvas({
 
   const handleCanvasPointerDown = (event: PointerEvent<SVGRectElement>) => {
     if (testMode) return;
+    event.preventDefault();
     const point = pointFromEvent(event);
     if (state.tool === "cell") {
-      dispatch({ type: "add_node", point });
+      dispatch({ type: "add_node", point, tileType });
       return;
     }
     if (state.tool === "artifact") {
@@ -552,6 +777,27 @@ function MapCanvas({
     const point = pointFromEvent(event);
     if (drag.current.kind === "node") dispatch({ type: "move_node", id: drag.current.id, point });
     if (drag.current.kind === "artifact") dispatch({ type: "move_artifact", id: drag.current.id, point });
+    if (drag.current.kind === "artifact-scale") {
+      const artifact = map.artifacts.find((candidate) => candidate.id === drag.current?.id);
+      const asset = state.content.assetCatalog.find((candidate) => candidate.id === artifact?.assetId);
+      if (artifact) {
+        const footprint = artifactFootprint(asset);
+        const dx = point.x - artifact.position.x;
+        const dy = point.y - artifact.position.y;
+        const baseRadius = Math.max(footprint.width, footprint.height) / 2;
+        const scale = Math.max(0.25, roundToStep(Math.hypot(dx, dy) / Math.max(0.1, baseRadius), 0.05));
+        dispatch({ type: "update_artifact", id: artifact.id, patch: { scale } });
+      }
+    }
+    if (drag.current.kind === "artifact-rotate") {
+      const artifact = map.artifacts.find((candidate) => candidate.id === drag.current?.id);
+      if (artifact) {
+        const dx = point.x - artifact.position.x;
+        const dy = point.y - artifact.position.y;
+        const rot = roundToStep((Math.atan2(dy, dx) * 180) / Math.PI + 90, 5);
+        dispatch({ type: "update_artifact", id: artifact.id, patch: { position: { ...artifact.position, rot } } });
+      }
+    }
     if (drag.current.kind === "route-point") {
       dispatch({ type: "update_route_point", id: drag.current.id, index: drag.current.index, point });
     }
@@ -565,7 +811,7 @@ function MapCanvas({
     <svg
       ref={svgRef}
       viewBox={`${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`}
-      className="h-full min-h-[24rem] w-full touch-none"
+      className="h-full min-h-[42rem] w-full touch-none select-none"
       onPointerMove={handlePointerMove}
       onPointerUp={stopDrag}
       onPointerCancel={stopDrag}
@@ -578,6 +824,7 @@ function MapCanvas({
         </filter>
       </defs>
       <rect x={bounds.minX} y={bounds.minY} width={bounds.width} height={bounds.height} fill="#e8e1c6" onPointerDown={handleCanvasPointerDown} />
+      {map.boardShape && <BoardShapeOverlay boardShape={map.boardShape} />}
       {gridLines.map((line) => (
         <line key={line.key} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} stroke="#87916f" strokeWidth="0.015" opacity="0.35" />
       ))}
@@ -592,10 +839,26 @@ function MapCanvas({
           artifact={artifact}
           asset={state.content.assetCatalog.find((candidate) => candidate.id === artifact.assetId)}
           selected={isSelected(state.selection, "artifact", artifact.id)}
+          onSelect={() => dispatch({ type: "select", selection: { kind: "artifact", id: artifact.id } })}
           onPointerDown={(event) => {
+            event.preventDefault();
             event.stopPropagation();
             if (testMode) return;
             drag.current = { kind: "artifact", id: artifact.id };
+            dispatch({ type: "select", selection: { kind: "artifact", id: artifact.id } });
+          }}
+          onScaleStart={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (testMode) return;
+            drag.current = { kind: "artifact-scale", id: artifact.id };
+            dispatch({ type: "select", selection: { kind: "artifact", id: artifact.id } });
+          }}
+          onRotateStart={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (testMode) return;
+            drag.current = { kind: "artifact-rotate", id: artifact.id };
             dispatch({ type: "select", selection: { kind: "artifact", id: artifact.id } });
           }}
         />
@@ -630,6 +893,7 @@ function MapCanvas({
             stroke="#fef3c7"
             strokeWidth="0.05"
             onPointerDown={(event) => {
+              event.preventDefault();
               event.stopPropagation();
               if (testMode) return;
               if (state.selection?.kind === "route") drag.current = { kind: "route-point", id: state.selection.id, index };
@@ -637,6 +901,43 @@ function MapCanvas({
           />
         ))}
     </svg>
+  );
+}
+
+function BoardShapeOverlay({ boardShape }: { boardShape: MapBoardShape }) {
+  return (
+    <g>
+      <rect
+        x={boardShape.minX}
+        y={boardShape.minY}
+        width={boardShape.maxX - boardShape.minX}
+        height={boardShape.maxY - boardShape.minY}
+        fill="none"
+        stroke="#334155"
+        strokeWidth="0.05"
+        strokeDasharray="0.18 0.12"
+        opacity="0.75"
+      />
+      {(boardShape.blockedCells ?? []).map((cell) => (
+        <g key={`${cell.x}-${cell.y}`} opacity="0.75">
+          <rect x={cell.x - 0.5} y={cell.y - 0.5} width="1" height="1" fill="#78350f" opacity="0.18" />
+          <path d={`M${cell.x - 0.42},${cell.y - 0.42} L${cell.x + 0.42},${cell.y + 0.42} M${cell.x + 0.42},${cell.y - 0.42} L${cell.x - 0.42},${cell.y + 0.42}`} stroke="#92400e" strokeWidth="0.04" strokeLinecap="round" />
+        </g>
+      ))}
+      {(boardShape.borderEdges ?? []).map((edge) => (
+        <line
+          key={edge.id}
+          x1={edge.from.x}
+          y1={edge.from.y}
+          x2={edge.to.x}
+          y2={edge.to.y}
+          stroke={edge.terrain ? TERRAIN_COLOR[edge.terrain] : "#111827"}
+          strokeWidth="0.13"
+          strokeLinecap="round"
+          opacity="0.82"
+        />
+      ))}
+    </g>
   );
 }
 
@@ -674,6 +975,7 @@ function RouteShape({
         strokeLinejoin="round"
         strokeDasharray={route.terrain === "water" ? "0.15 0.12" : undefined}
         onPointerDown={(event) => {
+          event.preventDefault();
           event.stopPropagation();
           dispatch({ type: "select", selection: { kind: "route", id: route.id } });
         }}
@@ -717,6 +1019,7 @@ function NodeShape({
       filter="url(#nodeShadow)"
       className="cursor-pointer"
       onPointerDown={(event) => {
+        event.preventDefault();
         event.stopPropagation();
         if (testMode) {
           onTestCellChange(tile.id);
@@ -759,29 +1062,131 @@ function ArtifactShape({
   artifact,
   asset,
   selected,
+  onSelect,
   onPointerDown,
+  onScaleStart,
+  onRotateStart,
 }: {
   artifact: MapArtifact;
   asset?: MapAssetDef;
   selected: boolean;
+  onSelect: () => void;
   onPointerDown: (event: PointerEvent<SVGGElement>) => void;
+  onScaleStart: (event: PointerEvent<SVGCircleElement>) => void;
+  onRotateStart: (event: PointerEvent<SVGCircleElement>) => void;
 }) {
   const pos = artifact.position;
   const scale = artifact.scale ?? 1;
+  const footprint = artifactFootprint(asset);
+  const width = footprint.width;
+  const height = footprint.height;
   return (
-    <g transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rot ?? 0}) scale(${scale})`} className="cursor-pointer" onPointerDown={onPointerDown}>
-      <path
-        d={asset?.kind === "tree" ? "M0,-0.32 L0.28,0.2 H-0.28 Z" : asset?.kind === "water" ? "M-0.34,0 C-0.18,-0.25 0.18,-0.25 0.34,0 C0.18,0.25 -0.18,0.25 -0.34,0 Z" : "M-0.28,-0.24 H0.28 V0.24 H-0.28 Z"}
-        fill={artifact.tint ?? artifactColor(asset?.kind)}
+    <g
+      data-artifact-id={artifact.id}
+      transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rot ?? 0}) scale(${scale})`}
+      className="cursor-pointer"
+      onPointerDown={onPointerDown}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect();
+      }}
+    >
+      <ArtifactFootprintShape
+        footprint={footprint}
+        fill={artifact.tint ?? asset?.color ?? artifactColor(asset?.kind)}
         stroke={selected ? "#111827" : "#ffffff"}
-        strokeWidth={selected ? "0.07" : "0.025"}
-        opacity={artifact.visible === false ? "0.35" : "0.9"}
+        opacity={artifact.visible === false ? 0.35 : 0.9}
       />
-      <text x="0" y="0.46" textAnchor="middle" className="pointer-events-none fill-slate-900 text-[0.13px] font-black">
+      {selected && (
+        <g>
+          <rect
+            x={-width / 2}
+            y={-height / 2}
+            width={width}
+            height={height}
+            fill="none"
+            stroke="#111827"
+            strokeWidth="0.04"
+            strokeDasharray="0.12 0.08"
+          />
+          <circle data-artifact-scale-handle="true" cx={width / 2} cy={height / 2} r="0.12" fill="#fef3c7" stroke="#111827" strokeWidth="0.04" className="cursor-nwse-resize" onPointerDown={onScaleStart} />
+          <line x1="0" y1={-height / 2} x2="0" y2={-height / 2 - 0.35} stroke="#111827" strokeWidth="0.035" />
+          <circle data-artifact-rotate-handle="true" cx="0" cy={-height / 2 - 0.45} r="0.11" fill="#bfdbfe" stroke="#111827" strokeWidth="0.04" className="cursor-grab" onPointerDown={onRotateStart} />
+        </g>
+      )}
+      <text x="0" y={height / 2 + 0.22} textAnchor="middle" className="pointer-events-none fill-slate-900 text-[0.13px] font-black">
         {artifact.label ?? asset?.name ?? artifact.assetId}
       </text>
     </g>
   );
+}
+
+function ArtifactFootprintShape({
+  footprint,
+  fill,
+  stroke,
+  opacity,
+}: {
+  footprint: MapAssetFootprint;
+  fill: string;
+  stroke: string;
+  opacity: number;
+}) {
+  const width = footprint.width;
+  const height = footprint.height;
+  const strokeWidth = "0.035";
+  if (footprint.shape === "triangle") {
+    return (
+      <path
+        d={`M0,${-height / 2} L${width / 2},${height / 2} H${-width / 2} Z`}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+  }
+  if (footprint.shape === "ellipse" || footprint.shape === "circle") {
+    return (
+      <ellipse
+        cx="0"
+        cy="0"
+        rx={width / 2}
+        ry={height / 2}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+  }
+  return (
+    <rect
+      x={-width / 2}
+      y={-height / 2}
+      width={width}
+      height={height}
+      rx="0.08"
+      fill={fill}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      opacity={opacity}
+    />
+  );
+}
+
+function artifactFootprint(asset?: MapAssetDef): MapAssetFootprint {
+  if (asset?.footprint) return asset.footprint;
+  if (asset?.kind === "tree") return { width: 0.75, height: 0.95, shape: "triangle" };
+  if (asset?.kind === "house") return { width: 1.35, height: 1.1, shape: "rect" };
+  if (asset?.kind === "court") return { width: 1.8, height: 1.2, shape: "rect" };
+  if (asset?.kind === "vehicle") return { width: 1.5, height: 0.75, shape: "rect" };
+  if (asset?.kind === "mountain") return { width: 1.45, height: 1.05, shape: "triangle" };
+  if (asset?.kind === "water") return { width: 1.6, height: 0.95, shape: "ellipse" };
+  if (asset?.kind === "sign") return { width: 0.7, height: 0.45, shape: "rect" };
+  if (asset?.kind === "plaza") return { width: 1.65, height: 1.25, shape: "rect" };
+  return { width: 1, height: 1, shape: "rect" };
 }
 
 function Playtest3DOverlay({
@@ -898,12 +1303,6 @@ function Inspector({
 }) {
   return (
     <div className="grid gap-4">
-      <section>
-        <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Map details</h2>
-        <TextInput label="Name" value={map.name} onChange={(name) => dispatch({ type: "update_map", patch: { name } })} />
-        <TextArea label="Description" value={map.description ?? ""} onChange={(description) => dispatch({ type: "update_map", patch: { description } })} />
-      </section>
-
       {selectedNode && <NodeInspector tile={selectedNode} dispatch={dispatch} />}
       {selectedRoute && <RouteInspector route={selectedRoute} board={map.board} dispatch={dispatch} />}
       {selectedArtifact && <ArtifactInspector artifact={selectedArtifact} assetCatalog={assetCatalog} dispatch={dispatch} />}
@@ -913,6 +1312,8 @@ function Inspector({
           <p className="mt-1">Use Select to inspect nodes, routes, and props. Route mode connects two clicked cells.</p>
         </section>
       )}
+
+      <BoardShapeInspector boardShape={map.boardShape} dispatch={dispatch} />
 
       <section>
         <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Validation</h2>
@@ -938,8 +1339,97 @@ function Inspector({
   );
 }
 
+function BoardShapeInspector({ boardShape, dispatch }: { boardShape?: MapBoardShape; dispatch: Dispatch<any> }) {
+  const shape = boardShape ?? { minX: 0, minY: 0, maxX: 8, maxY: 6, blockedCells: [], borderEdges: [] };
+  const [blockedPoint, setBlockedPoint] = useState<MapGridPoint>({ x: shape.minX, y: shape.minY });
+
+  return (
+    <section data-board-shape-inspector="true">
+      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Board shape</h2>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberInput label="Min X" value={shape.minX} step={1} onChange={(minX) => dispatch({ type: "update_board_shape", patch: { minX } })} />
+        <NumberInput label="Min Y" value={shape.minY} step={1} onChange={(minY) => dispatch({ type: "update_board_shape", patch: { minY } })} />
+        <NumberInput label="Max X" value={shape.maxX} step={1} onChange={(maxX) => dispatch({ type: "update_board_shape", patch: { maxX } })} />
+        <NumberInput label="Max Y" value={shape.maxY} step={1} onChange={(maxY) => dispatch({ type: "update_board_shape", patch: { maxY } })} />
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Odd shape cells</h3>
+          <button type="button" onClick={() => dispatch({ type: "toggle_blocked_cell", point: blockedPoint })} className="builder-button compact">
+            Toggle
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <NumberInput label="Block X" value={blockedPoint.x} step={1} onChange={(x) => setBlockedPoint((point) => ({ ...point, x }))} />
+          <NumberInput label="Block Y" value={blockedPoint.y} step={1} onChange={(y) => setBlockedPoint((point) => ({ ...point, y }))} />
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {(shape.blockedCells ?? []).map((cell) => (
+            <button
+              key={`${cell.x}-${cell.y}`}
+              type="button"
+              onClick={() => dispatch({ type: "toggle_blocked_cell", point: cell })}
+              className="rounded-md border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-xs font-black text-amber-100"
+            >
+              {cell.x},{cell.y}
+            </button>
+          ))}
+          {(shape.blockedCells ?? []).length === 0 && <p className="text-xs font-bold text-slate-500">No blocked cells</p>}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Border edges</h3>
+          <button type="button" onClick={() => dispatch({ type: "add_border_edge" })} className="builder-button compact">
+            Add
+          </button>
+        </div>
+        <div className="grid gap-2">
+          {(shape.borderEdges ?? []).map((edge) => (
+            <BorderEdgeEditor key={edge.id} edge={edge} dispatch={dispatch} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BorderEdgeEditor({ edge, dispatch }: { edge: MapBorderEdge; dispatch: Dispatch<any> }) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/[0.035] p-2">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="truncate text-xs font-black text-slate-200">{edge.label || edge.id}</p>
+        <button type="button" onClick={() => dispatch({ type: "remove_border_edge", id: edge.id })} className="builder-button danger compact">
+          ×
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberInput label="From X" value={edge.from.x} step={1} onChange={(x) => dispatch({ type: "update_border_edge", id: edge.id, patch: { from: { ...edge.from, x } } })} />
+        <NumberInput label="From Y" value={edge.from.y} step={1} onChange={(y) => dispatch({ type: "update_border_edge", id: edge.id, patch: { from: { ...edge.from, y } } })} />
+        <NumberInput label="To X" value={edge.to.x} step={1} onChange={(x) => dispatch({ type: "update_border_edge", id: edge.id, patch: { to: { ...edge.to, x } } })} />
+        <NumberInput label="To Y" value={edge.to.y} step={1} onChange={(y) => dispatch({ type: "update_border_edge", id: edge.id, patch: { to: { ...edge.to, y } } })} />
+      </div>
+      <SelectInput
+        label="Terrain"
+        value={edge.terrain ?? ""}
+        options={[{ value: "", label: "Default" }, ...TERRAIN_TYPES.map((terrain) => ({ value: terrain, label: terrain }))]}
+        onChange={(terrain) => dispatch({ type: "update_border_edge", id: edge.id, patch: { terrain: (terrain || undefined) as MapTerrain | undefined } })}
+      />
+    </div>
+  );
+}
+
 function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any> }) {
   const layout = tile.layout ?? { x: 0, y: 0 };
+  const updateStoryParam = (key: string, value: string) => {
+    const next = { ...(tile.storyParams ?? {}) };
+    if (value.trim()) next[key] = value;
+    else delete next[key];
+    dispatch({ type: "update_node", id: tile.id, patch: { storyParams: Object.keys(next).length ? next : undefined } });
+  };
+
   return (
     <section>
       <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Cell {tile.id}</h2>
@@ -958,6 +1448,12 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
           onChange={(minigameId) => dispatch({ type: "update_node", id: tile.id, patch: { minigameId: minigameId || undefined } })}
         />
       )}
+      <div className="mt-3" data-story-params="true">
+        <h3 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Story parameters</h3>
+        <TextInput label="Setup" value={tile.storyParams?.setup ?? ""} onChange={(value) => updateStoryParam("setup", value)} />
+        <TextInput label="Prompt" value={tile.storyParams?.prompt ?? ""} onChange={(value) => updateStoryParam("prompt", value)} />
+        <TextInput label="Reward beat" value={tile.storyParams?.reward ?? ""} onChange={(value) => updateStoryParam("reward", value)} />
+      </div>
       {eventFieldForType(tile.type, "dare") && (
         <SelectInput
           label="Dare"
@@ -1165,6 +1661,13 @@ function readInitial3DPlaytest(): boolean {
 }
 
 function canvasBounds(map: MapDefinition) {
+  if (map.boardShape) {
+    const minX = Math.floor(map.boardShape.minX - 1);
+    const minY = Math.floor(map.boardShape.minY - 1);
+    const maxX = Math.ceil(map.boardShape.maxX + 1);
+    const maxY = Math.ceil(map.boardShape.maxY + 1);
+    return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+  }
   const layouts = [
     ...map.board.map((tile) => tile.layout ?? { x: 0, y: 0 }),
     ...map.routes.flatMap((route) => route.points ?? []),
@@ -1248,4 +1751,8 @@ function artifactColor(kind?: MapAssetDef["kind"]): string {
 
 function roundToQuarter(value: number): number {
   return Math.round(value * 4) / 4;
+}
+
+function roundToStep(value: number, step: number): number {
+  return Math.round(value / step) * step;
 }
