@@ -45,6 +45,8 @@ export interface Tile {
   /** reservado para eventos futuros que no entren en los catálogos actuales */
   eventKind?: "none" | "minigame" | "dare" | "fate" | "custom";
   eventId?: string;
+  /** ajustes narrativos/temáticos editables desde el map builder */
+  storyParams?: Record<string, string>;
 }
 
 export type MapTerrain =
@@ -54,6 +56,28 @@ export type MapTerrain =
   | "water"
   | "asphalt"
   | "magic";
+
+export interface MapGridPoint {
+  x: number;
+  y: number;
+}
+
+export interface MapBorderEdge {
+  id: string;
+  from: MapGridPoint;
+  to: MapGridPoint;
+  terrain?: MapTerrain;
+  label?: string;
+}
+
+export interface MapBoardShape {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  blockedCells?: MapGridPoint[];
+  borderEdges?: MapBorderEdge[];
+}
 
 export interface MapRoute {
   id: string;
@@ -79,11 +103,20 @@ export type MapArtifactKind =
   | "plaza"
   | "custom";
 
+export type MapAssetFootprintShape = "rect" | "circle" | "ellipse" | "triangle";
+
+export interface MapAssetFootprint {
+  width: number;
+  height: number;
+  shape: MapAssetFootprintShape;
+}
+
 export interface MapAssetDef {
   id: string;
   name: string;
   kind: MapArtifactKind;
   defaultScale?: number;
+  footprint?: MapAssetFootprint;
   color?: string;
   tags?: string[];
 }
@@ -113,6 +146,7 @@ export interface MapDefinition {
   board: Tile[];
   routes: MapRoute[];
   artifacts: MapArtifact[];
+  boardShape?: MapBoardShape;
   theme?: MapTheme;
 }
 

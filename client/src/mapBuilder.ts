@@ -2,7 +2,10 @@ import type {
   GameContent,
   MapArtifact,
   MapAssetDef,
+  MapBoardShape,
+  MapBorderEdge,
   MapDefinition,
+  MapGridPoint,
   MapRoute,
   MapTerrain,
   Tile,
@@ -39,6 +42,11 @@ export type MapBuilderEvent =
   | { type: "create_map" }
   | { type: "duplicate_map" }
   | { type: "update_map"; patch: Partial<Pick<MapDefinition, "name" | "description" | "theme">> }
+  | { type: "update_board_shape"; patch: Partial<MapBoardShape> }
+  | { type: "toggle_blocked_cell"; point: MapGridPoint }
+  | { type: "add_border_edge"; edge?: Partial<MapBorderEdge> }
+  | { type: "update_border_edge"; id: string; patch: Partial<MapBorderEdge> }
+  | { type: "remove_border_edge"; id: string }
   | { type: "select"; selection: BuilderSelection }
   | { type: "add_node"; point: TileLayout; tileType?: TileType }
   | { type: "move_node"; id: number; point: TileLayout }
@@ -97,11 +105,12 @@ export function createInitialMapBuilderState(content: GameContent): MapBuilderSt
 export function normalizeBuilderContent(content: GameContent): BuilderContent {
   const maps = content.maps?.length
     ? content.maps.map((map) => ({
-        ...map,
-        board: cloneTiles(map.board.length ? map.board : content.board),
-        routes: map.routes?.length ? cloneRoutes(map.routes) : createLinearRoutes(map.board.length ? map.board : content.board),
-        artifacts: cloneArtifacts(map.artifacts ?? []),
-      }))
+      ...map,
+      board: cloneTiles(map.board.length ? map.board : content.board),
+      routes: map.routes?.length ? cloneRoutes(map.routes) : createLinearRoutes(map.board.length ? map.board : content.board),
+      artifacts: cloneArtifacts(map.artifacts ?? []),
+      boardShape: cloneBoardShape(map.boardShape ?? createDefaultBoardShape(map.board.length ? map.board : content.board)),
+    }))
     : [
         {
           id: "default-map",
@@ -110,6 +119,7 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
           board: cloneTiles(content.board),
           routes: createLinearRoutes(content.board),
           artifacts: [],
+          boardShape: createDefaultBoardShape(content.board),
         },
       ];
   const activeMapId = maps.some((map) => map.id === content.activeMapId)
@@ -118,7 +128,7 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
   return {
     activeMapId,
     maps,
-    assetCatalog: content.assetCatalog?.length ? content.assetCatalog.map((asset) => ({ ...asset })) : DEFAULT_ASSETS,
+    assetCatalog: normalizeAssetCatalog(content.assetCatalog?.length ? content.assetCatalog : DEFAULT_ASSETS),
   };
 }
 
@@ -189,6 +199,66 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
     }
     case "update_map":
       return updateActiveMapState(state, (map) => ({ ...map, ...event.patch }), "Mapa actualizado");
+    case "update_board_shape":
+      return updateActiveMapState(
+        state,
+        (map) => ({ ...map, boardShape: normalizeBoardShape({ ...ensureBoardShape(map), ...event.patch }) }),
+        "Borde del mapa actualizado"
+      );
+    case "toggle_blocked_cell":
+      return updateActiveMapState(
+        state,
+        (map) => {
+          const boardShape = ensureBoardShape(map);
+          const point = gridPoint(event.point);
+          const blockedCells = boardShape.blockedCells ?? [];
+          const exists = blockedCells.some((cell) => sameGridPoint(cell, point));
+          return {
+            ...map,
+            boardShape: {
+              ...boardShape,
+              blockedCells: exists ? blockedCells.filter((cell) => !sameGridPoint(cell, point)) : [...blockedCells, point],
+            },
+          };
+        },
+        "Forma del tablero actualizada"
+      );
+    case "add_border_edge":
+      return updateActiveMapState(
+        state,
+        (map) => {
+          const boardShape = ensureBoardShape(map);
+          const edge = normalizeBorderEdge(event.edge, boardShape.borderEdges ?? [], boardShape);
+          return { ...map, boardShape: { ...boardShape, borderEdges: [...(boardShape.borderEdges ?? []), edge] } };
+        },
+        "Borde agregado"
+      );
+    case "update_border_edge":
+      return updateActiveMapState(
+        state,
+        (map) => {
+          const boardShape = ensureBoardShape(map);
+          return {
+            ...map,
+            boardShape: {
+              ...boardShape,
+              borderEdges: (boardShape.borderEdges ?? []).map((edge) =>
+                edge.id === event.id ? normalizeBorderEdge({ ...edge, ...event.patch }, boardShape.borderEdges ?? [], boardShape, edge.id) : edge
+              ),
+            },
+          };
+        },
+        "Borde actualizado"
+      );
+    case "remove_border_edge":
+      return updateActiveMapState(
+        state,
+        (map) => {
+          const boardShape = ensureBoardShape(map);
+          return { ...map, boardShape: { ...boardShape, borderEdges: (boardShape.borderEdges ?? []).filter((edge) => edge.id !== event.id) } };
+        },
+        "Borde eliminado"
+      );
     case "select":
       return { ...state, selection: event.selection, pendingRouteFrom: null, message: selectionMessage(event.selection) };
     case "add_node":
@@ -198,7 +268,7 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
           const tile: Tile = {
             id: nextTileId(map.board),
             type: event.tileType ?? "minigame",
-            layout: roundLayout(event.point),
+            layout: coerceLayoutForMap(map, event.point),
             label: event.tileType === "finish" ? "THE END" : undefined,
           };
           return { ...map, board: [...map.board, tile] };
@@ -212,7 +282,7 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
         (map) => ({
           ...map,
           board: map.board.map((tile) =>
-            tile.id === event.id ? { ...tile, layout: { ...(tile.layout ?? { x: 0, y: 0 }), ...roundLayout(event.point) } } : tile
+            tile.id === event.id ? { ...tile, layout: coerceLayoutForMap(map, event.point, tile.layout) } : tile
           ),
         }),
         "Casillero movido"
@@ -330,8 +400,8 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
               {
                 id: createdId,
                 assetId: event.assetId,
-                position: roundLayout(event.point),
-                scale: 1,
+                position: coerceLayoutForMap(map, event.point),
+                scale: state.content.assetCatalog.find((asset) => asset.id === event.assetId)?.defaultScale ?? 1,
               },
             ],
           };
@@ -347,7 +417,7 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
           ...map,
           artifacts: map.artifacts.map((artifact) =>
             artifact.id === event.id
-              ? { ...artifact, position: { ...artifact.position, ...roundLayout(event.point) } }
+              ? { ...artifact, position: coerceLayoutForMap(map, event.point, artifact.position) }
               : artifact
           ),
         }),
@@ -558,6 +628,7 @@ function cloneMap(map: MapDefinition): MapDefinition {
     board: cloneTiles(map.board),
     routes: cloneRoutes(map.routes),
     artifacts: cloneArtifacts(map.artifacts),
+    boardShape: cloneBoardShape(map.boardShape),
   };
 }
 
@@ -565,6 +636,7 @@ function cloneTiles(board: Tile[]): Tile[] {
   return board.map((tile) => ({
     ...tile,
     layout: tile.layout ? { ...tile.layout } : undefined,
+    storyParams: tile.storyParams ? { ...tile.storyParams } : undefined,
   }));
 }
 
@@ -583,6 +655,152 @@ function cloneArtifacts(artifacts: MapArtifact[]): MapArtifact[] {
   }));
 }
 
+function normalizeAssetCatalog(assetCatalog: MapAssetDef[]): MapAssetDef[] {
+  return assetCatalog.map((asset) => ({
+    ...asset,
+    footprint: asset.footprint ? { ...asset.footprint } : defaultAssetFootprint(asset.kind),
+  }));
+}
+
+function defaultAssetFootprint(kind: MapAssetDef["kind"]): NonNullable<MapAssetDef["footprint"]> {
+  if (kind === "tree") return { width: 0.75, height: 0.95, shape: "triangle" };
+  if (kind === "house") return { width: 1.35, height: 1.1, shape: "rect" };
+  if (kind === "court") return { width: 1.8, height: 1.2, shape: "rect" };
+  if (kind === "vehicle") return { width: 1.5, height: 0.75, shape: "rect" };
+  if (kind === "mountain") return { width: 1.45, height: 1.05, shape: "triangle" };
+  if (kind === "water") return { width: 1.6, height: 0.95, shape: "ellipse" };
+  if (kind === "sign") return { width: 0.7, height: 0.45, shape: "rect" };
+  if (kind === "plaza") return { width: 1.65, height: 1.25, shape: "rect" };
+  return { width: 1, height: 1, shape: "rect" };
+}
+
+function cloneBoardShape(boardShape?: MapBoardShape): MapBoardShape | undefined {
+  if (!boardShape) return undefined;
+  return {
+    ...boardShape,
+    blockedCells: boardShape.blockedCells?.map((cell) => ({ ...cell })),
+    borderEdges: boardShape.borderEdges?.map((edge) => ({
+      ...edge,
+      from: { ...edge.from },
+      to: { ...edge.to },
+    })),
+  };
+}
+
+function createDefaultBoardShape(board: Tile[]): MapBoardShape {
+  const layouts = board.map((tile) => tile.layout ?? { x: 0, y: 0 });
+  const minX = Math.floor(Math.min(0, ...layouts.map((layout) => layout.x)) - 1);
+  const minY = Math.floor(Math.min(0, ...layouts.map((layout) => layout.y)) - 1);
+  const maxX = Math.ceil(Math.max(8, ...layouts.map((layout) => layout.x)) + 1);
+  const maxY = Math.ceil(Math.max(6, ...layouts.map((layout) => layout.y)) + 1);
+  return { minX, minY, maxX, maxY, blockedCells: [], borderEdges: perimeterEdges({ minX, minY, maxX, maxY }) };
+}
+
+function ensureBoardShape(map: MapDefinition): MapBoardShape {
+  return cloneBoardShape(map.boardShape) ?? createDefaultBoardShape(map.board);
+}
+
+function normalizeBoardShape(shape: MapBoardShape): MapBoardShape {
+  const minX = round(Math.min(shape.minX, shape.maxX), 1);
+  const minY = round(Math.min(shape.minY, shape.maxY), 1);
+  const maxX = round(Math.max(shape.minX, shape.maxX), 1);
+  const maxY = round(Math.max(shape.minY, shape.maxY), 1);
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    blockedCells: shape.blockedCells?.map(gridPoint).filter((point) => point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY),
+    borderEdges: shape.borderEdges?.map((edge, index, edges) =>
+      normalizeBorderEdge(edge, edges, { minX, minY, maxX, maxY }, edge.id || `edge-${index + 1}`)
+    ),
+  };
+}
+
+function coerceLayoutForMap(map: MapDefinition, point: TileLayout, current?: TileLayout): TileLayout {
+  const rounded = roundLayout(point);
+  const boardShape = map.boardShape;
+  if (!boardShape) return rounded;
+  const candidate: TileLayout = {
+    ...rounded,
+    x: clamp(rounded.x, boardShape.minX, boardShape.maxX),
+    y: clamp(rounded.y, boardShape.minY, boardShape.maxY),
+  };
+  if (!isBlockedCell(boardShape, candidate)) return candidate;
+  if (current) return coerceLayoutForMap(map, current);
+  return nearestOpenLayout(boardShape, candidate);
+}
+
+function nearestOpenLayout(boardShape: MapBoardShape, point: TileLayout): TileLayout {
+  for (let radius = 0; radius <= Math.max(boardShape.maxX - boardShape.minX, boardShape.maxY - boardShape.minY); radius += 1) {
+    for (let y = boardShape.minY; y <= boardShape.maxY; y += 1) {
+      for (let x = boardShape.minX; x <= boardShape.maxX; x += 1) {
+        if (Math.abs(x - point.x) + Math.abs(y - point.y) !== radius) continue;
+        const candidate = { ...point, x, y };
+        if (!isBlockedCell(boardShape, candidate)) return candidate;
+      }
+    }
+  }
+  return { ...point, x: boardShape.minX, y: boardShape.minY };
+}
+
+function isBlockedCell(boardShape: MapBoardShape, layout: Pick<TileLayout, "x" | "y">): boolean {
+  return !!boardShape.blockedCells?.some((cell) => sameGridPoint(cell, gridPoint(layout)));
+}
+
+function normalizeBorderEdge(
+  edge: Partial<MapBorderEdge> | undefined,
+  existing: MapBorderEdge[],
+  boardShape: Pick<MapBoardShape, "minX" | "minY" | "maxX" | "maxY">,
+  currentId?: string
+): MapBorderEdge {
+  return {
+    id: currentId ?? edge?.id ?? nextBorderEdgeId(existing),
+    from: clampGridPoint(edge?.from ?? { x: boardShape.minX, y: boardShape.minY }, boardShape),
+    to: clampGridPoint(edge?.to ?? { x: boardShape.maxX, y: boardShape.minY }, boardShape),
+    terrain: edge?.terrain,
+    label: edge?.label,
+  };
+}
+
+function perimeterEdges(boardShape: Pick<MapBoardShape, "minX" | "minY" | "maxX" | "maxY">): MapBorderEdge[] {
+  return [
+    { id: "edge-top", from: { x: boardShape.minX, y: boardShape.minY }, to: { x: boardShape.maxX, y: boardShape.minY } },
+    { id: "edge-right", from: { x: boardShape.maxX, y: boardShape.minY }, to: { x: boardShape.maxX, y: boardShape.maxY } },
+    { id: "edge-bottom", from: { x: boardShape.maxX, y: boardShape.maxY }, to: { x: boardShape.minX, y: boardShape.maxY } },
+    { id: "edge-left", from: { x: boardShape.minX, y: boardShape.maxY }, to: { x: boardShape.minX, y: boardShape.minY } },
+  ];
+}
+
+function nextBorderEdgeId(edges: MapBorderEdge[]): string {
+  const used = new Set(edges.map((edge) => edge.id));
+  let index = edges.length + 1;
+  let id = `edge-${index}`;
+  while (used.has(id)) {
+    index += 1;
+    id = `edge-${index}`;
+  }
+  return id;
+}
+
+function gridPoint(point: Pick<TileLayout, "x" | "y">): MapGridPoint {
+  return { x: round(point.x, 1), y: round(point.y, 1) };
+}
+
+function clampGridPoint(
+  point: Pick<TileLayout, "x" | "y">,
+  boardShape: Pick<MapBoardShape, "minX" | "minY" | "maxX" | "maxY">
+): MapGridPoint {
+  return {
+    x: clamp(round(point.x, 1), boardShape.minX, boardShape.maxX),
+    y: clamp(round(point.y, 1), boardShape.minY, boardShape.maxY),
+  };
+}
+
+function sameGridPoint(a: MapGridPoint, b: MapGridPoint): boolean {
+  return a.x === b.x && a.y === b.y;
+}
+
 function roundLayout(layout: TileLayout): TileLayout {
   return {
     x: round(layout.x),
@@ -594,6 +812,10 @@ function roundLayout(layout: TileLayout): TileLayout {
 
 export function round(value: number, step = 0.25): number {
   return Math.round(value / step) * step;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function toolMessage(tool: BuilderTool): string {

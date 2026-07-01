@@ -46,6 +46,44 @@ const exported = builderContentToGameContent(content, builder);
 assert.equal(exported.activeMapId, builder.activeMapId);
 assert.equal(exported.board.length, 3);
 
+const boundedContent: GameContent = {
+  ...content,
+  activeMapId: "bounded-map",
+  maps: [
+    {
+      id: "bounded-map",
+      name: "Bounded",
+      board,
+      routes: [],
+      artifacts: [],
+      boardShape: {
+        minX: 0,
+        minY: 0,
+        maxX: 4,
+        maxY: 3,
+        blockedCells: [{ x: 2, y: 1 }],
+      },
+    } as any,
+  ],
+};
+
+let boundedState = createInitialMapBuilderState(boundedContent);
+boundedState = mapBuilderReducer(boundedState, { type: "move_node", id: 1, point: { x: 99, y: -10 } });
+assert.deepEqual(getActiveMap(boundedState).board.find((tile) => tile.id === 1)?.layout, { x: 4, y: 0 });
+
+boundedState = mapBuilderReducer(boundedState, { type: "move_node", id: 1, point: { x: 2, y: 1 } });
+assert.deepEqual(getActiveMap(boundedState).board.find((tile) => tile.id === 1)?.layout, { x: 4, y: 0 });
+
+const shapedAssetContent: GameContent = {
+  ...content,
+  assetCatalog: [{ id: "wide-van", name: "Wide van", kind: "vehicle", defaultScale: 1.5 }],
+};
+const shapedAssetState = createInitialMapBuilderState(shapedAssetContent);
+assert.deepEqual((shapedAssetState.content.assetCatalog[0] as any).footprint, { width: 1.5, height: 0.75, shape: "rect" });
+
+const placedAssetState = mapBuilderReducer(shapedAssetState, { type: "add_artifact", assetId: "wide-van", point: { x: 1, y: 1 } });
+assert.equal(getActiveMap(placedAssetState).artifacts[0].scale, 1.5);
+
 const routeWithPoint: MapRoute = {
   id: "r-0-2",
   from: 0,
