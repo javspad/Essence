@@ -5,8 +5,21 @@ import Lobby from "./components/Lobby";
 import MinigameHost from "./components/MinigameHost";
 
 const GameScene3D = lazy(() => import("./components/GameScene3D"));
+const MapBuilder = lazy(() => import("./components/MapBuilder"));
 
 export default function App() {
+  const builderMode =
+    typeof window !== "undefined" &&
+    (window.location.pathname === "/map-builder" || new URLSearchParams(window.location.search).has("mapBuilder"));
+
+  if (builderMode) {
+    return (
+      <Suspense fallback={<SceneLoading code="MAP" />}>
+        <MapBuilder />
+      </Suspense>
+    );
+  }
+
   const { connected, state, me, activeId, isMyTurn, isHost, error, actions } = useGame();
 
   // Sin identidad todavía → pantalla de ingreso.

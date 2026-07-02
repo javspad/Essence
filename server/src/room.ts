@@ -28,15 +28,21 @@ export class GameRoom {
     this.io = io;
     this.code = code;
     this.content = content;
+    const activeMap =
+      content.maps?.find((map) => map.id === content.activeMapId) ??
+      content.maps?.[0];
     this.state = {
       code,
       phase: "lobby",
-      board: content.board,
+      mapId: activeMap?.id,
+      board: activeMap?.board ?? content.board,
+      routes: activeMap?.routes,
+      artifacts: activeMap?.artifacts,
       players: [],
       turnOrder: [],
       activeIndex: 0,
       round: 0,
-      boardLength: content.board.length,
+      boardLength: (activeMap?.board ?? content.board).length,
       lastRoll: null,
       activeMinigame: null,
       activeEvent: null,
@@ -153,7 +159,7 @@ export class GameRoom {
     this.state.phase = "moving";
     this.broadcast();
 
-    const tile = this.content.board[active.position];
+    const tile = this.state.board[active.position];
 
     // Llegó al final → fin del juego.
     if (tile.type === "finish") {

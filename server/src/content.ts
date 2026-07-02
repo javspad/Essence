@@ -12,6 +12,15 @@ export function loadContent(): GameContent {
   const raw = readFileSync(CONTENT_PATH, "utf-8");
   const content = JSON.parse(raw) as GameContent;
   if (!content.board?.length) throw new Error("content.json: board vacío");
+  if (content.maps?.length) {
+    const activeMap =
+      content.maps.find((map) => map.id === content.activeMapId) ??
+      content.maps[0];
+    if (!activeMap?.board.length) throw new Error("content.json: mapa activo sin board");
+    const nodeIds = new Set(activeMap.board.map((tile) => tile.id));
+    const brokenRoute = activeMap.routes.find((route) => !nodeIds.has(route.from) || !nodeIds.has(route.to));
+    if (brokenRoute) throw new Error(`content.json: ruta ${brokenRoute.id} apunta a un casillero inexistente`);
+  }
   if (!content.players?.length) throw new Error("content.json: players vacío");
   return content;
 }
