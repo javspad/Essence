@@ -359,6 +359,7 @@ function createTestState(
 ): GameState {
   return {
     code: "TEST",
+    roomName: "Minigame builder",
     phase: "minigame",
     board: [],
     players,

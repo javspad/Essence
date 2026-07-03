@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { GameState, Player } from "@essence/shared";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Card, CardContent } from "@/components/ui/8bit/card";
 import { Progress } from "@/components/ui/8bit/progress";
@@ -12,9 +13,10 @@ interface Props {
   onFinish: (score: number, payload: unknown) => void;
   onAction: (data: unknown) => void;
   onForce: () => void;
+  onLeave: () => void;
 }
 
-export default function MinigameHost({ state, me, isHost, onFinish, onAction, onForce }: Props) {
+export default function MinigameHost({ state, me, isHost, onFinish, onAction, onForce, onLeave }: Props) {
   const mg = state.activeMinigame;
   const [finished, setFinished] = useState(false);
 
@@ -56,7 +58,15 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
   };
 
   return (
-    <div className="flex min-h-full w-full flex-col justify-center py-6">
+    <div className="relative flex min-h-full w-full flex-col justify-center py-6">
+      <Button
+        type="button"
+        onClick={onLeave}
+        className="absolute right-3 top-3 z-10 flex h-9 items-center gap-1.5 border border-[#fb7185]/40 bg-[#2a070b]/80 px-3 text-[10px] font-black uppercase tracking-wider text-[#fda4af] backdrop-blur-xl hover:bg-[#fb7185]/25 hover:text-white"
+      >
+        <LogOut data-icon="inline-start" className="size-3.5" />
+        Salir
+      </Button>
       <Engine
         key={`${mg.id}-${state.round}-${state.activeIndex}`}
         content={mg.content}

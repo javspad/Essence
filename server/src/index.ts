@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
-import type { ClientToServerEvents, ServerToClientEvents } from "@essence/shared";
+import type { ClientToServerEvents, RoomSummary, ServerToClientEvents } from "@essence/shared";
 import { content } from "./content.js";
 import { GameRoom } from "./room.js";
 
@@ -26,6 +26,8 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 const rooms = new Map<string, GameRoom>();
 const socketIndex = new Map<string, string>(); // socketId -> code
 
+const MAX_PLAYERS = content.players.length;
+
 function genCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // sin I/O para no confundir
   let code = "";
@@ -35,10 +37,25 @@ function genCode(): string {
   return code;
 }
 
+/** Resumen público de todas las salas abiertas (lobby o en curso). */
+function listRooms(): RoomSummary[] {
+  const out: RoomSummary[] = [];
+  for (const room of rooms.values()) {
+    if (room.isEmpty) continue;
+    out.push(room.summary(MAX_PLAYERS));
+  }
+  return out.sort((a, b) => Number(a.phase !== "lobby") - Number(b.phase !== "lobby"));
+}
+
 io.on("connection", (socket) => {
-  socket.on("room:create", ({ name }, ack) => {
+  socket.on("room:create", ({ name, roomName }, ack) => {
+    const trimmedRoom = (roomName ?? "").trim();
+    if (!trimmedRoom) {
+      ack({ ok: false, error: "Poné un nombre a la sala" });
+      return;
+    }
     const code = genCode();
-    const room = new GameRoom(io, code, content);
+    const room = new GameRoom(io, code, trimmedRoom.slice(0, 40), content);
     rooms.set(code, room);
     socket.join(code);
     socketIndex.set(socket.id, code);
@@ -73,6 +90,12 @@ io.on("connection", (socket) => {
     if (room) fn(room);
   };
 
+  socket.on("room:leave", () => {
+    withRoom((r) => r.disconnect(socket.id));
+    socket.leave(socketIndex.get(socket.id) ?? "");
+    socketIndex.delete(socket.id);
+  });
+
   socket.on("game:start", () => withRoom((r) => r.startGame(socket.id)));
   socket.on("turn:roll", () => withRoom((r) => r.roll(socket.id)));
   socket.on("turn:next", () => withRoom((r) => r.next(socket.id)));
@@ -96,13 +119,18 @@ setInterval(() => {
 
 app.get("/health", (_req, res) => res.json({ ok: true, rooms: rooms.size }));
 
+/** Listado de salas disponibles para la pantalla "unirme". */
+app.get("/api/rooms", (_req, res) => {
+  res.json({ rooms: listRooms() });
+});
+
 const clientDist = resolve(__dirname, "../../client/dist");
 if (existsSync(clientDist)) {
   app.use(express.static(clientDist));
   app.get("*", (_req, res) => res.sendFile(resolve(clientDist, "index.html")));
 }
 
-httpServer.listen(PORT, () => {
-  console.log(`🎲 Essence server escuchando en :${PORT}`);
+httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`🎲 Essence server escuchando en 0.0.0.0:${PORT} (LAN accesible)`);
   console.log(`   Anthropic API: ${process.env.ANTHROPIC_API_KEY ? "configurada ✅" : "sin key (judge usa fallback)"}`);
 });

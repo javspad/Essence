@@ -19,7 +19,7 @@ function makeClient(name, isCreator) {
 
   socket.on("connect", () => {
     if (isCreator) {
-      socket.emit("room:create", { name }, (res) => {
+      socket.emit("room:create", { name, roomName: "Smoke" }, (res) => {
         if (!res.ok) return log("create failed", res.error);
         code = res.code;
         self.id = res.playerId;

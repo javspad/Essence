@@ -280,6 +280,8 @@ export interface ActiveEvent {
 
 export interface GameState {
   code: string;
+  /** nombre legible de la sala, elegido por el host al crearla */
+  roomName: string;
   phase: Phase;
   mapId?: string;
   /** layout del tablero (tipos/labels); el contenido sensible no viaja */
@@ -335,6 +337,22 @@ export interface RevealPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Listado público de salas (para la pantalla de "unirme")
+// ---------------------------------------------------------------------------
+
+export interface RoomSummary {
+  code: string;
+  name: string;
+  phase: Phase;
+  /** cantidad de jugadores conectados ahora */
+  players: number;
+  /** cupo máximo definido por el contenido (content.players.length) */
+  maxPlayers: number;
+  /** nombre del host (o primer jugador) */
+  host: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Contrato de eventos Socket.io
 // ---------------------------------------------------------------------------
 
@@ -344,9 +362,11 @@ export interface ClientToServerEvents {
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   "room:create": (
-    payload: { name: string },
+    payload: { name: string; roomName: string },
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
+  /** El jugador abandona la sala voluntariamente. */
+  "room:leave": () => void;
   "game:start": () => void;
   "turn:roll": () => void;
   "turn:next": () => void;

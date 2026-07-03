@@ -115,9 +115,9 @@ function ConnectedGame({
 
   return (
     <div className="min-h-full flex flex-col">
-      {(state.phase === "lobby" || !connected) && <ConnBadge connected={connected} code={state.code} />}
+      {(state.phase === "lobby" || !connected) && <ConnBadge connected={connected} code={state.code} roomName={state.roomName} />}
 
-      {state.phase === "lobby" && <Lobby state={state} isHost={isHost} onStart={actions.start} />}
+      {state.phase === "lobby" && <Lobby state={state} isHost={isHost} onStart={actions.start} onLeave={actions.leave} />}
 
       {presentation.showMinigame && (
         <MinigameHost
@@ -127,6 +127,7 @@ function ConnectedGame({
           onFinish={actions.submitResult}
           onAction={actions.action}
           onForce={actions.forceResolve}
+          onLeave={actions.leave}
         />
       )}
     </div>
@@ -141,10 +142,10 @@ function SceneLoading({ code }: { code: string }) {
   );
 }
 
-function ConnBadge({ connected, code }: { connected: boolean; code?: string }) {
+function ConnBadge({ connected, code, roomName }: { connected: boolean; code?: string; roomName?: string }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 text-xs text-white/60">
-      <span>{code ? `Sala ${code}` : "Despedida de Javi"}</span>
+      <span>{code ? `${roomName ?? "Sala"} · ${code}` : "Despedida de Javi"}</span>
       <Badge className={connected ? "border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]" : "border-[#fecaca] bg-[#fb7185] px-2 py-1 text-[9px] text-[#2a070b]"}>
         {connected ? "● en línea" : "● reconectando..."}
       </Badge>

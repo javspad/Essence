@@ -17,6 +17,7 @@ const TILE_TRIGGERS_MINIGAME = new Set(["minigame", "trivia", "vote", "judge", "
 
 export class GameRoom {
   readonly code: string;
+  readonly name: string;
   private io: IO;
   private content: GameContent;
   private state: GameState;
@@ -24,15 +25,17 @@ export class GameRoom {
   private awardsStar = false;
   private resolving = false;
 
-  constructor(io: IO, code: string, content: GameContent) {
+  constructor(io: IO, code: string, name: string, content: GameContent) {
     this.io = io;
     this.code = code;
+    this.name = name;
     this.content = content;
     const activeMap =
       content.maps?.find((map) => map.id === content.activeMapId) ??
       content.maps?.[0];
     this.state = {
       code,
+      roomName: name,
       phase: "lobby",
       mapId: activeMap?.id,
       board: activeMap?.board ?? content.board,
@@ -59,6 +62,20 @@ export class GameRoom {
 
   getState(): GameState {
     return this.state;
+  }
+
+  /** Resumen público para el listado de salas (/api/rooms). */
+  summary(maxPlayers: number) {
+    const connected = this.state.players.filter((p) => p.connected);
+    const host = this.state.players.find((p) => p.isHost) ?? this.state.players[0];
+    return {
+      code: this.code,
+      name: this.name,
+      phase: this.state.phase,
+      players: connected.length,
+      maxPlayers,
+      host: host?.name ?? null,
+    };
   }
 
   broadcast() {

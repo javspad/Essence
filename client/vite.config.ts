@@ -12,11 +12,14 @@ export default defineConfig({
     },
   },
   server: {
+    // Accesible desde cualquier dispositivo de la LAN (no solo localhost).
+    host: true,
     port: 5173,
     // permitir importar /shared (fuera de la raíz del cliente)
     fs: { allow: [".."] },
     proxy: {
       "/socket.io": { target: "http://localhost:3001", ws: true },
+      "/api": { target: "http://localhost:3001" },
     },
   },
 });

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import type { GameState, Player } from "@essence/shared";
-import { Dice5 } from "lucide-react";
+import { Dice5, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
@@ -162,6 +162,11 @@ function SceneChrome({
           />
           {editMode && <SceneEditHint active={active} />}
         </div>
+        {state.phase !== "finished" && (
+          <div className="ml-auto flex flex-col items-end gap-2">
+            <LeaveButton onLeave={onLeave} />
+          </div>
+        )}
       </div>
 
       {showTurnPanel && (
@@ -464,6 +469,19 @@ function ActionButton({ children, disabled, onClick }: { children: ReactNode; di
   );
 }
 
+function LeaveButton({ onLeave }: { onLeave: () => void }) {
+  return (
+    <Button
+      type="button"
+      onClick={onLeave}
+      className="pointer-events-auto flex h-9 items-center gap-1.5 border border-[#fb7185]/40 bg-[#2a070b]/80 px-3 text-[10px] font-black uppercase tracking-wider text-[#fda4af] shadow-[0_0_0_1px_rgba(251,113,133,0.1),0_8px_24px_rgb(0_0_0/0.4)] backdrop-blur-xl transition-colors hover:bg-[#fb7185]/25 hover:text-white"
+    >
+      <LogOut data-icon="inline-start" className="size-3.5" />
+      Salir
+    </Button>
+  );
+}
+
 function SceneEditHint({ active }: { active?: Player }) {
   return (
     <aside className="hidden max-w-xs rounded-3xl border border-sky-200/30 bg-sky-950/65 p-4 text-sm font-bold text-sky-100 shadow-2xl shadow-black/30 backdrop-blur-md md:block">
@@ -523,6 +541,9 @@ function LegacyGameScreen({
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-lg flex-col gap-5 p-4">
+      <div className="flex justify-end">
+        <LeaveButton onLeave={onLeave} />
+      </div>
       <Scoreboard state={state} activeId={activeId} />
       <TurnControls state={state} me={me} isMyTurn={isMyTurn} onRoll={onRoll} />
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-sm text-violet-200">

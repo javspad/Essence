@@ -1,5 +1,5 @@
 import type { GameState } from "@essence/shared";
-import { Play, Users } from "lucide-react";
+import { LogOut, Play, Users } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
@@ -8,14 +8,16 @@ interface Props {
   state: GameState;
   isHost: boolean;
   onStart: () => void;
+  onLeave: () => void;
 }
 
-export default function Lobby({ state, isHost, onStart }: Props) {
+export default function Lobby({ state, isHost, onStart, onLeave }: Props) {
   const connected = state.players.filter((p) => p.connected);
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center p-6">
       <Card font="normal" className="w-full border-[#fff4bf] bg-[#171120]/92 text-[#fff8d6] shadow-[0_20px_60px_rgb(0_0_0/0.38)]">
         <CardHeader font="normal" className="text-center">
+          <p className="retro text-[10px] uppercase text-[#c7bddc]">{state.roomName || "Sala"}</p>
           <p className="retro text-[10px] uppercase text-[#c7bddc]">Código de sala</p>
           <CardTitle font="normal" className="retro text-4xl text-[#f5d547]">{state.code}</CardTitle>
           <p className="text-xs font-bold text-[#c7bddc]">Compartilo: todos entran con este código</p>
@@ -61,6 +63,15 @@ export default function Lobby({ state, isHost, onStart }: Props) {
           ) : (
             <p className="animate-pulse text-center text-sm font-black text-[#c7bddc]">Esperando que el host arranque...</p>
           )}
+
+          <Button
+            type="button"
+            onClick={onLeave}
+            className="h-10 w-full border border-[#fb7185]/40 bg-transparent text-xs uppercase text-[#fda4af] hover:bg-[#fb7185]/15"
+          >
+            <LogOut data-icon="inline-start" />
+            Salir de la sala
+          </Button>
         </CardContent>
       </Card>
     </div>
