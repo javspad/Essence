@@ -86,7 +86,11 @@ export default function Board3DShell({
         const stack = occupancy.get(player.position) ?? [];
         const stackIndex = Math.max(0, stack.findIndex((p) => p.id === player.id));
         const explicitMotion = activeMotion?.playerId === player.id ? activeMotion : null;
-        const tilePath = explicitMotion?.path ?? (player.id === activeId ? movementPath(player.position, lastRoll, boardLength) : []);
+        // Only use movementPath as a fallback when there IS an activeMotion context (walk
+        // highlight during animation). Once activeMotion is cleared (event/idle phase),
+        // we must NOT re-compute a path from lastRoll because lastRoll persists in the
+        // game state and would cause the token to replay the walk animation from scratch.
+        const tilePath = explicitMotion?.path ?? (activeMotion !== null && player.id === activeId ? movementPath(player.position, lastRoll, boardLength) : []);
         const path = tokenPathPositions(
           slotPositions,
           tilePath.length ? tilePath : [player.position],
