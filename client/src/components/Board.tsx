@@ -72,6 +72,9 @@ export default function Board({ state }: { state: GameState }) {
           <Suspense fallback={<Board3DLoadFallback />}>
             <Board3DShell
               tiles={state.board}
+              routes={state.routes}
+              artifacts={state.artifacts}
+              assetCatalog={state.assetCatalog}
               players={state.players}
               activeId={activeId}
               lastRoll={state.lastRoll}

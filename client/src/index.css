@@ -38,3 +38,106 @@ body {
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.45);
   backdrop-filter: blur(18px);
 }
+
+.builder-button {
+  display: inline-flex;
+  min-height: 1.95rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 0.375rem;
+  background: rgb(255 255 255 / 0.06);
+  padding: 0.42rem 0.62rem;
+  color: #ecfdf5;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.builder-button:hover {
+  border-color: rgb(110 231 183 / 0.55);
+  background: rgb(110 231 183 / 0.12);
+}
+
+.builder-button:active {
+  transform: translateY(1px);
+}
+
+.builder-button.danger {
+  border-color: rgb(253 164 175 / 0.28);
+  color: #ffe4e6;
+}
+
+.builder-button.danger:hover {
+  border-color: rgb(253 164 175 / 0.7);
+  background: rgb(244 63 94 / 0.16);
+}
+
+.builder-button.active {
+  border-color: rgb(52 211 153 / 0.8);
+  background: rgb(52 211 153 / 0.9);
+  color: #052e16;
+}
+
+.builder-button.preview {
+  border-color: rgb(103 232 249 / 0.42);
+  color: #cffafe;
+}
+
+.builder-button.preview:hover {
+  border-color: rgb(103 232 249 / 0.72);
+  background: rgb(103 232 249 / 0.12);
+}
+
+.builder-button.compact {
+  min-height: 1.55rem;
+  padding: 0.3rem 0.45rem;
+}
+
+.builder-route-button {
+  display: flex;
+  min-height: 2.1rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 0.375rem;
+  background: rgb(0 0 0 / 0.18);
+  padding: 0.45rem 0.55rem;
+  color: #ecfdf5;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-align: left;
+}
+
+.builder-route-button:hover {
+  border-color: rgb(52 211 153 / 0.45);
+  background: rgb(52 211 153 / 0.1);
+}
+
+.builder-route-button span:last-child {
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+  color: #111827;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.map-builder-shell,
+.map-builder-shell svg,
+.map-builder-shell svg * {
+  user-select: none;
+}
+
+.map-builder-shell input,
+.map-builder-shell textarea,
+.map-builder-shell select {
+  user-select: text;
+}
+
+.map-builder-shell aside {
+  scrollbar-color: rgb(52 211 153 / 0.45) rgb(255 255 255 / 0.06);
+  scrollbar-width: thin;
+}

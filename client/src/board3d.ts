@@ -1,4 +1,4 @@
-import type { Tile, TileLayout, TileType } from "@essence/shared";
+import type { MapArtifact, MapBoardShape, MapRoute, MapTerrain, Tile, TileLayout, TileType } from "@essence/shared";
 import { perimeterLayout } from "./boardView";
 
 type Board3DTile = Pick<Tile, "id" | "layout"> & Partial<Pick<Tile, "type">>;
@@ -11,6 +11,16 @@ export interface Board3DSlot {
   rotationY: number;
 }
 
+export interface Board3DMapBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
+  spacing: number;
+}
+
 export type SlotDecal = "ring" | "coin" | "star" | "diamond" | "bolt";
 
 export interface SlotMaterialStyle {
@@ -19,6 +29,13 @@ export interface SlotMaterialStyle {
   accent: string;
   emissive: string;
   decal: SlotDecal;
+}
+
+export interface TerrainMaterialStyle {
+  top: string;
+  side: string;
+  glow: string;
+  width: number;
 }
 
 export interface BoardMotionSettings {
@@ -40,6 +57,8 @@ export interface BoardRenderSettings {
   frameloop: "always" | "demand";
   powerPreference: WebGLPowerPreference;
 }
+
+export const BOARD_GRID_SPACING = 1.35;
 
 const DEFAULT_SLOT_STYLE: SlotMaterialStyle = {
   top: "#64748b",
@@ -64,15 +83,62 @@ const SLOT_STYLE: Record<TileType, SlotMaterialStyle> = {
   estimate: { top: "#06b6d4", side: "#0e7490", accent: "#cffafe", emissive: "#22d3ee", decal: "ring" },
 };
 
-export function board3DSlots(tiles: Board3DTile[], spacing = 1.35): Board3DSlot[] {
+const TERRAIN_STYLE: Record<MapTerrain, TerrainMaterialStyle> = {
+  stone: { top: "#d8c28a", side: "#9a7b43", glow: "#fff7c2", width: 0.38 },
+  grass: { top: "#7ccf63", side: "#3f8f3f", glow: "#d9f99d", width: 0.34 },
+  sand: { top: "#f0c878", side: "#b9823c", glow: "#fde68a", width: 0.42 },
+  water: { top: "#67d6f7", side: "#0e7490", glow: "#bae6fd", width: 0.34 },
+  asphalt: { top: "#8b95a3", side: "#475569", glow: "#e2e8f0", width: 0.36 },
+  magic: { top: "#d8b4fe", side: "#7e22ce", glow: "#f5d0fe", width: 0.4 },
+};
+
+export function board3DMapBounds(
+  tiles: Board3DTile[],
+  routes: Pick<MapRoute, "points">[] = [],
+  artifacts: Pick<MapArtifact, "position">[] = [],
+  boardShapeOrSpacing?: MapBoardShape | number,
+  spacing = BOARD_GRID_SPACING
+): Board3DMapBounds {
+  const boardShape = typeof boardShapeOrSpacing === "number" ? undefined : boardShapeOrSpacing;
+  const resolvedSpacing = typeof boardShapeOrSpacing === "number" ? boardShapeOrSpacing : spacing;
+  const layouts = [
+    ...tiles.map((tile, index) => tile.layout ?? perimeterLayout(index, tiles.length)),
+    ...routes.flatMap((route) => route.points ?? []),
+    ...artifacts.map((artifact) => artifact.position),
+    ...(boardShape
+      ? [
+          { x: boardShape.minX, y: boardShape.minY },
+          { x: boardShape.maxX, y: boardShape.maxY },
+          ...(boardShape.borderEdges ?? []).flatMap((edge) => [edge.from, edge.to]),
+        ]
+      : []),
+  ];
+  const minX = boardShape ? Math.min(boardShape.minX, ...layouts.map((layout) => layout.x)) : Math.min(0, ...layouts.map((layout) => layout.x));
+  const minY = boardShape ? Math.min(boardShape.minY, ...layouts.map((layout) => layout.y)) : Math.min(0, ...layouts.map((layout) => layout.y));
+  const maxX = Math.max(1, ...(boardShape ? [boardShape.maxX] : []), ...layouts.map((layout) => layout.x));
+  const maxY = Math.max(1, ...(boardShape ? [boardShape.maxY] : []), ...layouts.map((layout) => layout.y));
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+    spacing: resolvedSpacing,
+  };
+}
+
+export function board3DSlots(
+  tiles: Board3DTile[],
+  spacing = BOARD_GRID_SPACING,
+  bounds = board3DMapBounds(tiles, [], [], undefined, spacing)
+): Board3DSlot[] {
   const layouts = tiles.map((tile, index) => tile.layout ?? perimeterLayout(index, tiles.length));
-  const maxX = Math.max(1, ...layouts.map((layout) => layout.x));
-  const maxY = Math.max(1, ...layouts.map((layout) => layout.y));
 
   return tiles.map((tile, index) => ({
     id: tile.id,
     ...(tile.type ? { type: tile.type } : {}),
-    position: layoutToWorldPosition(layouts[index], maxX, maxY, spacing),
+    position: layoutToWorldPosition(layouts[index], bounds.maxX, bounds.maxY, bounds.spacing, bounds.minX, bounds.minY),
     rotationY: ((layouts[index].rot ?? 0) / 180) * Math.PI,
   }));
 }
@@ -81,12 +147,16 @@ export function layoutToWorldPosition(
   layout: TileLayout,
   maxX: number,
   maxY: number,
-  spacing = 1.35
+  spacing = BOARD_GRID_SPACING,
+  minX = 0,
+  minY = 0
 ): Vec3 {
+  const centerX = minX + (maxX - minX) / 2;
+  const centerY = minY + (maxY - minY) / 2;
   return [
-    (layout.x - maxX / 2) * spacing,
+    (layout.x - centerX) * spacing,
     layout.z ?? 0,
-    (layout.y - maxY / 2) * spacing,
+    (layout.y - centerY) * spacing,
   ];
 }
 
@@ -109,6 +179,20 @@ export function tokenPathPositions(
     const slotPosition = slotPositions.get(id);
     return slotPosition ? [tokenWorldPosition(slotPosition, stackIndex, stackTotal)] : [];
   });
+}
+
+export function routeWorldPoints(
+  route: MapRoute,
+  slotPositions: Map<number, Vec3>,
+  bounds: Board3DMapBounds
+): Vec3[] {
+  const from = slotPositions.get(route.from);
+  const to = slotPositions.get(route.to);
+  if (!from || !to) return [];
+  const points = (route.points ?? []).map((point) =>
+    layoutToWorldPosition(point, bounds.maxX, bounds.maxY, bounds.spacing, bounds.minX, bounds.minY)
+  );
+  return [from, ...points, to];
 }
 
 export function cameraFollowPosition(slotPosition: Vec3): Vec3 {
@@ -147,6 +231,10 @@ export function orbitLightPosition(timeSeconds: number, reducedMotion: boolean):
 
 export function slotMaterialStyle(type?: TileType): SlotMaterialStyle {
   return type ? SLOT_STYLE[type] : DEFAULT_SLOT_STYLE;
+}
+
+export function terrainMaterialStyle(terrain: MapTerrain = "stone"): TerrainMaterialStyle {
+  return TERRAIN_STYLE[terrain];
 }
 
 export function supportsWebGL(canvas?: { getContext: (name: string) => unknown } | null): boolean {

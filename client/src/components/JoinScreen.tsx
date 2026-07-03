@@ -43,6 +43,18 @@ export default function JoinScreen({ error, onCreate, onJoin }: Props) {
           >
             Unirme con código
           </button>
+          <a
+            href="/map-builder"
+            className="rounded-2xl py-4 text-center font-bold text-lg bg-emerald-300/15 border-2 border-emerald-200/35 text-emerald-100 active:scale-95 transition hover:bg-emerald-300/20"
+          >
+            Map builder
+          </a>
+          <a
+            href="/minigame-builder"
+            className="rounded-2xl py-4 text-center font-bold text-lg bg-cyan-300/15 border-2 border-cyan-200/35 text-cyan-100 active:scale-95 transition hover:bg-cyan-300/20"
+          >
+            Minigame builder
+          </a>
         </div>
       ) : (
         <div className="flex flex-col gap-3 w-full">

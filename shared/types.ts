@@ -42,6 +42,133 @@ export interface Tile {
   /** contrato visual: no afecta la mecánica del server */
   layout?: TileLayout;
   label?: string;
+  /** reservado para eventos futuros que no entren en los catálogos actuales */
+  eventKind?: "none" | "minigame" | "dare" | "fate" | "custom";
+  eventId?: string;
+  /** ajustes narrativos/temáticos editables desde el map builder */
+  storyParams?: Record<string, string>;
+}
+
+export type MapTerrain =
+  | "stone"
+  | "grass"
+  | "sand"
+  | "water"
+  | "asphalt"
+  | "magic";
+
+export interface MapGridPoint {
+  x: number;
+  y: number;
+}
+
+export interface MapBorderEdge {
+  id: string;
+  from: MapGridPoint;
+  to: MapGridPoint;
+  terrain?: MapTerrain;
+  label?: string;
+}
+
+export interface MapBoardShape {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  blockedCells?: MapGridPoint[];
+  borderEdges?: MapBorderEdge[];
+}
+
+export interface MapRoute {
+  id: string;
+  from: number;
+  to: number;
+  terrain: MapTerrain;
+  /** texto mostrado al elegir una rama, ej. "Izquierda" */
+  choiceLabel?: string;
+  /** puntos intermedios para dibujar curvas/quiebres de la ruta */
+  points?: TileLayout[];
+  label?: string;
+  bidirectional?: boolean;
+}
+
+export type MapArtifactKind =
+  | "tree"
+  | "house"
+  | "court"
+  | "vehicle"
+  | "mountain"
+  | "water"
+  | "sign"
+  | "plaza"
+  | "custom";
+
+export type MapAssetFootprintShape = "rect" | "circle" | "ellipse" | "triangle";
+
+export interface MapAssetFootprint {
+  width: number;
+  height: number;
+  shape: MapAssetFootprintShape;
+}
+
+export interface MapAssetProjectionPoint {
+  /** Three.js local +X axis, in model/world units before board grid spacing is applied. */
+  x: number;
+  /** Three.js local +Z axis, in model/world units before board grid spacing is applied. */
+  z: number;
+}
+
+export interface MapAssetProjectionBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+export interface MapAssetProjection {
+  points?: MapAssetProjectionPoint[];
+  bounds?: MapAssetProjectionBounds;
+  shape?: MapAssetFootprintShape;
+}
+
+export interface MapAssetDef {
+  id: string;
+  name: string;
+  kind: MapArtifactKind;
+  defaultScale?: number;
+  footprint?: MapAssetFootprint;
+  projection?: MapAssetProjection;
+  color?: string;
+  tags?: string[];
+}
+
+export interface MapArtifact {
+  id: string;
+  assetId: string;
+  label?: string;
+  position: TileLayout;
+  scale?: number;
+  visible?: boolean;
+  tint?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface MapTheme {
+  base?: string;
+  path?: string;
+  accent?: string;
+  sky?: string;
+}
+
+export interface MapDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  board: Tile[];
+  routes: MapRoute[];
+  artifacts: MapArtifact[];
+  boardShape?: MapBoardShape;
+  theme?: MapTheme;
 }
 
 export interface RiggedConfig {
@@ -96,6 +223,9 @@ export interface PlayerDef {
 
 export interface GameContent {
   board: Tile[];
+  activeMapId?: string;
+  maps?: MapDefinition[];
+  assetCatalog?: MapAssetDef[];
   minigames: Record<string, MinigameDef>;
   dares: Record<string, DareDef>;
   fates: Record<string, FateDef>;
@@ -151,8 +281,13 @@ export interface ActiveEvent {
 export interface GameState {
   code: string;
   phase: Phase;
+  mapId?: string;
   /** layout del tablero (tipos/labels); el contenido sensible no viaja */
   board: Tile[];
+  routes?: MapRoute[];
+  artifacts?: MapArtifact[];
+  assetCatalog?: MapAssetDef[];
+  boardShape?: MapBoardShape;
   players: Player[];
   /** orden de turnos por id */
   turnOrder: string[];
