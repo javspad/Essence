@@ -86,7 +86,7 @@ export default function GameScene3D({
         activeMotion={activeMotion}
         diceCue={diceCue}
         interactive
-        className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,#f9d88a_0%,#936326_34%,#201208_78%)]"
+        className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_40%_0%,#f5c842_0%,#8c5a1e_28%,#3a1c08_58%,#18090a_100%)]"
       />
 
       <SceneChrome
@@ -203,30 +203,31 @@ function ScorePanel({
   return (
     <Card
       font="normal"
-      className="pointer-events-auto w-[min(23rem,calc(100vw-1.5rem))] max-w-full border-[#fff4bf] bg-[#171120]/90 text-[#fff8d6] shadow-[0_16px_40px_rgb(0_0_0/0.35)] backdrop-blur-md"
+      className="pointer-events-auto w-[min(22rem,calc(100vw-1.5rem))] max-w-full border-[#fff4bf]/40 bg-[#0e0a1a]/94 text-[#fff8d6] shadow-[0_0_0_1px_rgba(255,244,191,0.08),0_20px_50px_rgb(0_0_0/0.5)] backdrop-blur-xl"
     >
       <aside>
-        <CardHeader font="normal" className="gap-2 px-3 py-3">
-          <div className="flex items-start justify-between gap-3">
+        <CardHeader font="normal" className="gap-2 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <CardTitle font="normal" className="retro text-[10px] uppercase text-[#fff4bf]">
+              <CardTitle font="normal" className="retro text-[9px] uppercase tracking-widest text-[#a89fc5]">
                 Marcador
               </CardTitle>
-              <p className="mt-1 text-[11px] font-black uppercase text-[#c7bddc]">
+              <p className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-[#d4cfea]">
                 Ronda {round} · {phaseLabel(phase)}
               </p>
             </div>
-            <Badge className="shrink-0 border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] uppercase text-[#062116]">
+            <Badge className="shrink-0 border-[#6ee7b7]/50 bg-[#10b981]/20 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-[#6ee7b7]">
               Turno {active?.name ?? "..."}
             </Badge>
           </div>
           {!connected && (
-            <Badge className="w-fit border-[#fecaca] bg-[#fb7185] px-2 py-1 text-[9px] uppercase text-[#2a070b]">
+            <Badge className="w-fit border-[#fecaca]/50 bg-[#ef4444]/20 px-2 py-1 text-[8px] uppercase text-[#fca5a5]">
               Reconectando
             </Badge>
           )}
         </CardHeader>
-        <CardContent font="normal" className="px-2 pb-2 pt-0">
+        <div className="mx-2 h-px bg-white/8" />
+        <CardContent font="normal" className="px-1.5 pb-2 pt-1">
           <ol className="max-h-[38dvh] overflow-y-auto text-sm">
             {players.map((player, index) => {
               const isActive = player.id === activeId;
@@ -235,24 +236,24 @@ function ScorePanel({
                 <li
                   key={player.id}
                   className={cn(
-                    "grid grid-cols-[1.4rem_0.85rem_minmax(0,1fr)_auto] items-center gap-2 px-2 py-2 font-black",
-                    isActive ? "bg-[#f5d547]/16 text-[#fff8d6]" : "text-[#fff8d6]/85",
-                    player.connected ? "" : "opacity-45"
+                    "grid grid-cols-[1.2rem_0.8rem_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 py-1.5 font-black transition-colors",
+                    isActive ? "bg-[#f5d547]/14 text-[#fff8d6]" : "text-[#d4cfea]/80",
+                    player.connected ? "" : "opacity-40"
                   )}
                 >
-                  <span className="retro text-center text-[9px] text-[#fff4bf]/60">{index + 1}</span>
+                  <span className="retro text-center text-[8px] text-[#a89fc5]">{index + 1}</span>
                   <span
-                    className="size-3 rounded-[2px] border border-black/35 shadow-[2px_2px_0_rgb(0_0_0/0.35)]"
-                    style={{ backgroundColor: player.color }}
+                    className="size-3 rounded-[2px] shadow-[1px_1px_0_rgb(0_0_0/0.4),0_0_6px_var(--player-glow)]"
+                    style={{ backgroundColor: player.color, ["--player-glow" as string]: `${player.color}66` }}
                   />
-                  <span className="min-w-0 truncate text-xs sm:text-sm">
-                    {isActive ? "▶ " : ""}
+                  <span className="min-w-0 truncate text-[11px] sm:text-xs">
+                    {isActive ? <span className="text-[#f5d547]">▶ </span> : ""}
                     {player.name}
                     {player.groom ? " 🤵" : ""}
                   </span>
-                  <span className="flex shrink-0 items-center gap-2 text-[11px] text-[#fff4bf]">
-                    <span>🪙{player.coins}</span>
-                    {player.stars > 0 && <span>⭐{player.stars}</span>}
+                  <span className="flex shrink-0 items-center gap-1.5 text-[10px]">
+                    <span className="text-[#fbbf24]">🪙{player.coins}</span>
+                    {player.stars > 0 && <span className="text-[#fde68a]">⭐{player.stars}</span>}
                   </span>
                 </li>
               );
@@ -284,31 +285,40 @@ function TurnPanel({
   return (
     <Card
       font="normal"
-      className="pointer-events-auto w-[min(20rem,calc(100vw-1.5rem))] border-[#f5d547] bg-[#171120]/92 text-[#fff8d6] text-left shadow-[0_16px_40px_rgb(0_0_0/0.38)] backdrop-blur-md"
+      className="pointer-events-auto w-[min(21rem,calc(100vw-1.5rem))] border-[#f5d547]/70 bg-[#0e0a1a]/94 text-[#fff8d6] text-left shadow-[0_0_0_1px_rgba(245,213,71,0.12),0_20px_50px_rgb(0_0_0/0.5)] backdrop-blur-xl"
     >
       <section>
         <CardContent font="normal" className="p-4">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="retro text-[9px] uppercase text-[#c7bddc]">Tu ficha</p>
-              <p className="mt-1 text-2xl font-black text-[#fff4bf]">#{Math.max(0, me.position)}</p>
+              <p className="retro text-[8px] uppercase tracking-widest text-[#a89fc5]">Tu ficha</p>
+              <p className="mt-1.5 text-2xl font-black text-[#fff4bf] tabular-nums">#{Math.max(0, me.position)}</p>
             </div>
             <div className="text-right">
-              <p className="retro text-[9px] uppercase text-[#c7bddc]">Dado</p>
-              <p className="mt-1 text-3xl font-black leading-none text-[#fff8d6]" aria-label={state.lastRoll ? `Dado ${state.lastRoll}` : "Sin dado"}>
+              <p className="retro text-[8px] uppercase tracking-widest text-[#a89fc5]">Dado</p>
+              <p
+                className="mt-1.5 text-3xl font-black leading-none text-[#fde68a]"
+                aria-label={state.lastRoll ? `Dado ${state.lastRoll}` : "Sin dado"}
+                style={{ textShadow: state.lastRoll ? "0 0 20px rgba(253,212,95,0.6)" : "none" }}
+              >
                 {state.lastRoll ? DICE[state.lastRoll] : "--"}
               </p>
             </div>
           </div>
-          <p className="mt-3 text-sm font-black" style={{ color: active?.color ?? "#cbd5e1" }}>
+
+          {/* Thin separator */}
+          <div className="my-3 h-px bg-white/10" />
+
+          <p className="text-sm font-black" style={{ color: active?.color ?? "#94a3b8" }}>
             {statusLabel ?? turnTitle(state, active, isMyTurn)}
           </p>
+
           {state.phase === "turn" && isMyTurn && (
             <Button
               type="button"
               onClick={onRoll}
               disabled={rollBlocked}
-              className="pointer-events-auto mt-4 h-12 w-full bg-[#f5d547] px-5 text-sm uppercase text-[#201507] hover:bg-[#ffe96c]"
+              className="pointer-events-auto mt-4 h-12 w-full bg-[#f5d547] px-5 text-sm font-black uppercase tracking-wider text-[#201507] shadow-[0_4px_0_#b9991a] transition-all hover:bg-[#ffe96c] hover:shadow-[0_2px_0_#b9991a] hover:translate-y-px active:translate-y-[3px] active:shadow-none disabled:translate-y-0 disabled:shadow-none"
             >
               <Dice5 data-icon="inline-start" />
               Tirar
@@ -338,12 +348,25 @@ function EventOverlay({
 
   return (
     <CenterOverlay>
-      <div className={`modal-card ${isDare ? "from-rose-900/95 to-pink-950/95" : "from-fuchsia-900/95 to-indigo-950/95"}`}>
-        <p className="text-center text-sm font-black uppercase tracking-[0.35em] text-white/70">{isDare ? "🍻 Prenda" : "🃏 Destino"}</p>
-        <h2 className="mt-3 text-center text-3xl font-black text-white sm:text-5xl" style={{ color: player?.color ?? "#fff" }}>
+      <div className={`modal-card ${isDare ? "from-rose-950/96 to-pink-950/96" : "from-violet-950/96 to-indigo-950/96"}`}>
+        {/* Category badge */}
+        <div className="inline-flex items-center gap-2 rounded-sm border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-white/80">
+          <span className="text-base">{isDare ? "🍻" : "🃏"}</span>
+          {isDare ? "Prenda" : "Destino"}
+        </div>
+        {/* Player name */}
+        <h2
+          className="mt-4 text-center text-4xl font-black drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-6xl"
+          style={{ color: player?.color ?? "#fff", textShadow: `0 0 40px ${player?.color ?? "#fff"}55` }}
+        >
           {player?.name ?? "Jugador"}
         </h2>
-        <p className="mx-auto mt-5 max-w-2xl text-center text-xl font-black leading-tight text-white sm:text-3xl">{event.text}</p>
+        {/* Divider */}
+        <div className="mx-auto my-5 h-px w-24 rounded-full bg-white/20" />
+        {/* Event text */}
+        <p className="mx-auto max-w-2xl text-center text-xl font-black leading-snug text-white/95 sm:text-3xl">
+          {event.text}
+        </p>
         <ActionButton disabled={!canAdvance || Boolean(busyLabel)} onClick={onNext}>
           {busyLabel ?? (canAdvance ? (isDare ? "Listo →" : "Siguiente →") : "Esperando...")}
         </ActionButton>
@@ -359,13 +382,20 @@ function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdv
 
   return (
     <CenterOverlay>
-      <div className="modal-card from-slate-950/95 to-indigo-950/95">
-        <p className="text-center text-sm font-black uppercase tracking-[0.35em] text-violet-200">Resultados</p>
-        <h2 className="mt-3 text-center text-3xl font-black text-amber-100 sm:text-5xl">{reveal.title}</h2>
-        <ol className="mx-auto mt-5 grid max-w-2xl gap-2 text-left">
+      <div className="modal-card from-slate-950/96 to-indigo-950/96">
+        <div className="inline-flex items-center gap-2 rounded-sm border border-violet-400/30 bg-violet-500/15 px-3 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-violet-200">
+          🏅 Resultados
+        </div>
+        <h2 className="mt-4 text-center text-3xl font-black text-amber-100 sm:text-5xl">{reveal.title}</h2>
+        <div className="mx-auto my-5 h-px w-24 rounded-full bg-white/20" />
+        <ol className="mx-auto grid max-w-2xl gap-2 text-left">
           {reveal.entries.map((entry, index) => (
-            <li key={entry.playerId} className="rounded-2xl bg-white/10 px-4 py-3 text-lg font-black text-white sm:text-2xl">
-              {medals[index] ?? `${entry.rank}.`} {entry.name} <span className="text-amber-200">+🪙{entry.coins}</span>
+            <li
+              key={entry.playerId}
+              className="flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-white/8 px-4 py-3 text-lg font-black text-white sm:text-2xl"
+            >
+              <span>{medals[index] ?? `${entry.rank}.`} {entry.name}</span>
+              <span className="shrink-0 text-amber-200">+🪙{entry.coins}</span>
             </li>
           ))}
         </ol>
@@ -381,15 +411,29 @@ function VictoryOverlay({ state, onLeave }: { state: GameState; onLeave: () => v
 
   return (
     <CenterOverlay>
-      <div className="modal-card from-amber-950/95 to-orange-950/95">
-        <p className="text-center text-sm font-black uppercase tracking-[0.35em] text-amber-200">🏆 Ganador</p>
-        <h2 className="mt-3 text-center text-5xl font-black sm:text-7xl" style={{ color: winner?.color ?? "#fff" }}>
+      <div className="modal-card from-amber-950/96 to-orange-950/96">
+        <div className="inline-flex items-center gap-2 rounded-sm border border-amber-400/30 bg-amber-500/15 px-3 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-amber-200">
+          🏆 Ganador
+        </div>
+        <h2
+          className="mt-4 text-center text-5xl font-black drop-shadow-[0_2px_16px_rgba(0,0,0,0.9)] sm:text-7xl"
+          style={{ color: winner?.color ?? "#fff", textShadow: `0 0 50px ${winner?.color ?? "#fff"}44` }}
+        >
           {winner?.name ?? ""}
         </h2>
-        <ol className="mx-auto mt-5 grid max-w-xl gap-2 text-left">
+        <div className="mx-auto my-5 h-px w-24 rounded-full bg-white/20" />
+        <ol className="mx-auto grid max-w-xl gap-2 text-left">
           {ranked.map((player, index) => (
-            <li key={player.id} className="rounded-2xl bg-white/10 px-4 py-3 text-lg font-black text-white">
-              {index + 1}. {player.name} <span className="text-yellow-200">⭐{player.stars}</span> <span className="text-amber-200">🪙{player.coins}</span>
+            <li
+              key={player.id}
+              className="flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-white/8 px-4 py-3 text-lg font-black text-white"
+            >
+              <span>{index + 1}. {player.name}</span>
+              <span className="shrink-0 text-sm">
+                <span className="text-yellow-200">⭐{player.stars}</span>
+                {" "}
+                <span className="text-amber-200">🪙{player.coins}</span>
+              </span>
             </li>
           ))}
         </ol>

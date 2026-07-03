@@ -132,8 +132,23 @@ export default function Board3DShell({
       >
         <WebGLContextGuard onLost={disableWebGL} />
         <FollowCamera target={activeSlot} motion={motion} />
-        <ambientLight intensity={0.75} />
-        <directionalLight position={[4, 8, 6]} intensity={1.9} castShadow />
+        <ambientLight intensity={0.62} color="#fff8e1" />
+        <directionalLight
+          position={[5, 10, 7]}
+          intensity={2.2}
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-near={0.5}
+          shadow-camera-far={50}
+          shadow-camera-left={-14}
+          shadow-camera-right={14}
+          shadow-camera-top={14}
+          shadow-camera-bottom={-14}
+          shadow-bias={-0.0005}
+        />
+        {/* Subtle fill light from opposite side */}
+        <directionalLight position={[-3, 4, -5]} intensity={0.38} color="#b3d4ff" />
         <AnimatedPartyLights motion={motion} />
 
         <BoardTable artifacts={artifacts} assetCatalog={assetCatalog} boardShape={boardShape} bounds={bounds} />
@@ -180,21 +195,40 @@ function BoardTable({
 
   return (
     <group>
-      <mesh position={[0, -0.78, 0]} receiveShadow>
-        <boxGeometry args={[tableWidth + 1.1, 0.42, tableDepth + 1.1]} />
-        <meshStandardMaterial color="#7c4a21" roughness={0.78} />
+      {/* Outermost table base - darkest wood */}
+      <mesh position={[0, -0.9, 0]} receiveShadow>
+        <boxGeometry args={[tableWidth + 1.8, 0.38, tableDepth + 1.8]} />
+        <meshStandardMaterial color="#4a2810" roughness={0.88} metalness={0.02} />
       </mesh>
-      <mesh position={[0, -0.49, 0]} receiveShadow>
-        <boxGeometry args={[tableWidth, 0.35, tableDepth]} />
-        <meshStandardMaterial color="#8b4a22" roughness={0.8} />
+      {/* Main table surface - richer wood */}
+      <mesh position={[0, -0.62, 0]} receiveShadow>
+        <boxGeometry args={[tableWidth + 1.1, 0.52, tableDepth + 1.1]} />
+        <meshStandardMaterial color="#7c3e18" roughness={0.75} metalness={0.04} />
       </mesh>
-      <mesh position={[0, -0.28, 0]} receiveShadow>
-        <boxGeometry args={[fieldWidth + 0.55, 0.28, fieldDepth + 0.55]} />
-        <meshStandardMaterial color="#256f3a" roughness={0.72} />
+      {/* Inner table lip - lighter wood edge */}
+      <mesh position={[0, -0.34, 0]} receiveShadow castShadow>
+        <boxGeometry args={[tableWidth, 0.38, tableDepth]} />
+        <meshStandardMaterial color="#9b5528" roughness={0.7} metalness={0.03} />
       </mesh>
-      <mesh position={[0, -0.1, 0]} receiveShadow>
-        <boxGeometry args={[fieldWidth, 0.12, fieldDepth]} />
-        <meshStandardMaterial color="#6fbe54" roughness={0.78} />
+      {/* Board border ring - dark green felt */}
+      <mesh position={[0, -0.14, 0]} receiveShadow>
+        <boxGeometry args={[fieldWidth + 0.72, 0.2, fieldDepth + 0.72]} />
+        <meshStandardMaterial color="#1a5c2e" roughness={0.88} />
+      </mesh>
+      {/* Bright green inner border strip */}
+      <mesh position={[0, -0.065, 0]} receiveShadow>
+        <boxGeometry args={[fieldWidth + 0.38, 0.14, fieldDepth + 0.38]} />
+        <meshStandardMaterial color="#2d8a48" roughness={0.82} />
+      </mesh>
+      {/* Main playing field */}
+      <mesh position={[0, -0.02, 0]} receiveShadow>
+        <boxGeometry args={[fieldWidth, 0.1, fieldDepth]} />
+        <meshStandardMaterial color="#5bb84a" roughness={0.82} />
+      </mesh>
+      {/* Subtle grid pattern layer */}
+      <mesh position={[0, 0.04, 0]} receiveShadow>
+        <boxGeometry args={[fieldWidth - 0.08, 0.015, fieldDepth - 0.08]} />
+        <meshStandardMaterial color="#68d158" roughness={0.76} transparent opacity={0.55} />
       </mesh>
       <BoardShapeRim boardShape={boardShape} bounds={bounds} />
       <MapArtifacts artifacts={artifacts} assetCatalog={assetCatalog} bounds={bounds} />
@@ -670,19 +704,31 @@ function FollowCamera({ target, motion }: { target: Vec3; motion: BoardMotionSet
 function AnimatedPartyLights({ motion }: { motion: BoardMotionSettings }) {
   const warm = useRef<PointLight | null>(null);
   const cool = useRef<PointLight | null>(null);
+  const accent = useRef<PointLight | null>(null);
   const initial = orbitLightPosition(0, !motion.orbitLights);
 
   useFrame((state) => {
-    if (!warm.current || !cool.current) return;
+    if (!warm.current || !cool.current || !accent.current) return;
     const pos = orbitLightPosition(state.clock.elapsedTime, !motion.orbitLights);
     warm.current.position.set(...pos);
     cool.current.position.set(-pos[0], Math.max(3.8, pos[1] - 0.35), -pos[2]);
+    // Third accent light moving at different phase
+    const angle2 = state.clock.elapsedTime * 0.4 + Math.PI;
+    accent.current.position.set(
+      Math.cos(angle2) * 4.5,
+      3.5 + Math.sin(state.clock.elapsedTime * 0.9) * 0.5,
+      Math.sin(angle2) * 4.5
+    );
+    // Pulse intensity for festive feel
+    warm.current.intensity = 1.05 + Math.sin(state.clock.elapsedTime * 2.2) * 0.18;
+    accent.current.intensity = 0.55 + Math.sin(state.clock.elapsedTime * 1.7 + 1) * 0.12;
   });
 
   return (
     <>
-      <pointLight ref={warm} position={initial} intensity={0.78} color="#fef08a" distance={11} />
-      <pointLight ref={cool} position={[-initial[0], 4.1, -initial[2]]} intensity={0.45} color="#67e8f9" distance={10} />
+      <pointLight ref={warm} position={initial} intensity={1.05} color="#fef08a" distance={14} decay={2} />
+      <pointLight ref={cool} position={[-initial[0], 4.1, -initial[2]]} intensity={0.52} color="#67e8f9" distance={12} decay={2} />
+      <pointLight ref={accent} position={[-4, 3.8, -4]} intensity={0.55} color="#f0abfc" distance={10} decay={2} />
     </>
   );
 }
@@ -702,70 +748,95 @@ function SlotPlatform({
 }) {
   const group = useRef<Group | null>(null);
   const style = slotMaterialStyle(slot.type);
-  const height = active ? 0.38 : occupiedCount > 0 ? 0.31 : 0.27;
-  const scale = active ? 1.08 : stepped ? 1.03 : 1;
+  const height = active ? 0.42 : occupiedCount > 0 ? 0.33 : 0.28;
+  const scale = active ? 1.08 : stepped ? 1.04 : 1;
 
   useFrame((state) => {
     if (!group.current) return;
-    const pulse = active && animated ? Math.sin(state.clock.elapsedTime * 5.2) * 0.025 : 0;
-    const glow = active && animated ? 1 + Math.sin(state.clock.elapsedTime * 4.4) * 0.025 : 1;
+    const pulse = active && animated ? Math.sin(state.clock.elapsedTime * 5.2) * 0.028 : 0;
+    const glow = active && animated ? 1 + Math.sin(state.clock.elapsedTime * 4.4) * 0.022 : 1;
     group.current.position.set(slot.position[0], slot.position[1] + pulse, slot.position[2]);
     group.current.scale.set(scale * glow, 1, scale * glow);
   });
 
   return (
     <group ref={group} position={slot.position} rotation={[0, slot.rotationY, 0]} scale={[scale, 1, scale]}>
-      <mesh receiveShadow position={[0.04, 0.012, 0.05]}>
-        <boxGeometry args={[1.08, 0.05, 0.88]} />
-        <meshStandardMaterial color="#2a1b16" roughness={0.9} transparent opacity={0.44} />
+      {/* Drop shadow blob */}
+      <mesh receiveShadow position={[0.05, 0.008, 0.06]}>
+        <boxGeometry args={[1.1, 0.04, 0.9]} />
+        <meshStandardMaterial color="#1a1008" roughness={0.95} transparent opacity={0.42} />
       </mesh>
+
+      {/* Main body */}
       <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
         <boxGeometry args={[1.02, height, 0.8]} />
-        <meshStandardMaterial color={style.side} roughness={0.56} metalness={0.1} />
+        <meshStandardMaterial color={style.side} roughness={0.52} metalness={0.12} />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, height + 0.018, 0]}>
-        <boxGeometry args={[1, 0.065, 0.78]} />
-        <meshStandardMaterial color={style.accent} roughness={0.44} metalness={0.06} />
+
+      {/* Accent ledge (wide rim) */}
+      <mesh castShadow receiveShadow position={[0, height + 0.015, 0]}>
+        <boxGeometry args={[1.04, 0.072, 0.82]} />
+        <meshStandardMaterial color={style.accent} roughness={0.38} metalness={0.1} />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, height + 0.065, 0]}>
-        <boxGeometry args={[0.86, 0.06, 0.64]} />
+
+      {/* Inset top surface - slightly sunken */}
+      <mesh castShadow receiveShadow position={[0, height + 0.068, 0]}>
+        <boxGeometry args={[0.88, 0.055, 0.66]} />
         <meshStandardMaterial
           color={style.top}
-          roughness={0.38}
-          metalness={0.1}
+          roughness={0.32}
+          metalness={0.12}
           emissive={active || stepped ? style.emissive : "#000000"}
-          emissiveIntensity={active ? 0.32 : stepped ? 0.1 : 0}
+          emissiveIntensity={active ? 0.42 : stepped ? 0.14 : 0}
         />
       </mesh>
-      {[
-        [-0.42, -0.31],
-        [0.42, -0.31],
-        [-0.42, 0.31],
-        [0.42, 0.31],
-      ].map(([x, z]) => (
-        <mesh key={`${x}-${z}`} castShadow position={[x, height + 0.11, z]}>
-          <boxGeometry args={[0.11, 0.055, 0.11]} />
-          <meshStandardMaterial color={style.accent} roughness={0.36} emissive={active ? style.emissive : "#000000"} emissiveIntensity={active ? 0.1 : 0} />
+
+      {/* Corner studs */}
+      {([[-0.43, -0.32], [0.43, -0.32], [-0.43, 0.32], [0.43, 0.32]] as [number, number][]).map(([x, z]) => (
+        <mesh key={`${x}-${z}`} castShadow position={[x, height + 0.12, z]}>
+          <boxGeometry args={[0.1, 0.06, 0.1]} />
+          <meshStandardMaterial
+            color={style.accent}
+            roughness={0.3}
+            metalness={0.2}
+            emissive={active ? style.emissive : "#000000"}
+            emissiveIntensity={active ? 0.15 : 0}
+          />
         </mesh>
       ))}
-      <mesh position={[0.18, height + 0.103, -0.1]} rotation={[0, 0.28, 0]}>
-        <boxGeometry args={[0.36, 0.018, 0.085]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.3} transparent opacity={active ? 0.42 : 0.28} />
+
+      {/* Highlight stripe */}
+      <mesh position={[0.16, height + 0.1, -0.11]} rotation={[0, 0.28, 0]}>
+        <boxGeometry args={[0.34, 0.016, 0.075]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.25} transparent opacity={active ? 0.48 : 0.3} />
       </mesh>
-      <SlotDecalMesh decal={style.decal} y={height + 0.115} color={style.accent} active={active} stepped={stepped} />
-      <mesh position={[0, height + 0.121, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.5, active || stepped ? 0.69 : 0.6, 36]} />
+
+      {/* Decal */}
+      <SlotDecalMesh decal={style.decal} y={height + 0.118} color={style.accent} active={active} stepped={stepped} />
+
+      {/* Ring halo on top surface */}
+      <mesh position={[0, height + 0.125, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.48, active || stepped ? 0.68 : 0.58, 36]} />
         <meshStandardMaterial
           color={active ? "#fde047" : stepped ? "#fef3c7" : style.accent}
           transparent
-          opacity={active ? 0.48 : stepped ? 0.32 : 0.13}
+          opacity={active ? 0.52 : stepped ? 0.34 : 0.14}
           side={DoubleSide}
         />
       </mesh>
+
+      {/* Extra outer ring for active tile */}
+      {active && (
+        <mesh position={[0, height + 0.126, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.68, 0.82, 36]} />
+          <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.3} transparent opacity={0.28} side={DoubleSide} />
+        </mesh>
+      )}
+
       {occupiedCount > 1 && (
-        <mesh position={[0, height + 0.135, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.67, 0.74, 32]} />
-          <meshStandardMaterial color="#ffffff" transparent opacity={0.18} side={DoubleSide} />
+        <mesh position={[0, height + 0.138, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.68, 0.76, 32]} />
+          <meshStandardMaterial color="#ffffff" transparent opacity={0.2} side={DoubleSide} />
         </mesh>
       )}
     </group>
@@ -862,6 +933,7 @@ function PlayerToken({
   motionNonce: string;
 }) {
   const group = useRef<Group | null>(null);
+  const pawnGroup = useRef<Group | null>(null);
   const segment = useRef(0);
   const progress = useRef(0);
   const pathKey = `${motionKind}:${motionNonce}:${path.map((point) => point.join(",")).join("|")}`;
@@ -875,55 +947,86 @@ function PlayerToken({
     if (group.current) group.current.position.copy(new Vector3(...start));
   }, [pathKey, start]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const token = group.current;
     if (!token || points.length === 0) return;
     if (motion.tokenStepSeconds === 0) {
       token.position.copy(points[points.length - 1]);
-      return;
-    }
-    if (points.length === 1) {
+    } else if (points.length === 1) {
       token.position.lerp(points[0], frameLerp(delta, 10));
-      return;
+    } else {
+      const next = Math.min(segment.current + 1, points.length - 1);
+      progress.current += delta / motion.tokenStepSeconds;
+      const t = easeOut(Math.min(1, progress.current));
+      token.position.lerpVectors(points[segment.current], points[next], t);
+      token.position.y += Math.sin(Math.min(1, progress.current) * Math.PI) * (motionKind === "jump" ? 0.95 : 0.22);
+      if (progress.current >= 1) {
+        segment.current = next;
+        progress.current = 0;
+        token.position.copy(points[next]);
+      }
     }
-
-    const next = Math.min(segment.current + 1, points.length - 1);
-    progress.current += delta / motion.tokenStepSeconds;
-    const t = easeOut(Math.min(1, progress.current));
-    token.position.lerpVectors(points[segment.current], points[next], t);
-    token.position.y += Math.sin(Math.min(1, progress.current) * Math.PI) * (motionKind === "jump" ? 0.95 : 0.22);
-
-    if (progress.current >= 1) {
-      segment.current = next;
-      progress.current = 0;
-      token.position.copy(points[next]);
+    // Gentle idle bob for active pawn
+    if (pawnGroup.current && active && motion.tokenStepSeconds !== 0) {
+      pawnGroup.current.position.y = Math.sin(state.clock.elapsedTime * 3.5) * 0.03;
+      pawnGroup.current.rotation.y = state.clock.elapsedTime * 0.8;
     }
   });
 
+  const opacity = player.connected ? 1 : 0.45;
+  const baseY = active ? 0.08 : 0.0;
+
   return (
     <group ref={group} position={start}>
-      <mesh castShadow position={[0, active ? 0.14 : 0.04, 0]}>
-        <sphereGeometry args={[active ? 0.24 : 0.2, 24, 16]} />
-        <meshStandardMaterial
-          color={player.color}
-          roughness={0.32}
-          metalness={0.12}
-          emissive={active ? player.color : "#000000"}
-          emissiveIntensity={active ? 0.38 : 0}
-          transparent={!player.connected}
-          opacity={player.connected ? 1 : 0.45}
-        />
-      </mesh>
-      <mesh castShadow position={[0, -0.1, 0]}>
-        <cylinderGeometry args={[0.18, 0.22, 0.08, 24]} />
-        <meshStandardMaterial color={player.color} roughness={0.45} metalness={0.18} transparent={!player.connected} opacity={player.connected ? 0.9 : 0.38} />
-      </mesh>
+      <group ref={pawnGroup}>
+        {/* Base disc */}
+        <mesh castShadow position={[0, baseY + 0.04, 0]}>
+          <cylinderGeometry args={[0.21, 0.24, 0.08, 10]} />
+          <meshStandardMaterial color={player.color} roughness={0.5} metalness={0.22} transparent opacity={opacity * 0.92} />
+        </mesh>
+        {/* Body stem */}
+        <mesh castShadow position={[0, baseY + 0.22, 0]}>
+          <cylinderGeometry args={[0.09, 0.14, 0.26, 8]} />
+          <meshStandardMaterial color={player.color} roughness={0.38} metalness={0.15} transparent opacity={opacity} />
+        </mesh>
+        {/* Collar ring */}
+        <mesh castShadow position={[0, baseY + 0.37, 0]}>
+          <cylinderGeometry args={[0.13, 0.1, 0.07, 8]} />
+          <meshStandardMaterial color={player.color} roughness={0.3} metalness={0.28} emissive={active ? player.color : "#000000"} emissiveIntensity={active ? 0.45 : 0} transparent opacity={opacity} />
+        </mesh>
+        {/* Head sphere - low poly */}
+        <mesh castShadow position={[0, baseY + 0.56, 0]}>
+          <sphereGeometry args={[active ? 0.185 : 0.165, 8, 6]} />
+          <meshStandardMaterial
+            color={player.color}
+            roughness={0.28}
+            metalness={0.18}
+            emissive={active ? player.color : "#000000"}
+            emissiveIntensity={active ? 0.55 : 0}
+            transparent={!player.connected}
+            opacity={opacity}
+          />
+        </mesh>
+        {/* Crown highlight on top of head */}
+        {active && (
+          <mesh position={[0, baseY + 0.77, 0]}>
+            <coneGeometry args={[0.06, 0.1, 5]} />
+            <meshStandardMaterial color="#fde047" emissive="#fbbf24" emissiveIntensity={0.7} roughness={0.2} />
+          </mesh>
+        )}
+      </group>
+      {/* Active glow ring on ground */}
       {active && (
-        <mesh position={[0, -0.13, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.29, 0.42, 36]} />
-          <meshStandardMaterial color="#ffffff" emissive={player.color} emissiveIntensity={0.18} transparent opacity={0.78} side={DoubleSide} />
+        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.28, 0.44, 32]} />
+          <meshStandardMaterial color="#fde047" emissive={player.color} emissiveIntensity={0.32} transparent opacity={0.72} side={DoubleSide} />
         </mesh>
       )}
+      {/* Soft shadow disc */}
+      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.22, 20]} />
+        <meshStandardMaterial color="#000000" transparent opacity={active ? 0.28 : 0.18} side={DoubleSide} />
+      </mesh>
     </group>
   );
 }
@@ -964,59 +1067,106 @@ const DICE_PIPS: Record<number, Array<[number, number]>> = {
 
 function FloatingDice({ cue, position }: { cue: BoardDiceCue; position: Vec3 }) {
   const group = useRef<Group | null>(null);
+  const scaleRef = useRef<Group | null>(null);
   const value = Math.max(1, Math.min(6, cue.value ?? 5));
+  const DICE_SIZE = 0.64;
 
   useFrame((state, delta) => {
     if (!group.current) return;
-    const bob = Math.sin(state.clock.elapsedTime * 7.5) * 0.08;
-    group.current.position.set(position[0], position[1] + 1.05 + bob, position[2]);
+    // Bigger bob when idle, fast when rolling
+    const bob = cue.rolling
+      ? Math.sin(state.clock.elapsedTime * 14) * 0.04
+      : Math.sin(state.clock.elapsedTime * 5.5) * 0.1;
+    group.current.position.set(position[0], position[1] + 1.18 + bob, position[2]);
 
     if (cue.rolling) {
-      group.current.rotation.x += delta * 6.5;
-      group.current.rotation.y += delta * 8.2;
-      group.current.rotation.z += delta * 4.8;
-      return;
+      group.current.rotation.x += delta * 9.5;
+      group.current.rotation.y += delta * 13.2;
+      group.current.rotation.z += delta * 7.1;
+    } else {
+      // Settle to a nice visible angle
+      group.current.rotation.x += (-0.55 - group.current.rotation.x) * 0.12;
+      group.current.rotation.y += (0.72 - group.current.rotation.y) * 0.12;
+      group.current.rotation.z += (0.08 - group.current.rotation.z) * 0.12;
     }
 
-    group.current.rotation.x += (-0.42 - group.current.rotation.x) * 0.16;
-    group.current.rotation.y += (0.58 - group.current.rotation.y) * 0.16;
-    group.current.rotation.z += (0.1 - group.current.rotation.z) * 0.16;
+    // Pulse scale when rolling
+    if (scaleRef.current) {
+      const pulse = cue.rolling ? 1 + Math.sin(state.clock.elapsedTime * 18) * 0.06 : 1;
+      scaleRef.current.scale.setScalar(pulse);
+    }
   });
 
   return (
-    <group ref={group} position={[position[0], position[1] + 1.05, position[2]]} scale={[cue.rolling ? 1.08 : 1, cue.rolling ? 1.08 : 1, cue.rolling ? 1.08 : 1]}>
-      <mesh castShadow>
-        <boxGeometry args={[0.52, 0.52, 0.52]} />
-        <meshStandardMaterial color="#fff7ed" roughness={0.36} metalness={0.04} emissive="#fef3c7" emissiveIntensity={cue.rolling ? 0.18 : 0.08} />
+    <group ref={group} position={[position[0], position[1] + 1.18, position[2]]}>
+      <group ref={scaleRef}>
+        {/* Main dice body */}
+        <mesh castShadow>
+          <boxGeometry args={[DICE_SIZE, DICE_SIZE, DICE_SIZE]} />
+          <meshStandardMaterial
+            color="#fffbf0"
+            roughness={0.22}
+            metalness={0.06}
+            emissive="#fef9c3"
+            emissiveIntensity={cue.rolling ? 0.32 : 0.12}
+          />
+        </mesh>
+        {/* Edge highlight overlay - slightly smaller darker box for depth */}
+        <mesh>
+          <boxGeometry args={[DICE_SIZE + 0.01, DICE_SIZE + 0.01, DICE_SIZE + 0.01]} />
+          <meshStandardMaterial color="#c8c0a8" roughness={0.6} transparent opacity={0.22} side={DoubleSide} />
+        </mesh>
+        {/* Pips on all visible faces */}
+        <DicePips value={value} size={DICE_SIZE} />
+      </group>
+
+      {/* Glow ring shadow below */}
+      <mesh position={[0, -(DICE_SIZE / 2 + 0.28), 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.38, 0.6, 32]} />
+        <meshStandardMaterial
+          color="#fde047"
+          emissive="#f59e0b"
+          emissiveIntensity={cue.rolling ? 0.6 : 0.35}
+          transparent
+          opacity={cue.rolling ? 0.65 : 0.42}
+          side={DoubleSide}
+        />
       </mesh>
-      <mesh position={[0.035, -0.035, -0.035]}>
-        <boxGeometry args={[0.52, 0.52, 0.52]} />
-        <meshStandardMaterial color="#d8d2c3" roughness={0.48} transparent opacity={0.34} />
-      </mesh>
-      <DicePips value={value} />
-      <mesh position={[0, -0.34, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.32, 0.46, 28]} />
-        <meshStandardMaterial color="#fff4bf" emissive="#facc15" emissiveIntensity={0.2} transparent opacity={cue.rolling ? 0.48 : 0.3} side={DoubleSide} />
+      {/* Outer glow ring */}
+      <mesh position={[0, -(DICE_SIZE / 2 + 0.29), 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.6, 0.9, 32]} />
+        <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.25} transparent opacity={0.18} side={DoubleSide} />
       </mesh>
     </group>
   );
 }
 
-function DicePips({ value }: { value: number }) {
+function DicePips({ value, size }: { value: number; size: number }) {
   const pips = DICE_PIPS[value] ?? DICE_PIPS[1];
+  const h = size / 2 + 0.002;
+  const pipR = 0.042;
 
   return (
     <group>
+      {/* Front face (+Z) */}
       {pips.map(([x, y], index) => (
-        <mesh key={`front-${index}`} position={[x, y, 0.268]}>
-          <sphereGeometry args={[0.032, 12, 8]} />
-          <meshStandardMaterial color="#18151f" roughness={0.45} />
+        <mesh key={`front-${index}`} position={[x * 0.72, y * 0.72, h]}>
+          <sphereGeometry args={[pipR, 10, 8]} />
+          <meshStandardMaterial color="#1a1025" roughness={0.5} />
         </mesh>
       ))}
-      {pips.slice(0, Math.min(4, pips.length)).map(([x, z], index) => (
-        <mesh key={`top-${index}`} position={[x, 0.268, z]}>
-          <sphereGeometry args={[0.025, 10, 8]} />
-          <meshStandardMaterial color="#18151f" roughness={0.45} />
+      {/* Top face (+Y) */}
+      {pips.slice(0, Math.min(6, pips.length)).map(([x, z], index) => (
+        <mesh key={`top-${index}`} position={[x * 0.72, h, z * 0.72]}>
+          <sphereGeometry args={[pipR * 0.85, 10, 8]} />
+          <meshStandardMaterial color="#1a1025" roughness={0.5} />
+        </mesh>
+      ))}
+      {/* Right face (+X) - show complementary face (7 - value) */}
+      {(DICE_PIPS[Math.max(1, 7 - value)] ?? DICE_PIPS[1]).slice(0, Math.min(4, pips.length)).map(([z, y], index) => (
+        <mesh key={`right-${index}`} position={[h, y * 0.72, z * 0.72]}>
+          <sphereGeometry args={[pipR * 0.78, 10, 8]} />
+          <meshStandardMaterial color="#1a1025" roughness={0.5} />
         </mesh>
       ))}
     </group>
