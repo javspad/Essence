@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { Send } from "lucide-react";
+import { Button } from "@/components/ui/8bit/button";
+import { Textarea } from "@/components/ui/8bit/textarea";
+import { ArcadeShell } from "./ArcadeShell";
 import type { MinigameProps } from "./types";
 
 export default function Judge({ content, onFinish }: MinigameProps) {
@@ -13,29 +17,31 @@ export default function Judge({ content, onFinish }: MinigameProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-5 p-6 max-w-md mx-auto w-full">
-      <h2 className="text-2xl font-bold text-center">{content?.prompt ?? "Escribí tu mensaje"}</h2>
+    <ArcadeShell title={content?.prompt ?? "Escribí tu mensaje"} kicker="Jurado" badge="texto">
       {content?.persona === "lujan" && (
-        <p className="text-violet-300 text-sm text-center">
+        <p className="text-center text-sm font-black text-[#c7bddc]">
           🍦 Luján Eppens es exigente e irónica. Impresionala.
         </p>
       )}
-      <textarea
+      <Textarea
+        font="normal"
         value={text}
         onChange={(e) => setText(e.target.value)}
         disabled={sent}
         rows={4}
         maxLength={280}
         placeholder={content?.placeholder ?? "Escribí acá..."}
-        className="w-full rounded-2xl bg-white/10 border-2 border-white/20 focus:border-white/60 outline-none p-4 text-lg resize-none disabled:opacity-50"
+        className="min-h-36 w-full resize-none bg-[#0d1829] p-4 text-lg text-[#fff8d6] disabled:opacity-50"
       />
-      <button
+      <Button
+        type="button"
         onClick={submit}
         disabled={sent || !text.trim()}
-        className="rounded-2xl py-4 px-8 font-bold text-lg bg-pink-500 active:scale-95 transition disabled:opacity-40 w-full"
+        className="h-12 w-full bg-[#f472b6] text-sm uppercase text-[#2a0718]"
       >
+        <Send data-icon="inline-start" />
         {sent ? "Esperando el veredicto..." : "Enviar 💌"}
-      </button>
-    </div>
+      </Button>
+    </ArcadeShell>
   );
 }

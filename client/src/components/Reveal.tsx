@@ -1,4 +1,6 @@
 import type { GameState } from "@essence/shared";
+import { Button } from "@/components/ui/8bit/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 
 interface Props {
   state: GameState;
@@ -13,41 +15,46 @@ export default function Reveal({ state, canAdvance, onNext }: Props) {
   if (!r) return null;
 
   return (
-    <div className="min-h-full flex flex-col items-center gap-5 p-6 max-w-md mx-auto w-full">
-      <div className="text-center">
-        <p className="text-sm uppercase tracking-widest text-violet-300">Resultados</p>
-        <h2 className="text-xl font-bold">{r.title}</h2>
-      </div>
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center p-6">
+      <Card font="normal" className="w-full border-[#fff4bf] bg-[#171120]/92 text-[#fff8d6]">
+        <CardHeader font="normal" className="text-center">
+          <p className="retro text-[10px] uppercase text-[#c7bddc]">Resultados</p>
+          <CardTitle font="normal" className="text-2xl font-black">{r.title}</CardTitle>
+        </CardHeader>
 
-      <div className="flex flex-col gap-2 w-full">
-        {r.entries.map((e, idx) => (
-          <div
-            key={e.playerId}
-            className={`rounded-2xl p-3 border animate-pop ${
-              idx === 0 ? "bg-amber-400/20 border-amber-400" : "bg-white/5 border-white/10"
-            }`}
-            style={{ animationDelay: `${idx * 60}ms` }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-xl w-7 text-center">{MEDAL[idx] ?? `${e.rank}.`}</span>
-              <span className="font-bold flex-1">{e.name}</span>
-              {e.coins > 0 && <span className="text-amber-300 font-bold">+🪙{e.coins}</span>}
-            </div>
-            {e.flavor && <p className="text-sm text-violet-200 mt-1 pl-9 italic">"{e.flavor}"</p>}
+        <CardContent font="normal" className="flex flex-col gap-5">
+          <div className="flex w-full flex-col gap-2">
+            {r.entries.map((e, idx) => (
+              <div
+                key={e.playerId}
+                className={`animate-pop border-2 p-3 ${
+                  idx === 0 ? "border-[#f5d547] bg-[#f5d547]/18" : "border-[#fff4bf]/20 bg-[#0d1829]"
+                }`}
+                style={{ animationDelay: `${idx * 60}ms` }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-7 text-center text-xl">{MEDAL[idx] ?? `${e.rank}.`}</span>
+                  <span className="flex-1 font-bold">{e.name}</span>
+                  {e.coins > 0 && <span className="font-bold text-[#f5d547]">+🪙{e.coins}</span>}
+                </div>
+                {e.flavor && <p className="mt-1 pl-9 text-sm italic text-[#c7bddc]">"{e.flavor}"</p>}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {canAdvance ? (
-        <button
-          onClick={onNext}
-          className="rounded-2xl py-4 px-8 font-bold text-lg bg-amber-400 text-amber-950 active:scale-95 transition w-full"
-        >
-          Siguiente turno →
-        </button>
-      ) : (
-        <p className="text-violet-300 animate-pulse">Esperando al host / jugador activo...</p>
-      )}
+          {canAdvance ? (
+            <Button
+              type="button"
+              onClick={onNext}
+              className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
+            >
+              Siguiente turno
+            </Button>
+          ) : (
+            <p className="animate-pulse text-center text-sm font-black text-[#c7bddc]">Esperando al host / jugador activo...</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

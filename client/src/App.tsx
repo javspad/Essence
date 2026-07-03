@@ -1,8 +1,11 @@
 import { lazy, Suspense } from "react";
+import type { GameState, Player } from "@essence/shared";
 import { useGame } from "./useGame";
+import { useBoardPresentation } from "./useBoardPresentation";
 import JoinScreen from "./components/JoinScreen";
 import Lobby from "./components/Lobby";
 import MinigameHost from "./components/MinigameHost";
+import { Badge } from "@/components/ui/8bit/badge";
 
 const GameScene3D = lazy(() => import("./components/GameScene3D"));
 const MapBuilder = lazy(() => import("./components/MapBuilder"));
@@ -36,7 +39,7 @@ export default function App() {
 }
 
 function GameApp() {
-  const { connected, state, me, activeId, isMyTurn, isHost, error, actions } = useGame();
+  const { connected, state, me, activeId, isHost, error, actions } = useGame();
 
   // Sin identidad todavía → pantalla de ingreso.
   if (!state || !me) {
@@ -48,17 +51,61 @@ function GameApp() {
     );
   }
 
-  if (["turn", "moving", "event", "reveal", "finished"].includes(state.phase)) {
+  return (
+    <ConnectedGame
+      connected={connected}
+      state={state}
+      me={me}
+      activeId={activeId}
+      isHost={isHost}
+      actions={actions}
+    />
+  );
+}
+
+function ConnectedGame({
+  connected,
+  state,
+  me,
+  activeId,
+  isHost,
+  actions,
+}: {
+  connected: boolean;
+  state: GameState;
+  me: Player;
+  activeId: string | null;
+  isHost: boolean;
+  actions: ReturnType<typeof useGame>["actions"];
+}) {
+  const presentation = useBoardPresentation(state);
+  const boardState = presentation.displayState;
+  const boardMe = boardState.players.find((player) => player.id === me.id) ?? me;
+  const boardActiveId = boardState.turnOrder[boardState.activeIndex] ?? activeId ?? undefined;
+  const boardIsMyTurn = boardMe.id === boardActiveId;
+
+  const boardPhaseVisible = ["turn", "moving", "event", "reveal", "finished"].includes(boardState.phase);
+  const holdingMinigameForBoard = state.phase === "minigame" && !presentation.showMinigame;
+
+  if (boardPhaseVisible || holdingMinigameForBoard) {
     return (
-      <Suspense fallback={<SceneLoading code={state.code} />}>
+      <Suspense fallback={<SceneLoading code={boardState.code} />}>
         <GameScene3D
           connected={connected}
-          state={state}
-          me={me}
-          activeId={activeId ?? undefined}
-          isMyTurn={isMyTurn}
+          state={boardState}
+          me={boardMe}
+          activeId={boardActiveId}
+          isMyTurn={boardIsMyTurn}
           isHost={isHost}
-          onRoll={actions.roll}
+          activeMotion={presentation.activeMotion}
+          diceCue={presentation.diceCue}
+          eventBusyLabel={presentation.eventBusyLabel}
+          rollBlocked={presentation.rollBlocked}
+          statusLabel={presentation.statusLabel}
+          onRoll={() => {
+            presentation.rollRequested();
+            actions.roll();
+          }}
           onNext={actions.next}
           onLeave={actions.leave}
         />
@@ -68,11 +115,11 @@ function GameApp() {
 
   return (
     <div className="min-h-full flex flex-col">
-      <ConnBadge connected={connected} code={state.code} />
+      {(state.phase === "lobby" || !connected) && <ConnBadge connected={connected} code={state.code} />}
 
       {state.phase === "lobby" && <Lobby state={state} isHost={isHost} onStart={actions.start} />}
 
-      {state.phase === "minigame" && (
+      {presentation.showMinigame && (
         <MinigameHost
           state={state}
           me={me}
@@ -96,11 +143,11 @@ function SceneLoading({ code }: { code: string }) {
 
 function ConnBadge({ connected, code }: { connected: boolean; code?: string }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2 text-xs text-white/50">
+    <div className="flex items-center justify-between px-4 py-3 text-xs text-white/60">
       <span>{code ? `Sala ${code}` : "Despedida de Javi"}</span>
-      <span className={connected ? "text-emerald-400" : "text-red-400"}>
+      <Badge className={connected ? "border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]" : "border-[#fecaca] bg-[#fb7185] px-2 py-1 text-[9px] text-[#2a070b]"}>
         {connected ? "● en línea" : "● reconectando..."}
-      </span>
+      </Badge>
     </div>
   );
 }

@@ -1,4 +1,7 @@
 import { useRef, useState } from "react";
+import { Zap } from "lucide-react";
+import { Button } from "@/components/ui/8bit/button";
+import { ArcadeShell } from "./ArcadeShell";
 import type { MinigameProps } from "./types";
 
 export default function Buzzer({ content, onFinish, onAction }: MinigameProps) {
@@ -17,22 +20,24 @@ export default function Buzzer({ content, onFinish, onAction }: MinigameProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 p-6 max-w-md mx-auto w-full">
-      <h2 className="text-2xl font-bold text-center">{content.question}</h2>
-      <p className="text-violet-300 text-sm">¡El primero que acierta gana! ⚡</p>
-      <div className="flex flex-col gap-3 w-full">
+    <ArcadeShell title={content.question} kicker="Buzzer" badge="rápido">
+      <p className="text-center text-sm font-black text-[#c7bddc]">¡El primero que acierta gana!</p>
+      <div className="flex w-full flex-col gap-4">
         {content.options.map((opt: string, i: number) => (
-          <button
+          <Button
+            type="button"
+            font="normal"
             key={i}
             onClick={() => pick(i)}
             disabled={answered}
-            className="rounded-2xl py-6 px-4 font-bold text-xl bg-white/10 border-2 border-white/20 hover:border-white/60 active:scale-95 transition disabled:opacity-40"
+            className="min-h-16 w-full bg-[#0d1829] px-4 text-base normal-case text-[#fff8d6] hover:bg-[#12253f]"
           >
+            <Zap data-icon="inline-start" />
             {opt}
-          </button>
+          </Button>
         ))}
       </div>
       {answered && <p className="text-emerald-300 font-semibold animate-pop">¡Respuesta enviada!</p>}
-    </div>
+    </ArcadeShell>
   );
 }

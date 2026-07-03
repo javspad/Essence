@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { Target } from "lucide-react";
+import { Button } from "@/components/ui/8bit/button";
+import { Input } from "@/components/ui/8bit/input";
+import { ArcadeShell } from "./ArcadeShell";
 import type { MinigameProps } from "./types";
 
 export default function Estimate({ content, onFinish }: MinigameProps) {
@@ -16,28 +20,30 @@ export default function Estimate({ content, onFinish }: MinigameProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 p-6 max-w-md mx-auto w-full">
-      <h2 className="text-2xl font-bold text-center">{content?.question}</h2>
-      <p className="text-violet-300 text-sm">El más cercano gana 🎯</p>
-      <div className="flex items-center gap-2 w-full">
-        <input
+    <ArcadeShell title={content?.question} kicker="Estimación" badge="cerca">
+      <p className="text-center text-sm font-black text-[#c7bddc]">El más cercano gana.</p>
+      <div className="flex w-full items-center gap-3">
+        <Input
+          font="normal"
           type="number"
           inputMode="numeric"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           disabled={sent}
           placeholder="0"
-          className="flex-1 rounded-2xl bg-white/10 border-2 border-white/20 focus:border-white/60 outline-none p-4 text-2xl text-center disabled:opacity-50"
+          className="h-16 flex-1 bg-[#0d1829] text-center text-2xl font-black text-[#fff8d6] disabled:opacity-50"
         />
-        {content?.unit && <span className="text-xl text-violet-300">{content.unit}</span>}
+        {content?.unit && <span className="text-xl font-black text-[#c7bddc]">{content.unit}</span>}
       </div>
-      <button
+      <Button
+        type="button"
         onClick={submit}
         disabled={sent || value.trim() === ""}
-        className="rounded-2xl py-4 px-8 font-bold text-lg bg-sky-500 active:scale-95 transition disabled:opacity-40 w-full"
+        className="h-12 w-full bg-[#38bdf8] text-sm uppercase text-[#061926]"
       >
+        <Target data-icon="inline-start" />
         {sent ? "Enviado ✓" : "Apostar"}
-      </button>
-    </div>
+      </Button>
+    </ArcadeShell>
   );
 }

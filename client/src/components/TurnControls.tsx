@@ -1,4 +1,7 @@
 import type { GameState, Player } from "@essence/shared";
+import { Dice5 } from "lucide-react";
+import { Button } from "@/components/ui/8bit/button";
+import { Card, CardContent } from "@/components/ui/8bit/card";
 
 interface Props {
   state: GameState;
@@ -14,39 +17,42 @@ export default function TurnControls({ state, me, isMyTurn, onRoll }: Props) {
   const rolling = state.phase === "moving";
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full">
-      <p className="text-sm text-violet-300">
-        Ronda {state.round} ·{" "}
-        {isMyTurn ? (
-          <span className="text-amber-300 font-bold">¡Es tu turno!</span>
-        ) : (
-          <>
-            Turno de <span className="font-bold" style={{ color: active?.color }}>{active?.name}</span>
-          </>
-        )}
-      </p>
-
-      {state.lastRoll && (
-        <div className="text-5xl animate-pop" aria-label={`Dado: ${state.lastRoll}`}>
-          {DICE[state.lastRoll]}
+    <Card font="normal" className="w-full border-[#f5d547] bg-[#171120]/92 text-[#fff8d6]">
+      <CardContent font="normal" className="p-4 text-center">
+        <div className="flex items-end justify-between gap-4 text-left">
+          <div>
+            <p className="retro text-[9px] uppercase text-[#c7bddc]">Ronda {state.round}</p>
+            <p className="mt-1 text-sm font-black" style={{ color: active?.color ?? "#fff8d6" }}>
+              {isMyTurn ? "¡Es tu turno!" : `Turno de ${active?.name ?? "..."}`}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="retro text-[9px] uppercase text-[#c7bddc]">Ficha</p>
+            <p className="mt-1 text-2xl font-black text-[#fff4bf]">#{Math.max(0, me.position)}</p>
+          </div>
         </div>
-      )}
 
-      {isMyTurn && state.phase === "turn" ? (
-        <button
-          onClick={onRoll}
-          className="rounded-full w-32 h-32 text-xl font-black bg-amber-400 text-amber-950 active:scale-90 transition shadow-xl"
-        >
-          TIRAR 🎲
-        </button>
-      ) : (
-        <p className="text-violet-300/70 text-sm h-8 flex items-center">
-          {rolling ? "Moviendo..." : !isMyTurn ? `Mirando a ${active?.name}...` : ""}
-        </p>
-      )}
-      {me.position >= 0 && (
-        <p className="text-xs text-white/40">Estás en el casillero {me.position}</p>
-      )}
-    </div>
+        {state.lastRoll && (
+          <div className="mt-4 text-5xl animate-pop" aria-label={`Dado: ${state.lastRoll}`}>
+            {DICE[state.lastRoll]}
+          </div>
+        )}
+
+        {isMyTurn && state.phase === "turn" ? (
+          <Button
+            type="button"
+            onClick={onRoll}
+            className="mt-4 h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507] hover:bg-[#ffe96c]"
+          >
+            <Dice5 data-icon="inline-start" />
+            Tirar
+          </Button>
+        ) : (
+          <p className="mt-4 min-h-8 text-sm font-black text-[#c7bddc]">
+            {rolling ? "Moviendo..." : !isMyTurn ? `Mirando a ${active?.name ?? "..."}` : ""}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

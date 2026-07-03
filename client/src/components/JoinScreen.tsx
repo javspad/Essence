@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { ArrowLeft, Gamepad2, LogIn, Map, Users } from "lucide-react";
+import { Button } from "@/components/ui/8bit/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
+import { Input } from "@/components/ui/8bit/input";
 
 interface Props {
   error: string | null;
@@ -12,73 +16,91 @@ export default function JoinScreen({ error, onCreate, onJoin }: Props) {
   const [mode, setMode] = useState<"menu" | "join">("menu");
 
   return (
-    <div className="min-h-full flex flex-col items-center justify-center gap-6 p-6 max-w-sm mx-auto w-full">
-      <div className="text-center">
-        <div className="text-6xl mb-2">🎲🍻</div>
-        <h1 className="text-3xl font-black">Despedida de Javi</h1>
-        <p className="text-violet-300 text-sm mt-1">15 años de amistad, una noche de joda</p>
-      </div>
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center p-6">
+      <Card font="normal" className="w-full border-[#fff4bf] bg-[#171120]/92 text-[#fff8d6] shadow-[0_20px_60px_rgb(0_0_0/0.38)]">
+        <CardHeader font="normal" className="text-center">
+          <div className="mb-2 text-5xl">🎲🍻</div>
+          <CardTitle font="normal" className="text-3xl font-black">Despedida de Javi</CardTitle>
+          <p className="text-sm font-bold text-[#c7bddc]">15 años de amistad, una noche de joda</p>
+        </CardHeader>
 
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Tu nombre"
-        maxLength={16}
-        className="w-full rounded-2xl bg-white/10 border-2 border-white/20 focus:border-white/60 outline-none p-4 text-lg text-center"
-      />
-
-      {mode === "menu" ? (
-        <div className="flex flex-col gap-3 w-full">
-          <button
-            onClick={() => name.trim() && onCreate(name.trim())}
-            disabled={!name.trim()}
-            className="rounded-2xl py-4 font-bold text-lg bg-amber-400 text-amber-950 active:scale-95 transition disabled:opacity-40"
-          >
-            Crear sala
-          </button>
-          <button
-            onClick={() => setMode("join")}
-            disabled={!name.trim()}
-            className="rounded-2xl py-4 font-bold text-lg bg-white/10 border-2 border-white/20 active:scale-95 transition disabled:opacity-40"
-          >
-            Unirme con código
-          </button>
-          <a
-            href="/map-builder"
-            className="rounded-2xl py-4 text-center font-bold text-lg bg-emerald-300/15 border-2 border-emerald-200/35 text-emerald-100 active:scale-95 transition hover:bg-emerald-300/20"
-          >
-            Map builder
-          </a>
-          <a
-            href="/minigame-builder"
-            className="rounded-2xl py-4 text-center font-bold text-lg bg-cyan-300/15 border-2 border-cyan-200/35 text-cyan-100 active:scale-95 transition hover:bg-cyan-300/20"
-          >
-            Minigame builder
-          </a>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 w-full">
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="CÓDIGO"
-            maxLength={4}
-            className="w-full rounded-2xl bg-white/10 border-2 border-white/20 focus:border-white/60 outline-none p-4 text-2xl text-center tracking-[0.4em] font-black uppercase"
+        <CardContent font="normal" className="flex flex-col gap-5">
+          <Input
+            font="normal"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Tu nombre"
+            maxLength={16}
+            className="h-14 w-full bg-[#100b1a] text-center text-lg font-black text-[#fff8d6]"
           />
-          <button
-            onClick={() => name.trim() && code.trim() && onJoin(code.trim(), name.trim())}
-            disabled={!name.trim() || code.length < 4}
-            className="rounded-2xl py-4 font-bold text-lg bg-amber-400 text-amber-950 active:scale-95 transition disabled:opacity-40"
-          >
-            Entrar
-          </button>
-          <button onClick={() => setMode("menu")} className="text-violet-300 text-sm">
-            ← Volver
-          </button>
-        </div>
-      )}
 
-      {error && <p className="text-red-400 font-semibold animate-pop">{error}</p>}
+          {mode === "menu" ? (
+            <div className="flex w-full flex-col gap-4">
+              <Button
+                type="button"
+                onClick={() => name.trim() && onCreate(name.trim())}
+                disabled={!name.trim()}
+                className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
+              >
+                <Users data-icon="inline-start" />
+                Crear sala
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setMode("join")}
+                disabled={!name.trim()}
+                className="h-12 w-full bg-[#38bdf8] text-sm uppercase text-[#061926]"
+              >
+                <LogIn data-icon="inline-start" />
+                Unirme
+              </Button>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  onClick={() => { window.location.href = "/map-builder"; }}
+                  className="h-11 w-full bg-[#34d399] text-[11px] uppercase text-[#062116]"
+                >
+                  <Map data-icon="inline-start" />
+                  Map builder
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => { window.location.href = "/minigame-builder"; }}
+                  className="h-11 w-full bg-[#f472b6] text-[11px] uppercase text-[#2a0718]"
+                >
+                  <Gamepad2 data-icon="inline-start" />
+                  Minigames
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex w-full flex-col gap-4">
+              <Input
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="CÓDIGO"
+                maxLength={4}
+                className="h-16 w-full bg-[#100b1a] text-center text-2xl font-black uppercase text-[#fff8d6]"
+              />
+              <Button
+                type="button"
+                onClick={() => name.trim() && code.trim() && onJoin(code.trim(), name.trim())}
+                disabled={!name.trim() || code.length < 4}
+                className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
+              >
+                <LogIn data-icon="inline-start" />
+                Entrar
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setMode("menu")} className="h-10 w-full text-[#c7bddc]">
+                <ArrowLeft data-icon="inline-start" />
+                Volver
+              </Button>
+            </div>
+          )}
+
+          {error && <p className="animate-pop text-center font-semibold text-[#fb7185]">{error}</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }

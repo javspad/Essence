@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { Vote as VoteIcon } from "lucide-react";
+import { Button } from "@/components/ui/8bit/button";
+import { ArcadeShell } from "./ArcadeShell";
 import type { MinigameProps } from "./types";
 
 export default function Vote({ content, players, onFinish }: MinigameProps) {
@@ -11,29 +14,31 @@ export default function Vote({ content, players, onFinish }: MinigameProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 p-6 max-w-md mx-auto w-full">
-      <h2 className="text-2xl font-bold text-center">{content.question}</h2>
-      <p className="text-violet-300 text-sm">Votá en secreto 🤫</p>
-      <div className="grid grid-cols-2 gap-3 w-full">
+    <ArcadeShell title={content.question} kicker="Votación" badge="secreto">
+      <p className="text-center text-sm font-black text-[#c7bddc]">Votá en secreto.</p>
+      <div className="grid w-full grid-cols-2 gap-4">
         {players.map((p) => (
-          <button
+          <Button
+            type="button"
+            font="normal"
             key={p.id}
             onClick={() => choose(p.id)}
             disabled={!!picked}
-            className={`rounded-2xl py-5 px-3 font-bold text-lg transition active:scale-95 border-2 ${
+            className={`min-h-16 px-3 text-base font-black normal-case text-[#fff8d6] ${
               picked === p.id
-                ? "border-white scale-105"
+                ? "scale-105 bg-[#f5d547] text-[#201507]"
                 : picked
-                  ? "border-transparent opacity-40"
-                  : "border-white/20 hover:border-white/60"
+                  ? "opacity-40"
+                  : "bg-[#0d1829] hover:bg-[#12253f]"
             }`}
-            style={{ background: p.color + "33" }}
+            style={picked === p.id ? undefined : { background: p.color + "33" }}
           >
+            <VoteIcon data-icon="inline-start" />
             {p.name}
-          </button>
+          </Button>
         ))}
       </div>
       {picked && <p className="text-emerald-300 font-semibold animate-pop">¡Voto registrado!</p>}
-    </div>
+    </ArcadeShell>
   );
 }

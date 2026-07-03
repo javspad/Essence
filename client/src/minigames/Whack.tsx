@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Player } from "@essence/shared";
+import { Badge } from "@/components/ui/8bit/badge";
+import { Button } from "@/components/ui/8bit/button";
+import { Progress } from "@/components/ui/8bit/progress";
+import { ArcadeShell } from "./ArcadeShell";
 import type { MinigameProps } from "./types";
 
 const HOLES = 9;
@@ -55,6 +59,7 @@ export default function Whack({ content, players, onFinish }: MinigameProps) {
   }, []);
 
   const target = pool.find((p) => p.id === targetId);
+  const timePercent = Math.max(0, Math.min(100, (timeLeft / Math.ceil(duration / 1000)) * 100));
 
   const whack = (i: number) => {
     if (over) return;
@@ -75,33 +80,41 @@ export default function Whack({ content, players, onFinish }: MinigameProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 p-6 max-w-md mx-auto w-full">
-      <div className="flex justify-between w-full text-sm font-semibold">
-        <span className="text-emerald-300">Aciertos: {hits}</span>
-        <span className="text-amber-300">⏱ {timeLeft}s</span>
+    <ArcadeShell
+      title={<>¡Golpeá a <span style={{ color: target?.color }}>{target?.name}</span>!</>}
+      kicker="Whack"
+      badge="reflejos"
+    >
+      <div className="grid w-full grid-cols-2 gap-3">
+        <Badge className="justify-center border-[#a7f3d0] bg-[#34d399] px-3 py-2 text-[10px] text-[#062116]">
+          Aciertos {hits}
+        </Badge>
+        <Badge className="justify-center border-[#fde68a] bg-[#f5d547] px-3 py-2 text-[10px] text-[#201507]">
+          {timeLeft}s
+        </Badge>
       </div>
-      <h2 className="text-xl font-bold text-center">
-        ¡Golpeá a <span style={{ color: target?.color }}>{target?.name}</span>!
-      </h2>
-      <div className="grid grid-cols-3 gap-3 w-full">
+      <Progress className="h-4 w-full" value={timePercent} variant="retro" progressBg="bg-[#f5d547]" />
+      <div className="grid w-full grid-cols-3 gap-3">
         {moles.map((mole, i) => (
-          <button
+          <Button
+            type="button"
+            font="normal"
             key={i}
             onClick={() => whack(i)}
-            className="aspect-square rounded-2xl bg-white/5 border-2 border-white/10 flex items-center justify-center text-2xl font-black active:scale-90 transition overflow-hidden"
+            className="flex aspect-square h-auto w-full items-center justify-center overflow-hidden bg-[#0d1829] p-0 text-2xl font-black"
           >
             {mole && (
               <span
-                className="w-full h-full flex items-center justify-center animate-pop rounded-2xl"
+                className="flex h-full w-full animate-pop items-center justify-center"
                 style={{ background: mole.color + "55" }}
               >
                 {mole.name.slice(0, 3)}
               </span>
             )}
-          </button>
+          </Button>
         ))}
       </div>
       {over && <p className="text-lg font-bold animate-pop">¡{hits} aciertos!</p>}
-    </div>
+    </ArcadeShell>
   );
 }

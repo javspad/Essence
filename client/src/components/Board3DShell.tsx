@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { CanvasTexture, DoubleSide, LinearFilter, SRGBColorSpace, Vector3, type Group, type PointLight } from "three";
 import type { MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, Player, Tile } from "@essence/shared";
 import { localAssetProjection } from "../artifactProjection";
+import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
 import {
   board3DMapBounds,
   board3DSlots,
@@ -37,6 +38,8 @@ interface Board3DShellProps {
   activeId?: string;
   lastRoll?: number | null;
   boardLength?: number;
+  activeMotion?: BoardActiveMotion | null;
+  diceCue?: BoardDiceCue | null;
   children?: ReactNode;
   className?: string;
   interactive?: boolean;
@@ -52,6 +55,8 @@ export default function Board3DShell({
   activeId,
   lastRoll = null,
   boardLength = tiles.length,
+  activeMotion = null,
+  diceCue = null,
   children,
   className,
   interactive = false,
@@ -71,14 +76,17 @@ export default function Board3DShell({
   const slotPositions = useMemo(() => new Map(slots.map((slot) => [slot.id, slot.position] as const)), [slots]);
   const activePlayer = activeId ? players.find((player) => player.id === activeId) : undefined;
   const activeSlot = slotPositions.get(activePlayer?.position ?? 0) ?? [0, 0, 0];
-  const activePath = new Set(movementPath(activePlayer?.position ?? -1, lastRoll, boardLength));
+  const activePath = new Set(
+    activeMotion?.playerId === activeId ? activeMotion.path : movementPath(activePlayer?.position ?? -1, lastRoll, boardLength)
+  );
   const occupancy = useMemo(() => playersByPosition(players), [players]);
   const tokens = useMemo(
     () =>
       players.map((player) => {
         const stack = occupancy.get(player.position) ?? [];
         const stackIndex = Math.max(0, stack.findIndex((p) => p.id === player.id));
-        const tilePath = player.id === activeId ? movementPath(player.position, lastRoll, boardLength) : [];
+        const explicitMotion = activeMotion?.playerId === player.id ? activeMotion : null;
+        const tilePath = explicitMotion?.path ?? (player.id === activeId ? movementPath(player.position, lastRoll, boardLength) : []);
         const path = tokenPathPositions(
           slotPositions,
           tilePath.length ? tilePath : [player.position],
@@ -90,10 +98,21 @@ export default function Board3DShell({
           player,
           active: player.id === activeId,
           path: path.length ? path : [fallback],
+          motionKind: explicitMotion?.kind ?? "walk",
+          motionNonce: explicitMotion?.nonce ?? "",
         };
       }),
-    [activeId, boardLength, lastRoll, occupancy, players, slotPositions]
+    [activeId, activeMotion, boardLength, lastRoll, occupancy, players, slotPositions]
   );
+  const dicePosition = useMemo(() => {
+    if (!diceCue) return null;
+    const player = players.find((candidate) => candidate.id === diceCue.playerId);
+    if (!player) return null;
+    const stack = occupancy.get(player.position) ?? [];
+    const stackIndex = Math.max(0, stack.findIndex((candidate) => candidate.id === player.id));
+    const stackTotal = stack.length || 1;
+    return tokenWorldPosition(slotPositions.get(player.position) ?? [0, 0, 0], stackIndex, stackTotal);
+  }, [diceCue, occupancy, players, slotPositions]);
 
   const shellClassName =
     className ??
@@ -127,12 +146,15 @@ export default function Board3DShell({
             active={slot.id === activePlayer?.position}
             stepped={activePath.has(slot.id)}
             occupiedCount={occupancy.get(slot.id)?.length ?? 0}
+            animated={motion.tokenStepSeconds !== 0}
           />
         ))}
 
-        {tokens.map(({ player, active, path }) => (
-          <PlayerToken key={player.id} player={player} active={active} path={path} motion={motion} />
+        {tokens.map(({ player, active, path, motionKind, motionNonce }) => (
+          <PlayerToken key={player.id} player={player} active={active} path={path} motion={motion} motionKind={motionKind} motionNonce={motionNonce} />
         ))}
+
+        {diceCue && dicePosition && <FloatingDice cue={diceCue} position={dicePosition} />}
 
         {children}
       </Canvas>
@@ -670,44 +692,78 @@ function SlotPlatform({
   active,
   stepped,
   occupiedCount,
+  animated,
 }: {
   slot: Board3DSlot;
   active: boolean;
   stepped: boolean;
   occupiedCount: number;
+  animated: boolean;
 }) {
+  const group = useRef<Group | null>(null);
   const style = slotMaterialStyle(slot.type);
-  const height = active ? 0.34 : occupiedCount > 0 ? 0.28 : 0.24;
-  const scale = active ? 1.08 : 1;
+  const height = active ? 0.38 : occupiedCount > 0 ? 0.31 : 0.27;
+  const scale = active ? 1.08 : stepped ? 1.03 : 1;
+
+  useFrame((state) => {
+    if (!group.current) return;
+    const pulse = active && animated ? Math.sin(state.clock.elapsedTime * 5.2) * 0.025 : 0;
+    const glow = active && animated ? 1 + Math.sin(state.clock.elapsedTime * 4.4) * 0.025 : 1;
+    group.current.position.set(slot.position[0], slot.position[1] + pulse, slot.position[2]);
+    group.current.scale.set(scale * glow, 1, scale * glow);
+  });
 
   return (
-    <group position={slot.position} rotation={[0, slot.rotationY, 0]} scale={[scale, 1, scale]}>
-      <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
-        <boxGeometry args={[0.92, height, 0.72]} />
-        <meshStandardMaterial color={style.side} roughness={0.5} metalness={0.16} />
+    <group ref={group} position={slot.position} rotation={[0, slot.rotationY, 0]} scale={[scale, 1, scale]}>
+      <mesh receiveShadow position={[0.04, 0.012, 0.05]}>
+        <boxGeometry args={[1.08, 0.05, 0.88]} />
+        <meshStandardMaterial color="#2a1b16" roughness={0.9} transparent opacity={0.44} />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, height + 0.016, 0]}>
-        <boxGeometry args={[0.88, 0.035, 0.68]} />
+      <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
+        <boxGeometry args={[1.02, height, 0.8]} />
+        <meshStandardMaterial color={style.side} roughness={0.56} metalness={0.1} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0, height + 0.018, 0]}>
+        <boxGeometry args={[1, 0.065, 0.78]} />
+        <meshStandardMaterial color={style.accent} roughness={0.44} metalness={0.06} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0, height + 0.065, 0]}>
+        <boxGeometry args={[0.86, 0.06, 0.64]} />
         <meshStandardMaterial
           color={style.top}
-          roughness={0.42}
+          roughness={0.38}
           metalness={0.1}
-          emissive={active ? style.emissive : "#000000"}
-          emissiveIntensity={active ? 0.32 : 0}
+          emissive={active || stepped ? style.emissive : "#000000"}
+          emissiveIntensity={active ? 0.32 : stepped ? 0.1 : 0}
         />
       </mesh>
-      <SlotDecalMesh decal={style.decal} y={height + 0.032} color={style.accent} active={active} stepped={stepped} />
-      <mesh position={[0, height + 0.042, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.5, active || stepped ? 0.66 : 0.59, 32]} />
+      {[
+        [-0.42, -0.31],
+        [0.42, -0.31],
+        [-0.42, 0.31],
+        [0.42, 0.31],
+      ].map(([x, z]) => (
+        <mesh key={`${x}-${z}`} castShadow position={[x, height + 0.11, z]}>
+          <boxGeometry args={[0.11, 0.055, 0.11]} />
+          <meshStandardMaterial color={style.accent} roughness={0.36} emissive={active ? style.emissive : "#000000"} emissiveIntensity={active ? 0.1 : 0} />
+        </mesh>
+      ))}
+      <mesh position={[0.18, height + 0.103, -0.1]} rotation={[0, 0.28, 0]}>
+        <boxGeometry args={[0.36, 0.018, 0.085]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.3} transparent opacity={active ? 0.42 : 0.28} />
+      </mesh>
+      <SlotDecalMesh decal={style.decal} y={height + 0.115} color={style.accent} active={active} stepped={stepped} />
+      <mesh position={[0, height + 0.121, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.5, active || stepped ? 0.69 : 0.6, 36]} />
         <meshStandardMaterial
           color={active ? "#fde047" : stepped ? "#fef3c7" : style.accent}
           transparent
-          opacity={active ? 0.62 : stepped ? 0.42 : 0.18}
+          opacity={active ? 0.48 : stepped ? 0.32 : 0.13}
           side={DoubleSide}
         />
       </mesh>
       {occupiedCount > 1 && (
-        <mesh position={[0, height + 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, height + 0.135, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.67, 0.74, 32]} />
           <meshStandardMaterial color="#ffffff" transparent opacity={0.18} side={DoubleSide} />
         </mesh>
@@ -795,16 +851,20 @@ function PlayerToken({
   active,
   path,
   motion,
+  motionKind,
+  motionNonce,
 }: {
   player: Player;
   active: boolean;
   path: Vec3[];
   motion: BoardMotionSettings;
+  motionKind: BoardMotionKind;
+  motionNonce: string;
 }) {
   const group = useRef<Group | null>(null);
   const segment = useRef(0);
   const progress = useRef(0);
-  const pathKey = path.map((point) => point.join(",")).join("|");
+  const pathKey = `${motionKind}:${motionNonce}:${path.map((point) => point.join(",")).join("|")}`;
   const points = useMemo(() => path.map((point) => new Vector3(...point)), [pathKey]);
   const finalPoint = path[path.length - 1] ?? [0, 0, 0];
   const start = motion.tokenStepSeconds === 0 ? finalPoint : path[0] ?? finalPoint;
@@ -831,6 +891,7 @@ function PlayerToken({
     progress.current += delta / motion.tokenStepSeconds;
     const t = easeOut(Math.min(1, progress.current));
     token.position.lerpVectors(points[segment.current], points[next], t);
+    token.position.y += Math.sin(Math.min(1, progress.current) * Math.PI) * (motionKind === "jump" ? 0.95 : 0.22);
 
     if (progress.current >= 1) {
       segment.current = next;
@@ -863,6 +924,101 @@ function PlayerToken({
           <meshStandardMaterial color="#ffffff" emissive={player.color} emissiveIntensity={0.18} transparent opacity={0.78} side={DoubleSide} />
         </mesh>
       )}
+    </group>
+  );
+}
+
+const DICE_PIPS: Record<number, Array<[number, number]>> = {
+  1: [[0, 0]],
+  2: [
+    [-0.12, 0.12],
+    [0.12, -0.12],
+  ],
+  3: [
+    [-0.13, 0.13],
+    [0, 0],
+    [0.13, -0.13],
+  ],
+  4: [
+    [-0.13, 0.13],
+    [0.13, 0.13],
+    [-0.13, -0.13],
+    [0.13, -0.13],
+  ],
+  5: [
+    [-0.13, 0.13],
+    [0.13, 0.13],
+    [0, 0],
+    [-0.13, -0.13],
+    [0.13, -0.13],
+  ],
+  6: [
+    [-0.13, 0.15],
+    [0.13, 0.15],
+    [-0.13, 0],
+    [0.13, 0],
+    [-0.13, -0.15],
+    [0.13, -0.15],
+  ],
+};
+
+function FloatingDice({ cue, position }: { cue: BoardDiceCue; position: Vec3 }) {
+  const group = useRef<Group | null>(null);
+  const value = Math.max(1, Math.min(6, cue.value ?? 5));
+
+  useFrame((state, delta) => {
+    if (!group.current) return;
+    const bob = Math.sin(state.clock.elapsedTime * 7.5) * 0.08;
+    group.current.position.set(position[0], position[1] + 1.05 + bob, position[2]);
+
+    if (cue.rolling) {
+      group.current.rotation.x += delta * 6.5;
+      group.current.rotation.y += delta * 8.2;
+      group.current.rotation.z += delta * 4.8;
+      return;
+    }
+
+    group.current.rotation.x += (-0.42 - group.current.rotation.x) * 0.16;
+    group.current.rotation.y += (0.58 - group.current.rotation.y) * 0.16;
+    group.current.rotation.z += (0.1 - group.current.rotation.z) * 0.16;
+  });
+
+  return (
+    <group ref={group} position={[position[0], position[1] + 1.05, position[2]]} scale={[cue.rolling ? 1.08 : 1, cue.rolling ? 1.08 : 1, cue.rolling ? 1.08 : 1]}>
+      <mesh castShadow>
+        <boxGeometry args={[0.52, 0.52, 0.52]} />
+        <meshStandardMaterial color="#fff7ed" roughness={0.36} metalness={0.04} emissive="#fef3c7" emissiveIntensity={cue.rolling ? 0.18 : 0.08} />
+      </mesh>
+      <mesh position={[0.035, -0.035, -0.035]}>
+        <boxGeometry args={[0.52, 0.52, 0.52]} />
+        <meshStandardMaterial color="#d8d2c3" roughness={0.48} transparent opacity={0.34} />
+      </mesh>
+      <DicePips value={value} />
+      <mesh position={[0, -0.34, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.32, 0.46, 28]} />
+        <meshStandardMaterial color="#fff4bf" emissive="#facc15" emissiveIntensity={0.2} transparent opacity={cue.rolling ? 0.48 : 0.3} side={DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+function DicePips({ value }: { value: number }) {
+  const pips = DICE_PIPS[value] ?? DICE_PIPS[1];
+
+  return (
+    <group>
+      {pips.map(([x, y], index) => (
+        <mesh key={`front-${index}`} position={[x, y, 0.268]}>
+          <sphereGeometry args={[0.032, 12, 8]} />
+          <meshStandardMaterial color="#18151f" roughness={0.45} />
+        </mesh>
+      ))}
+      {pips.slice(0, Math.min(4, pips.length)).map(([x, z], index) => (
+        <mesh key={`top-${index}`} position={[x, 0.268, z]}>
+          <sphereGeometry args={[0.025, 10, 8]} />
+          <meshStandardMaterial color="#18151f" roughness={0.45} />
+        </mesh>
+      ))}
     </group>
   );
 }

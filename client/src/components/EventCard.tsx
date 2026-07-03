@@ -1,4 +1,5 @@
 import type { GameState } from "@essence/shared";
+import { Button } from "@/components/ui/8bit/button";
 
 interface Props {
   state: GameState;
@@ -15,8 +16,8 @@ export default function EventCard({ state, canAdvance, onNext }: Props) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-40">
       <div
-        className={`max-w-sm w-full rounded-3xl p-8 text-center animate-pop border-2 ${
-          isDare ? "bg-rose-900/90 border-rose-400" : "bg-fuchsia-900/90 border-fuchsia-400"
+        className={`modal-card max-w-sm animate-pop ${
+          isDare ? "from-rose-900/95 to-pink-950/95" : "from-fuchsia-900/95 to-indigo-950/95"
         }`}
       >
         <div className="text-6xl mb-3">{isDare ? "🍻" : "🃏"}</div>
@@ -28,12 +29,13 @@ export default function EventCard({ state, canAdvance, onNext }: Props) {
         </p>
         <p className="text-xl font-semibold mb-6">{ev.text}</p>
         {canAdvance ? (
-          <button
+          <Button
+            type="button"
             onClick={onNext}
-            className="rounded-2xl py-3 px-8 font-bold bg-white text-slate-900 active:scale-95 transition w-full"
+            className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
           >
-            {isDare ? "¡Listo, lo hizo! →" : "Siguiente →"}
-          </button>
+            {isDare ? "¡Listo, lo hizo!" : "Siguiente"}
+          </Button>
         ) : (
           <p className="text-white/60 animate-pulse">Esperando...</p>
         )}

@@ -1,6 +1,12 @@
 import { useMemo, type ReactNode } from "react";
 import type { GameState, Player } from "@essence/shared";
+import { Dice5 } from "lucide-react";
+import { Button } from "@/components/ui/8bit/button";
+import { Badge } from "@/components/ui/8bit/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
+import { cn } from "@/lib/utils";
 import { supportsWebGL } from "../board3d";
+import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
 import Board3DShell from "./Board3DShell";
 import EventCard from "./EventCard";
 import Reveal from "./Reveal";
@@ -15,6 +21,11 @@ interface GameScene3DProps {
   activeId?: string;
   isMyTurn: boolean;
   isHost: boolean;
+  activeMotion?: BoardActiveMotion | null;
+  diceCue?: BoardDiceCue | null;
+  eventBusyLabel?: string | null;
+  rollBlocked?: boolean;
+  statusLabel?: string | null;
   onRoll: () => void;
   onNext: () => void;
   onLeave: () => void;
@@ -29,6 +40,11 @@ export default function GameScene3D({
   activeId,
   isMyTurn,
   isHost,
+  activeMotion,
+  diceCue,
+  eventBusyLabel,
+  rollBlocked = false,
+  statusLabel,
   onRoll,
   onNext,
   onLeave,
@@ -67,6 +83,8 @@ export default function GameScene3D({
         activeId={activeId}
         lastRoll={state.lastRoll}
         boardLength={state.boardLength}
+        activeMotion={activeMotion}
+        diceCue={diceCue}
         interactive
         className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,#f9d88a_0%,#936326_34%,#201208_78%)]"
       />
@@ -79,6 +97,9 @@ export default function GameScene3D({
         isMyTurn={isMyTurn}
         canAdvance={canAdvance}
         editMode={editMode}
+        eventBusyLabel={eventBusyLabel}
+        rollBlocked={rollBlocked}
+        statusLabel={statusLabel}
         onRoll={onRoll}
         onNext={onNext}
         onLeave={onLeave}
@@ -99,6 +120,9 @@ function SceneChrome({
   isMyTurn,
   canAdvance,
   editMode,
+  eventBusyLabel,
+  rollBlocked,
+  statusLabel,
   onRoll,
   onNext,
   onLeave,
@@ -110,64 +134,133 @@ function SceneChrome({
   isMyTurn: boolean;
   canAdvance: boolean;
   editMode: boolean;
+  eventBusyLabel?: string | null;
+  rollBlocked: boolean;
+  statusLabel?: string | null;
   onRoll: () => void;
   onNext: () => void;
   onLeave: () => void;
 }) {
   const active = state.players.find((player) => player.id === activeId);
   const sorted = [...state.players].sort((a, b) => b.stars - a.stars || b.coins - a.coins);
+  const showTurnPanel =
+    state.phase !== "reveal" &&
+    state.phase !== "finished" &&
+    (isMyTurn || state.phase === "moving" || Boolean(state.lastRoll));
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col gap-3 p-3 sm:p-5">
-      <header className="mx-auto w-full max-w-xl rounded-3xl border border-white/20 bg-slate-950/55 px-4 py-3 text-center shadow-2xl shadow-black/30 backdrop-blur-md">
-        <div className="flex items-center justify-center gap-2 text-sm font-black uppercase tracking-[0.22em] text-amber-100">
-          Sala {state.code}
-          <span className={connected ? "text-emerald-300" : "text-red-300"}>{connected ? "● en línea" : "● reconectando"}</span>
+      <div className="flex min-h-0 flex-1 items-start gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
+          <ScorePanel
+            players={sorted}
+            active={active}
+            activeId={activeId}
+            connected={connected}
+            phase={state.phase}
+            round={state.round}
+          />
+          {editMode && <SceneEditHint active={active} />}
         </div>
-        <div className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-violet-100/80">
-          {phaseLabel(state.phase)} · Ronda {state.round}
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1 items-start justify-between gap-3">
-        <ScorePanel players={sorted} activeId={activeId} />
-        {editMode && <SceneEditHint active={active} />}
       </div>
 
-      {state.phase !== "reveal" && state.phase !== "finished" && (
+      {showTurnPanel && (
         <div className="flex justify-end">
-          <TurnPanel state={state} me={me} active={active} isMyTurn={isMyTurn} onRoll={onRoll} />
+          <TurnPanel
+            state={state}
+            me={me}
+            active={active}
+            isMyTurn={isMyTurn}
+            rollBlocked={rollBlocked}
+            statusLabel={statusLabel}
+            onRoll={onRoll}
+          />
         </div>
       )}
 
-      {state.phase === "event" && <EventOverlay state={state} canAdvance={canAdvance} onNext={onNext} />}
+      {state.phase === "event" && <EventOverlay state={state} canAdvance={canAdvance} busyLabel={eventBusyLabel} onNext={onNext} />}
       {state.phase === "reveal" && <RevealOverlay state={state} canAdvance={canAdvance} onNext={onNext} />}
       {state.phase === "finished" && <VictoryOverlay state={state} onLeave={onLeave} />}
     </div>
   );
 }
 
-function ScorePanel({ players, activeId }: { players: Player[]; activeId?: string }) {
+function ScorePanel({
+  players,
+  active,
+  activeId,
+  connected,
+  phase,
+  round,
+}: {
+  players: Player[];
+  active?: Player;
+  activeId?: string;
+  connected: boolean;
+  phase: GameState["phase"];
+  round: number;
+}) {
   return (
-    <aside className="pointer-events-auto w-[min(18rem,48vw)] max-w-full overflow-hidden rounded-3xl border border-amber-200/25 bg-slate-950/55 shadow-2xl shadow-black/30 backdrop-blur-md">
-      <h2 className="border-b border-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.24em] text-amber-200">Marcador</h2>
-      <ol className="max-h-[38dvh] overflow-y-auto p-2 text-sm">
-        {players.map((player, index) => (
-          <li
-            key={player.id}
-            className={`flex items-center gap-2 rounded-2xl px-2 py-2 font-bold ${player.id === activeId ? "bg-white/12" : ""}`}
-          >
-            <span className="w-5 text-center text-white/45">{index + 1}</span>
-            <span className="h-3 w-3 shrink-0 rounded-full shadow" style={{ backgroundColor: player.color }} />
-            <span className="min-w-0 flex-1 truncate" style={{ color: player.connected ? player.color : "#94a3b8" }}>
-              {player.id === activeId ? "▶ " : ""}{player.name}
-            </span>
-            <span className="shrink-0 text-amber-100">🪙{player.coins}</span>
-            {player.stars > 0 && <span className="shrink-0 text-yellow-200">⭐{player.stars}</span>}
-          </li>
-        ))}
-      </ol>
-    </aside>
+    <Card
+      font="normal"
+      className="pointer-events-auto w-[min(23rem,calc(100vw-1.5rem))] max-w-full border-[#fff4bf] bg-[#171120]/90 text-[#fff8d6] shadow-[0_16px_40px_rgb(0_0_0/0.35)] backdrop-blur-md"
+    >
+      <aside>
+        <CardHeader font="normal" className="gap-2 px-3 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle font="normal" className="retro text-[10px] uppercase text-[#fff4bf]">
+                Marcador
+              </CardTitle>
+              <p className="mt-1 text-[11px] font-black uppercase text-[#c7bddc]">
+                Ronda {round} · {phaseLabel(phase)}
+              </p>
+            </div>
+            <Badge className="shrink-0 border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] uppercase text-[#062116]">
+              Turno {active?.name ?? "..."}
+            </Badge>
+          </div>
+          {!connected && (
+            <Badge className="w-fit border-[#fecaca] bg-[#fb7185] px-2 py-1 text-[9px] uppercase text-[#2a070b]">
+              Reconectando
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent font="normal" className="px-2 pb-2 pt-0">
+          <ol className="max-h-[38dvh] overflow-y-auto text-sm">
+            {players.map((player, index) => {
+              const isActive = player.id === activeId;
+
+              return (
+                <li
+                  key={player.id}
+                  className={cn(
+                    "grid grid-cols-[1.4rem_0.85rem_minmax(0,1fr)_auto] items-center gap-2 px-2 py-2 font-black",
+                    isActive ? "bg-[#f5d547]/16 text-[#fff8d6]" : "text-[#fff8d6]/85",
+                    player.connected ? "" : "opacity-45"
+                  )}
+                >
+                  <span className="retro text-center text-[9px] text-[#fff4bf]/60">{index + 1}</span>
+                  <span
+                    className="size-3 rounded-[2px] border border-black/35 shadow-[2px_2px_0_rgb(0_0_0/0.35)]"
+                    style={{ backgroundColor: player.color }}
+                  />
+                  <span className="min-w-0 truncate text-xs sm:text-sm">
+                    {isActive ? "▶ " : ""}
+                    {player.name}
+                    {player.groom ? " 🤵" : ""}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2 text-[11px] text-[#fff4bf]">
+                    <span>🪙{player.coins}</span>
+                    {player.stars > 0 && <span>⭐{player.stars}</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </CardContent>
+      </aside>
+    </Card>
   );
 }
 
@@ -176,37 +269,68 @@ function TurnPanel({
   me,
   active,
   isMyTurn,
+  rollBlocked,
+  statusLabel,
   onRoll,
 }: {
   state: GameState;
   me: Player;
   active?: Player;
   isMyTurn: boolean;
+  rollBlocked: boolean;
+  statusLabel?: string | null;
   onRoll: () => void;
 }) {
   return (
-    <section className="pointer-events-auto w-[min(24rem,calc(100vw-1.5rem))] rounded-3xl border border-violet-200/25 bg-indigo-950/65 p-4 text-right shadow-2xl shadow-black/30 backdrop-blur-md">
-      <p className="text-lg font-black text-amber-100 sm:text-2xl">{turnTitle(state, active, isMyTurn)}</p>
-      <p className="mt-1 text-sm font-bold text-violet-100/80">
-        {state.lastRoll ? `Dado ${DICE[state.lastRoll]} (${state.lastRoll})` : `Estás en ${me.position}`}
-      </p>
-      <p className="mt-1 truncate text-sm font-bold" style={{ color: active?.color ?? "#cbd5e1" }}>
-        {active ? `Activo: ${active.name}` : "Esperando turno"}
-      </p>
-      {state.phase === "turn" && isMyTurn && (
-        <button
-          type="button"
-          onClick={onRoll}
-          className="pointer-events-auto mt-4 rounded-2xl bg-amber-300 px-6 py-3 text-base font-black uppercase tracking-[0.18em] text-amber-950 shadow-lg shadow-amber-950/30 transition active:scale-95"
-        >
-          Tirar 🎲
-        </button>
-      )}
-    </section>
+    <Card
+      font="normal"
+      className="pointer-events-auto w-[min(20rem,calc(100vw-1.5rem))] border-[#f5d547] bg-[#171120]/92 text-[#fff8d6] text-left shadow-[0_16px_40px_rgb(0_0_0/0.38)] backdrop-blur-md"
+    >
+      <section>
+        <CardContent font="normal" className="p-4">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="retro text-[9px] uppercase text-[#c7bddc]">Tu ficha</p>
+              <p className="mt-1 text-2xl font-black text-[#fff4bf]">#{Math.max(0, me.position)}</p>
+            </div>
+            <div className="text-right">
+              <p className="retro text-[9px] uppercase text-[#c7bddc]">Dado</p>
+              <p className="mt-1 text-3xl font-black leading-none text-[#fff8d6]" aria-label={state.lastRoll ? `Dado ${state.lastRoll}` : "Sin dado"}>
+                {state.lastRoll ? DICE[state.lastRoll] : "--"}
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-sm font-black" style={{ color: active?.color ?? "#cbd5e1" }}>
+            {statusLabel ?? turnTitle(state, active, isMyTurn)}
+          </p>
+          {state.phase === "turn" && isMyTurn && (
+            <Button
+              type="button"
+              onClick={onRoll}
+              disabled={rollBlocked}
+              className="pointer-events-auto mt-4 h-12 w-full bg-[#f5d547] px-5 text-sm uppercase text-[#201507] hover:bg-[#ffe96c]"
+            >
+              <Dice5 data-icon="inline-start" />
+              Tirar
+            </Button>
+          )}
+        </CardContent>
+      </section>
+    </Card>
   );
 }
 
-function EventOverlay({ state, canAdvance, onNext }: { state: GameState; canAdvance: boolean; onNext: () => void }) {
+function EventOverlay({
+  state,
+  canAdvance,
+  busyLabel,
+  onNext,
+}: {
+  state: GameState;
+  canAdvance: boolean;
+  busyLabel?: string | null;
+  onNext: () => void;
+}) {
   const event = state.activeEvent;
   if (!event) return null;
   const player = state.players.find((p) => p.id === event.playerId);
@@ -220,7 +344,9 @@ function EventOverlay({ state, canAdvance, onNext }: { state: GameState; canAdva
           {player?.name ?? "Jugador"}
         </h2>
         <p className="mx-auto mt-5 max-w-2xl text-center text-xl font-black leading-tight text-white sm:text-3xl">{event.text}</p>
-        <ActionButton disabled={!canAdvance} onClick={onNext}>{canAdvance ? (isDare ? "Listo →" : "Siguiente →") : "Esperando..."}</ActionButton>
+        <ActionButton disabled={!canAdvance || Boolean(busyLabel)} onClick={onNext}>
+          {busyLabel ?? (canAdvance ? (isDare ? "Listo →" : "Siguiente →") : "Esperando...")}
+        </ActionButton>
       </div>
     </CenterOverlay>
   );
@@ -283,14 +409,14 @@ function CenterOverlay({ children }: { children: ReactNode }) {
 
 function ActionButton({ children, disabled, onClick }: { children: ReactNode; disabled?: boolean; onClick: () => void }) {
   return (
-    <button
+    <Button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="mt-6 rounded-2xl bg-white px-6 py-3 text-base font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/70 sm:text-lg"
+      className="mt-6 min-h-12 bg-[#f5d547] px-6 text-sm uppercase text-[#201507] disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/70 sm:text-base"
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

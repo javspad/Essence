@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import type { GameState, Player } from "@essence/shared";
+import { Button } from "@/components/ui/8bit/button";
+import { Card, CardContent } from "@/components/ui/8bit/card";
+import { Progress } from "@/components/ui/8bit/progress";
 import { ENGINES } from "../minigames";
 
 interface Props {
@@ -53,7 +56,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
   };
 
   return (
-    <div className="min-h-full flex flex-col justify-center w-full py-6">
+    <div className="flex min-h-full w-full flex-col justify-center py-6">
       <Engine
         key={`${mg.id}-${state.round}-${state.activeIndex}`}
         content={mg.content}
@@ -79,25 +82,31 @@ function Waiting({
 }) {
   return (
     <Centered>
-      <div className="text-5xl mb-4 animate-pulse">⏳</div>
-      <p className="text-lg font-semibold">{text}</p>
-      <p className="text-violet-300 mt-2">
-        {count}/{total} enviaron su jugada
-      </p>
-      {onForce && (
-        <button
-          onClick={onForce}
-          className="mt-6 rounded-2xl py-2 px-5 text-sm font-semibold bg-white/10 border border-white/20 active:scale-95 transition"
-        >
-          Cerrar igual (host)
-        </button>
-      )}
+      <Card font="normal" className="w-full max-w-md border-[#7dd3fc] bg-[#171120]/92 text-[#fff8d6]">
+        <CardContent font="normal" className="flex flex-col items-center gap-5 p-6">
+          <div className="animate-pulse text-5xl">⏳</div>
+          <p className="text-lg font-black">{text}</p>
+          <Progress className="h-4 w-full" value={total ? (count / total) * 100 : 0} variant="retro" progressBg="bg-[#38bdf8]" />
+          <p className="text-sm font-black text-[#c7bddc]">
+            {count}/{total} enviaron su jugada
+          </p>
+          {onForce && (
+            <Button
+              type="button"
+              onClick={onForce}
+              className="h-11 w-full bg-[#fb7185] text-xs uppercase text-[#2a070b]"
+            >
+              Cerrar igual (host)
+            </Button>
+          )}
+        </CardContent>
+      </Card>
     </Centered>
   );
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-full flex flex-col items-center justify-center text-center p-6">{children}</div>
+    <div className="flex min-h-full flex-col items-center justify-center p-6 text-center">{children}</div>
   );
 }

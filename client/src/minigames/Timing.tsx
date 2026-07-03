@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Hand } from "lucide-react";
+import { Button } from "@/components/ui/8bit/button";
+import { ArcadeShell } from "./ArcadeShell";
 import type { MinigameProps } from "./types";
 
 const PERIOD_MS = 1600; // ida y vuelta de la aguja
@@ -41,31 +44,32 @@ export default function Timing({ content, onFinish }: MinigameProps) {
   const safeHalf = windowFraction * 100;
 
   return (
-    <div className="flex flex-col items-center gap-8 p-6 max-w-md mx-auto w-full">
-      <h2 className="text-2xl font-bold text-center">{content?.label ?? "Tocá en el centro"}</h2>
-      <div className="relative w-full h-16 rounded-full bg-white/10 overflow-hidden border-2 border-white/20">
+    <ArcadeShell title={content?.label ?? "Tocá en el centro"} kicker="Precisión" badge="centro">
+      <div className="relative h-16 w-full overflow-hidden border-4 border-[#fff4bf] bg-[#0d1829]">
         {/* zona segura */}
         <div
-          className="absolute top-0 h-full bg-emerald-500/40"
+          className="absolute top-0 h-full bg-[#34d399]/45"
           style={{ left: `${centerPct - safeHalf}%`, width: `${safeHalf * 2}%` }}
         />
         {/* centro */}
-        <div className="absolute top-0 h-full w-0.5 bg-emerald-300" style={{ left: "50%" }} />
+        <div className="absolute top-0 h-full w-1 bg-[#a7f3d0]" style={{ left: "50%" }} />
         {/* aguja */}
         <div
-          className="absolute top-0 h-full w-2 bg-amber-300 rounded-full shadow-[0_0_12px_3px_rgba(252,211,77,0.8)]"
+          className="absolute top-0 h-full w-3 bg-[#f5d547] shadow-[0_0_12px_3px_rgba(245,213,71,0.65)]"
           style={{ left: `calc(${pos * 100}% - 4px)` }}
         />
       </div>
-      <button
+      <Button
+        type="button"
         onClick={tap}
         disabled={done}
-        className="rounded-full w-44 h-44 text-2xl font-black bg-amber-400 text-amber-950 active:scale-90 transition disabled:opacity-50 shadow-xl"
+        className="mx-auto h-24 w-full max-w-xs bg-[#f5d547] text-xl uppercase text-[#201507] disabled:opacity-50"
       >
+        {!done && <Hand data-icon="inline-start" />}
         {done ? "✓" : "¡TOCÁ!"}
-      </button>
+      </Button>
       {done && (
-        <p className="text-lg font-semibold animate-pop">
+        <p className="animate-pop text-center text-lg font-black">
           {Math.abs(pos - 0.5) > windowFraction
             ? isBostezo
               ? "😴 Te vio la profe..."
@@ -73,6 +77,6 @@ export default function Timing({ content, onFinish }: MinigameProps) {
             : "😎 Zafaste"}
         </p>
       )}
-    </div>
+    </ArcadeShell>
   );
 }
