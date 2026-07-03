@@ -17,6 +17,7 @@ import {
   normalizeBuilderContent,
   validateMap,
 } from "./mapBuilder";
+import { normalizeGameContentEvents, resolveEventForPlayer } from "@essence/shared/events";
 
 const board: Tile[] = [
   { id: 0, type: "start", layout: { x: 0, y: 0 } },
@@ -39,6 +40,10 @@ assert.equal(builder.maps.length, 1);
 assert.equal(builder.maps[0].routes.length, 2);
 assert.equal(builder.maps[0].routes[0].from, 0);
 assert.equal(builder.maps[0].routes[0].to, 1);
+assert.equal(builder.maps[0].board[1].eventId, "event-quiz");
+
+const normalizedEvents = normalizeGameContentEvents(content);
+assert.equal(normalizedEvents.events?.["event-quiz"].activity?.type, "vote");
 
 let state = createInitialMapBuilderState(content);
 state = mapBuilderReducer(state, { type: "start_route", from: 0 });
@@ -53,6 +58,56 @@ assert.equal(validateMap(getActiveMap(state))[0], `Ruta ${active.routes[0].id} l
 const exported = builderContentToGameContent(content, builder);
 assert.equal(exported.activeMapId, builder.activeMapId);
 assert.equal(exported.board.length, 3);
+assert.equal(exported.board[1].eventId, "event-quiz");
+assert.equal(exported.events?.["event-quiz"].activity?.type, "vote");
+
+const overrideContent = normalizeGameContentEvents({
+  ...content,
+  events: {
+    "custom-event": {
+      name: "Custom event",
+      kind: "activity",
+      tags: ["dare"],
+      story: { title: "Default", prompt: "Default prompt" },
+      activity: { type: "prompt", resolutionMode: "selfTap", content: { prompt: "Default prompt" } },
+      outcomes: [{ when: "loser", actions: [{ type: "move", delta: -2, target: "loser" }] }],
+    },
+  },
+  playerStories: {
+    p1: {
+      overrides: [
+        {
+          eventId: "custom-event",
+          story: { prompt: "P1 prompt" },
+          activity: { content: { prompt: "P1 activity prompt" } },
+          outcomes: [{ when: "winner", actions: [{ type: "coins", value: 5, target: "winner" }] }],
+        },
+      ],
+    },
+  },
+});
+const resolvedOverride = resolveEventForPlayer(overrideContent, "custom-event", { id: "p1", name: "P1" });
+assert.equal(resolvedOverride?.story.prompt, "P1 prompt");
+assert.equal(resolvedOverride?.activity?.type, "selfTap");
+assert.deepEqual(resolvedOverride?.activity?.content, { prompt: "P1 activity prompt" });
+assert.equal(resolvedOverride?.outcomes?.[0].when, "winner");
+
+const legacyPromptVoteContent = normalizeGameContentEvents({
+  ...content,
+  events: {
+    "legacy-prompt-vote": {
+      name: "Legacy prompt vote",
+      kind: "activity",
+      story: { prompt: "Vote this dare" },
+      activity: { type: "prompt", resolutionMode: "vote", content: { prompt: "Vote this dare" } },
+    },
+  },
+});
+assert.equal(legacyPromptVoteContent.events?.["legacy-prompt-vote"].activity?.type, "vote");
+assert.deepEqual(legacyPromptVoteContent.events?.["legacy-prompt-vote"].activity?.content, {
+  prompt: "Vote this dare",
+  question: "Vote this dare",
+});
 
 const boundedContent: GameContent = {
   ...content,

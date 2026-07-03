@@ -11,7 +11,8 @@ export default function EventCard({ state, canAdvance, onNext }: Props) {
   const ev = state.activeEvent;
   if (!ev) return null;
   const player = state.players.find((p) => p.id === ev.playerId);
-  const isDare = ev.kind === "dare";
+  const isDare = ev.kind === "dare" || ev.story?.title?.toLowerCase().includes("prenda");
+  const title = ev.title ?? ev.story?.title ?? (isDare ? "Prenda" : "Evento");
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-40">
@@ -22,12 +23,23 @@ export default function EventCard({ state, canAdvance, onNext }: Props) {
       >
         <div className="text-6xl mb-3">{isDare ? "🍻" : "🃏"}</div>
         <p className="text-sm uppercase tracking-widest text-white/60 mb-1">
-          {isDare ? "Prenda" : "Carta del destino"}
+          {title}
         </p>
         <p className="font-bold text-lg mb-1" style={{ color: player?.color }}>
           {player?.name}
         </p>
-        <p className="text-xl font-semibold mb-6">{ev.text}</p>
+        {ev.story?.setup && <p className="mb-3 text-sm font-bold text-white/65">{ev.story.setup}</p>}
+        <p className="text-xl font-semibold mb-4">{ev.story?.prompt ?? ev.text}</p>
+        {ev.story?.reward && <p className="mb-4 text-sm font-black text-amber-200">{ev.story.reward}</p>}
+        {ev.actions?.length ? (
+          <div className="mb-4 grid gap-2">
+            {ev.actions.map((action, index) => (
+              <p key={`${action.text}-${index}`} className="rounded-sm border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-sm font-black text-amber-100">
+                {action.text}
+              </p>
+            ))}
+          </div>
+        ) : null}
         {canAdvance ? (
           <Button
             type="button"

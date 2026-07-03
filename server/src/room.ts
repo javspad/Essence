@@ -1,7 +1,12 @@
 import type { Server } from "socket.io";
 import type {
   ActiveMinigame,
+  AppliedEventAction,
   ClientToServerEvents,
+  EventAction,
+  EventActionTarget,
+  EventActivity,
+  EventOutcomeBranch,
   GameContent,
   GameState,
   MinigameResult,
@@ -9,11 +14,10 @@ import type {
   ServerToClientEvents,
   Tile,
 } from "@essence/shared";
+import { eventTitle, legacyEventIdForTile, resolveEventForPlayer, type ResolvedGameEvent } from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
-
-const TILE_TRIGGERS_MINIGAME = new Set(["minigame", "trivia", "vote", "judge", "groom", "star"]);
 
 export class GameRoom {
   readonly code: string;
@@ -22,8 +26,11 @@ export class GameRoom {
   private content: GameContent;
   private state: GameState;
   private pendingResults = new Map<string, MinigameResult>();
+  private pendingEvent: ResolvedGameEvent | null = null;
   private awardsStar = false;
   private resolving = false;
+  private skippedTurns = new Set<string>();
+  private extraTurnPlayerId: string | null = null;
 
   constructor(io: IO, code: string, name: string, content: GameContent) {
     this.io = io;
@@ -43,6 +50,8 @@ export class GameRoom {
       artifacts: activeMap?.artifacts,
       assetCatalog: content.assetCatalog,
       boardShape: activeMap?.boardShape,
+      terrainZones: activeMap?.terrainZones,
+      theme: activeMap?.theme,
       players: [],
       turnOrder: [],
       activeIndex: 0,
@@ -189,62 +198,92 @@ export class GameRoom {
   }
 
   private triggerTile(tile: Tile, active: Player) {
-    if (TILE_TRIGGERS_MINIGAME.has(tile.type) && tile.minigameId) {
-      this.awardsStar = tile.type === "star";
-      this.startMinigame(tile.minigameId);
-      return;
-    }
-    if (tile.type === "dare" && tile.dareId) {
-      const dare = this.content.dares[tile.dareId];
-      this.state.activeEvent = { kind: "dare", text: dare?.text ?? "Prenda", playerId: active.id };
-      this.state.phase = "event";
-      this.broadcast();
-      return;
-    }
-    if (tile.type === "fate" && tile.fateId) {
-      const fate = this.content.fates[tile.fateId];
-      if (fate?.delta) {
-        active.position = Math.max(0, Math.min(active.position + fate.delta, this.state.boardLength - 1));
+    const eventId = tile.eventId ?? legacyEventIdForTile(tile);
+    if (eventId) {
+      const event = resolveEventForPlayer(this.content, eventId, active);
+      if (!event) {
+        console.warn(`[room] evento desconocido: ${eventId}`);
+        this.advanceTurn();
+        return;
       }
-      if (fate?.coins) active.coins = Math.max(0, active.coins + fate.coins);
-      this.state.activeEvent = { kind: "fate", text: fate?.text ?? "Destino", playerId: active.id };
-      this.state.phase = "event";
-      this.broadcast();
+      this.awardsStar = tile.type === "star";
+      this.startEvent(event, active);
       return;
     }
     // Casillero sin acción (start u otros): pasa el turno.
     this.advanceTurn();
   }
 
-  // --- Minijuego -----------------------------------------------------------
+  // --- Eventos / actividades ----------------------------------------------
 
-  private startMinigame(minigameId: string) {
-    const def = this.content.minigames[minigameId];
-    if (!def) {
-      console.warn(`[room] minijuego desconocido: ${minigameId}`);
+  private startEvent(event: ResolvedGameEvent, active: Player) {
+    this.pendingEvent = event;
+    const activity = event.activity;
+    if (!activity) {
+      const actions = this.applyActions(event.actions ?? [], {
+        landingPlayerId: active.id,
+        ranking: [active.id],
+      });
+      this.state.activeEvent = {
+        id: event.id,
+        kind: event.kind ?? "story",
+        title: event.story.title ?? eventTitle(event),
+        text: eventText(event),
+        story: event.story,
+        playerId: active.id,
+        actions,
+      };
+      this.state.phase = "event";
+      this.broadcast();
+      return;
+    }
+    this.startActivity(event, active, activity);
+  }
+
+  private startActivity(event: ResolvedGameEvent, activePlayer: Player, activity: EventActivity) {
+    this.pendingResults.clear();
+    const participants = this.activityParticipants(activity, activePlayer);
+    const subjects = this.activitySubjects(activity, activePlayer, participants);
+    if (!participants.length || !subjects.length) {
       this.advanceTurn();
       return;
     }
-    this.pendingResults.clear();
-    const participants = this.connectedPlayers().map((p) => p.id);
     const active: ActiveMinigame = {
-      id: minigameId,
-      type: def.type,
-      skin: def.skin,
-      content: def.content,
+      id: event.id,
+      eventId: event.id,
+      protagonistId: activePlayer.id,
+      type: activity.type,
+      skin: activity.skin,
+      content: activityContent(activity, event),
+      story: event.story,
       participants,
+      subjects,
       submitted: [],
     };
     this.state.activeMinigame = active;
     this.state.phase = "minigame";
     this.broadcast();
     this.io.to(this.code).emit("minigame:start", {
-      id: minigameId,
-      type: def.type,
-      skin: def.skin,
-      content: def.content,
+      id: event.id,
+      type: activity.type,
+      skin: activity.skin,
+      content: active.content,
       participants,
     });
+  }
+
+  private activityParticipants(activity: EventActivity, active: Player): string[] {
+    const connected = this.connectedPlayers();
+    const mode = activity.participants ?? defaultParticipantMode(activity.type);
+    if (mode === "landing") return connected.some((p) => p.id === active.id) ? [active.id] : [];
+    if (mode === "host") return connected.filter((p) => p.isHost).map((p) => p.id);
+    return connected.map((p) => p.id);
+  }
+
+  private activitySubjects(activity: EventActivity, active: Player, participants: string[]): string[] {
+    if (activity.type === "hostPick" || activity.type === "vote") return this.connectedPlayers().map((p) => p.id);
+    if (activity.type === "prompt") return [active.id];
+    return participants;
   }
 
   minigameAction(socketId: string, data: unknown) {
@@ -254,14 +293,14 @@ export class GameRoom {
     this.io.to(this.code).emit("minigame:action", { playerId: p.id, data });
   }
 
-  async submitResult(socketId: string, result: { score: number; payload: unknown }) {
+  async submitResult(socketId: string, result: { score: number; payload: unknown; outcome?: "win" | "loss" }) {
     const p = this.playerBySocket(socketId);
     const mg = this.state.activeMinigame;
     if (!p || !mg) return;
     if (!mg.participants.includes(p.id)) return;
     if (this.pendingResults.has(p.id)) return;
 
-    this.pendingResults.set(p.id, { playerId: p.id, score: result.score, payload: result.payload });
+    this.pendingResults.set(p.id, { playerId: p.id, score: result.score, payload: result.payload, outcome: result.outcome });
     if (!mg.submitted.includes(p.id)) mg.submitted.push(p.id);
     this.broadcast();
 
@@ -281,33 +320,62 @@ export class GameRoom {
     if (!mg || this.resolving) return;
     this.resolving = true;
     try {
-      const def = this.content.minigames[mg.id];
+      const event = this.pendingEvent;
+      const def = event?.activity ?? this.content.minigames[mg.id];
+      if (!def) {
+        this.advanceTurn();
+        return;
+      }
       const reveal = await resolveMinigame({
         minigameId: mg.id,
+        eventId: mg.eventId,
         def,
         results: [...this.pendingResults.values()],
         participants: mg.participants,
+        subjects: mg.subjects,
         players: this.state.players,
-        coinPayout: this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0],
+        coinPayout: mg.type === "prompt" ? [] : this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0],
+        story: mg.story,
       });
 
-      // Aplicar monedas (y estrella si era casillero star).
+      // Aplicar monedas (y consecuencias configuradas en el evento).
       for (const [id, c] of Object.entries(reveal.coins)) {
         const pl = this.state.players.find((x) => x.id === id);
         if (pl) pl.coins = Math.max(0, pl.coins + c);
       }
+      const landingPlayerId = mg.protagonistId ?? reveal.ranking[0];
+      const actions = event
+        ? [
+            ...(mg.type === "prompt"
+              ? this.applyActions(event.actions ?? [], {
+                  landingPlayerId,
+                  ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
+                })
+              : []),
+            ...this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId),
+          ]
+        : [];
       if (this.awardsStar && reveal.ranking[0]) {
         const winner = this.state.players.find((x) => x.id === reveal.ranking[0]);
-        if (winner) winner.stars += 1;
+        if (winner) {
+          winner.stars += 1;
+          actions.push({
+            type: "stars",
+            targetPlayerIds: [winner.id],
+            text: `${winner.name} gana una estrella`,
+            value: 1,
+          });
+        }
       }
 
-      this.state.reveal = reveal;
+      this.state.reveal = { ...reveal, actions };
       this.state.activeMinigame = null;
       this.state.phase = "reveal";
       this.pendingResults.clear();
+      this.pendingEvent = null;
       this.awardsStar = false;
       this.broadcast();
-      this.io.to(this.code).emit("minigame:reveal", reveal);
+      this.io.to(this.code).emit("minigame:reveal", this.state.reveal);
     } catch (err) {
       console.error("[room] error resolviendo minijuego:", err);
       this.state.activeMinigame = null;
@@ -333,6 +401,7 @@ export class GameRoom {
   private advanceTurn() {
     this.state.reveal = null;
     this.state.activeEvent = null;
+    this.pendingEvent = null;
     this.state.lastRoll = null;
 
     const order = this.state.turnOrder.filter((id) => {
@@ -346,14 +415,116 @@ export class GameRoom {
     }
     this.state.turnOrder = order;
 
-    let nextIndex = this.state.activeIndex + 1;
-    if (nextIndex >= order.length) {
-      nextIndex = 0;
+    if (this.extraTurnPlayerId) {
+      const extraIndex = order.indexOf(this.extraTurnPlayerId);
+      this.extraTurnPlayerId = null;
+      if (extraIndex >= 0) {
+        this.state.activeIndex = extraIndex;
+        this.state.phase = "turn";
+        this.broadcast();
+        return;
+      }
+    }
+
+    let nextIndex = this.state.activeIndex;
+    let advancedRound = false;
+    for (let attempts = 0; attempts < order.length; attempts += 1) {
+      nextIndex += 1;
+      if (nextIndex >= order.length) {
+        nextIndex = 0;
+        advancedRound = true;
+      }
+      const nextId = order[nextIndex];
+      if (!this.skippedTurns.has(nextId)) break;
+      this.skippedTurns.delete(nextId);
+    }
+    if (advancedRound) {
       this.state.round += 1;
     }
     this.state.activeIndex = nextIndex;
     this.state.phase = "turn";
     this.broadcast();
+  }
+
+  private applyOutcomeActions(branches: EventOutcomeBranch[], ranking: string[], landingPlayerId?: string): AppliedEventAction[] {
+    const actions: AppliedEventAction[] = [];
+    for (const branch of branches) {
+      if (!this.targetPlayerIds(branch.when, { ranking, landingPlayerId }).length) continue;
+      actions.push(
+        ...this.applyActions(branch.actions, {
+          landingPlayerId,
+          ranking,
+          defaultTarget: branch.when,
+        })
+      );
+    }
+    return actions;
+  }
+
+  private applyActions(
+    actions: EventAction[],
+    context: { landingPlayerId?: string; ranking?: string[]; defaultTarget?: EventActionTarget }
+  ): AppliedEventAction[] {
+    const applied: AppliedEventAction[] = [];
+    for (const action of actions) {
+      const target = action.target ?? context.defaultTarget ?? "landing";
+      const targetPlayerIds = this.targetPlayerIds(target, context);
+      if (action.type !== "text" && targetPlayerIds.length === 0) continue;
+      applied.push(this.applyAction(action, targetPlayerIds));
+    }
+    return applied;
+  }
+
+  private applyAction(action: EventAction, targetPlayerIds: string[]): AppliedEventAction {
+    if (action.type === "text") {
+      return { type: action.type, targetPlayerIds, text: action.text };
+    }
+    if (action.type === "coins") {
+      for (const id of targetPlayerIds) {
+        const player = this.state.players.find((p) => p.id === id);
+        if (player) player.coins = Math.max(0, player.coins + action.value);
+      }
+      return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, this.state.players, action.value, "moneda"), value: action.value };
+    }
+    if (action.type === "stars") {
+      for (const id of targetPlayerIds) {
+        const player = this.state.players.find((p) => p.id === id);
+        if (player) player.stars = Math.max(0, player.stars + action.value);
+      }
+      return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, this.state.players, action.value, "estrella"), value: action.value };
+    }
+    if (action.type === "move") {
+      for (const id of targetPlayerIds) {
+        const player = this.state.players.find((p) => p.id === id);
+        if (player) player.position = clamp(player.position + action.delta, 0, this.state.boardLength - 1);
+      }
+      return { type: action.type, targetPlayerIds, text: action.text ?? moveSummary(targetPlayerIds, this.state.players, action.delta), value: action.delta };
+    }
+    if (action.type === "moveTo") {
+      for (const id of targetPlayerIds) {
+        const player = this.state.players.find((p) => p.id === id);
+        if (player) player.position = clamp(action.tileId, 0, this.state.boardLength - 1);
+      }
+      return { type: action.type, targetPlayerIds, text: action.text ?? `Mover a casillero ${action.tileId}`, tileId: action.tileId };
+    }
+    if (action.type === "skipTurn") {
+      for (const id of targetPlayerIds) this.skippedTurns.add(id);
+      return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} pierde su próximo turno` };
+    }
+    for (const id of targetPlayerIds) this.extraTurnPlayerId = id;
+    return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} juega otro turno` };
+  }
+
+  private targetPlayerIds(target: EventActionTarget, context: { landingPlayerId?: string; ranking?: string[] }): string[] {
+    const ranking = context.ranking ?? [];
+    if (target === "landing") return context.landingPlayerId ? [context.landingPlayerId] : [];
+    if (target === "winner") return ranking[0] ? [ranking[0]] : [];
+    if (target === "loser") return ranking.length ? [ranking[ranking.length - 1]] : [];
+    if (target === "everyone") return this.connectedPlayers().map((p) => p.id);
+    if ("rank" in target) return ranking[target.rank - 1] ? [ranking[target.rank - 1]] : [];
+    const from = Math.max(1, target.rankFrom);
+    const to = Math.max(from, target.rankTo);
+    return ranking.slice(from - 1, to);
   }
 
   private endGame() {
@@ -366,4 +537,46 @@ export class GameRoom {
     this.state.activeEvent = null;
     this.broadcast();
   }
+}
+
+function activityContent(activity: EventActivity, event: ResolvedGameEvent): unknown {
+  const base = isRecord(activity.content) ? activity.content : {};
+  return {
+    ...base,
+    story: event.story,
+    title: event.story.title ?? eventTitle(event),
+    prompt: event.story.prompt ?? base.prompt ?? base.question ?? event.name,
+  };
+}
+
+function defaultParticipantMode(type: EventActivity["type"]): "everyone" | "landing" | "host" {
+  if (type === "hostPick") return "host";
+  if (type === "prompt") return "landing";
+  return "everyone";
+}
+
+function eventText(event: ResolvedGameEvent): string {
+  return event.story.prompt ?? event.story.setup ?? event.story.title ?? event.name;
+}
+
+function namesFor(ids: string[], players: Player[]): string {
+  return ids.map((id) => players.find((p) => p.id === id)?.name ?? id).join(", ");
+}
+
+function valueText(ids: string[], players: Player[], value: number, noun: string): string {
+  const verb = value >= 0 ? "gana" : "pierde";
+  return `${namesFor(ids, players)} ${verb} ${Math.abs(value)} ${noun}(s)`;
+}
+
+function moveSummary(ids: string[], players: Player[], delta: number): string {
+  const verb = delta >= 0 ? "avanza" : "retrocede";
+  return `${namesFor(ids, players)} ${verb} ${Math.abs(delta)} casillero(s)`;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }

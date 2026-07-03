@@ -13,6 +13,7 @@ import type {
   TileLayout,
   TileType,
 } from "@essence/shared";
+import { normalizeGameContentEvents } from "@essence/shared/events";
 import { defaultAssetFootprint } from "./artifactProjection";
 
 export type BuilderTool = "select" | "cell" | "route" | "artifact" | "json";
@@ -96,7 +97,7 @@ const DEFAULT_ASSETS: MapAssetDef[] = [
 ];
 
 export function createInitialMapBuilderState(content: GameContent): MapBuilderState {
-  const builderContent = normalizeBuilderContent(content);
+  const builderContent = normalizeBuilderContent(normalizeGameContentEvents(content));
   return {
     content: builderContent,
     activeMapId: builderContent.activeMapId,
@@ -108,27 +109,28 @@ export function createInitialMapBuilderState(content: GameContent): MapBuilderSt
 }
 
 export function normalizeBuilderContent(content: GameContent): BuilderContent {
+  const normalizedContent = normalizeGameContentEvents(content);
   const maps = content.maps?.length
-    ? content.maps.map((map) => ({
+    ? normalizedContent.maps!.map((map) => ({
       ...map,
-      board: cloneTiles(map.board.length ? map.board : content.board),
-      routes: map.routes?.length ? cloneRoutes(map.routes) : createLinearRoutes(map.board.length ? map.board : content.board),
+      board: cloneTiles(map.board.length ? map.board : normalizedContent.board),
+      routes: map.routes?.length ? cloneRoutes(map.routes) : createLinearRoutes(map.board.length ? map.board : normalizedContent.board),
       artifacts: cloneArtifacts(map.artifacts ?? []),
-      boardShape: normalizeBoardShape(cloneBoardShape(map.boardShape) ?? createDefaultBoardShape(map.board.length ? map.board : content.board)),
+      boardShape: normalizeBoardShape(cloneBoardShape(map.boardShape) ?? createDefaultBoardShape(map.board.length ? map.board : normalizedContent.board)),
     }))
     : [
         {
           id: "default-map",
           name: "Mapa principal",
           description: "Mapa generado desde content.board.",
-          board: cloneTiles(content.board),
-          routes: createLinearRoutes(content.board),
+          board: cloneTiles(normalizedContent.board),
+          routes: createLinearRoutes(normalizedContent.board),
           artifacts: [],
           boardShape: createDefaultBoardShape(content.board),
         },
       ];
   const activeMapId = maps.some((map) => map.id === content.activeMapId)
-    ? content.activeMapId!
+    ? normalizedContent.activeMapId!
     : maps[0]?.id ?? "default-map";
   return {
     activeMapId,
@@ -139,13 +141,13 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
 
 export function builderContentToGameContent(base: GameContent, builder: BuilderContent): GameContent {
   const activeMap = builder.maps.find((map) => map.id === builder.activeMapId) ?? builder.maps[0];
-  return {
-    ...base,
+  return normalizeGameContentEvents({
+    ...normalizeGameContentEvents(base),
     activeMapId: activeMap?.id ?? builder.activeMapId,
     board: activeMap ? cloneTiles(activeMap.board) : base.board,
     maps: builder.maps.map(cloneMap),
     assetCatalog: builder.assetCatalog.map((asset) => ({ ...asset })),
-  };
+  });
 }
 
 export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent): MapBuilderState {

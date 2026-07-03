@@ -6,6 +6,7 @@ import type { MinigameProps } from "./types";
 
 export default function Vote({ content, players, onFinish }: MinigameProps) {
   const [picked, setPicked] = useState<string | null>(null);
+  const question = content?.question ?? content?.prompt ?? content?.story?.prompt ?? "¿Quién gana esta ronda?";
 
   const choose = (id: string) => {
     if (picked) return;
@@ -14,7 +15,7 @@ export default function Vote({ content, players, onFinish }: MinigameProps) {
   };
 
   return (
-    <ArcadeShell title={content.question} kicker="Votación" badge="secreto">
+    <ArcadeShell title={question} kicker="Votación" badge="secreto">
       <p className="text-center text-sm font-black text-[#c7bddc]">Votá en secreto.</p>
       <div className="grid w-full grid-cols-2 gap-4">
         {players.map((p) => (

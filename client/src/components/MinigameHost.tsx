@@ -10,7 +10,7 @@ interface Props {
   state: GameState;
   me: Player;
   isHost: boolean;
-  onFinish: (score: number, payload: unknown) => void;
+  onFinish: (score: number, payload: unknown, outcome?: "win" | "loss") => void;
   onAction: (data: unknown) => void;
   onForce: () => void;
   onLeave: () => void;
@@ -52,9 +52,9 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
     return <Waiting count={submittedCount} total={total} text="¡Listo! Esperando al resto..." onForce={force} />;
   }
 
-  const handleFinish = (score: number, payload: unknown) => {
+  const handleFinish = (score: number, payload: unknown, outcome?: "win" | "loss") => {
     setFinished(true);
-    onFinish(score, payload);
+    onFinish(score, payload, outcome);
   };
 
   return (
@@ -67,6 +67,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
         <LogOut data-icon="inline-start" className="size-3.5" />
         Salir
       </Button>
+      <ActivityStory story={mg.story} />
       <Engine
         key={`${mg.id}-${state.round}-${state.activeIndex}`}
         content={mg.content}
@@ -118,5 +119,15 @@ function Waiting({
 function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-col items-center justify-center p-6 text-center">{children}</div>
+  );
+}
+
+function ActivityStory({ story }: { story?: { title?: string; setup?: string; prompt?: string; reward?: string } }) {
+  if (!story?.setup && !story?.reward) return null;
+  return (
+    <aside className="mx-auto mb-3 w-full max-w-xl rounded-md border border-[#fff4bf]/25 bg-[#171120]/70 px-4 py-3 text-center text-sm font-black text-[#c7bddc]">
+      {story.setup && <p>{story.setup}</p>}
+      {story.reward && <p className="mt-1 text-[#f5d547]">{story.reward}</p>}
+    </aside>
   );
 }

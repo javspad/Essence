@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import type { GameContent } from "@essence/shared";
+import { normalizeGameContentEvents } from "@essence/shared/events";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -10,7 +11,7 @@ const CONTENT_PATH = resolve(__dirname, "../../shared/content.json");
 
 export function loadContent(): GameContent {
   const raw = readFileSync(CONTENT_PATH, "utf-8");
-  const content = JSON.parse(raw) as GameContent;
+  const content = normalizeGameContentEvents(JSON.parse(raw) as GameContent);
   if (!content.board?.length) throw new Error("content.json: board vacío");
   if (content.maps?.length) {
     const activeMap =

@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { CanvasTexture, DoubleSide, LinearFilter, SRGBColorSpace, Vector3, type Group, type PointLight } from "three";
+import {
+  CanvasTexture,
+  Color,
+  DoubleSide,
+  Euler,
+  LinearFilter,
+  Quaternion,
+  SRGBColorSpace,
+  Vector3,
+  type Group,
+  type Mesh,
+  type PointLight,
+} from "three";
 import type { MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, Player, Tile } from "@essence/shared";
 import { localAssetProjection } from "../artifactProjection";
 import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
@@ -750,97 +762,86 @@ function SlotPlatform({
   occupiedCount: number;
   animated: boolean;
 }) {
-  const group = useRef<Group | null>(null);
+  const highlight = useRef<Group | null>(null);
   const style = slotMaterialStyle(slot.type);
-  const height = active ? 0.42 : occupiedCount > 0 ? 0.33 : 0.28;
-  const scale = active ? 1.08 : stepped ? 1.04 : 1;
+  const height = 0.26;
 
   useFrame((state) => {
-    if (!group.current) return;
-    const pulse = active && animated ? Math.sin(state.clock.elapsedTime * 5.2) * 0.028 : 0;
-    const glow = active && animated ? 1 + Math.sin(state.clock.elapsedTime * 4.4) * 0.022 : 1;
-    group.current.position.set(slot.position[0], slot.position[1] + pulse, slot.position[2]);
-    group.current.scale.set(scale * glow, 1, scale * glow);
+    if (highlight.current && animated) highlight.current.rotation.y = state.clock.elapsedTime * 0.9;
   });
 
   return (
-    <group ref={group} position={slot.position} rotation={[0, slot.rotationY, 0]} scale={[scale, 1, scale]}>
-      {/* Drop shadow blob */}
-      <mesh receiveShadow position={[0.05, 0.008, 0.06]}>
-        <boxGeometry args={[1.1, 0.04, 0.9]} />
-        <meshStandardMaterial color="#1a1008" roughness={0.95} transparent opacity={0.42} />
+    <group position={slot.position} rotation={[0, slot.rotationY, 0]}>
+      {/* Soft contact shadow */}
+      <mesh position={[0.05, 0.006, 0.06]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.64, 32]} />
+        <meshStandardMaterial color="#1a1008" roughness={0.95} transparent opacity={0.38} />
       </mesh>
 
-      {/* Main body */}
+      {/* Round base column */}
       <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
-        <boxGeometry args={[1.02, height, 0.8]} />
-        <meshStandardMaterial color={style.side} roughness={0.52} metalness={0.12} />
+        <cylinderGeometry args={[0.52, 0.6, height, 36]} />
+        <meshStandardMaterial color={style.side} roughness={0.55} metalness={0.08} />
       </mesh>
 
-      {/* Accent ledge (wide rim) */}
-      <mesh castShadow receiveShadow position={[0, height + 0.015, 0]}>
-        <boxGeometry args={[1.04, 0.072, 0.82]} />
-        <meshStandardMaterial color={style.accent} roughness={0.38} metalness={0.1} />
-      </mesh>
-
-      {/* Inset top surface - slightly sunken */}
-      <mesh castShadow receiveShadow position={[0, height + 0.068, 0]}>
-        <boxGeometry args={[0.88, 0.055, 0.66]} />
+      {/* Cream rim border */}
+      <mesh castShadow receiveShadow position={[0, height + 0.028, 0]}>
+        <cylinderGeometry args={[0.54, 0.54, 0.056, 36]} />
         <meshStandardMaterial
-          color={style.top}
+          color="#fdf6e3"
           roughness={0.32}
-          metalness={0.12}
-          emissive={active || stepped ? style.emissive : "#000000"}
-          emissiveIntensity={active ? 0.42 : stepped ? 0.14 : 0}
+          metalness={0.05}
+          emissive={active ? "#fde68a" : "#000000"}
+          emissiveIntensity={active ? 0.35 : 0}
         />
       </mesh>
 
-      {/* Corner studs */}
-      {([[-0.43, -0.32], [0.43, -0.32], [-0.43, 0.32], [0.43, 0.32]] as [number, number][]).map(([x, z]) => (
-        <mesh key={`${x}-${z}`} castShadow position={[x, height + 0.12, z]}>
-          <boxGeometry args={[0.1, 0.06, 0.1]} />
-          <meshStandardMaterial
-            color={style.accent}
-            roughness={0.3}
-            metalness={0.2}
-            emissive={active ? style.emissive : "#000000"}
-            emissiveIntensity={active ? 0.15 : 0}
-          />
-        </mesh>
-      ))}
-
-      {/* Highlight stripe */}
-      <mesh position={[0.16, height + 0.1, -0.11]} rotation={[0, 0.28, 0]}>
-        <boxGeometry args={[0.34, 0.016, 0.075]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.25} transparent opacity={active ? 0.48 : 0.3} />
+      {/* Colored top face */}
+      <mesh receiveShadow position={[0, height + 0.066, 0]}>
+        <cylinderGeometry args={[0.47, 0.47, 0.04, 36]} />
+        <meshStandardMaterial
+          color={style.top}
+          roughness={0.34}
+          metalness={0.1}
+          emissive={active || stepped ? style.emissive : "#000000"}
+          emissiveIntensity={active ? 0.35 : stepped ? 0.14 : 0}
+        />
       </mesh>
 
       {/* Decal */}
-      <SlotDecalMesh decal={style.decal} y={height + 0.118} color={style.accent} active={active} stepped={stepped} />
+      <SlotDecalMesh decal={style.decal} y={height + 0.09} color={style.accent} active={active} stepped={stepped} />
 
-      {/* Ring halo on top surface */}
-      <mesh position={[0, height + 0.125, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.48, active || stepped ? 0.68 : 0.58, 36]} />
-        <meshStandardMaterial
-          color={active ? "#fde047" : stepped ? "#fef3c7" : style.accent}
-          transparent
-          opacity={active ? 0.52 : stepped ? 0.34 : 0.14}
-          side={DoubleSide}
-        />
-      </mesh>
-
-      {/* Extra outer ring for active tile */}
+      {/* Turn highlight: slow-rotating dashes, tile itself stays still */}
       {active && (
-        <mesh position={[0, height + 0.126, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.68, 0.82, 36]} />
-          <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.3} transparent opacity={0.28} side={DoubleSide} />
+        <group ref={highlight} position={[0, height + 0.09, 0]}>
+          {[0, 1, 2, 3].map((index) => (
+            <mesh key={index} rotation={[-Math.PI / 2, 0, (index * Math.PI) / 2]}>
+              <ringGeometry args={[0.62, 0.7, 12, 1, 0, Math.PI / 3]} />
+              <meshStandardMaterial
+                color="#fde047"
+                emissive="#fbbf24"
+                emissiveIntensity={0.6}
+                transparent
+                opacity={0.9}
+                side={DoubleSide}
+              />
+            </mesh>
+          ))}
+        </group>
+      )}
+
+      {/* Static halo when tile is part of the walk path */}
+      {stepped && !active && (
+        <mesh position={[0, height + 0.088, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.56, 0.62, 36]} />
+          <meshStandardMaterial color="#fef3c7" transparent opacity={0.4} side={DoubleSide} />
         </mesh>
       )}
 
       {occupiedCount > 1 && (
-        <mesh position={[0, height + 0.138, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.68, 0.76, 32]} />
-          <meshStandardMaterial color="#ffffff" transparent opacity={0.2} side={DoubleSide} />
+        <mesh position={[0, height + 0.087, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.5, 0.545, 36]} />
+          <meshStandardMaterial color="#ffffff" transparent opacity={0.22} side={DoubleSide} />
         </mesh>
       )}
     </group>
@@ -938,8 +939,10 @@ function PlayerToken({
 }) {
   const group = useRef<Group | null>(null);
   const pawnGroup = useRef<Group | null>(null);
+  const markerRef = useRef<Mesh | null>(null);
   const segment = useRef(0);
   const progress = useRef(0);
+  const baseColor = useMemo(() => new Color(player.color).multiplyScalar(0.62), [player.color]);
   const pathKey = `${motionKind}:${motionNonce}:${path.map((point) => point.join(",")).join("|")}`;
   const points = useMemo(() => path.map((point) => new Vector3(...point)), [pathKey]);
   const finalPoint = path[path.length - 1] ?? [0, 0, 0];
@@ -970,161 +973,180 @@ function PlayerToken({
         token.position.copy(points[next]);
       }
     }
-    // Gentle idle bob for active pawn
-    if (pawnGroup.current && active && motion.tokenStepSeconds !== 0) {
-      pawnGroup.current.position.y = Math.sin(state.clock.elapsedTime * 3.5) * 0.03;
-      pawnGroup.current.rotation.y = state.clock.elapsedTime * 0.8;
+    // Floating turn marker above the active pawn (pawn itself stays still)
+    if (markerRef.current && active && motion.tokenStepSeconds !== 0) {
+      markerRef.current.position.y = 0.94 + Math.sin(state.clock.elapsedTime * 2.6) * 0.05;
+      markerRef.current.rotation.y = state.clock.elapsedTime * 1.6;
     }
   });
 
   const opacity = player.connected ? 1 : 0.45;
-  const baseY = active ? 0.08 : 0.0;
 
   return (
     <group ref={group} position={start}>
       <group ref={pawnGroup}>
         {/* Base disc */}
-        <mesh castShadow position={[0, baseY + 0.04, 0]}>
-          <cylinderGeometry args={[0.21, 0.24, 0.08, 10]} />
-          <meshStandardMaterial color={player.color} roughness={0.5} metalness={0.22} transparent opacity={opacity * 0.92} />
+        <mesh castShadow position={[0, 0.035, 0]}>
+          <cylinderGeometry args={[0.2, 0.23, 0.07, 24]} />
+          <meshStandardMaterial color={baseColor} roughness={0.5} metalness={0.15} transparent opacity={opacity * 0.95} />
         </mesh>
-        {/* Body stem */}
-        <mesh castShadow position={[0, baseY + 0.22, 0]}>
-          <cylinderGeometry args={[0.09, 0.14, 0.26, 8]} />
-          <meshStandardMaterial color={player.color} roughness={0.38} metalness={0.15} transparent opacity={opacity} />
+        {/* Rounded body */}
+        <mesh castShadow position={[0, 0.24, 0]} scale={[1, 1.1, 1]}>
+          <sphereGeometry args={[0.165, 24, 18]} />
+          <meshStandardMaterial color={player.color} roughness={0.35} metalness={0.1} transparent opacity={opacity} />
         </mesh>
-        {/* Collar ring */}
-        <mesh castShadow position={[0, baseY + 0.37, 0]}>
-          <cylinderGeometry args={[0.13, 0.1, 0.07, 8]} />
-          <meshStandardMaterial color={player.color} roughness={0.3} metalness={0.28} emissive={active ? player.color : "#000000"} emissiveIntensity={active ? 0.45 : 0} transparent opacity={opacity} />
+        {/* Head */}
+        <mesh castShadow position={[0, 0.46, 0]}>
+          <sphereGeometry args={[0.125, 24, 18]} />
+          <meshStandardMaterial color={player.color} roughness={0.3} metalness={0.08} transparent opacity={opacity} />
         </mesh>
-        {/* Head sphere - low poly */}
-        <mesh castShadow position={[0, baseY + 0.56, 0]}>
-          <sphereGeometry args={[active ? 0.185 : 0.165, 8, 6]} />
-          <meshStandardMaterial
-            color={player.color}
-            roughness={0.28}
-            metalness={0.18}
-            emissive={active ? player.color : "#000000"}
-            emissiveIntensity={active ? 0.55 : 0}
-            transparent={!player.connected}
-            opacity={opacity}
-          />
+        {/* Eyes */}
+        {[-0.048, 0.048].map((x) => (
+          <group key={x}>
+            <mesh position={[x, 0.48, 0.1]}>
+              <sphereGeometry args={[0.036, 12, 10]} />
+              <meshStandardMaterial color="#ffffff" roughness={0.25} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[x, 0.482, 0.128]}>
+              <sphereGeometry args={[0.015, 10, 8]} />
+              <meshStandardMaterial color="#1f2430" roughness={0.3} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        ))}
+        {/* Top button accent */}
+        <mesh castShadow position={[0, 0.575, 0]}>
+          <sphereGeometry args={[0.045, 14, 12]} />
+          <meshStandardMaterial color="#fdf6e3" roughness={0.35} metalness={0.08} transparent opacity={opacity} />
         </mesh>
-        {/* Crown highlight on top of head */}
-        {active && (
-          <mesh position={[0, baseY + 0.77, 0]}>
-            <coneGeometry args={[0.06, 0.1, 5]} />
-            <meshStandardMaterial color="#fde047" emissive="#fbbf24" emissiveIntensity={0.7} roughness={0.2} />
-          </mesh>
-        )}
       </group>
-      {/* Active glow ring on ground */}
+      {/* Floating turn marker */}
       {active && (
-        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.28, 0.44, 32]} />
-          <meshStandardMaterial color="#fde047" emissive={player.color} emissiveIntensity={0.32} transparent opacity={0.72} side={DoubleSide} />
+        <mesh ref={markerRef} position={[0, 0.94, 0]}>
+          <octahedronGeometry args={[0.085]} />
+          <meshStandardMaterial color="#fde047" emissive="#f59e0b" emissiveIntensity={0.85} roughness={0.25} />
         </mesh>
       )}
       {/* Soft shadow disc */}
       <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.22, 20]} />
-        <meshStandardMaterial color="#000000" transparent opacity={active ? 0.28 : 0.18} side={DoubleSide} />
+        <circleGeometry args={[0.2, 20]} />
+        <meshStandardMaterial color="#000000" transparent opacity={active ? 0.26 : 0.18} side={DoubleSide} />
       </mesh>
     </group>
   );
 }
 
-const DICE_PIPS: Record<number, Array<[number, number]>> = {
+const DICE_PIP_LAYOUTS: Record<number, Array<[number, number]>> = {
   1: [[0, 0]],
   2: [
-    [-0.12, 0.12],
-    [0.12, -0.12],
+    [-1, -1],
+    [1, 1],
   ],
   3: [
-    [-0.13, 0.13],
+    [-1, -1],
     [0, 0],
-    [0.13, -0.13],
+    [1, 1],
   ],
   4: [
-    [-0.13, 0.13],
-    [0.13, 0.13],
-    [-0.13, -0.13],
-    [0.13, -0.13],
+    [-1, -1],
+    [-1, 1],
+    [1, -1],
+    [1, 1],
   ],
   5: [
-    [-0.13, 0.13],
-    [0.13, 0.13],
+    [-1, -1],
+    [-1, 1],
     [0, 0],
-    [-0.13, -0.13],
-    [0.13, -0.13],
+    [1, -1],
+    [1, 1],
   ],
   6: [
-    [-0.13, 0.15],
-    [0.13, 0.15],
-    [-0.13, 0],
-    [0.13, 0],
-    [-0.13, -0.15],
-    [0.13, -0.15],
+    [-1, -1],
+    [-1, 0],
+    [-1, 1],
+    [1, -1],
+    [1, 0],
+    [1, 1],
   ],
+};
+
+// Standard die layout: 1 on top, 6 on bottom, 2 front, 5 back, 3 right, 4 left
+// (opposite faces always sum to 7).
+const DICE_FACES: Array<{
+  value: number;
+  toPosition: (u: number, v: number, h: number) => Vec3;
+  rotation: [number, number, number];
+}> = [
+  { value: 1, toPosition: (u, v, h) => [u, h, -v], rotation: [-Math.PI / 2, 0, 0] },
+  { value: 6, toPosition: (u, v, h) => [u, -h, v], rotation: [Math.PI / 2, 0, 0] },
+  { value: 2, toPosition: (u, v, h) => [u, v, h], rotation: [0, 0, 0] },
+  { value: 5, toPosition: (u, v, h) => [-u, v, -h], rotation: [0, Math.PI, 0] },
+  { value: 3, toPosition: (u, v, h) => [h, v, -u], rotation: [0, Math.PI / 2, 0] },
+  { value: 4, toPosition: (u, v, h) => [-h, v, u], rotation: [0, -Math.PI / 2, 0] },
+];
+
+// Euler rotations that bring the face with a given value to the top (+Y).
+const DICE_FACE_UP_EULER: Record<number, [number, number, number]> = {
+  1: [0, 0, 0],
+  2: [-Math.PI / 2, 0, 0],
+  3: [0, 0, Math.PI / 2],
+  4: [0, 0, -Math.PI / 2],
+  5: [Math.PI / 2, 0, 0],
+  6: [Math.PI, 0, 0],
 };
 
 function FloatingDice({ cue, position }: { cue: BoardDiceCue; position: Vec3 }) {
   const group = useRef<Group | null>(null);
-  const scaleRef = useRef<Group | null>(null);
-  const value = Math.max(1, Math.min(6, cue.value ?? 5));
+  const cubeRef = useRef<Group | null>(null);
+  const value = Math.max(1, Math.min(6, cue.value ?? 1));
   const DICE_SIZE = 0.64;
+  const settledQuat = useMemo(() => {
+    const align = new Quaternion().setFromEuler(new Euler(...DICE_FACE_UP_EULER[value]));
+    const tilt = new Quaternion().setFromEuler(new Euler(0.52, 0, 0));
+    return tilt.multiply(align);
+  }, [value]);
 
   useFrame((state, delta) => {
     if (!group.current) return;
-    // Bigger bob when idle, fast when rolling
+    // Fast small bob when rolling, gentle drift when settled
     const bob = cue.rolling
       ? Math.sin(state.clock.elapsedTime * 14) * 0.04
-      : Math.sin(state.clock.elapsedTime * 5.5) * 0.1;
+      : Math.sin(state.clock.elapsedTime * 2.4) * 0.05;
     group.current.position.set(position[0], position[1] + 1.18 + bob, position[2]);
 
+    const cube = cubeRef.current;
+    if (!cube) return;
     if (cue.rolling) {
-      group.current.rotation.x += delta * 9.5;
-      group.current.rotation.y += delta * 13.2;
-      group.current.rotation.z += delta * 7.1;
+      // Only the cube spins; the glow below stays put
+      cube.rotation.x += delta * 9.5;
+      cube.rotation.y += delta * 13.2;
+      cube.rotation.z += delta * 7.1;
+      cube.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 18) * 0.05);
     } else {
-      // Settle to a nice visible angle
-      group.current.rotation.x += (-0.55 - group.current.rotation.x) * 0.12;
-      group.current.rotation.y += (0.72 - group.current.rotation.y) * 0.12;
-      group.current.rotation.z += (0.08 - group.current.rotation.z) * 0.12;
-    }
-
-    // Pulse scale when rolling
-    if (scaleRef.current) {
-      const pulse = cue.rolling ? 1 + Math.sin(state.clock.elapsedTime * 18) * 0.06 : 1;
-      scaleRef.current.scale.setScalar(pulse);
+      // Settle with the rolled value facing up, tilted toward the camera
+      cube.quaternion.slerp(settledQuat, frameLerp(delta, 9));
+      cube.scale.setScalar(cube.scale.x + (1 - cube.scale.x) * frameLerp(delta, 10));
     }
   });
 
   return (
     <group ref={group} position={[position[0], position[1] + 1.18, position[2]]}>
-      <group ref={scaleRef}>
+      <group ref={cubeRef}>
         {/* Main dice body */}
         <mesh castShadow>
           <boxGeometry args={[DICE_SIZE, DICE_SIZE, DICE_SIZE]} />
           <meshStandardMaterial
             color="#fffbf0"
-            roughness={0.22}
-            metalness={0.06}
+            roughness={0.24}
+            metalness={0.04}
             emissive="#fef9c3"
-            emissiveIntensity={cue.rolling ? 0.32 : 0.12}
+            emissiveIntensity={cue.rolling ? 0.22 : 0.08}
           />
         </mesh>
-        {/* Edge highlight overlay - slightly smaller darker box for depth */}
-        <mesh>
-          <boxGeometry args={[DICE_SIZE + 0.01, DICE_SIZE + 0.01, DICE_SIZE + 0.01]} />
-          <meshStandardMaterial color="#c8c0a8" roughness={0.6} transparent opacity={0.22} side={DoubleSide} />
-        </mesh>
-        {/* Pips on all visible faces */}
-        <DicePips value={value} size={DICE_SIZE} />
+        {/* Pips on all six faces (opposites sum to 7) */}
+        <DicePips size={DICE_SIZE} />
       </group>
 
-      {/* Glow ring shadow below */}
+      {/* Glow ring below (does not rotate with the dice) */}
       <mesh position={[0, -(DICE_SIZE / 2 + 0.28), 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.38, 0.6, 32]} />
         <meshStandardMaterial
@@ -1145,34 +1167,21 @@ function FloatingDice({ cue, position }: { cue: BoardDiceCue; position: Vec3 }) 
   );
 }
 
-function DicePips({ value, size }: { value: number; size: number }) {
-  const pips = DICE_PIPS[value] ?? DICE_PIPS[1];
-  const h = size / 2 + 0.002;
-  const pipR = 0.042;
+function DicePips({ size }: { size: number }) {
+  const h = size / 2 + 0.0015;
+  const offset = size * 0.24;
+  const pipR = size * 0.085;
 
   return (
     <group>
-      {/* Front face (+Z) */}
-      {pips.map(([x, y], index) => (
-        <mesh key={`front-${index}`} position={[x * 0.72, y * 0.72, h]}>
-          <sphereGeometry args={[pipR, 10, 8]} />
-          <meshStandardMaterial color="#1a1025" roughness={0.5} />
-        </mesh>
-      ))}
-      {/* Top face (+Y) */}
-      {pips.slice(0, Math.min(6, pips.length)).map(([x, z], index) => (
-        <mesh key={`top-${index}`} position={[x * 0.72, h, z * 0.72]}>
-          <sphereGeometry args={[pipR * 0.85, 10, 8]} />
-          <meshStandardMaterial color="#1a1025" roughness={0.5} />
-        </mesh>
-      ))}
-      {/* Right face (+X) - show complementary face (7 - value) */}
-      {(DICE_PIPS[Math.max(1, 7 - value)] ?? DICE_PIPS[1]).slice(0, Math.min(4, pips.length)).map(([z, y], index) => (
-        <mesh key={`right-${index}`} position={[h, y * 0.72, z * 0.72]}>
-          <sphereGeometry args={[pipR * 0.78, 10, 8]} />
-          <meshStandardMaterial color="#1a1025" roughness={0.5} />
-        </mesh>
-      ))}
+      {DICE_FACES.map((face) =>
+        (DICE_PIP_LAYOUTS[face.value] ?? []).map(([u, v], index) => (
+          <mesh key={`${face.value}-${index}`} position={face.toPosition(u * offset, v * offset, h)} rotation={face.rotation}>
+            <circleGeometry args={[pipR, 16]} />
+            <meshStandardMaterial color="#221b33" roughness={0.35} />
+          </mesh>
+        ))
+      )}
     </group>
   );
 }

@@ -349,7 +349,8 @@ function EventOverlay({
   const event = state.activeEvent;
   if (!event) return null;
   const player = state.players.find((p) => p.id === event.playerId);
-  const isDare = event.kind === "dare";
+  const isDare = event.kind === "dare" || event.story?.title?.toLowerCase().includes("prenda");
+  const title = event.title ?? event.story?.title ?? (isDare ? "Prenda" : "Evento");
 
   return (
     <CenterOverlay>
@@ -357,7 +358,7 @@ function EventOverlay({
         {/* Category badge */}
         <div className="inline-flex items-center gap-2 rounded-sm border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-white/80">
           <span className="text-base">{isDare ? "🍻" : "🃏"}</span>
-          {isDare ? "Prenda" : "Destino"}
+          {title}
         </div>
         {/* Player name */}
         <h2
@@ -369,9 +370,12 @@ function EventOverlay({
         {/* Divider */}
         <div className="mx-auto my-5 h-px w-24 rounded-full bg-white/20" />
         {/* Event text */}
-        <p className="mx-auto max-w-2xl text-center text-xl font-black leading-snug text-white/95 sm:text-3xl">
-          {event.text}
+        {event.story?.setup && <p className="mx-auto max-w-2xl text-center text-base font-black leading-7 text-white/70 sm:text-xl">{event.story.setup}</p>}
+        <p className="mx-auto mt-3 max-w-2xl text-center text-xl font-black leading-snug text-white/95 sm:text-3xl">
+          {event.story?.prompt ?? event.text}
         </p>
+        {event.story?.reward && <p className="mx-auto mt-4 max-w-xl text-center text-base font-black text-amber-200 sm:text-xl">{event.story.reward}</p>}
+        <AppliedActions actions={event.actions} />
         <ActionButton disabled={!canAdvance || Boolean(busyLabel)} onClick={onNext}>
           {busyLabel ?? (canAdvance ? (isDare ? "Listo →" : "Siguiente →") : "Esperando...")}
         </ActionButton>
@@ -384,29 +388,52 @@ function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdv
   const reveal = state.reveal;
   if (!reveal) return null;
   const medals = ["🥇", "🥈", "🥉"];
+  const isPrompt = reveal.type === "prompt";
+  const confirmer = reveal.entries[0]?.name;
 
   return (
     <CenterOverlay>
       <div className="modal-card from-slate-950/96 to-indigo-950/96">
         <div className="inline-flex items-center gap-2 rounded-sm border border-violet-400/30 bg-violet-500/15 px-3 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-violet-200">
-          🏅 Resultados
+          {isPrompt ? "Evento" : "🏅 Resultados"}
         </div>
         <h2 className="mt-4 text-center text-3xl font-black text-amber-100 sm:text-5xl">{reveal.title}</h2>
+        {reveal.story?.reveal && <p className="mx-auto mt-3 max-w-2xl text-center text-base font-black text-violet-100">{reveal.story.reveal}</p>}
         <div className="mx-auto my-5 h-px w-24 rounded-full bg-white/20" />
-        <ol className="mx-auto grid max-w-2xl gap-2 text-left">
-          {reveal.entries.map((entry, index) => (
-            <li
-              key={entry.playerId}
-              className="flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-white/8 px-4 py-3 text-lg font-black text-white sm:text-2xl"
-            >
-              <span>{medals[index] ?? `${entry.rank}.`} {entry.name}</span>
-              <span className="shrink-0 text-amber-200">+🪙{entry.coins}</span>
-            </li>
-          ))}
-        </ol>
+        {isPrompt ? (
+          <div className="mx-auto max-w-2xl rounded-sm border border-white/10 bg-white/8 px-4 py-4 text-center text-lg font-black text-white sm:text-2xl">
+            {confirmer ? `${confirmer} confirmó la acción.` : "Acción confirmada."}
+          </div>
+        ) : (
+          <ol className="mx-auto grid max-w-2xl gap-2 text-left">
+            {reveal.entries.map((entry, index) => (
+              <li
+                key={entry.playerId}
+                className="flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-white/8 px-4 py-3 text-lg font-black text-white sm:text-2xl"
+              >
+                <span>{medals[index] ?? `${entry.rank}.`} {entry.name}</span>
+                {entry.coins > 0 && <span className="shrink-0 text-amber-200">+🪙{entry.coins}</span>}
+              </li>
+            ))}
+          </ol>
+        )}
+        <AppliedActions actions={reveal.actions} />
         <ActionButton disabled={!canAdvance} onClick={onNext}>{canAdvance ? "Siguiente turno →" : "Esperando..."}</ActionButton>
       </div>
     </CenterOverlay>
+  );
+}
+
+function AppliedActions({ actions }: { actions?: { text: string; targetPlayerIds: string[] }[] }) {
+  if (!actions?.length) return null;
+  return (
+    <div className="mx-auto mt-5 grid max-w-xl gap-2">
+      {actions.map((action, index) => (
+        <p key={`${action.text}-${index}`} className="rounded-sm border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-center text-sm font-black text-amber-100">
+          {action.text}
+        </p>
+      ))}
+    </div>
   );
 }
 

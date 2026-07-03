@@ -54,6 +54,7 @@ interface RollPlan {
 
 const WALK_STEP_MS = 280;
 const DICE_DELAY_MS = 950;
+const DICE_REVEAL_DELAY_MS = 1150;
 const EVENT_READ_DELAY_MS = 1050;
 const JUMP_DELAY_MS = 760;
 
@@ -74,6 +75,7 @@ const presentationSetup = setup({
   },
   delays: {
     diceDelay: DICE_DELAY_MS,
+    diceRevealDelay: DICE_REVEAL_DELAY_MS,
     movementDelay: ({ context }) => {
       const steps = Math.max(1, context.motionPath.length - 1);
       return Math.min(2400, 340 + steps * WALK_STEP_MS);
@@ -179,6 +181,10 @@ const capturePendingServerState = presentationSetup.assign(({ context, event }) 
   };
 });
 
+const settleDice = presentationSetup.assign(({ context }) => ({
+  diceCue: context.diceCue ? { ...context.diceCue, rolling: false } : null,
+}));
+
 const showLandingMotion = presentationSetup.assign(({ context }) => {
   if (!context.landingState || !context.activePlayerId) return {};
 
@@ -192,12 +198,7 @@ const showLandingMotion = presentationSetup.assign(({ context }) => {
       kind: "walk" as const,
       nonce: `walk-${run}`,
     },
-    diceCue: context.diceCue
-      ? {
-          ...context.diceCue,
-          rolling: false,
-        }
-      : null,
+    diceCue: null,
   };
 });
 
@@ -289,6 +290,26 @@ export const gamePresentationMachine = presentationSetup.createMachine({
       },
       after: {
         diceDelay: [
+          {
+            guard: "hasMotionPath",
+            target: "revealingDice",
+            actions: settleDice,
+          },
+          {
+            target: "idle",
+            actions: showLatestStateAndClearMotion,
+          },
+        ],
+      },
+    },
+    revealingDice: {
+      on: {
+        [BoardPresentationEventType.SERVER_STATE]: {
+          actions: capturePendingServerState,
+        },
+      },
+      after: {
+        diceRevealDelay: [
           {
             guard: "hasMotionPath",
             target: "moving",

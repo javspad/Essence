@@ -79,6 +79,24 @@ export interface MapBoardShape {
   borderEdges?: MapBorderEdge[];
 }
 
+/**
+ * Bioma visual para una zona de terreno del tablero.
+ * Cada bioma pinta el suelo con su paleta y esparce deco característica
+ * (flores, conchas, cristales, etc.) para que el tablero se lea como un
+ * escenario de Mario Party en lugar de un tablero plano.
+ */
+export type MapBiome = "meadow" | "beach" | "magic" | "city" | "forest" | "water";
+
+export interface MapTerrainZone {
+  id: string;
+  biome: MapBiome;
+  /** polígono en coordenadas de grilla (x/y); mínimo 3 puntos */
+  points: MapGridPoint[];
+  /** 0..1 — intensidad del montículo de elevación bajo la zona */
+  elevation?: number;
+  label?: string;
+}
+
 export interface MapRoute {
   id: string;
   from: number;
@@ -168,6 +186,8 @@ export interface MapDefinition {
   routes: MapRoute[];
   artifacts: MapArtifact[];
   boardShape?: MapBoardShape;
+  /** zonas de terreno pintadas sobre el campo (biomas / escenografía) */
+  terrainZones?: MapTerrainZone[];
   theme?: MapTheme;
 }
 
@@ -178,18 +198,25 @@ export interface RiggedConfig {
   winners?: string[];
 }
 
-/** Motor de minijuego: define cómo se juega y cómo se resuelve. */
-export type MinigameType =
+/** UI/resolution unit that an event can run. */
+export type EventActivityType =
+  | "prompt"
+  | "hostPick"
+  | "selfTap"
   | "vote"
   | "buzzer"
   | "judge"
   | "timing"
   | "reaction"
-  | "masher"
   | "estimate"
+  | "whack";
+
+/** Legacy name kept for existing minigame definitions and engines. */
+export type MinigameType =
+  | EventActivityType
+  | "masher"
   | "memory"
   | "order"
-  | "whack"
   | "clicker";
 
 export interface MinigameDef {
@@ -213,6 +240,80 @@ export interface FateDef {
   coins?: number;
 }
 
+export type EventKind = "story" | "activity";
+/** @deprecated Legacy prompt resolver; normalized into first-class activity types. */
+export type EventResolutionMode = "none" | "hostPick" | "selfTap" | "vote";
+export type EventParticipantMode = "everyone" | "landing" | "host";
+
+export interface EventStory {
+  title?: string;
+  setup?: string;
+  prompt?: string;
+  reward?: string;
+  reveal?: string;
+}
+
+export interface EventActivity {
+  type: EventActivityType;
+  skin?: string;
+  content?: unknown;
+  /** @deprecated Use activity.type: "hostPick" | "selfTap" | "vote" instead. */
+  resolutionMode?: EventResolutionMode;
+  participants?: EventParticipantMode;
+  rigged?: RiggedConfig;
+}
+
+export type EventActionTarget =
+  | "landing"
+  | "winner"
+  | "loser"
+  | "everyone"
+  | { rank: number }
+  | { rankFrom: number; rankTo: number };
+
+export type EventAction =
+  | { type: "text"; text: string; target?: EventActionTarget }
+  | { type: "coins"; value: number; target?: EventActionTarget; text?: string }
+  | { type: "stars"; value: number; target?: EventActionTarget; text?: string }
+  | { type: "move"; delta: number; target?: EventActionTarget; text?: string }
+  | { type: "moveTo"; tileId: number; target?: EventActionTarget; text?: string }
+  | { type: "skipTurn"; target?: EventActionTarget; text?: string }
+  | { type: "extraTurn"; target?: EventActionTarget; text?: string };
+
+export interface EventOutcomeBranch {
+  id?: string;
+  label?: string;
+  when: EventActionTarget;
+  actions: EventAction[];
+}
+
+export interface GameEventDef {
+  name: string;
+  kind?: EventKind;
+  tags?: string[];
+  story?: EventStory;
+  activity?: EventActivity;
+  /** immediate actions for story-only events */
+  actions?: EventAction[];
+  /** actions applied after an activity resolves to a ranking */
+  outcomes?: EventOutcomeBranch[];
+}
+
+export interface PlayerEventOverride {
+  eventId?: string;
+  tags?: string[];
+  kind?: EventKind;
+  activityType?: EventActivityType;
+  story?: EventStory;
+  activity?: Partial<EventActivity>;
+  actions?: EventAction[];
+  outcomes?: EventOutcomeBranch[];
+}
+
+export interface PlayerStoryBank {
+  overrides: PlayerEventOverride[];
+}
+
 export interface PlayerDef {
   id: string;
   name: string;
@@ -226,6 +327,8 @@ export interface GameContent {
   activeMapId?: string;
   maps?: MapDefinition[];
   assetCatalog?: MapAssetDef[];
+  events?: Record<string, GameEventDef>;
+  playerStories?: Record<string, PlayerStoryBank>;
   minigames: Record<string, MinigameDef>;
   dares: Record<string, DareDef>;
   fates: Record<string, FateDef>;
@@ -261,21 +364,30 @@ export type Phase =
   | "finished";
 
 export interface ActiveMinigame {
-  /** id del catálogo */
+  /** event id or legacy minigame id */
   id: string;
-  type: MinigameType;
+  eventId?: string;
+  protagonistId?: string;
+  type: EventActivityType;
   skin?: string;
   content: unknown;
-  /** jugadores que deben participar (ids) */
+  story?: EventStory;
+  /** jugadores que deben submittear resultado (ids) */
   participants: string[];
+  /** jugadores que se rankean para outcomes; por defecto coincide con participants */
+  subjects?: string[];
   /** ids que ya enviaron resultado */
   submitted: string[];
 }
 
 export interface ActiveEvent {
-  kind: "dare" | "fate";
+  id?: string;
+  kind: EventKind | "dare" | "fate";
+  title?: string;
   text: string;
+  story?: EventStory;
   playerId: string;
+  actions?: AppliedEventAction[];
 }
 
 export interface GameState {
@@ -290,6 +402,10 @@ export interface GameState {
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
   boardShape?: MapBoardShape;
+  /** zonas de terreno del mapa activo (para el render 3D del escenario) */
+  terrainZones?: MapTerrainZone[];
+  /** tema visual del mapa activo (base/path/accent/sky) */
+  theme?: MapTheme;
   players: Player[];
   /** orden de turnos por id */
   turnOrder: string[];
@@ -311,8 +427,17 @@ export interface GameState {
 export interface MinigameResult {
   playerId: string;
   score: number;
+  outcome?: "win" | "loss";
   /** "qué hizo": mensaje, tiempo, secuencia, aciertos, etc. */
   payload: unknown;
+}
+
+export interface AppliedEventAction {
+  type: EventAction["type"];
+  targetPlayerIds: string[];
+  text: string;
+  value?: number;
+  tileId?: number;
 }
 
 export interface RevealEntry {
@@ -328,12 +453,15 @@ export interface RevealEntry {
 
 export interface RevealPayload {
   minigameId: string;
-  type: MinigameType;
+  eventId?: string;
+  type: EventActivityType;
   skin?: string;
   title: string;
+  story?: EventStory;
   ranking: string[]; // ids de 1ro a último (rig ya aplicado)
   entries: RevealEntry[];
   coins: Record<string, number>;
+  actions?: AppliedEventAction[];
 }
 
 // ---------------------------------------------------------------------------
@@ -371,7 +499,7 @@ export interface ClientToServerEvents {
   "turn:roll": () => void;
   "turn:next": () => void;
   "minigame:action": (payload: unknown) => void;
-  "minigame:result": (payload: { score: number; payload: unknown }) => void;
+  "minigame:result": (payload: { score: number; payload: unknown; outcome?: "win" | "loss" }) => void;
   /** host fuerza el cierre del minijuego si alguien se colgó */
   "minigame:force": () => void;
   "reveal:next": () => void;
@@ -381,7 +509,7 @@ export interface ServerToClientEvents {
   state: (state: GameState) => void;
   "minigame:start": (payload: {
     id: string;
-    type: MinigameType;
+    type: EventActivityType;
     skin?: string;
     content: unknown;
     participants: string[];

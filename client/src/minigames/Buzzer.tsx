@@ -7,12 +7,17 @@ import type { MinigameProps } from "./types";
 export default function Buzzer({ content, onFinish, onAction }: MinigameProps) {
   const startRef = useRef<number>(performance.now());
   const [answered, setAnswered] = useState(false);
+  const question = content?.question ?? content?.prompt ?? "Elegí la respuesta correcta";
+  const options = Array.isArray(content?.options) && content.options.length
+    ? content.options.map((option: unknown) => String(option))
+    : ["Opción A", "Opción B", "Opción C"];
+  const answer = typeof content?.answer === "number" ? content.answer : 0;
 
   const pick = (i: number) => {
     if (answered) return;
     setAnswered(true);
     const timeMs = performance.now() - startRef.current;
-    const correct = i === content.answer;
+    const correct = i === answer;
     onAction?.({ buzzed: true });
     // Convención: score más alto = mejor. Correcto y rápido gana.
     const score = correct ? 1_000_000 - timeMs : -timeMs;
@@ -20,10 +25,10 @@ export default function Buzzer({ content, onFinish, onAction }: MinigameProps) {
   };
 
   return (
-    <ArcadeShell title={content.question} kicker="Buzzer" badge="rápido">
+    <ArcadeShell title={question} kicker="Buzzer" badge="rápido">
       <p className="text-center text-sm font-black text-[#c7bddc]">¡El primero que acierta gana!</p>
       <div className="flex w-full flex-col gap-4">
-        {content.options.map((opt: string, i: number) => (
+        {options.map((opt, i) => (
           <Button
             type="button"
             font="normal"

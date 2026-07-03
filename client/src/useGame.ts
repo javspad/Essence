@@ -127,8 +127,8 @@ export function useGame() {
       roll: () => socket.emit("turn:roll"),
       next: () => socket.emit("turn:next"),
       forceResolve: () => socket.emit("minigame:force"),
-      submitResult: (score: number, payload: unknown) =>
-        socket.emit("minigame:result", { score, payload }),
+      submitResult: (score: number, payload: unknown, outcome?: "win" | "loss") =>
+        socket.emit("minigame:result", { score, payload, outcome }),
       action: (data: unknown) => socket.emit("minigame:action", data),
     },
   };

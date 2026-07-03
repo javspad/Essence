@@ -29,19 +29,31 @@ export function useBoardPresentation(authoritativeState: GameState): BoardPresen
   }, [authoritativeState, send]);
 
   const rolling = snapshot.matches("rollingDice");
+  const revealing = snapshot.matches("revealingDice");
   const moving = snapshot.matches("moving");
   const eventReading = snapshot.matches("eventReading");
   const jumping = snapshot.matches("jumping");
-  const busyOnBoard = rolling || moving || eventReading || jumping;
+  const busyOnBoard = rolling || revealing || moving || eventReading || jumping;
+  const diceValue = snapshot.context.diceCue?.value ?? null;
 
   return {
     displayState: snapshot.context.displayState,
     activeMotion: snapshot.context.activeMotion,
     diceCue: snapshot.context.diceCue,
     eventBusyLabel: eventReading ? "Leyendo..." : jumping ? "Moviendo..." : null,
-    rollBlocked: rolling || moving,
+    rollBlocked: rolling || revealing || moving,
     showMinigame: authoritativeState.phase === "minigame" && (snapshot.matches("minigameReady") || !busyOnBoard),
-    statusLabel: rolling ? "Tirando dado..." : moving ? "Avanzando..." : jumping ? "Destino en marcha..." : null,
+    statusLabel: rolling
+      ? "Tirando dado..."
+      : revealing
+        ? diceValue
+          ? `¡Salió ${diceValue}!`
+          : "Tirando dado..."
+        : moving
+          ? "Avanzando..."
+          : jumping
+            ? "Destino en marcha..."
+            : null,
     rollRequested: () => send({ type: BoardPresentationEventType.ROLL_REQUESTED }),
   };
 }
