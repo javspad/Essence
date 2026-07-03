@@ -1,4 +1,4 @@
-import type { MapArtifact, MapBiome, MapBoardShape, MapRoute, MapTerrain, MapTerrainZone, Tile, TileLayout, TileType } from "@essence/shared";
+import type { MapArtifact, MapBoardShape, MapRoute, MapTerrain, Tile, TileLayout, TileType } from "@essence/shared";
 import { perimeterLayout } from "./boardView";
 
 type Board3DTile = Pick<Tile, "id" | "layout"> & Partial<Pick<Tile, "type">>;
@@ -22,17 +22,6 @@ export interface Board3DMapBounds {
 }
 
 export type SlotDecal = "ring" | "coin" | "star" | "diamond" | "bolt";
-
-export interface BiomeStyle {
-  /** color del suelo principal de la zona */
-  ground: string;
-  /** color del borde/alero de la zona */
-  edge: string;
-  /** color de acento para deco emisiva */
-  glow: string;
-  /** tipo de deco que esparcir sobre la zona */
-  deco: "flowers" | "shells" | "crystals" | "lamps" | "bushes" | "lilypads";
-}
 
 export interface SlotMaterialStyle {
   top: string;
@@ -102,69 +91,6 @@ const TERRAIN_STYLE: Record<MapTerrain, TerrainMaterialStyle> = {
   asphalt: { top: "#8b95a3", side: "#475569", glow: "#e2e8f0", width: 0.36 },
   magic: { top: "#d8b4fe", side: "#7e22ce", glow: "#f5d0fe", width: 0.4 },
 };
-
-const BIOME_STYLE: Record<MapBiome, BiomeStyle> = {
-  meadow: { ground: "#8ed868", edge: "#3f9d3f", glow: "#d9f99d", deco: "flowers" },
-  beach: { ground: "#f3d488", edge: "#e0a85a", glow: "#fef3c7", deco: "shells" },
-  magic: { ground: "#c4a6f0", edge: "#7e3fc8", glow: "#f5d0fe", deco: "crystals" },
-  city: { ground: "#9aa3b0", edge: "#475569", glow: "#fde68a", deco: "lamps" },
-  forest: { ground: "#4f9d4a", edge: "#1f5e22", glow: "#bbf7d0", deco: "bushes" },
-  water: { ground: "#5ec5f0", edge: "#0e7490", glow: "#bae6fd", deco: "lilypads" },
-};
-
-export function biomeStyle(biome: MapBiome): BiomeStyle {
-  return BIOME_STYLE[biome];
-}
-
-export const BIOME_TYPES: MapBiome[] = ["meadow", "beach", "magic", "city", "forest", "water"];
-
-export function zoneWorldPoints(zone: MapTerrainZone, bounds: Board3DMapBounds): Vec3[] {
-  return zone.points.map((point) =>
-    layoutToWorldPosition({ x: point.x, y: point.y }, bounds.maxX, bounds.maxY, bounds.spacing, bounds.minX, bounds.minY)
-  );
-}
-
-export function zoneCentroid(points: Vec3[]): Vec3 {
-  if (points.length === 0) return [0, 0, 0];
-  let x = 0;
-  let y = 0;
-  let z = 0;
-  for (const point of points) {
-    x += point[0];
-    y += point[1];
-    z += point[2];
-  }
-  const n = points.length;
-  return [x / n, y / n, z / n];
-}
-
-/** Aproxima el área de un polígono 2D (ejes X/Z) — usado para dosar la deco. */
-export function polygonAreaXZ(points: Vec3[]): number {
-  if (points.length < 3) return 0;
-  let sum = 0;
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i];
-    const b = points[(i + 1) % points.length];
-    sum += a[0] * b[2] - b[0] * a[2];
-  }
-  return Math.abs(sum) / 2;
-}
-
-/** Devuelve true si el punto (x,z) está dentro del polígono X/Z (ray-casting). */
-export function pointInPolygonXZ(point: Vec3, polygon: Vec3[]): boolean {
-  const x = point[0];
-  const z = point[2];
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0];
-    const zi = polygon[i][2];
-    const xj = polygon[j][0];
-    const zj = polygon[j][2];
-    const intersect = zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
 
 export function board3DMapBounds(
   tiles: Board3DTile[],

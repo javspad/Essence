@@ -14,7 +14,7 @@ import type {
   ServerToClientEvents,
   Tile,
 } from "@essence/shared";
-import { eventTitle, legacyEventIdForTile, resolveEventForPlayer, type ResolvedGameEvent } from "@essence/shared/events";
+import { eventTitle, resolveEventActionTargetIds, resolveTileEventForPlayer, type ResolvedGameEvent } from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -50,8 +50,6 @@ export class GameRoom {
       artifacts: activeMap?.artifacts,
       assetCatalog: content.assetCatalog,
       boardShape: activeMap?.boardShape,
-      terrainZones: activeMap?.terrainZones,
-      theme: activeMap?.theme,
       players: [],
       turnOrder: [],
       activeIndex: 0,
@@ -198,14 +196,8 @@ export class GameRoom {
   }
 
   private triggerTile(tile: Tile, active: Player) {
-    const eventId = tile.eventId ?? legacyEventIdForTile(tile);
-    if (eventId) {
-      const event = resolveEventForPlayer(this.content, eventId, active);
-      if (!event) {
-        console.warn(`[room] evento desconocido: ${eventId}`);
-        this.advanceTurn();
-        return;
-      }
+    const event = resolveTileEventForPlayer(this.content, tile, active);
+    if (event) {
       this.awardsStar = tile.type === "star";
       this.startEvent(event, active);
       return;
@@ -516,15 +508,12 @@ export class GameRoom {
   }
 
   private targetPlayerIds(target: EventActionTarget, context: { landingPlayerId?: string; ranking?: string[] }): string[] {
-    const ranking = context.ranking ?? [];
-    if (target === "landing") return context.landingPlayerId ? [context.landingPlayerId] : [];
-    if (target === "winner") return ranking[0] ? [ranking[0]] : [];
-    if (target === "loser") return ranking.length ? [ranking[ranking.length - 1]] : [];
-    if (target === "everyone") return this.connectedPlayers().map((p) => p.id);
-    if ("rank" in target) return ranking[target.rank - 1] ? [ranking[target.rank - 1]] : [];
-    const from = Math.max(1, target.rankFrom);
-    const to = Math.max(from, target.rankTo);
-    return ranking.slice(from - 1, to);
+    return resolveEventActionTargetIds(target, {
+      landingPlayerId: context.landingPlayerId,
+      ranking: context.ranking,
+      connectedPlayerIds: this.connectedPlayers().map((p) => p.id),
+      playerIds: this.state.players.map((p) => p.id),
+    });
   }
 
   private endGame() {

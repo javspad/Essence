@@ -45,6 +45,8 @@ export interface Tile {
   /** reservado para eventos futuros que no entren en los catálogos actuales */
   eventKind?: "none" | "minigame" | "dare" | "fate" | "custom";
   eventId?: string;
+  /** candidatos de eventos para este casillero; se elige el mejor para el jugador que cae */
+  eventIds?: string[];
   /** ajustes narrativos/temáticos editables desde el map builder */
   storyParams?: Record<string, string>;
 }
@@ -77,24 +79,6 @@ export interface MapBoardShape {
   maxY: number;
   blockedCells?: MapGridPoint[];
   borderEdges?: MapBorderEdge[];
-}
-
-/**
- * Bioma visual para una zona de terreno del tablero.
- * Cada bioma pinta el suelo con su paleta y esparce deco característica
- * (flores, conchas, cristales, etc.) para que el tablero se lea como un
- * escenario de Mario Party en lugar de un tablero plano.
- */
-export type MapBiome = "meadow" | "beach" | "magic" | "city" | "forest" | "water";
-
-export interface MapTerrainZone {
-  id: string;
-  biome: MapBiome;
-  /** polígono en coordenadas de grilla (x/y); mínimo 3 puntos */
-  points: MapGridPoint[];
-  /** 0..1 — intensidad del montículo de elevación bajo la zona */
-  elevation?: number;
-  label?: string;
 }
 
 export interface MapRoute {
@@ -186,8 +170,6 @@ export interface MapDefinition {
   routes: MapRoute[];
   artifacts: MapArtifact[];
   boardShape?: MapBoardShape;
-  /** zonas de terreno pintadas sobre el campo (biomas / escenografía) */
-  terrainZones?: MapTerrainZone[];
   theme?: MapTheme;
 }
 
@@ -245,6 +227,10 @@ export type EventKind = "story" | "activity";
 export type EventResolutionMode = "none" | "hostPick" | "selfTap" | "vote";
 export type EventParticipantMode = "everyone" | "landing" | "host";
 
+export type EventTriggerScope =
+  | { type: "anyPlayer" }
+  | { type: "player"; playerId: string };
+
 export interface EventStory {
   title?: string;
   setup?: string;
@@ -268,6 +254,7 @@ export type EventActionTarget =
   | "winner"
   | "loser"
   | "everyone"
+  | { playerId: string }
   | { rank: number }
   | { rankFrom: number; rankTo: number };
 
@@ -291,6 +278,8 @@ export interface GameEventDef {
   name: string;
   kind?: EventKind;
   tags?: string[];
+  /** qué jugador puede disparar este evento; por defecto cualquiera */
+  trigger?: EventTriggerScope;
   story?: EventStory;
   activity?: EventActivity;
   /** immediate actions for story-only events */
@@ -402,10 +391,6 @@ export interface GameState {
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
   boardShape?: MapBoardShape;
-  /** zonas de terreno del mapa activo (para el render 3D del escenario) */
-  terrainZones?: MapTerrainZone[];
-  /** tema visual del mapa activo (base/path/accent/sky) */
-  theme?: MapTheme;
   players: Player[];
   /** orden de turnos por id */
   turnOrder: string[];

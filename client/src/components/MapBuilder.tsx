@@ -38,7 +38,7 @@ import {
   type BuilderTool,
   type MapBuilderState,
 } from "../mapBuilder";
-import { eventTitle, normalizeGameContentEvents, resolveEventForPlayer } from "@essence/shared/events";
+import { eventIdsForTile, eventTitle, normalizeGameContentEvents, resolveTileEventForPlayer } from "@essence/shared/events";
 import Board3DShell from "./Board3DShell";
 
 const BASE_CONTENT = normalizeGameContentEvents(seedContent as GameContent);
@@ -421,6 +421,7 @@ function TestPanel({
       {current && (
         <div className="mt-2 rounded-md border border-white/10 bg-black/20 px-2 py-2 text-xs font-bold text-slate-200">
           <span className="text-emerald-200">{TILE_LABEL[current.type]}</span>
+          {current.eventIds?.length ? <span className="ml-1 text-slate-400">· {current.eventIds.length} events</span> : null}
           {current.eventId && <span className="ml-1 text-slate-400">· {current.eventId}</span>}
           {current.minigameId && <span className="ml-1 text-slate-400">· {current.minigameId}</span>}
           {current.dareId && <span className="ml-1 text-slate-400">· {current.dareId}</span>}
@@ -1403,7 +1404,8 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
   const layout = tile.layout ?? { x: 0, y: 0 };
   const [previewPlayerId, setPreviewPlayerId] = useState(BASE_CONTENT.players[0]?.id ?? "");
   const previewPlayer = BASE_CONTENT.players.find((player) => player.id === previewPlayerId) ?? BASE_CONTENT.players[0];
-  const resolvedEvent = tile.eventId && previewPlayer ? resolveEventForPlayer(BASE_CONTENT, tile.eventId, previewPlayer) : null;
+  const tileEventIds = eventIdsForTile(tile);
+  const resolvedEvent = previewPlayer ? resolveTileEventForPlayer(BASE_CONTENT, tile, previewPlayer) : null;
   const updateStoryParam = (key: string, value: string) => {
     const next = { ...(tile.storyParams ?? {}) };
     if (value.trim()) next[key] = value;
@@ -1427,7 +1429,7 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
         options={[{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.events ?? {}).map((id) => ({ value: id, label: eventTitle(BASE_CONTENT.events![id]) }))]}
         onChange={(eventId) => dispatch({ type: "update_node", id: tile.id, patch: { eventId: eventId || undefined } })}
       />
-      {tile.eventId && (
+      {tileEventIds.length > 0 && (
         <div className="mt-3 rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3">
           <SelectInput
             label="Preview player"
@@ -1435,9 +1437,11 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
             options={BASE_CONTENT.players.map((player) => ({ value: player.id, label: player.name }))}
             onChange={setPreviewPlayerId}
           />
-          <p className="mt-3 text-sm font-black text-white">{resolvedEvent ? eventTitle(resolvedEvent) : tile.eventId}</p>
+          {tileEventIds.length > 1 && <p className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-200">{tileEventIds.length} candidate events</p>}
+          <p className="mt-3 text-sm font-black text-white">{resolvedEvent ? eventTitle(resolvedEvent) : tileEventIds[0]}</p>
           {resolvedEvent?.story.prompt && <p className="mt-1 text-xs font-bold leading-5 text-cyan-100">{resolvedEvent.story.prompt}</p>}
           {resolvedEvent?.activity && <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-cyan-200">{activityLabel(resolvedEvent.activity.type)}</p>}
+          {!resolvedEvent && <p className="mt-1 text-xs font-bold leading-5 text-cyan-100">No event matches this preview player.</p>}
         </div>
       )}
       {eventFieldForType(tile.type, "minigame") && (
@@ -1725,6 +1729,7 @@ function cellSummary(tile: Tile): string {
 }
 
 function tileEventLabel(tile: Tile): string {
+  if (tile.eventIds?.length) return tile.eventIds.length === 1 ? `Event: ${tile.eventIds[0]}` : `Events: ${tile.eventIds.length}`;
   if (tile.eventId) return `Event: ${tile.eventId}`;
   if (tile.minigameId) return `Minigame: ${tile.minigameId}`;
   if (tile.dareId) return `Dare: ${tile.dareId}`;

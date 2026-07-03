@@ -1,4 +1,5 @@
 import type {
+  EventActionTarget,
   EventActivity,
   EventActivityType,
   EventStory,
@@ -118,6 +119,51 @@ export function legacyEventIdForTile(tile: Tile): string | undefined {
   if (tile.dareId && tile.type === "dare") return eventIdForLegacyDare(tile.dareId);
   if (tile.fateId && tile.type === "fate") return eventIdForLegacyFate(tile.fateId);
   return undefined;
+}
+
+export function eventIdsForTile(tile: Tile): string[] {
+  const legacyId = legacyEventIdForTile(tile);
+  const ids = [...(tile.eventIds ?? []), ...(tile.eventId ? [tile.eventId] : []), ...(legacyId ? [legacyId] : [])];
+  return [...new Set(ids.filter(Boolean))];
+}
+
+export function eventTriggerScore(event: GameEventDef, player: Pick<PlayerDef, "id">): number {
+  if (!event.trigger || event.trigger.type === "anyPlayer") return 1;
+  if (event.trigger.type === "player" && event.trigger.playerId === player.id) return 2;
+  return 0;
+}
+
+export function eventMatchesTrigger(event: GameEventDef, player: Pick<PlayerDef, "id">): boolean {
+  return eventTriggerScore(event, player) > 0;
+}
+
+export function resolveTileEventForPlayer(content: GameContent, tile: Tile, player: Pick<PlayerDef, "id">): ResolvedGameEvent | null {
+  const normalized = content.events ? content : normalizeGameContentEvents(content);
+  let best: { id: string; score: number } | null = null;
+  for (const id of eventIdsForTile(tile)) {
+    const event = normalized.events?.[id];
+    if (!event) continue;
+    const score = eventTriggerScore(event, player);
+    if (score <= 0) continue;
+    if (!best || score > best.score) best = { id, score };
+  }
+  return best ? resolveEventForPlayer(normalized, best.id, player) : null;
+}
+
+export function resolveEventActionTargetIds(
+  target: EventActionTarget,
+  context: { landingPlayerId?: string; ranking?: string[]; connectedPlayerIds?: string[]; playerIds?: string[] }
+): string[] {
+  const ranking = context.ranking ?? [];
+  if (target === "landing") return context.landingPlayerId ? [context.landingPlayerId] : [];
+  if (target === "winner") return ranking[0] ? [ranking[0]] : [];
+  if (target === "loser") return ranking.length ? [ranking[ranking.length - 1]] : [];
+  if (target === "everyone") return context.connectedPlayerIds ?? [];
+  if ("playerId" in target) return !context.playerIds || context.playerIds.includes(target.playerId) ? [target.playerId] : [];
+  if ("rank" in target) return ranking[target.rank - 1] ? [ranking[target.rank - 1]] : [];
+  const from = Math.max(1, target.rankFrom);
+  const to = Math.max(from, target.rankTo);
+  return ranking.slice(from - 1, to);
 }
 
 export function resolveEventForPlayer(content: GameContent, eventId: string, player: Pick<PlayerDef, "id">): ResolvedGameEvent | null {
