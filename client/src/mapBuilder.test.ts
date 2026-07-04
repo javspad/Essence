@@ -13,6 +13,7 @@ import {
   builderContentToGameContent,
   createInitialMapBuilderState,
   getActiveMap,
+  getSelectedTerrace,
   mapBuilderReducer,
   normalizeBuilderContent,
   validateMap,
@@ -240,3 +241,121 @@ const shapedBounds = board3DMapBounds(board, [routeWithPoint], [], {
 });
 assert.equal(shapedBounds.minX, -2);
 assert.equal(shapedBounds.width, 7);
+
+// --- Mesetas (terraces) ---
+
+// Sin terrazas en el contenido, normalize inicializa el array vacío.
+assert.deepEqual(normalizeBuilderContent(content).maps[0].terraces, []);
+
+const terraceContent: GameContent = {
+  ...content,
+  activeMapId: "terrace-map",
+  maps: [
+    {
+      id: "terrace-map",
+      name: "Con mesetas",
+      board,
+      routes: [],
+      artifacts: [],
+      terraces: [{ id: "meseta-original", minX: 0, minY: 0, maxX: 2, maxY: 2, elevation: 0.55, surface: "grass" }],
+    } as any,
+  ],
+};
+
+let terraceState = createInitialMapBuilderState(terraceContent);
+assert.equal(getActiveMap(terraceState).terraces?.length, 1);
+
+// add_terrace: ajusta el rect a la grilla de 0.5, elevación y superficie por defecto, y selecciona la meseta.
+terraceState = mapBuilderReducer(terraceState, { type: "add_terrace", rect: { minX: 3.2, minY: 1.1, maxX: 5.4, maxY: 2.9 } });
+const addedTerrace = getActiveMap(terraceState).terraces?.find((terrace) => terrace.id === "terrace-2");
+assert.ok(addedTerrace);
+assert.deepEqual(
+  { minX: addedTerrace.minX, minY: addedTerrace.minY, maxX: addedTerrace.maxX, maxY: addedTerrace.maxY },
+  { minX: 3, minY: 1, maxX: 5.5, maxY: 3 }
+);
+assert.equal(addedTerrace.elevation, 0.55);
+assert.equal(addedTerrace.surface, "grass");
+assert.deepEqual(terraceState.selection, { kind: "terrace", id: "terrace-2" });
+assert.equal(getSelectedTerrace(getActiveMap(terraceState), terraceState.selection)?.id, "terrace-2");
+
+// update_terrace: patch parcial de elevación / superficie / color / etiqueta.
+terraceState = mapBuilderReducer(terraceState, {
+  type: "update_terrace",
+  id: "terrace-2",
+  patch: { elevation: 1.1, surface: "stone", color: "#e8a7a0", label: "Meta" },
+});
+const updatedTerrace = getActiveMap(terraceState).terraces?.find((terrace) => terrace.id === "terrace-2");
+assert.equal(updatedTerrace?.elevation, 1.1);
+assert.equal(updatedTerrace?.surface, "stone");
+assert.equal(updatedTerrace?.color, "#e8a7a0");
+assert.equal(updatedTerrace?.label, "Meta");
+
+// update_terrace con rect invertido lo reordena.
+terraceState = mapBuilderReducer(terraceState, { type: "update_terrace", id: "terrace-2", patch: { minX: 10 } });
+const reorderedTerrace = getActiveMap(terraceState).terraces?.find((terrace) => terrace.id === "terrace-2");
+assert.equal(reorderedTerrace?.minX, 5.5);
+assert.equal(reorderedTerrace?.maxX, 10);
+terraceState = mapBuilderReducer(terraceState, { type: "update_terrace", id: "terrace-2", patch: { minX: 3, maxX: 5.5 } });
+
+// move_terrace: mueve la esquina min ajustada a 0.5 y conserva el tamaño.
+terraceState = mapBuilderReducer(terraceState, { type: "move_terrace", id: "terrace-2", minX: 1.26, minY: -0.9 });
+const movedTerrace = getActiveMap(terraceState).terraces?.find((terrace) => terrace.id === "terrace-2");
+assert.deepEqual(
+  { minX: movedTerrace?.minX, minY: movedTerrace?.minY, maxX: movedTerrace?.maxX, maxY: movedTerrace?.maxY },
+  { minX: 1.5, minY: -1, maxX: 4, maxY: 1 }
+);
+
+// resize_terrace: la esquina arrastrada actualiza el rect (con snap a 0.5).
+terraceState = mapBuilderReducer(terraceState, { type: "resize_terrace", id: "terrace-2", corner: "se", point: { x: 2.2, y: 0.4 } });
+const resizedTerrace = getActiveMap(terraceState).terraces?.find((terrace) => terrace.id === "terrace-2");
+assert.deepEqual(
+  { minX: resizedTerrace?.minX, minY: resizedTerrace?.minY, maxX: resizedTerrace?.maxX, maxY: resizedTerrace?.maxY },
+  { minX: 1.5, minY: -1, maxX: 2, maxY: 0.5 }
+);
+
+// resize que cruza la esquina opuesta reordena min/max en vez de romper el rect.
+terraceState = mapBuilderReducer(terraceState, { type: "resize_terrace", id: "terrace-2", corner: "se", point: { x: 0, y: -3 } });
+const flippedTerrace = getActiveMap(terraceState).terraces?.find((terrace) => terrace.id === "terrace-2");
+assert.deepEqual(
+  { minX: flippedTerrace?.minX, minY: flippedTerrace?.minY, maxX: flippedTerrace?.maxX, maxY: flippedTerrace?.maxY },
+  { minX: 0, minY: -3, maxX: 1.5, maxY: -1 }
+);
+
+// Export → import: las mesetas sobreviven el round-trip de JSON.
+const terraceExport = builderContentToGameContent(content, terraceState.content);
+const exportedMap = terraceExport.maps?.find((map) => map.id === "terrace-map");
+assert.equal(exportedMap?.terraces?.length, 2);
+const reimported = normalizeBuilderContent(JSON.parse(JSON.stringify(terraceExport)) as GameContent);
+assert.deepEqual(reimported.maps.find((map) => map.id === "terrace-map")?.terraces, getActiveMap(terraceState).terraces);
+
+// duplicate_map: clona las mesetas con ids nuevos.
+terraceState = mapBuilderReducer(terraceState, { type: "duplicate_map" });
+const duplicatedMap = getActiveMap(terraceState);
+assert.notEqual(duplicatedMap.id, "terrace-map");
+assert.equal(duplicatedMap.terraces?.length, 2);
+assert.deepEqual(duplicatedMap.terraces?.map((terrace) => terrace.id), ["terrace-1", "terrace-2"]);
+assert.equal(duplicatedMap.terraces?.[0].elevation, 0.55);
+const originalMap = terraceState.content.maps.find((map) => map.id === "terrace-map");
+assert.equal(originalMap?.terraces?.[0].id, "meseta-original");
+assert.notEqual(duplicatedMap.terraces?.[0], originalMap?.terraces?.[0]);
+
+// delete_selected elimina la meseta seleccionada.
+terraceState = mapBuilderReducer(terraceState, { type: "select", selection: { kind: "terrace", id: "terrace-2" } });
+terraceState = mapBuilderReducer(terraceState, { type: "delete_selected" });
+assert.equal(getActiveMap(terraceState).terraces?.length, 1);
+assert.equal(getActiveMap(terraceState).terraces?.some((terrace) => terrace.id === "terrace-2"), false);
+assert.equal(terraceState.selection, null);
+
+// validateMap: rect inválido, elevación fuera de rango e ids duplicados.
+const invalidTerraceMap = {
+  ...getActiveMap(terraceState),
+  terraces: [
+    { id: "meseta-mala", minX: 5, minY: 0, maxX: 1, maxY: 2, elevation: 9 },
+    { id: "meseta-mala", minX: 0, minY: 0, maxX: 1, maxY: 1, elevation: 0.55 },
+  ],
+};
+const terraceErrors = validateMap(invalidTerraceMap);
+assert.ok(terraceErrors.includes("Meseta meseta-mala tiene un rectángulo inválido"));
+assert.ok(terraceErrors.includes("Meseta meseta-mala tiene elevación fuera de rango (0 a 3)"));
+assert.ok(terraceErrors.includes("Meseta duplicada: meseta-mala"));
+assert.deepEqual(validateMap(getActiveMap(terraceState)), []);

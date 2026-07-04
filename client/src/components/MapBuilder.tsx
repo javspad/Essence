@@ -7,6 +7,8 @@ import type {
   MapDefinition,
   MapGridPoint,
   MapRoute,
+  MapTerrace,
+  MapTerraceSurface,
   MapTerrain,
   Player,
   Tile,
@@ -29,14 +31,18 @@ import {
   getSelectedArtifact,
   getSelectedNode,
   getSelectedRoute,
+  getSelectedTerrace,
   mapBuilderReducer,
   normalizeBuilderContent,
+  TERRACE_ELEVATION_PRESETS,
+  TERRACE_SURFACES,
   TERRAIN_TYPES,
   TILE_TYPES,
   validateMap,
   type BuilderSelection,
   type BuilderTool,
   type MapBuilderState,
+  type TerraceCorner,
 } from "../mapBuilder";
 import { eventIdsForTile, eventTitle, normalizeGameContentEvents, resolveTileEventForPlayer } from "@essence/shared/events";
 import Board3DShell from "./Board3DShell";
@@ -83,11 +89,68 @@ const TERRAIN_COLOR: Record<MapTerrain, string> = {
   magic: "#c084fc",
 };
 
+const TERRACE_FILL: Record<MapTerraceSurface, string> = {
+  grass: "#a5d6a7",
+  sand: "#f0d9a8",
+  water: "#90d8f0",
+  stone: "#d5cdc0",
+  plaza: "#e8c8d8",
+};
+
+const TERRACE_SURFACE_LABEL: Record<MapTerraceSurface, string> = {
+  grass: "Pasto",
+  sand: "Arena",
+  water: "Agua",
+  stone: "Piedra",
+  plaza: "Plaza",
+};
+
+const ASSET_EMOJI: Record<string, string> = {
+  "oak-tree": "🌲",
+  "club-house": "🏫",
+  "party-van": "🚐",
+  "pond": "💧",
+  "start-sign": "🪧",
+  "finish-sign": "🏁",
+  "glass-building": "🏢",
+  "mini-court": "🏀",
+  "mountain-cluster": "🏔️",
+  "river": "🌊",
+  "plaza": "🏛️",
+  "fountain": "⛲",
+  "bench": "🪑",
+  "palm-tree": "🌴",
+  "flower-bed": "🌸",
+  "beach-set": "⛱️",
+  "sailboat": "⛵",
+  "waterfall": "🌊",
+  "wedding-arch": "💒",
+  "fence": "🚧",
+  "streetlamp": "💡",
+  "rock": "🪨",
+  "billboard": "🖥️",
+  "bus": "🚌",
+};
+
+const KIND_EMOJI: Record<MapAssetDef["kind"], string> = {
+  tree: "🌳",
+  house: "🏠",
+  court: "🏀",
+  vehicle: "🚗",
+  mountain: "⛰️",
+  water: "💧",
+  sign: "🪧",
+  plaza: "⛲",
+  decor: "🌸",
+  custom: "📦",
+};
+
 const TOOL_CONFIG: { tool: BuilderTool; icon: string; label: string; title: string }[] = [
   { tool: "select", icon: "⌖", label: "Select", title: "Seleccionar y arrastrar" },
   { tool: "cell", icon: "●", label: "Cells", title: "Crear casilleros" },
   { tool: "route", icon: "⇄", label: "Routes", title: "Conectar casilleros" },
   { tool: "artifact", icon: "◆", label: "Props", title: "Colocar artefactos" },
+  { tool: "terrace", icon: "⛰", label: "Terreno", title: "Dibujar mesetas de terreno" },
 ];
 
 type DragTarget =
@@ -96,7 +159,9 @@ type DragTarget =
   | { kind: "artifact-scale"; id: string }
   | { kind: "artifact-rotate"; id: string }
   | { kind: "route-point"; id: string; index: number }
-  | { kind: "border-point"; point: MapGridPoint };
+  | { kind: "border-point"; point: MapGridPoint }
+  | { kind: "terrace"; id: string; offsetX: number; offsetY: number }
+  | { kind: "terrace-resize"; id: string; corner: TerraceCorner };
 
 export default function MapBuilder() {
   const [state, dispatch] = useReducer(mapBuilderReducer, undefined, loadInitialState);
@@ -104,6 +169,7 @@ export default function MapBuilder() {
   const selectedNode = getSelectedNode(activeMap, state.selection);
   const selectedRoute = getSelectedRoute(activeMap, state.selection);
   const selectedArtifact = getSelectedArtifact(activeMap, state.selection);
+  const selectedTerrace = getSelectedTerrace(activeMap, state.selection);
   const initial3DPlaytest = readInitial3DPlaytest();
   const [testMode, setTestMode] = useState(initial3DPlaytest);
   const [playtest3DOpen, setPlaytest3DOpen] = useState(initial3DPlaytest);
@@ -255,6 +321,7 @@ export default function MapBuilder() {
             selectedNode={selectedNode}
             selectedRoute={selectedRoute}
             selectedArtifact={selectedArtifact}
+            selectedTerrace={selectedTerrace}
             dispatch={dispatch}
             assetCatalog={state.content.assetCatalog}
             validation={validation}
@@ -483,7 +550,7 @@ function FloatingToolBar({
                 >
                   {assetCatalog.map((asset) => (
                     <option key={asset.id} value={asset.id}>
-                      {asset.name}
+                      {assetOptionLabel(asset)}
                     </option>
                   ))}
                 </select>
@@ -507,7 +574,7 @@ function FloatingToolBar({
             )}
           </div>
         )}
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
         {TOOL_CONFIG.map((tool) => (
           <button
             key={tool.tool}
@@ -552,6 +619,7 @@ function Floating3DPreview({
         tiles={map.board}
         routes={map.routes}
         artifacts={map.artifacts}
+        terraces={map.terraces}
         assetCatalog={assetCatalog}
         boardShape={map.boardShape}
         players={players}
@@ -741,8 +809,10 @@ function MapCanvas({
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const drag = useRef<DragTarget | null>(null);
+  const [terraceDraft, setTerraceDraft] = useState<{ start: MapGridPoint; current: MapGridPoint } | null>(null);
   const bounds = useMemo(() => canvasBounds(map), [map]);
   const gridLines = useMemo(() => buildGrid(bounds), [bounds]);
+  const terraceToolActive = state.tool === "terrace" && !testMode;
 
   const pointFromEvent = (event: PointerEvent<SVGElement>): TileLayout => {
     const svg = svgRef.current;
@@ -768,11 +838,23 @@ function MapCanvas({
       dispatch({ type: "add_artifact", assetId, point });
       return;
     }
+    if (state.tool === "terrace") {
+      const start = { x: roundToStep(point.x, 0.5), y: roundToStep(point.y, 0.5) };
+      setTerraceDraft({ start, current: start });
+      return;
+    }
     dispatch({ type: "select", selection: null });
   };
 
   const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
     if (testMode) return;
+    if (terraceDraft) {
+      const point = pointFromEvent(event);
+      setTerraceDraft((draft) =>
+        draft ? { ...draft, current: { x: roundToStep(point.x, 0.5), y: roundToStep(point.y, 0.5) } } : draft
+      );
+      return;
+    }
     if (!drag.current) return;
     const point = pointFromEvent(event);
     if (drag.current.kind === "node") dispatch({ type: "move_node", id: drag.current.id, point });
@@ -805,10 +887,31 @@ function MapCanvas({
       dispatch({ type: "move_border_point", from: drag.current.point, to: nextPoint });
       drag.current = { kind: "border-point", point: nextPoint };
     }
+    if (drag.current.kind === "terrace") {
+      dispatch({
+        type: "move_terrace",
+        id: drag.current.id,
+        minX: roundToStep(point.x - drag.current.offsetX, 0.5),
+        minY: roundToStep(point.y - drag.current.offsetY, 0.5),
+      });
+    }
+    if (drag.current.kind === "terrace-resize") {
+      dispatch({
+        type: "resize_terrace",
+        id: drag.current.id,
+        corner: drag.current.corner,
+        point: { x: roundToStep(point.x, 0.5), y: roundToStep(point.y, 0.5) },
+      });
+    }
   };
 
   const stopDrag = () => {
     drag.current = null;
+    if (terraceDraft) {
+      const rect = terraceRectFromDraft(terraceDraft);
+      setTerraceDraft(null);
+      dispatch({ type: "add_terrace", rect });
+    }
   };
 
   return (
@@ -846,6 +949,34 @@ function MapCanvas({
         <line key={line.key} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} stroke="#87916f" strokeWidth="0.015" opacity="0.35" />
       ))}
 
+      {/* Mesetas debajo de rutas, casilleros y props; interactivas solo con la herramienta Terreno. */}
+      {[...(map.terraces ?? [])]
+        .sort((a, b) => a.elevation - b.elevation)
+        .map((terrace) => (
+          <TerraceShape
+            key={terrace.id}
+            terrace={terrace}
+            selected={isSelected(state.selection, "terrace", terrace.id)}
+            interactive={terraceToolActive}
+            onBodyPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const point = pointFromEvent(event);
+              drag.current = { kind: "terrace", id: terrace.id, offsetX: point.x - terrace.minX, offsetY: point.y - terrace.minY };
+              dispatch({ type: "select", selection: { kind: "terrace", id: terrace.id } });
+            }}
+            onCornerPointerDown={(event, corner) => {
+              event.preventDefault();
+              event.stopPropagation();
+              drag.current = { kind: "terrace-resize", id: terrace.id, corner };
+              dispatch({ type: "select", selection: { kind: "terrace", id: terrace.id } });
+            }}
+          />
+        ))}
+
+      {terraceDraft && <TerraceDraftShape rect={terraceRectFromDraft(terraceDraft)} />}
+
+      <g pointerEvents={terraceToolActive ? "none" : undefined}>
       {map.routes.map((route) => (
         <RouteShape key={route.id} route={route} map={map} selected={isSelected(state.selection, "route", route.id)} dispatch={dispatch} />
       ))}
@@ -898,6 +1029,7 @@ function MapCanvas({
           }}
         />
       ))}
+      </g>
 
       {state.selection?.kind === "route" &&
         (map.routes.find((route) => route.id === state.selection?.id)?.points ?? []).map((point, index) => (
@@ -1010,6 +1142,113 @@ function BoardShapeOverlay({
         />
       ))}
     </g>
+  );
+}
+
+const TERRACE_CORNERS: TerraceCorner[] = ["nw", "ne", "sw", "se"];
+
+function TerraceShape({
+  terrace,
+  selected,
+  interactive,
+  onBodyPointerDown,
+  onCornerPointerDown,
+}: {
+  terrace: MapTerrace;
+  selected: boolean;
+  interactive: boolean;
+  onBodyPointerDown: (event: PointerEvent<SVGRectElement>) => void;
+  onCornerPointerDown: (event: PointerEvent<SVGRectElement>, corner: TerraceCorner) => void;
+}) {
+  const width = Math.max(0.1, terrace.maxX - terrace.minX);
+  const height = Math.max(0.1, terrace.maxY - terrace.minY);
+  const fill = terrace.color ?? TERRACE_FILL[terrace.surface ?? "grass"];
+  const stroke = darkenHex(fill, 0.68);
+  const strokeWidth = 0.035 + Math.max(0, terrace.elevation) * 0.025;
+  const chipLabel = `▲ ${formatElevation(terrace.elevation)}`;
+  const chipWidth = 0.34 + chipLabel.length * 0.09;
+  return (
+    <g data-terrace-id={terrace.id} pointerEvents={interactive ? undefined : "none"}>
+      <rect
+        x={terrace.minX}
+        y={terrace.minY}
+        width={width}
+        height={height}
+        rx="0.18"
+        fill={fill}
+        opacity="0.45"
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        className={interactive ? "cursor-move" : undefined}
+        onPointerDown={onBodyPointerDown}
+      />
+      <g pointerEvents="none">
+        <rect x={terrace.minX + 0.1} y={terrace.minY + 0.1} width={chipWidth} height="0.3" rx="0.09" fill="#0f172a" opacity="0.72" />
+        <text x={terrace.minX + 0.1 + chipWidth / 2} y={terrace.minY + 0.32} textAnchor="middle" className="fill-amber-100 text-[0.16px] font-black">
+          {chipLabel}
+        </text>
+        {terrace.label && (
+          <text x={terrace.minX + width / 2} y={terrace.maxY - 0.14} textAnchor="middle" opacity="0.75" className="fill-slate-800 text-[0.16px] font-black">
+            {terrace.label}
+          </text>
+        )}
+      </g>
+      {selected && (
+        <g>
+          <rect
+            x={terrace.minX}
+            y={terrace.minY}
+            width={width}
+            height={height}
+            rx="0.18"
+            fill="none"
+            stroke="#34d399"
+            strokeWidth="0.06"
+            strokeDasharray="0.16 0.1"
+            pointerEvents="none"
+          />
+          {TERRACE_CORNERS.map((corner) => {
+            const x = corner === "nw" || corner === "sw" ? terrace.minX : terrace.maxX;
+            const y = corner === "nw" || corner === "ne" ? terrace.minY : terrace.maxY;
+            const diagonal = corner === "nw" || corner === "se" ? "cursor-nwse-resize" : "cursor-nesw-resize";
+            return (
+              <rect
+                key={corner}
+                data-terrace-handle={corner}
+                x={x - 0.12}
+                y={y - 0.12}
+                width="0.24"
+                height="0.24"
+                rx="0.05"
+                fill="#ecfdf5"
+                stroke="#065f46"
+                strokeWidth="0.04"
+                className={interactive ? diagonal : undefined}
+                onPointerDown={(event) => onCornerPointerDown(event, corner)}
+              />
+            );
+          })}
+        </g>
+      )}
+    </g>
+  );
+}
+
+function TerraceDraftShape({ rect }: { rect: { minX: number; minY: number; maxX: number; maxY: number } }) {
+  return (
+    <rect
+      x={rect.minX}
+      y={rect.minY}
+      width={Math.max(0.1, rect.maxX - rect.minX)}
+      height={Math.max(0.1, rect.maxY - rect.minY)}
+      rx="0.18"
+      fill="#34d399"
+      opacity="0.22"
+      stroke="#059669"
+      strokeWidth="0.05"
+      strokeDasharray="0.18 0.12"
+      pointerEvents="none"
+    />
   );
 }
 
@@ -1224,6 +1463,7 @@ function Playtest3DOverlay({
         tiles={map.board}
         routes={map.routes}
         artifacts={map.artifacts}
+        terraces={map.terraces}
         assetCatalog={assetCatalog}
         boardShape={map.boardShape}
         players={players}
@@ -1301,6 +1541,7 @@ function Inspector({
   selectedNode,
   selectedRoute,
   selectedArtifact,
+  selectedTerrace,
   dispatch,
   assetCatalog,
   validation,
@@ -1310,6 +1551,7 @@ function Inspector({
   selectedNode: Tile | null;
   selectedRoute: MapRoute | null;
   selectedArtifact: MapArtifact | null;
+  selectedTerrace: MapTerrace | null;
   dispatch: Dispatch<any>;
   assetCatalog: MapAssetDef[];
   validation: string[];
@@ -1319,7 +1561,8 @@ function Inspector({
       {selectedNode && <NodeInspector tile={selectedNode} dispatch={dispatch} />}
       {selectedRoute && <RouteInspector route={selectedRoute} board={map.board} dispatch={dispatch} />}
       {selectedArtifact && <ArtifactInspector artifact={selectedArtifact} assetCatalog={assetCatalog} dispatch={dispatch} />}
-      {!selectedNode && !selectedRoute && !selectedArtifact && (
+      {selectedTerrace && <TerraceInspector terrace={selectedTerrace} dispatch={dispatch} />}
+      {!selectedNode && !selectedRoute && !selectedArtifact && !selectedTerrace && (
         <section className="rounded-lg border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">
           <p className="font-bold text-white">No selection</p>
           <p className="mt-1">Use Select to inspect nodes, routes, and props. Route mode connects two clicked cells.</p>
@@ -1547,7 +1790,7 @@ function ArtifactInspector({ artifact, assetCatalog, dispatch }: { artifact: Map
       <SelectInput
         label="Asset"
         value={artifact.assetId}
-        options={assetCatalog.map((asset) => ({ value: asset.id, label: asset.name }))}
+        options={assetCatalog.map((asset) => ({ value: asset.id, label: assetOptionLabel(asset) }))}
         onChange={(assetId) => dispatch({ type: "update_artifact", id: artifact.id, patch: { assetId } })}
       />
       <TextInput label="Label" value={artifact.label ?? ""} onChange={(label) => dispatch({ type: "update_artifact", id: artifact.id, patch: { label: label || undefined } })} />
@@ -1569,13 +1812,69 @@ function ArtifactInspector({ artifact, assetCatalog, dispatch }: { artifact: Map
   );
 }
 
+function TerraceInspector({ terrace, dispatch }: { terrace: MapTerrace; dispatch: Dispatch<any> }) {
+  const patch = (value: Partial<Omit<MapTerrace, "id">>) => dispatch({ type: "update_terrace", id: terrace.id, patch: value });
+  return (
+    <section data-terrace-inspector="true">
+      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Meseta {terrace.id}</h2>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberInput label="Min X" value={terrace.minX} step={0.5} onChange={(minX) => patch({ minX })} />
+        <NumberInput label="Min Y" value={terrace.minY} step={0.5} onChange={(minY) => patch({ minY })} />
+        <NumberInput label="Max X" value={terrace.maxX} step={0.5} onChange={(maxX) => patch({ maxX })} />
+        <NumberInput label="Max Y" value={terrace.maxY} step={0.5} onChange={(maxY) => patch({ maxY })} />
+      </div>
+      <div className="mt-2">
+        <NumberInput label="Elevación" value={terrace.elevation} step={0.05} onChange={(elevation) => patch({ elevation })} />
+        <div className="mt-1 flex flex-wrap gap-1">
+          {TERRACE_ELEVATION_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => patch({ elevation: preset })}
+              className={`rounded-md border px-2 py-1 text-xs font-black transition ${
+                terrace.elevation === preset
+                  ? "border-emerald-300 bg-emerald-300 text-emerald-950"
+                  : "border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
+              }`}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-2">
+        <SelectInput
+          label="Superficie"
+          value={terrace.surface ?? "grass"}
+          options={TERRACE_SURFACES.map((surface) => ({ value: surface, label: TERRACE_SURFACE_LABEL[surface] }))}
+          onChange={(surface) => patch({ surface: surface as MapTerraceSurface })}
+        />
+      </div>
+      <TextInput
+        label="Color (hex, opcional)"
+        value={terrace.color ?? ""}
+        onChange={(color) => patch({ color: color.trim() || undefined })}
+      />
+      <TextInput label="Etiqueta" value={terrace.label ?? ""} onChange={(label) => patch({ label: label || undefined })} />
+      <button type="button" onClick={() => dispatch({ type: "delete_selected" })} className="builder-button danger mt-2 w-full">
+        Eliminar meseta
+      </button>
+    </section>
+  );
+}
+
 function CoordinateInputs({ layout, onChange }: { layout: TileLayout; onChange: (layout: TileLayout) => void }) {
   return (
-    <div className="mt-2 grid grid-cols-2 gap-2">
-      <NumberInput label="X" value={layout.x} onChange={(x) => onChange({ ...layout, x })} />
-      <NumberInput label="Y" value={layout.y} onChange={(y) => onChange({ ...layout, y })} />
-      <NumberInput label="Height" value={layout.z ?? 0} step={0.05} onChange={(z) => onChange({ ...layout, z })} />
-      <NumberInput label="Rot" value={layout.rot ?? 0} step={5} onChange={(rot) => onChange({ ...layout, rot })} />
+    <div className="mt-2">
+      <div className="grid grid-cols-2 gap-2">
+        <NumberInput label="X" value={layout.x} onChange={(x) => onChange({ ...layout, x })} />
+        <NumberInput label="Y" value={layout.y} onChange={(y) => onChange({ ...layout, y })} />
+        <NumberInput label="Alt. extra" value={layout.z ?? 0} step={0.05} onChange={(z) => onChange({ ...layout, z })} />
+        <NumberInput label="Rot" value={layout.rot ?? 0} step={5} onChange={(rot) => onChange({ ...layout, rot })} />
+      </div>
+      <p className="mt-1 text-[0.62rem] font-bold leading-4 text-slate-500">
+        La altura del terreno ahora la dan las mesetas (herramienta Terreno); “Alt. extra” se suma encima.
+      </p>
     </div>
   );
 }
@@ -1676,6 +1975,10 @@ function canvasBounds(map: MapDefinition) {
     ...map.board.map((tile) => tile.layout ?? { x: 0, y: 0 }),
     ...map.routes.flatMap((route) => route.points ?? []),
     ...map.artifacts.map((artifact) => artifact.position),
+    ...(map.terraces ?? []).flatMap((terrace) => [
+      { x: terrace.minX, y: terrace.minY },
+      { x: terrace.maxX, y: terrace.maxY },
+    ]),
   ];
   const minX = Math.floor(Math.min(0, ...layouts.map((layout) => layout.x)) - 1);
   const minY = Math.floor(Math.min(0, ...layouts.map((layout) => layout.y)) - 1);
@@ -1752,8 +2055,8 @@ function activityLabel(type: string): string {
 }
 
 function isSelected(selection: BuilderSelection, kind: "node", id: number): boolean;
-function isSelected(selection: BuilderSelection, kind: "route" | "artifact", id: string): boolean;
-function isSelected(selection: BuilderSelection, kind: "node" | "route" | "artifact", id: number | string): boolean {
+function isSelected(selection: BuilderSelection, kind: "route" | "artifact" | "terrace", id: string): boolean;
+function isSelected(selection: BuilderSelection, kind: "node" | "route" | "artifact" | "terrace", id: number | string): boolean {
   return selection?.kind === kind && selection.id === id;
 }
 
@@ -1783,7 +2086,47 @@ function artifactColor(kind?: MapAssetDef["kind"]): string {
   if (kind === "court") return "#79c86d";
   if (kind === "sign") return "#475569";
   if (kind === "plaza") return "#e6bc6a";
+  if (kind === "decor") return "#e2a3c7";
   return "#b35a37";
+}
+
+function assetOptionLabel(asset: MapAssetDef): string {
+  const emoji = ASSET_EMOJI[asset.id] ?? KIND_EMOJI[asset.kind] ?? KIND_EMOJI.custom;
+  return `${emoji} ${asset.name}`;
+}
+
+function terraceRectFromDraft(draft: { start: MapGridPoint; current: MapGridPoint }): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
+  const minX = Math.min(draft.start.x, draft.current.x);
+  const minY = Math.min(draft.start.y, draft.current.y);
+  let maxX = Math.max(draft.start.x, draft.current.x);
+  let maxY = Math.max(draft.start.y, draft.current.y);
+  // Un click sin arrastre crea una meseta mínima de 1x1 para que sea visible/editable.
+  if (maxX - minX < 0.5) maxX = minX + 1;
+  if (maxY - minY < 0.5) maxY = minY + 1;
+  return { minX, minY, maxX, maxY };
+}
+
+/** Oscurece un color hex (#rgb o #rrggbb) multiplicando sus canales. */
+function darkenHex(hex: string, factor: number): string {
+  const raw = hex.replace("#", "");
+  const size = raw.length === 3 ? 1 : 2;
+  if (raw.length !== 3 && raw.length !== 6) return "#4b5563";
+  const channels = [0, 1, 2].map((index) => {
+    const value = parseInt(raw.slice(index * size, index * size + size), 16);
+    const expanded = size === 1 ? value * 17 : value;
+    if (Number.isNaN(expanded)) return 75;
+    return Math.max(0, Math.min(255, Math.round(expanded * factor)));
+  });
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function formatElevation(elevation: number): string {
+  return String(Math.round(elevation * 100) / 100);
 }
 
 function roundToQuarter(value: number): number {

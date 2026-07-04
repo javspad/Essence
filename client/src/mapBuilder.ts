@@ -8,6 +8,8 @@ import type {
   MapDefinition,
   MapGridPoint,
   MapRoute,
+  MapTerrace,
+  MapTerraceSurface,
   MapTerrain,
   Tile,
   TileLayout,
@@ -16,13 +18,23 @@ import type {
 import { normalizeGameContentEvents } from "@essence/shared/events";
 import { defaultAssetFootprint } from "./artifactProjection";
 
-export type BuilderTool = "select" | "cell" | "route" | "artifact" | "json";
+export type BuilderTool = "select" | "cell" | "route" | "artifact" | "terrace" | "json";
 
 export type BuilderSelection =
   | { kind: "node"; id: number }
   | { kind: "route"; id: string }
   | { kind: "artifact"; id: string }
+  | { kind: "terrace"; id: string }
   | null;
+
+export type TerraceCorner = "nw" | "ne" | "sw" | "se";
+
+export interface TerraceRect {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
 
 export interface BuilderContent {
   activeMapId: string;
@@ -67,6 +79,10 @@ export type MapBuilderEvent =
   | { type: "add_artifact"; assetId: string; point: TileLayout }
   | { type: "move_artifact"; id: string; point: TileLayout }
   | { type: "update_artifact"; id: string; patch: Partial<MapArtifact> }
+  | { type: "add_terrace"; rect: TerraceRect; elevation?: number; surface?: MapTerraceSurface }
+  | { type: "update_terrace"; id: string; patch: Partial<Omit<MapTerrace, "id">> }
+  | { type: "move_terrace"; id: string; minX: number; minY: number }
+  | { type: "resize_terrace"; id: string; corner: TerraceCorner; point: MapGridPoint }
   | { type: "delete_selected" }
   | { type: "replace_content"; content: BuilderContent };
 
@@ -87,6 +103,13 @@ export const TILE_TYPES: TileType[] = [
 
 export const TERRAIN_TYPES: MapTerrain[] = ["stone", "grass", "sand", "water", "asphalt", "magic"];
 
+export const TERRACE_SURFACES: MapTerraceSurface[] = ["grass", "sand", "water", "stone", "plaza"];
+
+/** Elevación por defecto de una meseta nueva y saltos rápidos del inspector. */
+export const DEFAULT_TERRACE_ELEVATION = 0.55;
+export const TERRACE_ELEVATION_PRESETS = [0.55, 1.1, 1.7];
+export const MAX_TERRACE_ELEVATION = 3;
+
 const DEFAULT_ASSETS: MapAssetDef[] = [
   { id: "oak-tree", name: "Pino", kind: "tree", defaultScale: 1 },
   { id: "club-house", name: "Casa / escuela", kind: "house", defaultScale: 1 },
@@ -94,6 +117,19 @@ const DEFAULT_ASSETS: MapAssetDef[] = [
   { id: "pond", name: "Lago", kind: "water", defaultScale: 1 },
   { id: "start-sign", name: "Cartel START", kind: "sign", defaultScale: 1 },
   { id: "finish-sign", name: "Cartel final", kind: "sign", defaultScale: 1 },
+  { id: "fountain", name: "Fuente", kind: "decor", defaultScale: 1 },
+  { id: "bench", name: "Banco", kind: "decor", defaultScale: 1 },
+  { id: "palm-tree", name: "Palmera", kind: "tree", defaultScale: 1 },
+  { id: "flower-bed", name: "Cantero", kind: "decor", defaultScale: 1 },
+  { id: "beach-set", name: "Playa set", kind: "decor", defaultScale: 1 },
+  { id: "sailboat", name: "Velerito", kind: "vehicle", defaultScale: 1 },
+  { id: "waterfall", name: "Cascada", kind: "water", defaultScale: 1 },
+  { id: "wedding-arch", name: "Arco de flores", kind: "decor", defaultScale: 1 },
+  { id: "fence", name: "Cerco", kind: "decor", defaultScale: 1 },
+  { id: "streetlamp", name: "Farol", kind: "decor", defaultScale: 1 },
+  { id: "rock", name: "Rocas", kind: "decor", defaultScale: 1 },
+  { id: "billboard", name: "Pantallas", kind: "sign", defaultScale: 1 },
+  { id: "bus", name: "Bondi", kind: "vehicle", defaultScale: 1 },
 ];
 
 export function createInitialMapBuilderState(content: GameContent): MapBuilderState {
@@ -116,6 +152,7 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
       board: cloneTiles(map.board.length ? map.board : normalizedContent.board),
       routes: map.routes?.length ? cloneRoutes(map.routes) : createLinearRoutes(map.board.length ? map.board : normalizedContent.board),
       artifacts: cloneArtifacts(map.artifacts ?? []),
+      terraces: cloneTerraces(map.terraces),
       boardShape: normalizeBoardShape(cloneBoardShape(map.boardShape) ?? createDefaultBoardShape(map.board.length ? map.board : normalizedContent.board)),
     }))
     : [
@@ -126,6 +163,7 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
           board: cloneTiles(normalizedContent.board),
           routes: createLinearRoutes(normalizedContent.board),
           artifacts: [],
+          terraces: [],
           boardShape: createDefaultBoardShape(content.board),
         },
       ];
@@ -191,6 +229,8 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
       const copy = cloneMap(active);
       copy.id = nextMapId(state.content.maps);
       copy.name = `${active.name} copia`;
+      // Las mesetas duplicadas reciben ids frescos para no arrastrar los originales.
+      copy.terraces = (copy.terraces ?? []).map((terrace, index) => ({ ...terrace, id: `terrace-${index + 1}` }));
       return {
         ...state,
         activeMapId: copy.id,
@@ -492,6 +532,80 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
         }),
         "Artefacto actualizado"
       );
+    case "add_terrace": {
+      let createdId = "";
+      return updateActiveMapState(
+        state,
+        (map) => {
+          createdId = nextTerraceId(map.terraces ?? []);
+          const rect = normalizeTerraceRect(event.rect);
+          return {
+            ...map,
+            terraces: [
+              ...(map.terraces ?? []),
+              {
+                id: createdId,
+                ...rect,
+                elevation: event.elevation ?? DEFAULT_TERRACE_ELEVATION,
+                surface: event.surface ?? "grass",
+              },
+            ],
+          };
+        },
+        "Meseta agregada",
+        () => ({ kind: "terrace", id: createdId })
+      );
+    }
+    case "update_terrace":
+      return updateActiveMapState(
+        state,
+        (map) => ({
+          ...map,
+          terraces: (map.terraces ?? []).map((terrace) =>
+            terrace.id === event.id ? normalizeTerracePatch(terrace, event.patch) : terrace
+          ),
+        }),
+        "Meseta actualizada"
+      );
+    case "move_terrace":
+      return updateActiveMapState(
+        state,
+        (map) => ({
+          ...map,
+          terraces: (map.terraces ?? []).map((terrace) => {
+            if (terrace.id !== event.id) return terrace;
+            const minX = round(event.minX, 0.5);
+            const minY = round(event.minY, 0.5);
+            return {
+              ...terrace,
+              minX,
+              minY,
+              maxX: minX + (terrace.maxX - terrace.minX),
+              maxY: minY + (terrace.maxY - terrace.minY),
+            };
+          }),
+        }),
+        "Meseta movida"
+      );
+    case "resize_terrace":
+      return updateActiveMapState(
+        state,
+        (map) => ({
+          ...map,
+          terraces: (map.terraces ?? []).map((terrace) => {
+            if (terrace.id !== event.id) return terrace;
+            const x = round(event.point.x, 0.5);
+            const y = round(event.point.y, 0.5);
+            const next: MapTerrace = { ...terrace };
+            if (event.corner === "nw" || event.corner === "sw") next.minX = x;
+            else next.maxX = x;
+            if (event.corner === "nw" || event.corner === "ne") next.minY = y;
+            else next.maxY = y;
+            return { ...next, ...normalizeTerraceRect(next) };
+          }),
+        }),
+        "Meseta redimensionada"
+      );
     case "delete_selected":
       return deleteSelection(state);
     case "replace_content":
@@ -527,6 +641,10 @@ export function getSelectedArtifact(map: MapDefinition, selection: BuilderSelect
   return selection?.kind === "artifact" ? map.artifacts.find((artifact) => artifact.id === selection.id) ?? null : null;
 }
 
+export function getSelectedTerrace(map: MapDefinition, selection: BuilderSelection): MapTerrace | null {
+  return selection?.kind === "terrace" ? (map.terraces ?? []).find((terrace) => terrace.id === selection.id) ?? null : null;
+}
+
 export function validateMap(map: MapDefinition): string[] {
   const errors: string[] = [];
   const ids = new Set<number>();
@@ -541,6 +659,17 @@ export function validateMap(map: MapDefinition): string[] {
   }
   if (!map.board.some((tile) => tile.type === "start")) errors.push("Falta un casillero start");
   if (!map.board.some((tile) => tile.type === "finish")) errors.push("Falta un casillero finish");
+  const terraceIds = new Set<string>();
+  for (const terrace of map.terraces ?? []) {
+    if (terraceIds.has(terrace.id)) errors.push(`Meseta duplicada: ${terrace.id}`);
+    terraceIds.add(terrace.id);
+    if (terrace.minX > terrace.maxX || terrace.minY > terrace.maxY) {
+      errors.push(`Meseta ${terrace.id} tiene un rectángulo inválido`);
+    }
+    if (!Number.isFinite(terrace.elevation) || terrace.elevation < 0 || terrace.elevation > MAX_TERRACE_ELEVATION) {
+      errors.push(`Meseta ${terrace.id} tiene elevación fuera de rango (0 a ${MAX_TERRACE_ELEVATION})`);
+    }
+  }
   return errors;
 }
 
@@ -580,6 +709,9 @@ function deleteSelection(state: MapBuilderState): MapBuilderState {
       }
       if (selection.kind === "route") {
         return { ...map, routes: map.routes.filter((route) => route.id !== selection.id) };
+      }
+      if (selection.kind === "terrace") {
+        return { ...map, terraces: (map.terraces ?? []).filter((terrace) => terrace.id !== selection.id) };
       }
       return { ...map, artifacts: map.artifacts.filter((artifact) => artifact.id !== selection.id) };
     },
@@ -628,6 +760,7 @@ function createEmptyMap(id: string): MapDefinition {
       { id: "r-1-2", from: 1, to: 2, terrain: "grass" },
     ],
     artifacts: [],
+    terraces: [],
   };
 }
 
@@ -686,8 +819,46 @@ function cloneMap(map: MapDefinition): MapDefinition {
     board: cloneTiles(map.board),
     routes: cloneRoutes(map.routes),
     artifacts: cloneArtifacts(map.artifacts),
+    terraces: cloneTerraces(map.terraces),
     boardShape: cloneBoardShape(map.boardShape),
   };
+}
+
+function cloneTerraces(terraces?: MapTerrace[]): MapTerrace[] {
+  return (terraces ?? []).map((terrace) => ({ ...terrace }));
+}
+
+function nextTerraceId(terraces: MapTerrace[]): string {
+  const used = new Set(terraces.map((terrace) => terrace.id));
+  let index = terraces.length + 1;
+  let id = `terrace-${index}`;
+  while (used.has(id)) {
+    index += 1;
+    id = `terrace-${index}`;
+  }
+  return id;
+}
+
+/** Ajusta el rect a la grilla de 0.5 y ordena min/max. */
+function normalizeTerraceRect(rect: TerraceRect): TerraceRect {
+  const x1 = round(rect.minX, 0.5);
+  const x2 = round(rect.maxX, 0.5);
+  const y1 = round(rect.minY, 0.5);
+  const y2 = round(rect.maxY, 0.5);
+  return {
+    minX: Math.min(x1, x2),
+    minY: Math.min(y1, y2),
+    maxX: Math.max(x1, x2),
+    maxY: Math.max(y1, y2),
+  };
+}
+
+function normalizeTerracePatch(terrace: MapTerrace, patch: Partial<Omit<MapTerrace, "id">>): MapTerrace {
+  const next: MapTerrace = { ...terrace, ...patch };
+  const touchesRect =
+    patch.minX !== undefined || patch.minY !== undefined || patch.maxX !== undefined || patch.maxY !== undefined;
+  if (touchesRect) return { ...next, ...normalizeTerraceRect(next) };
+  return next;
 }
 
 function cloneTiles(board: Tile[]): Tile[] {
@@ -901,6 +1072,7 @@ function toolMessage(tool: BuilderTool): string {
     cell: "Click en el mapa para crear casilleros",
     route: "Click en dos casilleros para conectarlos",
     artifact: "Click en el mapa para colocar artefactos",
+    terrace: "Arrastrá en el lienzo para dibujar mesetas de terreno",
     json: "Importá o exportá JSON",
   };
   return labels[tool];
@@ -910,5 +1082,6 @@ function selectionMessage(selection: BuilderSelection): string {
   if (!selection) return "Sin selección";
   if (selection.kind === "node") return `Casillero ${selection.id} seleccionado`;
   if (selection.kind === "route") return `Ruta ${selection.id} seleccionada`;
+  if (selection.kind === "terrace") return `Meseta ${selection.id} seleccionada`;
   return `Artefacto ${selection.id} seleccionado`;
 }

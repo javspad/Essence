@@ -79,6 +79,7 @@ export default function GameScene3D({
         artifacts={state.artifacts}
         assetCatalog={state.assetCatalog}
         boardShape={state.boardShape}
+        terraces={state.terraces}
         players={state.players}
         activeId={activeId}
         lastRoll={state.lastRoll}
@@ -86,7 +87,7 @@ export default function GameScene3D({
         activeMotion={activeMotion}
         diceCue={diceCue}
         interactive
-        className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_40%_0%,#f5c842_0%,#8c5a1e_28%,#3a1c08_58%,#18090a_100%)]"
+        className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_45%_-5%,#f2d8a7_0%,#dfa96b_30%,#96602c_62%,#2c1808_100%)]"
       />
 
       <SceneChrome
