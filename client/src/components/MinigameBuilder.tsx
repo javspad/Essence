@@ -1015,6 +1015,11 @@ function activityLabel(type: EventActivityType): string {
   if (type === "buzzer") return "Buzzer";
   if (type === "estimate") return "Estimate";
   if (type === "whack") return "Whack";
+  if (type === "maze") return "Laberinto";
+  if (type === "flappy") return "Flappy bird";
+  if (type === "snake") return "Snake";
+  if (type === "horserace") return "Carrera de caballos";
+  if (type === "redlight") return "Luz roja, luz verde";
   return type;
 }
 
@@ -1421,6 +1426,16 @@ function defaultContentForActivity(type: EventActivityType, story?: GameEventDef
       return { question: prompt || "Estimá el valor", unit: "valor", answer: 0 };
     case "whack":
       return { label: prompt || "Golpeá el objetivo correcto", durationMs: 20000 };
+    case "maze":
+      return { label: prompt || "Llevá el cursor hasta la salida sin tocar las paredes", cols: 13, rows: 13 };
+    case "flappy":
+      return { label: prompt || "Tocá o apretá ESPACIO para volar", maxDurationMs: 90000 };
+    case "snake":
+      return { label: prompt || "Sobreviví: el último vivo gana", gridSize: 100, durationMs: 120000 };
+    case "horserace":
+      return { label: prompt || "Apretá la flecha indicada lo más rápido posible", trackLength: 40, durationMs: 45000 };
+    case "redlight":
+      return { label: prompt || "Avanzá con ESPACIO, solo en verde", trackLength: 45, durationMs: 60000 };
     case "prompt":
     default:
       return { prompt, label: story?.title ?? "Evento" };

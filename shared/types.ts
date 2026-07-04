@@ -191,7 +191,12 @@ export type EventActivityType =
   | "timing"
   | "reaction"
   | "estimate"
-  | "whack";
+  | "whack"
+  | "maze"
+  | "flappy"
+  | "snake"
+  | "horserace"
+  | "redlight";
 
 /** Legacy name kept for existing minigame definitions and engines. */
 export type MinigameType =

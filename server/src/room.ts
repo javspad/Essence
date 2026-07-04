@@ -535,6 +535,8 @@ function activityContent(activity: EventActivity, event: ResolvedGameEvent): unk
     story: event.story,
     title: event.story.title ?? eventTitle(event),
     prompt: event.story.prompt ?? base.prompt ?? base.question ?? event.name,
+    // Semilla compartida: todos los clientes generan el mismo escenario (laberinto, caños, semáforo).
+    seed: typeof base.seed === "number" ? base.seed : Math.floor(Math.random() * 0x7fffffff),
   };
 }
 

@@ -8,4 +8,6 @@ export interface MinigameProps {
   onFinish: (score: number, payload: unknown, outcome?: "win" | "loss") => void;
   /** acción en vivo opcional (ej. buzzer apretado) */
   onAction?: (data: unknown) => void;
+  /** ya envié mi resultado; los motores realtime muestran modo espectador */
+  spectator?: boolean;
 }

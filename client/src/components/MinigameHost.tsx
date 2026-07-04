@@ -4,7 +4,7 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Card, CardContent } from "@/components/ui/8bit/card";
 import { Progress } from "@/components/ui/8bit/progress";
-import { ENGINES } from "../minigames";
+import { ENGINES, SPECTATE_TYPES } from "../minigames";
 
 interface Props {
   state: GameState;
@@ -48,11 +48,14 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
     return <Waiting count={submittedCount} total={total} text="No participás en esta ronda." onForce={force} />;
   }
 
-  if (alreadyIn) {
+  // En los motores realtime el jugador que ya terminó sigue mirando la partida.
+  const spectates = SPECTATE_TYPES.has(mg.type);
+  if (alreadyIn && !spectates) {
     return <Waiting count={submittedCount} total={total} text="¡Listo! Esperando al resto..." onForce={force} />;
   }
 
   const handleFinish = (score: number, payload: unknown, outcome?: "win" | "loss") => {
+    if (finished) return;
     setFinished(true);
     onFinish(score, payload, outcome);
   };
@@ -75,6 +78,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
         me={me}
         onFinish={handleFinish}
         onAction={onAction}
+        spectator={alreadyIn}
       />
     </div>
   );
