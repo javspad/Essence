@@ -27,6 +27,11 @@ export const EVENT_ACTIVITY_TYPES: EventActivityType[] = [
   "buzzer",
   "estimate",
   "whack",
+  "maze",
+  "flappy",
+  "snake",
+  "horserace",
+  "redlight",
 ];
 
 const LEGACY_MINIGAME_TILE_TYPES = new Set(["minigame", "trivia", "vote", "judge", "groom", "star", "reaction", "estimate"]);

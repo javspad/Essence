@@ -205,7 +205,26 @@ function formatFlavor(def: MinigameDef | EventActivity, payload: unknown, _id: s
       return p.correct ? `acertó (${Math.round((p.timeMs as number) ?? 0)}ms)` : "erró";
     case "whack":
       return typeof p.hits === "number" ? `${p.hits} aciertos` : undefined;
+    case "maze":
+      if (p.finished) return `salió en ${msToSeconds(p.timeMs)}s`;
+      return typeof p.progress === "number" ? `llegó al ${Math.round((p.progress as number) * 100)}% 💥` : "chocó una pared";
+    case "flappy":
+      return typeof p.pipes === "number" ? `${p.pipes} caño(s)` : undefined;
+    case "snake":
+      if (p.winner) return "último en pie 🐍";
+      return typeof p.survivedMs === "number" ? `sobrevivió ${msToSeconds(p.survivedMs)}s` : undefined;
+    case "horserace":
+      if (p.finished) return `llegó en ${msToSeconds(p.timeMs)}s 🏇`;
+      return typeof p.progress === "number" ? `quedó al ${Math.round((p.progress as number) * 100)}%` : undefined;
+    case "redlight":
+      if (p.eliminated) return "lo vieron moverse 🚨";
+      if (p.finished) return `llegó en ${msToSeconds(p.timeMs)}s`;
+      return typeof p.progress === "number" ? `quedó al ${Math.round((p.progress as number) * 100)}%` : undefined;
     default:
       return undefined;
   }
+}
+
+function msToSeconds(value: unknown): string {
+  return typeof value === "number" ? (value / 1000).toFixed(1) : "?";
 }
