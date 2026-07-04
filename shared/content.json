@@ -1,134 +1,1823 @@
 {
-  "coinPayout": [10, 7, 5, 3, 2, 1, 0],
+  "coinPayout": [
+    10,
+    7,
+    5,
+    3,
+    2,
+    1,
+    0
+  ],
   "players": [
-    { "id": "javi", "name": "Javi", "groom": true, "color": "#f59e0b" },
-    { "id": "nico", "name": "Nico", "color": "#ef4444" },
-    { "id": "frang", "name": "FranG", "color": "#3b82f6" },
-    { "id": "lucho", "name": "Lucho", "color": "#22c55e" },
-    { "id": "tincho", "name": "Tincho", "color": "#a855f7" },
-    { "id": "mati", "name": "Mati", "color": "#ec4899" },
-    { "id": "seba", "name": "Seba", "color": "#14b8a6" }
+    {
+      "id": "javi",
+      "name": "Javi",
+      "groom": true,
+      "color": "#f59e0b"
+    },
+    {
+      "id": "nico",
+      "name": "Nico",
+      "color": "#ef4444"
+    },
+    {
+      "id": "frang",
+      "name": "FranG",
+      "color": "#3b82f6"
+    },
+    {
+      "id": "lucho",
+      "name": "Lucho",
+      "color": "#22c55e"
+    },
+    {
+      "id": "tincho",
+      "name": "Tincho",
+      "color": "#a855f7"
+    },
+    {
+      "id": "mati",
+      "name": "Mati",
+      "color": "#ec4899"
+    },
+    {
+      "id": "seba",
+      "name": "Seba",
+      "color": "#14b8a6"
+    }
   ],
   "board": [
-    { "id": 0, "type": "start", "label": "START", "layout": { "x": 0, "y": 5, "rot": 0 } },
-    { "id": 1, "type": "reaction", "minigameId": "reaction-1", "layout": { "x": 1, "y": 5, "rot": 0 } },
-    { "id": 2, "type": "vote", "minigameId": "mas-probable-1", "layout": { "x": 2, "y": 5, "rot": 0 } },
-    { "id": 3, "type": "dare", "dareId": "shot-1", "layout": { "x": 3, "y": 5, "rot": 0 } },
-    { "id": 4, "type": "minigame", "minigameId": "bostezo", "layout": { "x": 4, "y": 5, "rot": 0 } },
-    { "id": 5, "type": "estimate", "minigameId": "estimate-frang", "layout": { "x": 5, "y": 5, "rot": 0 } },
-    { "id": 6, "type": "fate", "fateId": "retroceder-2", "layout": { "x": 5, "y": 4, "rot": -90 } },
-    { "id": 7, "type": "judge", "minigameId": "lujan", "layout": { "x": 4, "y": 4, "rot": 180 } },
-    { "id": 8, "type": "vote", "minigameId": "quien-dijo-1", "layout": { "x": 3, "y": 4, "rot": 180 } },
-    { "id": 9, "type": "star", "minigameId": "whack-amigos", "layout": { "x": 2, "y": 4, "rot": -90 } },
-    { "id": 10, "type": "trivia", "minigameId": "trivia-novio-1", "layout": { "x": 2, "y": 3, "rot": -90 } },
-    { "id": 11, "type": "dare", "dareId": "reto-1", "layout": { "x": 3, "y": 3, "rot": 0 } },
-    { "id": 12, "type": "minigame", "minigameId": "bostezo", "layout": { "x": 4, "y": 3, "rot": 0 } },
-    { "id": 13, "type": "vote", "minigameId": "mas-probable-2", "layout": { "x": 5, "y": 3, "rot": 0 } },
-    { "id": 14, "type": "fate", "fateId": "monedas-bonus", "layout": { "x": 6, "y": 3, "rot": 0 } },
-    { "id": 15, "type": "groom", "minigameId": "trivia-novio-2", "layout": { "x": 6, "y": 2, "rot": -90 } },
-    { "id": 16, "type": "estimate", "minigameId": "estimate-noche", "layout": { "x": 5, "y": 2, "rot": 180 } },
-    { "id": 17, "type": "judge", "minigameId": "lujan", "layout": { "x": 4, "y": 2, "rot": 180 } },
-    { "id": 18, "type": "vote", "minigameId": "dos-verdades-1", "layout": { "x": 4, "y": 1, "rot": -90, "z": 0.12 } },
-    { "id": 19, "type": "reaction", "minigameId": "reaction-1", "layout": { "x": 5, "y": 1, "rot": 0, "z": 0.12 } },
-    { "id": 20, "type": "star", "minigameId": "whack-amigos", "layout": { "x": 6, "y": 1, "rot": 0, "z": 0.16 } },
-    { "id": 21, "type": "dare", "dareId": "shot-2", "layout": { "x": 7, "y": 1, "rot": 0, "z": 0.2 } },
-    { "id": 22, "type": "trivia", "minigameId": "trivia-novio-1", "layout": { "x": 8, "y": 1, "rot": 0, "z": 0.25 } },
-    { "id": 23, "type": "finish", "label": "THE END", "layout": { "x": 9, "y": 1, "rot": 0, "z": 0.32 } }
+    {
+      "id": 0,
+      "type": "start",
+      "label": "START",
+      "layout": {
+        "x": 0,
+        "y": 5,
+        "rot": 0
+      }
+    },
+    {
+      "id": 1,
+      "type": "reaction",
+      "minigameId": "reaction-1",
+      "layout": {
+        "x": 1,
+        "y": 5,
+        "rot": 0
+      }
+    },
+    {
+      "id": 2,
+      "type": "vote",
+      "minigameId": "mas-probable-1",
+      "layout": {
+        "x": 2,
+        "y": 5,
+        "rot": 0
+      }
+    },
+    {
+      "id": 3,
+      "type": "dare",
+      "dareId": "shot-1",
+      "layout": {
+        "x": 3,
+        "y": 5,
+        "rot": 0
+      }
+    },
+    {
+      "id": 4,
+      "type": "minigame",
+      "minigameId": "bostezo",
+      "layout": {
+        "x": 4,
+        "y": 5,
+        "rot": 0
+      }
+    },
+    {
+      "id": 5,
+      "type": "estimate",
+      "minigameId": "estimate-frang",
+      "layout": {
+        "x": 5,
+        "y": 5,
+        "rot": 0
+      }
+    },
+    {
+      "id": 6,
+      "type": "fate",
+      "fateId": "retroceder-2",
+      "layout": {
+        "x": 5,
+        "y": 4,
+        "rot": -90
+      }
+    },
+    {
+      "id": 7,
+      "type": "judge",
+      "minigameId": "lujan",
+      "layout": {
+        "x": 4,
+        "y": 4,
+        "rot": 180
+      }
+    },
+    {
+      "id": 8,
+      "type": "vote",
+      "minigameId": "quien-dijo-1",
+      "layout": {
+        "x": 3,
+        "y": 4,
+        "rot": 180
+      }
+    },
+    {
+      "id": 9,
+      "type": "star",
+      "minigameId": "whack-amigos",
+      "layout": {
+        "x": 2,
+        "y": 4,
+        "rot": -90
+      }
+    },
+    {
+      "id": 10,
+      "type": "trivia",
+      "minigameId": "trivia-novio-1",
+      "layout": {
+        "x": 2,
+        "y": 3,
+        "rot": -90
+      }
+    },
+    {
+      "id": 11,
+      "type": "dare",
+      "dareId": "reto-1",
+      "layout": {
+        "x": 3,
+        "y": 3,
+        "rot": 0
+      }
+    },
+    {
+      "id": 12,
+      "type": "minigame",
+      "minigameId": "bostezo",
+      "layout": {
+        "x": 4,
+        "y": 3,
+        "rot": 0
+      }
+    },
+    {
+      "id": 13,
+      "type": "vote",
+      "minigameId": "mas-probable-2",
+      "layout": {
+        "x": 5,
+        "y": 3,
+        "rot": 0
+      }
+    },
+    {
+      "id": 14,
+      "type": "fate",
+      "fateId": "monedas-bonus",
+      "layout": {
+        "x": 6,
+        "y": 3,
+        "rot": 0
+      }
+    },
+    {
+      "id": 15,
+      "type": "groom",
+      "minigameId": "trivia-novio-2",
+      "layout": {
+        "x": 6,
+        "y": 2,
+        "rot": -90
+      }
+    },
+    {
+      "id": 16,
+      "type": "estimate",
+      "minigameId": "estimate-noche",
+      "layout": {
+        "x": 5,
+        "y": 2,
+        "rot": 180
+      }
+    },
+    {
+      "id": 17,
+      "type": "judge",
+      "minigameId": "lujan",
+      "layout": {
+        "x": 4,
+        "y": 2,
+        "rot": 180
+      }
+    },
+    {
+      "id": 18,
+      "type": "vote",
+      "minigameId": "dos-verdades-1",
+      "layout": {
+        "x": 4,
+        "y": 1,
+        "rot": -90,
+        "z": 0.12
+      }
+    },
+    {
+      "id": 19,
+      "type": "reaction",
+      "minigameId": "reaction-1",
+      "layout": {
+        "x": 5,
+        "y": 1,
+        "rot": 0,
+        "z": 0.12
+      }
+    },
+    {
+      "id": 20,
+      "type": "star",
+      "minigameId": "whack-amigos",
+      "layout": {
+        "x": 6,
+        "y": 1,
+        "rot": 0,
+        "z": 0.16
+      }
+    },
+    {
+      "id": 21,
+      "type": "dare",
+      "dareId": "shot-2",
+      "layout": {
+        "x": 7,
+        "y": 1,
+        "rot": 0,
+        "z": 0.2
+      }
+    },
+    {
+      "id": 22,
+      "type": "trivia",
+      "minigameId": "trivia-novio-1",
+      "layout": {
+        "x": 8,
+        "y": 1,
+        "rot": 0,
+        "z": 0.25
+      }
+    },
+    {
+      "id": 23,
+      "type": "finish",
+      "label": "THE END",
+      "layout": {
+        "x": 9,
+        "y": 1,
+        "rot": 0,
+        "z": 0.32
+      }
+    }
   ],
   "activeMapId": "farewell-loop",
   "assetCatalog": [
-    { "id": "oak-tree", "name": "Pino", "kind": "tree", "defaultScale": 1, "tags": ["natural"] },
-    { "id": "club-house", "name": "Casa / escuela", "kind": "house", "defaultScale": 1, "tags": ["building"] },
-    { "id": "glass-building", "name": "Edificio de vidrio", "kind": "house", "defaultScale": 1, "tags": ["building"] },
-    { "id": "mini-court", "name": "Cancha mini", "kind": "court", "defaultScale": 1, "tags": ["activity"] },
-    { "id": "mountain-cluster", "name": "Montañas", "kind": "mountain", "defaultScale": 1, "tags": ["natural"] },
-    { "id": "party-van", "name": "Traffic", "kind": "vehicle", "defaultScale": 1, "tags": ["vehicle"] },
-    { "id": "pond", "name": "Lago", "kind": "water", "defaultScale": 1, "tags": ["terrain"] },
-    { "id": "river", "name": "Riacho", "kind": "water", "defaultScale": 1, "tags": ["terrain"] },
-    { "id": "plaza", "name": "Plaza final", "kind": "plaza", "defaultScale": 1, "tags": ["terrain"] },
-    { "id": "start-sign", "name": "Cartel START", "kind": "sign", "defaultScale": 1, "tags": ["label"] },
-    { "id": "finish-sign", "name": "Cartel final", "kind": "sign", "defaultScale": 1, "tags": ["label"] }
+    {
+      "id": "oak-tree",
+      "name": "Pino",
+      "kind": "tree",
+      "defaultScale": 1,
+      "tags": [
+        "natural"
+      ]
+    },
+    {
+      "id": "club-house",
+      "name": "Casa / escuela",
+      "kind": "house",
+      "defaultScale": 1,
+      "tags": [
+        "building"
+      ]
+    },
+    {
+      "id": "glass-building",
+      "name": "Edificio de vidrio",
+      "kind": "house",
+      "defaultScale": 1,
+      "tags": [
+        "building"
+      ]
+    },
+    {
+      "id": "mini-court",
+      "name": "Cancha mini",
+      "kind": "court",
+      "defaultScale": 1,
+      "tags": [
+        "activity"
+      ]
+    },
+    {
+      "id": "mountain-cluster",
+      "name": "Montañas",
+      "kind": "mountain",
+      "defaultScale": 1,
+      "tags": [
+        "natural"
+      ]
+    },
+    {
+      "id": "party-van",
+      "name": "Traffic",
+      "kind": "vehicle",
+      "defaultScale": 1,
+      "tags": [
+        "vehicle"
+      ]
+    },
+    {
+      "id": "pond",
+      "name": "Lago",
+      "kind": "water",
+      "defaultScale": 1,
+      "tags": [
+        "terrain"
+      ]
+    },
+    {
+      "id": "river",
+      "name": "Riacho",
+      "kind": "water",
+      "defaultScale": 1,
+      "tags": [
+        "terrain"
+      ]
+    },
+    {
+      "id": "plaza",
+      "name": "Plaza final",
+      "kind": "plaza",
+      "defaultScale": 1,
+      "tags": [
+        "terrain"
+      ]
+    },
+    {
+      "id": "start-sign",
+      "name": "Cartel START",
+      "kind": "sign",
+      "defaultScale": 1,
+      "tags": [
+        "label"
+      ]
+    },
+    {
+      "id": "finish-sign",
+      "name": "Cartel final",
+      "kind": "sign",
+      "defaultScale": 1,
+      "tags": [
+        "label"
+      ]
+    },
+    {
+      "id": "fountain",
+      "name": "Fuente",
+      "kind": "decor",
+      "defaultScale": 1,
+      "tags": [
+        "parque",
+        "decor"
+      ]
+    },
+    {
+      "id": "bench",
+      "name": "Banco",
+      "kind": "decor",
+      "defaultScale": 1,
+      "tags": [
+        "parque",
+        "decor"
+      ]
+    },
+    {
+      "id": "palm-tree",
+      "name": "Palmera",
+      "kind": "tree",
+      "defaultScale": 1,
+      "tags": [
+        "natural",
+        "playa"
+      ]
+    },
+    {
+      "id": "flower-bed",
+      "name": "Cantero",
+      "kind": "decor",
+      "defaultScale": 1,
+      "tags": [
+        "parque",
+        "natural"
+      ]
+    },
+    {
+      "id": "beach-set",
+      "name": "Playa set",
+      "kind": "decor",
+      "defaultScale": 1,
+      "tags": [
+        "playa",
+        "decor"
+      ]
+    },
+    {
+      "id": "sailboat",
+      "name": "Velerito",
+      "kind": "vehicle",
+      "defaultScale": 1,
+      "tags": [
+        "vehicle",
+        "agua"
+      ]
+    },
+    {
+      "id": "waterfall",
+      "name": "Cascada",
+      "kind": "water",
+      "defaultScale": 1,
+      "tags": [
+        "terrain",
+        "agua"
+      ]
+    },
+    {
+      "id": "wedding-arch",
+      "name": "Arco de flores",
+      "kind": "decor",
+      "defaultScale": 1,
+      "tags": [
+        "meta",
+        "decor"
+      ]
+    },
+    {
+      "id": "fence",
+      "name": "Cerco",
+      "kind": "decor",
+      "defaultScale": 1,
+      "tags": [
+        "building",
+        "decor"
+      ]
+    },
+    {
+      "id": "streetlamp",
+      "name": "Farol",
+      "kind": "decor",
+      "defaultScale": 1,
+      "tags": [
+        "urbano",
+        "decor"
+      ]
+    },
+    {
+      "id": "rock",
+      "name": "Rocas",
+      "kind": "decor",
+      "defaultScale": 1,
+      "tags": [
+        "natural"
+      ]
+    },
+    {
+      "id": "billboard",
+      "name": "Pantallas",
+      "kind": "sign",
+      "defaultScale": 1,
+      "tags": [
+        "urbano",
+        "building"
+      ]
+    },
+    {
+      "id": "bus",
+      "name": "Bondi",
+      "kind": "vehicle",
+      "defaultScale": 1,
+      "tags": [
+        "vehicle",
+        "urbano"
+      ]
+    }
   ],
   "maps": [
     {
       "id": "farewell-loop",
       "name": "Despedida clásica",
-      "description": "Mapa editable inicial con rutas graficadas y props actuales serializados.",
-      "theme": { "base": "#6fbe54", "path": "#f1d081", "accent": "#38bdf8", "sky": "#1b1309" },
+      "description": "Diorama en terrazas: de la escuela al parque de la fuente, la avenida de los bondis y las oficinas, cruzando el lago y la playa hasta la loma rosa de la META.",
+      "theme": {
+        "base": "#6fbe54",
+        "path": "#e6cf9d",
+        "accent": "#5bc4ea",
+        "sky": "#3a2510"
+      },
       "board": [
-        { "id": 0, "type": "start", "label": "START", "layout": { "x": 0, "y": 5, "rot": 0 } },
-        { "id": 1, "type": "reaction", "minigameId": "reaction-1", "layout": { "x": 1, "y": 5, "rot": 0 } },
-        { "id": 2, "type": "vote", "minigameId": "mas-probable-1", "layout": { "x": 2, "y": 5, "rot": 0 } },
-        { "id": 3, "type": "dare", "dareId": "shot-1", "layout": { "x": 3, "y": 5, "rot": 0 } },
-        { "id": 4, "type": "minigame", "minigameId": "bostezo", "layout": { "x": 4, "y": 5, "rot": 0 } },
-        { "id": 5, "type": "estimate", "minigameId": "estimate-frang", "layout": { "x": 5, "y": 5, "rot": 0 } },
-        { "id": 6, "type": "fate", "fateId": "retroceder-2", "layout": { "x": 5, "y": 4, "rot": -90 } },
-        { "id": 7, "type": "judge", "minigameId": "lujan", "layout": { "x": 4, "y": 4, "rot": 180 } },
-        { "id": 8, "type": "vote", "minigameId": "quien-dijo-1", "layout": { "x": 3, "y": 4, "rot": 180 } },
-        { "id": 9, "type": "star", "minigameId": "whack-amigos", "layout": { "x": 2, "y": 4, "rot": -90 } },
-        { "id": 10, "type": "trivia", "minigameId": "trivia-novio-1", "layout": { "x": 2, "y": 3, "rot": -90 } },
-        { "id": 11, "type": "dare", "dareId": "reto-1", "layout": { "x": 3, "y": 3, "rot": 0 } },
-        { "id": 12, "type": "minigame", "minigameId": "bostezo", "layout": { "x": 4, "y": 3, "rot": 0 } },
-        { "id": 13, "type": "vote", "minigameId": "mas-probable-2", "layout": { "x": 5, "y": 3, "rot": 0 } },
-        { "id": 14, "type": "fate", "fateId": "monedas-bonus", "layout": { "x": 6, "y": 3, "rot": 0 } },
-        { "id": 15, "type": "groom", "minigameId": "trivia-novio-2", "layout": { "x": 6, "y": 2, "rot": -90 } },
-        { "id": 16, "type": "estimate", "minigameId": "estimate-noche", "layout": { "x": 5, "y": 2, "rot": 180 } },
-        { "id": 17, "type": "judge", "minigameId": "lujan", "layout": { "x": 4, "y": 2, "rot": 180 } },
-        { "id": 18, "type": "vote", "minigameId": "dos-verdades-1", "layout": { "x": 4, "y": 1, "rot": -90, "z": 0.12 } },
-        { "id": 19, "type": "reaction", "minigameId": "reaction-1", "layout": { "x": 5, "y": 1, "rot": 0, "z": 0.12 } },
-        { "id": 20, "type": "star", "minigameId": "whack-amigos", "layout": { "x": 6, "y": 1, "rot": 0, "z": 0.16 } },
-        { "id": 21, "type": "dare", "dareId": "shot-2", "layout": { "x": 7, "y": 1, "rot": 0, "z": 0.2 } },
-        { "id": 22, "type": "trivia", "minigameId": "trivia-novio-1", "layout": { "x": 8, "y": 1, "rot": 0, "z": 0.25 } },
-        { "id": 23, "type": "finish", "label": "THE END", "layout": { "x": 9, "y": 1, "rot": 0, "z": 0.32 } }
+        {
+          "id": 0,
+          "type": "start",
+          "label": "START",
+          "layout": {
+            "x": -1,
+            "y": 0.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 1,
+          "type": "reaction",
+          "minigameId": "reaction-1",
+          "layout": {
+            "x": 0,
+            "y": 0.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 2,
+          "type": "vote",
+          "minigameId": "mas-probable-1",
+          "layout": {
+            "x": 1,
+            "y": 0.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 3,
+          "type": "dare",
+          "dareId": "shot-1",
+          "layout": {
+            "x": 2,
+            "y": 0.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 4,
+          "type": "trivia",
+          "minigameId": "trivia-novio-1",
+          "layout": {
+            "x": 3,
+            "y": 0.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 5,
+          "type": "minigame",
+          "minigameId": "bostezo",
+          "layout": {
+            "x": 4,
+            "y": 0.5,
+            "rot": -25
+          }
+        },
+        {
+          "id": 6,
+          "type": "star",
+          "minigameId": "whack-amigos",
+          "layout": {
+            "x": 5,
+            "y": 0,
+            "rot": 0
+          }
+        },
+        {
+          "id": 7,
+          "type": "vote",
+          "minigameId": "quien-dijo-1",
+          "layout": {
+            "x": 6,
+            "y": 0,
+            "rot": 0
+          }
+        },
+        {
+          "id": 8,
+          "type": "fate",
+          "fateId": "monedas-bonus",
+          "layout": {
+            "x": 7,
+            "y": 0,
+            "rot": 25
+          }
+        },
+        {
+          "id": 9,
+          "type": "judge",
+          "minigameId": "lujan",
+          "layout": {
+            "x": 8,
+            "y": 0.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 10,
+          "type": "estimate",
+          "minigameId": "estimate-noche",
+          "layout": {
+            "x": 9,
+            "y": 0.5,
+            "rot": 60
+          }
+        },
+        {
+          "id": 11,
+          "type": "dare",
+          "dareId": "reto-1",
+          "layout": {
+            "x": 9.5,
+            "y": 1.5,
+            "rot": 60
+          }
+        },
+        {
+          "id": 12,
+          "type": "reaction",
+          "minigameId": "reaction-1",
+          "layout": {
+            "x": 10,
+            "y": 2.5,
+            "rot": 90
+          }
+        },
+        {
+          "id": 13,
+          "type": "fate",
+          "fateId": "retroceder-2",
+          "layout": {
+            "x": 10,
+            "y": 3.5,
+            "rot": 90
+          }
+        },
+        {
+          "id": 14,
+          "type": "minigame",
+          "minigameId": "bostezo",
+          "layout": {
+            "x": 10,
+            "y": 4.5,
+            "rot": 180
+          }
+        },
+        {
+          "id": 15,
+          "type": "vote",
+          "minigameId": "dos-verdades-1",
+          "layout": {
+            "x": 9,
+            "y": 4.5,
+            "rot": 180
+          }
+        },
+        {
+          "id": 16,
+          "type": "judge",
+          "minigameId": "lujan",
+          "layout": {
+            "x": 8,
+            "y": 4.5,
+            "rot": -155
+          }
+        },
+        {
+          "id": 17,
+          "type": "trivia",
+          "minigameId": "trivia-novio-1",
+          "layout": {
+            "x": 7,
+            "y": 4,
+            "rot": 180
+          }
+        },
+        {
+          "id": 18,
+          "type": "star",
+          "minigameId": "whack-amigos",
+          "layout": {
+            "x": 6,
+            "y": 4,
+            "rot": 155
+          }
+        },
+        {
+          "id": 19,
+          "type": "estimate",
+          "minigameId": "estimate-frang",
+          "layout": {
+            "x": 5,
+            "y": 4.5,
+            "rot": 180
+          }
+        },
+        {
+          "id": 20,
+          "type": "groom",
+          "minigameId": "trivia-novio-2",
+          "layout": {
+            "x": 4,
+            "y": 4.5,
+            "rot": 180
+          }
+        },
+        {
+          "id": 21,
+          "type": "vote",
+          "minigameId": "mas-probable-2",
+          "layout": {
+            "x": 3,
+            "y": 4.5,
+            "rot": 180
+          }
+        },
+        {
+          "id": 22,
+          "type": "dare",
+          "dareId": "shot-2",
+          "layout": {
+            "x": 2,
+            "y": 4.5,
+            "rot": 115
+          }
+        },
+        {
+          "id": 23,
+          "type": "reaction",
+          "minigameId": "reaction-1",
+          "layout": {
+            "x": 1.5,
+            "y": 5.5,
+            "rot": 90
+          }
+        },
+        {
+          "id": 24,
+          "type": "vote",
+          "minigameId": "mas-probable-1",
+          "layout": {
+            "x": 1.5,
+            "y": 6.5,
+            "rot": 65
+          }
+        },
+        {
+          "id": 25,
+          "type": "judge",
+          "minigameId": "lujan",
+          "layout": {
+            "x": 2,
+            "y": 7.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 26,
+          "type": "minigame",
+          "minigameId": "bostezo",
+          "layout": {
+            "x": 3,
+            "y": 7.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 27,
+          "type": "estimate",
+          "minigameId": "estimate-noche",
+          "layout": {
+            "x": 4,
+            "y": 7.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 28,
+          "type": "dare",
+          "dareId": "shot-1",
+          "layout": {
+            "x": 5,
+            "y": 7.5,
+            "rot": 60
+          }
+        },
+        {
+          "id": 29,
+          "type": "fate",
+          "fateId": "retroceder-2",
+          "layout": {
+            "x": 5.5,
+            "y": 8.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 30,
+          "type": "star",
+          "minigameId": "whack-amigos",
+          "layout": {
+            "x": 6.5,
+            "y": 8.5,
+            "rot": 0
+          }
+        },
+        {
+          "id": 31,
+          "type": "vote",
+          "minigameId": "quien-dijo-1",
+          "layout": {
+            "x": 7.5,
+            "y": 8.5,
+            "rot": -60
+          }
+        },
+        {
+          "id": 32,
+          "type": "reaction",
+          "minigameId": "reaction-1",
+          "layout": {
+            "x": 8,
+            "y": 7.5,
+            "rot": -25
+          }
+        },
+        {
+          "id": 33,
+          "type": "estimate",
+          "minigameId": "estimate-frang",
+          "layout": {
+            "x": 9,
+            "y": 7,
+            "rot": 0
+          }
+        },
+        {
+          "id": 34,
+          "type": "dare",
+          "dareId": "reto-1",
+          "layout": {
+            "x": 10,
+            "y": 7,
+            "rot": 25
+          }
+        },
+        {
+          "id": 35,
+          "type": "vote",
+          "minigameId": "dos-verdades-1",
+          "layout": {
+            "x": 10.5,
+            "y": 7.5,
+            "rot": 45
+          }
+        },
+        {
+          "id": 36,
+          "type": "groom",
+          "minigameId": "trivia-novio-2",
+          "layout": {
+            "x": 11.5,
+            "y": 8,
+            "rot": 0
+          }
+        },
+        {
+          "id": 37,
+          "type": "trivia",
+          "minigameId": "trivia-novio-1",
+          "layout": {
+            "x": 12.5,
+            "y": 8,
+            "rot": 45
+          }
+        },
+        {
+          "id": 38,
+          "type": "judge",
+          "minigameId": "lujan",
+          "layout": {
+            "x": 13,
+            "y": 8.5,
+            "rot": 135
+          }
+        },
+        {
+          "id": 39,
+          "type": "finish",
+          "label": "META",
+          "layout": {
+            "x": 12.5,
+            "y": 9,
+            "rot": 135
+          }
+        }
       ],
       "routes": [
-        { "id": "r-0-1", "from": 0, "to": 1, "terrain": "stone" },
-        { "id": "r-1-2", "from": 1, "to": 2, "terrain": "grass" },
-        { "id": "r-2-3", "from": 2, "to": 3, "terrain": "grass" },
-        { "id": "r-3-4", "from": 3, "to": 4, "terrain": "sand" },
-        { "id": "r-4-5", "from": 4, "to": 5, "terrain": "stone" },
-        { "id": "r-5-6", "from": 5, "to": 6, "terrain": "asphalt", "choiceLabel": "Bajar" },
-        { "id": "r-6-7", "from": 6, "to": 7, "terrain": "asphalt" },
-        { "id": "r-7-8", "from": 7, "to": 8, "terrain": "stone" },
-        { "id": "r-8-9", "from": 8, "to": 9, "terrain": "grass" },
-        { "id": "r-9-10", "from": 9, "to": 10, "terrain": "grass" },
-        { "id": "r-10-11", "from": 10, "to": 11, "terrain": "sand" },
-        { "id": "r-11-12", "from": 11, "to": 12, "terrain": "sand" },
-        { "id": "r-12-13", "from": 12, "to": 13, "terrain": "grass" },
-        { "id": "r-13-14", "from": 13, "to": 14, "terrain": "stone" },
-        { "id": "r-14-15", "from": 14, "to": 15, "terrain": "magic", "choiceLabel": "Puente" },
-        { "id": "r-15-16", "from": 15, "to": 16, "terrain": "magic" },
-        { "id": "r-16-17", "from": 16, "to": 17, "terrain": "stone" },
-        { "id": "r-17-18", "from": 17, "to": 18, "terrain": "water", "points": [{ "x": 4, "y": 1.6, "z": 0.1 }] },
-        { "id": "r-18-19", "from": 18, "to": 19, "terrain": "water" },
-        { "id": "r-19-20", "from": 19, "to": 20, "terrain": "stone" },
-        { "id": "r-20-21", "from": 20, "to": 21, "terrain": "sand" },
-        { "id": "r-21-22", "from": 21, "to": 22, "terrain": "sand" },
-        { "id": "r-22-23", "from": 22, "to": 23, "terrain": "stone" }
+        {
+          "id": "r-0-1",
+          "from": 0,
+          "to": 1,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-1-2",
+          "from": 1,
+          "to": 2,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-2-3",
+          "from": 2,
+          "to": 3,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-3-4",
+          "from": 3,
+          "to": 4,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-4-5",
+          "from": 4,
+          "to": 5,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-5-6",
+          "from": 5,
+          "to": 6,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-6-7",
+          "from": 6,
+          "to": 7,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-7-8",
+          "from": 7,
+          "to": 8,
+          "terrain": "stone",
+          "points": [
+            {
+              "x": 6.5,
+              "y": -0.15
+            }
+          ]
+        },
+        {
+          "id": "r-8-9",
+          "from": 8,
+          "to": 9,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-9-10",
+          "from": 9,
+          "to": 10,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-10-11",
+          "from": 10,
+          "to": 11,
+          "terrain": "asphalt",
+          "choiceLabel": "Bondi"
+        },
+        {
+          "id": "r-11-12",
+          "from": 11,
+          "to": 12,
+          "terrain": "asphalt",
+          "points": [
+            {
+              "x": 9.65,
+              "y": 2.05
+            }
+          ]
+        },
+        {
+          "id": "r-12-13",
+          "from": 12,
+          "to": 13,
+          "terrain": "asphalt"
+        },
+        {
+          "id": "r-13-14",
+          "from": 13,
+          "to": 14,
+          "terrain": "asphalt"
+        },
+        {
+          "id": "r-14-15",
+          "from": 14,
+          "to": 15,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-15-16",
+          "from": 15,
+          "to": 16,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-16-17",
+          "from": 16,
+          "to": 17,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-17-18",
+          "from": 17,
+          "to": 18,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-18-19",
+          "from": 18,
+          "to": 19,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-19-20",
+          "from": 19,
+          "to": 20,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-20-21",
+          "from": 20,
+          "to": 21,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-21-22",
+          "from": 21,
+          "to": 22,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-22-23",
+          "from": 22,
+          "to": 23,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-23-24",
+          "from": 23,
+          "to": 24,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-24-25",
+          "from": 24,
+          "to": 25,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-25-26",
+          "from": 25,
+          "to": 26,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-26-27",
+          "from": 26,
+          "to": 27,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-27-28",
+          "from": 27,
+          "to": 28,
+          "terrain": "stone"
+        },
+        {
+          "id": "r-28-29",
+          "from": 28,
+          "to": 29,
+          "terrain": "water",
+          "choiceLabel": "Al agua"
+        },
+        {
+          "id": "r-29-30",
+          "from": 29,
+          "to": 30,
+          "terrain": "water"
+        },
+        {
+          "id": "r-30-31",
+          "from": 30,
+          "to": 31,
+          "terrain": "water"
+        },
+        {
+          "id": "r-31-32",
+          "from": 31,
+          "to": 32,
+          "terrain": "water",
+          "points": [
+            {
+              "x": 7.9,
+              "y": 8
+            }
+          ]
+        },
+        {
+          "id": "r-32-33",
+          "from": 32,
+          "to": 33,
+          "terrain": "sand"
+        },
+        {
+          "id": "r-33-34",
+          "from": 33,
+          "to": 34,
+          "terrain": "sand"
+        },
+        {
+          "id": "r-34-35",
+          "from": 34,
+          "to": 35,
+          "terrain": "sand"
+        },
+        {
+          "id": "r-35-36",
+          "from": 35,
+          "to": 36,
+          "terrain": "magic",
+          "choiceLabel": "A la cima"
+        },
+        {
+          "id": "r-36-37",
+          "from": 36,
+          "to": 37,
+          "terrain": "magic"
+        },
+        {
+          "id": "r-37-38",
+          "from": 37,
+          "to": 38,
+          "terrain": "magic"
+        },
+        {
+          "id": "r-38-39",
+          "from": 38,
+          "to": 39,
+          "terrain": "magic",
+          "points": [
+            {
+              "x": 12.95,
+              "y": 8.85
+            }
+          ]
+        },
+        {
+          "id": "d-paseo-parque",
+          "from": 5,
+          "to": 9,
+          "terrain": "grass",
+          "label": "Paseo del parque",
+          "points": [
+            {
+              "x": 5.3,
+              "y": 1.3
+            },
+            {
+              "x": 6.5,
+              "y": 1.45
+            },
+            {
+              "x": 7.7,
+              "y": 1.3
+            }
+          ]
+        },
+        {
+          "id": "d-muelle-lago",
+          "from": 27,
+          "to": 31,
+          "terrain": "water",
+          "label": "Muelle",
+          "points": [
+            {
+              "x": 4.6,
+              "y": 8.6
+            },
+            {
+              "x": 6,
+              "y": 9
+            },
+            {
+              "x": 7,
+              "y": 8.9
+            }
+          ]
+        }
       ],
       "artifacts": [
-        { "id": "artifact-river", "assetId": "river", "position": { "x": 5.24, "y": 1.89, "z": 0.01, "rot": -13 }, "scale": 1 },
-        { "id": "artifact-pond", "assetId": "pond", "position": { "x": 6.46, "y": 0.83, "z": 0.02 }, "scale": 1 },
-        { "id": "artifact-plaza", "assetId": "plaza", "position": { "x": 8.76, "y": 0.83, "z": 0.03 }, "scale": 1 },
-        { "id": "artifact-court", "assetId": "mini-court", "position": { "x": 0.69, "y": 3.98, "z": 0.03 }, "scale": 1 },
-        { "id": "artifact-house", "assetId": "club-house", "position": { "x": 1.28, "y": 1.82, "z": 0.52, "rot": 5 }, "scale": 1 },
-        { "id": "artifact-glass", "assetId": "glass-building", "position": { "x": 6.13, "y": 2.87, "z": 0.43, "rot": -3 }, "scale": 1 },
-        { "id": "artifact-mountains", "assetId": "mountain-cluster", "position": { "x": 3.02, "y": 0.2, "z": 0.34 }, "scale": 1 },
-        { "id": "artifact-van-a", "assetId": "party-van", "position": { "x": 5.87, "y": 4.17, "z": 0.26, "rot": -9 }, "scale": 1 },
-        { "id": "artifact-van-b", "assetId": "party-van", "position": { "x": 7.06, "y": 1.28, "z": 0.26, "rot": 14 }, "scale": 1 },
-        { "id": "artifact-start-sign", "assetId": "start-sign", "label": "START", "position": { "x": 0.02, "y": 4.57, "z": 0.82, "rot": 33 }, "scale": 1 },
-        { "id": "artifact-finish-sign", "assetId": "finish-sign", "label": "THE END", "position": { "x": 8.76, "y": 0.54, "z": 0.95 }, "scale": 1 },
-        { "id": "tree-1", "assetId": "oak-tree", "position": { "x": -0.15, "y": 4.65, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-2", "assetId": "oak-tree", "position": { "x": 0.43, "y": 4.83, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-3", "assetId": "oak-tree", "position": { "x": 1.17, "y": 4.39, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-4", "assetId": "oak-tree", "position": { "x": 2.87, "y": 0.35, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-5", "assetId": "oak-tree", "position": { "x": 3.31, "y": 0.17, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-6", "assetId": "oak-tree", "position": { "x": 5.02, "y": 3.24, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-7", "assetId": "oak-tree", "position": { "x": 5.39, "y": 3.5, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-8", "assetId": "oak-tree", "position": { "x": 6.65, "y": 2.94, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-9", "assetId": "oak-tree", "position": { "x": 7.17, "y": 3.2, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-10", "assetId": "oak-tree", "position": { "x": 7.91, "y": 0.43, "z": 0.14 }, "scale": 1 },
-        { "id": "tree-11", "assetId": "oak-tree", "position": { "x": 8.26, "y": 0.76, "z": 0.14 }, "scale": 1 }
+        {
+          "id": "art-escuela",
+          "assetId": "club-house",
+          "position": {
+            "x": 0.6,
+            "y": 2.1,
+            "rot": -12
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-cancha",
+          "assetId": "mini-court",
+          "position": {
+            "x": 2.8,
+            "y": 1.9,
+            "rot": 0
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-cartel-start",
+          "assetId": "start-sign",
+          "position": {
+            "x": -1,
+            "y": 1.3,
+            "z": 0.6,
+            "rot": 25
+          },
+          "scale": 1,
+          "label": "START"
+        },
+        {
+          "id": "art-cerco-1",
+          "assetId": "fence",
+          "position": {
+            "x": -0.4,
+            "y": 1.6,
+            "rot": 90
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-cerco-2",
+          "assetId": "fence",
+          "position": {
+            "x": 0.6,
+            "y": 2.9,
+            "rot": 0
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-cerco-3",
+          "assetId": "fence",
+          "position": {
+            "x": 1.7,
+            "y": 1.6,
+            "rot": 90
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-pino-1",
+          "assetId": "oak-tree",
+          "position": {
+            "x": -0.9,
+            "y": 2.4
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-pino-2",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 2,
+            "y": 2.7
+          },
+          "scale": 1.1
+        },
+        {
+          "id": "art-pino-3",
+          "assetId": "oak-tree",
+          "position": {
+            "x": -0.6,
+            "y": -0.6
+          },
+          "scale": 0.9
+        },
+        {
+          "id": "art-fuente",
+          "assetId": "fountain",
+          "position": {
+            "x": 6.5,
+            "y": 0.9
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-banco-1",
+          "assetId": "bench",
+          "position": {
+            "x": 5.6,
+            "y": 1.2,
+            "rot": 115
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-banco-2",
+          "assetId": "bench",
+          "position": {
+            "x": 7.4,
+            "y": 1.2,
+            "rot": -115
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-banco-3",
+          "assetId": "bench",
+          "position": {
+            "x": 6.5,
+            "y": -0.75,
+            "rot": 0
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-cantero-1",
+          "assetId": "flower-bed",
+          "position": {
+            "x": 5,
+            "y": 1.35
+          },
+          "scale": 1,
+          "tint": "#f472b6"
+        },
+        {
+          "id": "art-cantero-2",
+          "assetId": "flower-bed",
+          "position": {
+            "x": 8,
+            "y": 1.35
+          },
+          "scale": 1,
+          "tint": "#fbbf24"
+        },
+        {
+          "id": "art-cantero-3",
+          "assetId": "flower-bed",
+          "position": {
+            "x": 4.8,
+            "y": -0.7
+          },
+          "scale": 1,
+          "tint": "#a78bfa"
+        },
+        {
+          "id": "art-farol-1",
+          "assetId": "streetlamp",
+          "position": {
+            "x": 5.4,
+            "y": -0.6
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-farol-2",
+          "assetId": "streetlamp",
+          "position": {
+            "x": 7.6,
+            "y": -0.6
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-pino-4",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 4,
+            "y": 1.9
+          },
+          "scale": 0.85
+        },
+        {
+          "id": "art-bondi-1",
+          "assetId": "bus",
+          "position": {
+            "x": 9.2,
+            "y": -0.2,
+            "rot": 10
+          },
+          "scale": 1,
+          "tint": "#f59e0b"
+        },
+        {
+          "id": "art-bondi-2",
+          "assetId": "bus",
+          "position": {
+            "x": 10.6,
+            "y": 1.7,
+            "rot": 65
+          },
+          "scale": 1,
+          "tint": "#38bdf8"
+        },
+        {
+          "id": "art-traffic",
+          "assetId": "party-van",
+          "position": {
+            "x": 8.8,
+            "y": 2.3,
+            "rot": 120
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-farol-3",
+          "assetId": "streetlamp",
+          "position": {
+            "x": 10,
+            "y": 1,
+            "rot": 0
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-pino-5",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 3.4,
+            "y": -0.7
+          },
+          "scale": 1.05
+        },
+        {
+          "id": "art-oficina-1",
+          "assetId": "glass-building",
+          "position": {
+            "x": 9.4,
+            "y": 5.6,
+            "rot": -8
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-oficina-2",
+          "assetId": "glass-building",
+          "position": {
+            "x": 8.1,
+            "y": 5.7,
+            "rot": 6
+          },
+          "scale": 0.9
+        },
+        {
+          "id": "art-pantallas",
+          "assetId": "billboard",
+          "position": {
+            "x": 10.8,
+            "y": 5.4,
+            "rot": -20
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-pino-6",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 7,
+            "y": 5.5
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-pino-7",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 11.7,
+            "y": 5.1
+          },
+          "scale": 0.9
+        },
+        {
+          "id": "art-pino-8",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 2.6,
+            "y": 5.6
+          },
+          "scale": 1.15
+        },
+        {
+          "id": "art-rocas-1",
+          "assetId": "rock",
+          "position": {
+            "x": 11.5,
+            "y": 3.5
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-rocas-2",
+          "assetId": "rock",
+          "position": {
+            "x": 1.6,
+            "y": 3.5
+          },
+          "scale": 0.8
+        },
+        {
+          "id": "art-velero-1",
+          "assetId": "sailboat",
+          "position": {
+            "x": 5.1,
+            "y": 9.2,
+            "z": -0.06,
+            "rot": -25
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-velero-2",
+          "assetId": "sailboat",
+          "position": {
+            "x": 7,
+            "y": 9.4,
+            "z": -0.06,
+            "rot": 40
+          },
+          "scale": 0.9
+        },
+        {
+          "id": "art-cascada",
+          "assetId": "waterfall",
+          "position": {
+            "x": 2.6,
+            "y": 6,
+            "rot": 180
+          },
+          "scale": 1.2
+        },
+        {
+          "id": "art-pino-9",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 2.1,
+            "y": 8.8
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-pino-10",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 3.1,
+            "y": 9.4
+          },
+          "scale": 1.2
+        },
+        {
+          "id": "art-pino-11",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 8.6,
+            "y": 9.8
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-rocas-3",
+          "assetId": "rock",
+          "position": {
+            "x": 3.7,
+            "y": 8.5
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-rocas-4",
+          "assetId": "rock",
+          "position": {
+            "x": 1.5,
+            "y": 9.5
+          },
+          "scale": 1.2
+        },
+        {
+          "id": "art-montanas-1",
+          "assetId": "mountain-cluster",
+          "position": {
+            "x": 1.3,
+            "y": 10
+          },
+          "scale": 1.4
+        },
+        {
+          "id": "art-montanas-2",
+          "assetId": "mountain-cluster",
+          "position": {
+            "x": 13.4,
+            "y": 10
+          },
+          "scale": 1.15
+        },
+        {
+          "id": "art-palmera-1",
+          "assetId": "palm-tree",
+          "position": {
+            "x": 9.4,
+            "y": 8.3,
+            "rot": 20
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-palmera-2",
+          "assetId": "palm-tree",
+          "position": {
+            "x": 10.4,
+            "y": 8.7,
+            "rot": -35
+          },
+          "scale": 1.1
+        },
+        {
+          "id": "art-palmera-3",
+          "assetId": "palm-tree",
+          "position": {
+            "x": 10.9,
+            "y": 9.5,
+            "rot": 60
+          },
+          "scale": 0.85
+        },
+        {
+          "id": "art-playa-set",
+          "assetId": "beach-set",
+          "position": {
+            "x": 9.9,
+            "y": 7.9,
+            "rot": -15
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-rocas-5",
+          "assetId": "rock",
+          "position": {
+            "x": 9.2,
+            "y": 9.7
+          },
+          "scale": 0.8
+        },
+        {
+          "id": "art-arco",
+          "assetId": "wedding-arch",
+          "position": {
+            "x": 12.4,
+            "y": 9.1,
+            "rot": -40
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-cartel-end",
+          "assetId": "finish-sign",
+          "position": {
+            "x": 13.3,
+            "y": 9.3,
+            "z": 0.6,
+            "rot": -25
+          },
+          "scale": 1,
+          "label": "THE END"
+        },
+        {
+          "id": "art-cantero-4",
+          "assetId": "flower-bed",
+          "position": {
+            "x": 11.8,
+            "y": 8.8
+          },
+          "scale": 1,
+          "tint": "#f9a8d4"
+        },
+        {
+          "id": "art-cantero-5",
+          "assetId": "flower-bed",
+          "position": {
+            "x": 13.2,
+            "y": 7.9
+          },
+          "scale": 1,
+          "tint": "#fda4af"
+        },
+        {
+          "id": "art-rocas-6",
+          "assetId": "rock",
+          "position": {
+            "x": 11.2,
+            "y": 7.1
+          },
+          "scale": 0.9
+        }
+      ],
+      "boardShape": {
+        "minX": -1,
+        "minY": -1,
+        "maxX": 14,
+        "maxY": 10
+      },
+      "terraces": [
+        {
+          "id": "t-plaza-parque",
+          "minX": 4,
+          "minY": -1,
+          "maxX": 9.5,
+          "maxY": 1.5,
+          "elevation": 0.12,
+          "surface": "plaza",
+          "label": "Plaza del parque"
+        },
+        {
+          "id": "t-meseta-media",
+          "minX": 1,
+          "minY": 3.5,
+          "maxX": 14,
+          "maxY": 10,
+          "elevation": 0.55,
+          "surface": "grass",
+          "label": "Meseta de las oficinas"
+        },
+        {
+          "id": "t-meseta-alta",
+          "minX": 1,
+          "minY": 6.5,
+          "maxX": 14,
+          "maxY": 10,
+          "elevation": 1.1,
+          "surface": "grass",
+          "label": "Meseta del lago"
+        },
+        {
+          "id": "t-lago",
+          "minX": 4,
+          "minY": 8,
+          "maxX": 8,
+          "maxY": 10,
+          "elevation": 1.02,
+          "surface": "water",
+          "label": "Lago"
+        },
+        {
+          "id": "t-playa",
+          "minX": 9,
+          "minY": 6.5,
+          "maxX": 11,
+          "maxY": 10,
+          "elevation": 1.12,
+          "surface": "sand",
+          "label": "Playa"
+        },
+        {
+          "id": "t-meta",
+          "minX": 11.5,
+          "minY": 7.5,
+          "maxX": 13.5,
+          "maxY": 9.5,
+          "elevation": 1.7,
+          "color": "#e8a7a0",
+          "label": "Loma de la META"
+        }
       ]
     }
   ],
@@ -141,7 +1830,11 @@
         "label": "Tocá cuando no te vea la profe",
         "loseFlavor": "Te vio la profe bostezar."
       },
-      "rigged": { "losers": ["nico"] }
+      "rigged": {
+        "losers": [
+          "nico"
+        ]
+      }
     },
     "lujan": {
       "type": "judge",
@@ -151,23 +1844,35 @@
         "prompt": "Escribí un mensajito para invitar a Luján Eppens a tomar un helado.",
         "placeholder": "Hola Luján, ¿te invito un helado...?"
       },
-      "rigged": { "losers": ["frang"] }
+      "rigged": {
+        "losers": [
+          "frang"
+        ]
+      }
     },
     "mas-probable-1": {
       "type": "vote",
-      "content": { "question": "¿Quién se queda dormido primero esta noche?" }
+      "content": {
+        "question": "¿Quién se queda dormido primero esta noche?"
+      }
     },
     "mas-probable-2": {
       "type": "vote",
-      "content": { "question": "¿Quién es más probable que pierda el celular esta noche?" }
+      "content": {
+        "question": "¿Quién es más probable que pierda el celular esta noche?"
+      }
     },
     "quien-dijo-1": {
       "type": "vote",
-      "content": { "question": "¿Quién dijo 'esta es la última y nos vamos' y se quedó 3 horas más?" }
+      "content": {
+        "question": "¿Quién dijo 'esta es la última y nos vamos' y se quedó 3 horas más?"
+      }
     },
     "dos-verdades-1": {
       "type": "vote",
-      "content": { "question": "Dos verdades y una mentira: ¿cuál creés que es la mentira del novio?" }
+      "content": {
+        "question": "Dos verdades y una mentira: ¿cuál creés que es la mentira del novio?"
+      }
     },
     "estimate-frang": {
       "type": "estimate",
@@ -197,7 +1902,11 @@
       "type": "buzzer",
       "content": {
         "question": "¿Cuántas veces dijo Javi 'esta es la última y nos vamos'?",
-        "options": ["3", "7", "infinitas"],
+        "options": [
+          "3",
+          "7",
+          "infinitas"
+        ],
         "answer": 2
       }
     },
@@ -206,7 +1915,11 @@
       "skin": "groom",
       "content": {
         "question": "¿En qué viaje del grupo Javi se olvidó el bolso en el aeropuerto?",
-        "options": ["Brasil", "Bariloche", "Nunca pasó (mentira: sí pasó)"],
+        "options": [
+          "Brasil",
+          "Bariloche",
+          "Nunca pasó (mentira: sí pasó)"
+        ],
         "answer": 0
       }
     },
@@ -215,17 +1928,37 @@
       "content": {
         "label": "¡Golpeá la cara correcta!",
         "durationMs": 20000,
-        "targets": ["javi", "nico", "frang", "lucho", "tincho", "mati", "seba"]
+        "targets": [
+          "javi",
+          "nico",
+          "frang",
+          "lucho",
+          "tincho",
+          "mati",
+          "seba"
+        ]
       }
     }
   },
   "dares": {
-    "shot-1": { "text": "Tomá un shot. El último que reaccione, dos." },
-    "shot-2": { "text": "Brindis obligatorio: todos toman, el novio elige con qué." },
-    "reto-1": { "text": "Hacé 10 flexiones o tomá un shot. Vos decidís." }
+    "shot-1": {
+      "text": "Tomá un shot. El último que reaccione, dos."
+    },
+    "shot-2": {
+      "text": "Brindis obligatorio: todos toman, el novio elige con qué."
+    },
+    "reto-1": {
+      "text": "Hacé 10 flexiones o tomá un shot. Vos decidís."
+    }
   },
   "fates": {
-    "retroceder-2": { "text": "Te volviste a dormir. Retrocedés 2 casilleros.", "delta": -2 },
-    "monedas-bonus": { "text": "Carta del destino: ¡ganás 5 monedas!", "coins": 5 }
+    "retroceder-2": {
+      "text": "Te volviste a dormir. Retrocedés 2 casilleros.",
+      "delta": -2
+    },
+    "monedas-bonus": {
+      "text": "Carta del destino: ¡ganás 5 monedas!",
+      "coins": 5
+    }
   }
 }

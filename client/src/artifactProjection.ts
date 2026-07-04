@@ -32,6 +32,19 @@ interface ProjectionSource {
   bounds?: MapAssetProjectionBounds;
 }
 
+// Las proyecciones built-in se expresan en unidades de mundo 3D (antes de dividir por el
+// espaciado de grilla). Estos helpers permiten declararlas directo en unidades de grilla.
+function gridCircle(radius: number): ProjectionSource {
+  const r = radius * BOARD_GRID_SPACING;
+  return { shape: "circle", bounds: { minX: -r, maxX: r, minZ: -r, maxZ: r } };
+}
+
+function gridRect(width: number, depth: number): ProjectionSource {
+  const halfWidth = (width / 2) * BOARD_GRID_SPACING;
+  const halfDepth = (depth / 2) * BOARD_GRID_SPACING;
+  return { shape: "rect", bounds: { minX: -halfWidth, maxX: halfWidth, minZ: -halfDepth, maxZ: halfDepth } };
+}
+
 const BUILT_IN_ASSET_PROJECTIONS: Record<string, ProjectionSource> = {
   "oak-tree": { shape: "circle", bounds: { minX: -0.22, maxX: 0.22, minZ: -0.22, maxZ: 0.22 } },
   "club-house": { shape: "rect", bounds: { minX: -1.16, maxX: 1.16, minZ: -0.67, maxZ: 0.67 } },
@@ -54,6 +67,19 @@ const BUILT_IN_ASSET_PROJECTIONS: Record<string, ProjectionSource> = {
   "plaza": { shape: "circle", bounds: { minX: -1.32, maxX: 1.32, minZ: -1.32, maxZ: 1.32 } },
   "start-sign": { shape: "rect", bounds: { minX: -0.45, maxX: 0.45, minZ: -0.035, maxZ: 0.035 } },
   "finish-sign": { shape: "rect", bounds: { minX: -0.45, maxX: 0.45, minZ: -0.035, maxZ: 0.035 } },
+  "fountain": gridCircle(0.5),
+  "bench": gridRect(0.6, 0.25),
+  "palm-tree": gridCircle(0.3),
+  "flower-bed": gridCircle(0.35),
+  "beach-set": gridCircle(0.8),
+  "sailboat": gridRect(0.7, 0.3),
+  "waterfall": gridRect(0.8, 0.35),
+  "wedding-arch": gridRect(0.8, 0.2),
+  "fence": gridRect(0.9, 0.12),
+  "streetlamp": gridCircle(0.12),
+  "rock": gridCircle(0.35),
+  "billboard": gridRect(1.2, 0.2),
+  "bus": gridRect(1.3, 0.5),
 };
 
 const KIND_FOOTPRINTS: Record<MapArtifactKind, MapAssetFootprint> = {
@@ -65,6 +91,7 @@ const KIND_FOOTPRINTS: Record<MapArtifactKind, MapAssetFootprint> = {
   water: { width: 1.6, height: 1.6, shape: "ellipse" },
   sign: { width: 0.7, height: 0.2, shape: "rect" },
   plaza: { width: 1.65, height: 1.65, shape: "circle" },
+  decor: { width: 0.7, height: 0.7, shape: "circle" },
   custom: { width: 1, height: 1, shape: "rect" },
 };
 

@@ -50,6 +50,7 @@ export class GameRoom {
       artifacts: activeMap?.artifacts,
       assetCatalog: content.assetCatalog,
       boardShape: activeMap?.boardShape,
+      terraces: activeMap?.terraces,
       players: [],
       turnOrder: [],
       activeIndex: 0,

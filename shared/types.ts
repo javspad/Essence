@@ -81,6 +81,24 @@ export interface MapBoardShape {
   borderEdges?: MapBorderEdge[];
 }
 
+export type MapTerraceSurface = "grass" | "sand" | "water" | "stone" | "plaza";
+
+/** Meseta de terreno: región rectangular elevada que forma el relieve del mapa. */
+export interface MapTerrace {
+  id: string;
+  /** región en coordenadas de grilla (mismas unidades que TileLayout.x/y), bordes inclusive */
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  /** altura del piso en unidades de mundo 3D (0 = nivel base); los casilleros la heredan según su x/y */
+  elevation: number;
+  surface?: MapTerraceSurface;
+  /** pisa el color derivado de surface (ej. lomas rosas de la meta) */
+  color?: string;
+  label?: string;
+}
+
 export interface MapRoute {
   id: string;
   from: number;
@@ -103,6 +121,7 @@ export type MapArtifactKind =
   | "water"
   | "sign"
   | "plaza"
+  | "decor"
   | "custom";
 
 export type MapAssetFootprintShape = "rect" | "circle" | "ellipse" | "triangle";
@@ -169,6 +188,8 @@ export interface MapDefinition {
   board: Tile[];
   routes: MapRoute[];
   artifacts: MapArtifact[];
+  /** relieve: mesetas con elevación; sin terrazas el mapa es plano (nivel 0) */
+  terraces?: MapTerrace[];
   boardShape?: MapBoardShape;
   theme?: MapTheme;
 }
@@ -396,6 +417,7 @@ export interface GameState {
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
   boardShape?: MapBoardShape;
+  terraces?: MapTerrace[];
   players: Player[];
   /** orden de turnos por id */
   turnOrder: string[];

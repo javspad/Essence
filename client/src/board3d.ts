@@ -1,4 +1,4 @@
-import type { MapArtifact, MapBoardShape, MapRoute, MapTerrain, Tile, TileLayout, TileType } from "@essence/shared";
+import type { MapArtifact, MapBoardShape, MapRoute, MapTerrace, MapTerrain, Tile, TileLayout, TileType } from "@essence/shared";
 import { perimeterLayout } from "./boardView";
 
 type Board3DTile = Pick<Tile, "id" | "layout"> & Partial<Pick<Tile, "type">>;
@@ -84,7 +84,7 @@ const SLOT_STYLE: Record<TileType, SlotMaterialStyle> = {
 };
 
 const TERRAIN_STYLE: Record<MapTerrain, TerrainMaterialStyle> = {
-  stone: { top: "#d8c28a", side: "#9a7b43", glow: "#fff7c2", width: 0.38 },
+  stone: { top: "#e6cf9d", side: "#c9a86a", glow: "#fff7c2", width: 0.38 },
   grass: { top: "#7ccf63", side: "#3f8f3f", glow: "#d9f99d", width: 0.34 },
   sand: { top: "#f0c878", side: "#b9823c", glow: "#fde68a", width: 0.42 },
   water: { top: "#67d6f7", side: "#0e7490", glow: "#bae6fd", width: 0.34 },
@@ -97,7 +97,8 @@ export function board3DMapBounds(
   routes: Pick<MapRoute, "points">[] = [],
   artifacts: Pick<MapArtifact, "position">[] = [],
   boardShapeOrSpacing?: MapBoardShape | number,
-  spacing = BOARD_GRID_SPACING
+  spacing = BOARD_GRID_SPACING,
+  terraces?: MapTerrace[]
 ): Board3DMapBounds {
   const boardShape = typeof boardShapeOrSpacing === "number" ? undefined : boardShapeOrSpacing;
   const resolvedSpacing = typeof boardShapeOrSpacing === "number" ? boardShapeOrSpacing : spacing;
@@ -105,6 +106,10 @@ export function board3DMapBounds(
     ...tiles.map((tile, index) => tile.layout ?? perimeterLayout(index, tiles.length)),
     ...routes.flatMap((route) => route.points ?? []),
     ...artifacts.map((artifact) => artifact.position),
+    ...(terraces ?? []).flatMap((terrace) => [
+      { x: terrace.minX, y: terrace.minY },
+      { x: terrace.maxX, y: terrace.maxY },
+    ]),
     ...(boardShape
       ? [
           { x: boardShape.minX, y: boardShape.minY },
@@ -131,16 +136,32 @@ export function board3DMapBounds(
 export function board3DSlots(
   tiles: Board3DTile[],
   spacing = BOARD_GRID_SPACING,
-  bounds = board3DMapBounds(tiles, [], [], undefined, spacing)
+  bounds = board3DMapBounds(tiles, [], [], undefined, spacing),
+  terraces?: MapTerrace[]
 ): Board3DSlot[] {
   const layouts = tiles.map((tile, index) => tile.layout ?? perimeterLayout(index, tiles.length));
 
   return tiles.map((tile, index) => ({
     id: tile.id,
     ...(tile.type ? { type: tile.type } : {}),
-    position: layoutToWorldPosition(layouts[index], bounds.maxX, bounds.maxY, bounds.spacing, bounds.minX, bounds.minY),
+    position: layoutToWorldPosition(layouts[index], bounds.maxX, bounds.maxY, bounds.spacing, bounds.minX, bounds.minY, terraces),
     rotationY: ((layouts[index].rot ?? 0) / 180) * Math.PI,
   }));
+}
+
+/**
+ * Altura del terreno en el punto de grilla (x,y): la meseta MÁS ALTA cuyo
+ * rectángulo (bordes inclusive) lo contiene; 0 si ninguna (mapa plano).
+ */
+export function terraceElevationAt(terraces: MapTerrace[] | undefined, x: number, y: number): number {
+  if (!terraces?.length) return 0;
+  let elevation = 0;
+  for (const terrace of terraces) {
+    if (x >= terrace.minX && x <= terrace.maxX && y >= terrace.minY && y <= terrace.maxY) {
+      elevation = Math.max(elevation, terrace.elevation);
+    }
+  }
+  return elevation;
 }
 
 export function layoutToWorldPosition(
@@ -149,13 +170,14 @@ export function layoutToWorldPosition(
   maxY: number,
   spacing = BOARD_GRID_SPACING,
   minX = 0,
-  minY = 0
+  minY = 0,
+  terraces?: MapTerrace[]
 ): Vec3 {
   const centerX = minX + (maxX - minX) / 2;
   const centerY = minY + (maxY - minY) / 2;
   return [
     (layout.x - centerX) * spacing,
-    layout.z ?? 0,
+    terraceElevationAt(terraces, layout.x, layout.y) + (layout.z ?? 0),
     (layout.y - centerY) * spacing,
   ];
 }
@@ -184,19 +206,22 @@ export function tokenPathPositions(
 export function routeWorldPoints(
   route: MapRoute,
   slotPositions: Map<number, Vec3>,
-  bounds: Board3DMapBounds
+  bounds: Board3DMapBounds,
+  terraces?: MapTerrace[]
 ): Vec3[] {
   const from = slotPositions.get(route.from);
   const to = slotPositions.get(route.to);
   if (!from || !to) return [];
   const points = (route.points ?? []).map((point) =>
-    layoutToWorldPosition(point, bounds.maxX, bounds.maxY, bounds.spacing, bounds.minX, bounds.minY)
+    layoutToWorldPosition(point, bounds.maxX, bounds.maxY, bounds.spacing, bounds.minX, bounds.minY, terraces)
   );
   return [from, ...points, to];
 }
 
 export function cameraFollowPosition(slotPosition: Vec3): Vec3 {
-  return [slotPosition[0], 6.6, slotPosition[2] + 7.5];
+  // La cámara sube una fracción de la altura del casillero para que las
+  // mesetas altas no tapen el tablero (con y=0 queda igual que siempre).
+  return [slotPosition[0], round(6.6 + slotPosition[1] * 0.8), slotPosition[2] + 7.5];
 }
 
 export function boardMotionSettings(prefersReducedMotion: boolean, visible = true): BoardMotionSettings {
