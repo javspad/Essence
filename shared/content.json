@@ -559,8 +559,8 @@
         },
         {
           "id": 2,
-          "type": "vote",
-          "minigameId": "mas-probable-1",
+          "type": "minigame",
+          "minigameId": "arcade-maze",
           "layout": {
             "x": 1.1,
             "y": 0.5,
@@ -609,8 +609,8 @@
         },
         {
           "id": 7,
-          "type": "vote",
-          "minigameId": "quien-dijo-1",
+          "type": "minigame",
+          "minigameId": "arcade-flappy",
           "layout": {
             "x": 6.6,
             "y": -1.5,
@@ -679,8 +679,8 @@
         },
         {
           "id": 14,
-          "type": "vote",
-          "minigameId": "dos-verdades-1",
+          "type": "minigame",
+          "minigameId": "arcade-snake",
           "layout": {
             "x": 13.9,
             "y": 1.9,
@@ -789,8 +789,8 @@
         },
         {
           "id": 25,
-          "type": "vote",
-          "minigameId": "quien-dijo-1",
+          "type": "minigame",
+          "minigameId": "arcade-horserace",
           "layout": {
             "x": 10.5,
             "y": 7.7,
@@ -889,8 +889,8 @@
         },
         {
           "id": 35,
-          "type": "vote",
-          "minigameId": "dos-verdades-1",
+          "type": "minigame",
+          "minigameId": "arcade-redlight",
           "layout": {
             "x": 3.4,
             "y": 11.4,
@@ -999,8 +999,8 @@
         },
         {
           "id": 46,
-          "type": "vote",
-          "minigameId": "quien-dijo-1",
+          "type": "minigame",
+          "minigameId": "arcade-snake",
           "layout": {
             "x": 15.6,
             "y": 9.1,
@@ -1059,8 +1059,8 @@
         },
         {
           "id": 52,
-          "type": "vote",
-          "minigameId": "mas-probable-2",
+          "type": "minigame",
+          "minigameId": "arcade-horserace",
           "layout": {
             "x": 14.2,
             "y": 12.1,
@@ -2449,6 +2449,45 @@
           "mati",
           "seba"
         ]
+      }
+    },
+    "arcade-maze": {
+      "type": "maze",
+      "content": {
+        "label": "Encontrá la salida del laberinto antes que los pibes",
+        "cols": 13,
+        "rows": 13
+      }
+    },
+    "arcade-flappy": {
+      "type": "flappy",
+      "content": {
+        "label": "Volá entre quilombos de la noche sin pegarte contra nada",
+        "maxDurationMs": 90000
+      }
+    },
+    "arcade-snake": {
+      "type": "snake",
+      "content": {
+        "label": "Sobreviví a la víbora de la previa y dejá afuera a los pibes",
+        "gridSize": 100,
+        "durationMs": 120000
+      }
+    },
+    "arcade-horserace": {
+      "type": "horserace",
+      "content": {
+        "label": "Picá como si cerrara el boliche y ganale al resto",
+        "trackLength": 40,
+        "durationMs": 45000
+      }
+    },
+    "arcade-redlight": {
+      "type": "redlight",
+      "content": {
+        "label": "Avanzá cuando dé verde y no te regalés en rojo",
+        "trackLength": 45,
+        "durationMs": 60000
       }
     }
   },
