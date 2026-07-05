@@ -219,9 +219,9 @@ export function routeWorldPoints(
 }
 
 export function cameraFollowPosition(slotPosition: Vec3): Vec3 {
-  // La cámara sube una fracción de la altura del casillero para que las
-  // mesetas altas no tapen el tablero (con y=0 queda igual que siempre).
-  return [slotPosition[0], round(6.6 + slotPosition[1] * 0.8), slotPosition[2] + 7.5];
+  // Vista baja "de abajo hacia arriba": la cámara va cerca del piso y mira el
+  // diorama de frente (se ven los acantilados); sube con la meseta del casillero.
+  return [slotPosition[0], round(3.9 + slotPosition[1] * 0.85), slotPosition[2] + 6.6];
 }
 
 export function boardMotionSettings(prefersReducedMotion: boolean, visible = true): BoardMotionSettings {

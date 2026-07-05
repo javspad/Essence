@@ -38,7 +38,7 @@ assert.deepEqual(layoutToWorldPosition({ x: 6, y: 6, z: 0.5 }, max, max, 2), [6,
 assert.deepEqual(tokenWorldPosition([1, 0, 2], 0, 1), [1, 0.36, 2]);
 assert.deepEqual(tokenWorldPosition([1, 0, 2], 0, 2), [0.86, 0.36, 2]);
 assert.deepEqual(tokenWorldPosition([1, 0, 2], 1, 2), [1.14, 0.36, 2]);
-assert.deepEqual(cameraFollowPosition([2, 0, 3]), [2, 6.6, 10.5]);
+assert.deepEqual(cameraFollowPosition([2, 0, 3]), [2, 3.9, 9.6]);
 
 const worldSlots = board3DSlots(
   Array.from({ length: 24 }, (_, id) => ({ id })),
