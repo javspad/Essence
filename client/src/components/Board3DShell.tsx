@@ -270,7 +270,8 @@ function BoardTable({
         <boxGeometry args={[fieldWidth - 0.08, 0.015, fieldDepth - 0.08]} />
         <meshStandardMaterial color="#7ccf63" roughness={0.76} transparent opacity={0.55} />
       </mesh>
-      <BoardShapeRim boardShape={boardShape} bounds={bounds} />
+      {/* Con relieve, el borde del diorama lo marca el propio terreno: nada de riel oscuro */}
+      {!terraces?.length && <BoardShapeRim boardShape={boardShape} bounds={bounds} />}
       {/* mesetas del relieve, de menor a mayor elevación */}
       <TerracedTerrain terraces={terraces} bounds={bounds} animated={animated} />
       <MapArtifacts artifacts={artifacts} assetCatalog={assetCatalog} bounds={bounds} terraces={terraces} />

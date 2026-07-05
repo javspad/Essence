@@ -625,7 +625,7 @@ function Floating3DPreview({
         players={players}
         activeId="test-player"
         interactive
-        className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,#f0c878_0%,#5d8b45_45%,#172114_100%)]"
+        className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
       />
       <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-white/10 bg-black/35 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-white/80 backdrop-blur">
         {testMode ? `Test cell ${testCellId}` : "3D preview"}
@@ -1469,7 +1469,7 @@ function Playtest3DOverlay({
         players={players}
         activeId="test-player"
         interactive
-        className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,#f4d790_0%,#5d8b45_38%,#172114_100%)]"
+        className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
       />
 
       <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col justify-between p-3 sm:p-5">
