@@ -41,7 +41,9 @@ import {
 } from "../board3d";
 import { movementPath } from "../boardView";
 import {
+  loadPlayerPhoto,
   makeFaceTexture,
+  makePhotoFaceTexture,
   makeMetaDiscTexture,
   MapArtifacts,
   STONE_TILE_GEOMETRY,
@@ -884,10 +886,8 @@ const TOKEN_MARKER_GEOMETRY = new OctahedronGeometry(0.085);
 
 /**
  * Placa facial del token: recibe cualquier THREE.Texture y la proyecta sobre
- * el disco achatado que mira a +Z. Hoy se le pasan las iniciales generadas por
- * `makeFaceTexture`; el día que haya foto de jugador, alcanza con generar una
- * textura a partir de esa foto y pasarla acá en lugar de las iniciales — el
- * resto del token no cambia.
+ * el disco achatado que mira a +Z. Puede mostrar iniciales o una textura
+ * circular creada desde la foto del jugador.
  */
 function AvatarFace({ texture, opacity }: { texture: Texture; opacity: number }) {
   return (
@@ -923,10 +923,41 @@ function PlayerToken({
   const progress = useRef(0);
   const baseColor = useMemo(() => new Color(player.color).multiplyScalar(0.62), [player.color]);
   const initials = useMemo(() => playerInitials(player.name), [player.name]);
-  // Textura por defecto: iniciales. El día que haya foto, esta es la única
-  // línea que cambia (se genera la textura de la foto y se pasa a AvatarFace).
-  const faceTexture = useMemo(() => makeFaceTexture(initials, player.color), [initials, player.color]);
-  useEffect(() => () => faceTexture.dispose(), [faceTexture]);
+  const faceTextureRef = useRef<Texture | null>(null);
+  const [faceTexture, setFaceTextureState] = useState<Texture>(() => {
+    const texture = makeFaceTexture(initials, player.color);
+    faceTextureRef.current = texture;
+    return texture;
+  });
+  const replaceFaceTexture = useCallback((texture: Texture) => {
+    const previousTexture = faceTextureRef.current;
+    if (previousTexture && previousTexture !== texture) previousTexture.dispose();
+    faceTextureRef.current = texture;
+    setFaceTextureState(texture);
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    replaceFaceTexture(makeFaceTexture(initials, player.color));
+    void loadPlayerPhoto(player.id).then((image) => {
+      if (cancelled || !image) return;
+      const texture = makePhotoFaceTexture(image, player.color);
+      if (cancelled) {
+        texture.dispose();
+        return;
+      }
+      replaceFaceTexture(texture);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initials, player.color, player.id, replaceFaceTexture]);
+  useEffect(
+    () => () => {
+      faceTextureRef.current?.dispose();
+      faceTextureRef.current = null;
+    },
+    [],
+  );
   const pathKey = `${motionKind}:${motionNonce}:${path.map((point) => point.join(",")).join("|")}`;
   const points = useMemo(() => path.map((point) => new Vector3(...point)), [pathKey]);
   const finalPoint = path[path.length - 1] ?? [0, 0, 0];
