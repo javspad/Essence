@@ -58,6 +58,40 @@ export interface BoardRenderSettings {
   powerPreference: WebGLPowerPreference;
 }
 
+export type CameraMode = "followActivePlayer" | "overview" | "free";
+export type FocusedPlayerId = string | null;
+
+export interface BoardCameraState {
+  mode: CameraMode;
+  focusedPlayerId: FocusedPlayerId;
+}
+
+interface CameraIntentBase {
+  id?: number;
+}
+
+export type CameraIntent = CameraIntentBase &
+  (
+    | { kind: "followActivePlayer" }
+    | { kind: "focusPlayer"; playerId: string }
+    | { kind: "frameOverview" }
+    | { kind: "freeCamera" }
+    | { kind: "resetToActivePlayer" }
+    | { kind: "nudgeFreeCamera"; pan?: { x?: number; z?: number }; zoom?: number }
+  );
+
+export interface BoardCameraShot {
+  position: Vec3;
+  look: Vec3;
+}
+
+export interface BoardCameraFreeBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
 export const BOARD_GRID_SPACING = 1.35;
 
 const DEFAULT_SLOT_STYLE: SlotMaterialStyle = {
@@ -221,6 +255,46 @@ export function cameraFollowPosition(slotPosition: Vec3): Vec3 {
   // Vista baja "de abajo hacia arriba": la cámara va cerca del piso y mira el
   // diorama de frente (se ven los acantilados); sube con la meseta del casillero.
   return [slotPosition[0], round(3.9 + slotPosition[1] * 0.85), slotPosition[2] + 6.6];
+}
+
+export function applyCameraIntent(state: BoardCameraState, intent: CameraIntent): BoardCameraState {
+  if (intent.kind === "focusPlayer") return { mode: "followActivePlayer", focusedPlayerId: intent.playerId };
+  if (intent.kind === "frameOverview") return { ...state, mode: "overview" };
+  if (intent.kind === "freeCamera") return { ...state, mode: "free" };
+  if (intent.kind === "followActivePlayer" || intent.kind === "resetToActivePlayer") {
+    return { mode: "followActivePlayer", focusedPlayerId: null };
+  }
+  return state;
+}
+
+export function boardCameraOverviewShot(
+  bounds: Pick<Board3DMapBounds, "width" | "height" | "spacing">,
+  terraces: Pick<MapTerrace, "elevation">[] = []
+): BoardCameraShot {
+  const maxElevation = Math.max(0, ...terraces.map((terrace) => terrace.elevation));
+  const worldWidth = bounds.width * bounds.spacing;
+  const worldDepth = bounds.height * bounds.spacing;
+  const span = Math.max(worldWidth, worldDepth);
+  const diagonal = Math.hypot(worldWidth, worldDepth);
+
+  return {
+    position: [0, round(4.8 + maxElevation + diagonal * 0.62), round(4.2 + span * 0.95)],
+    look: [0, round(0.35 + maxElevation * 0.45), 0],
+  };
+}
+
+export function boardCameraFreeBounds(
+  bounds: Pick<Board3DMapBounds, "width" | "height" | "spacing">,
+  margin = 3
+): BoardCameraFreeBounds {
+  const halfWidth = (bounds.width * bounds.spacing) / 2;
+  const halfDepth = (bounds.height * bounds.spacing) / 2;
+  return {
+    minX: round(-halfWidth - margin),
+    maxX: round(halfWidth + margin),
+    minZ: round(-halfDepth - margin),
+    maxZ: round(halfDepth + margin),
+  };
 }
 
 export function boardMotionSettings(prefersReducedMotion: boolean, visible = true): BoardMotionSettings {

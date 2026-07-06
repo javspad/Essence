@@ -1,12 +1,25 @@
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { GameState, Player } from "@essence/shared";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
-import { Dice5, LogOut } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  Dice5,
+  LocateFixed,
+  LogOut,
+  Map as MapIcon,
+  Move,
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 import { cn } from "@/lib/utils";
-import { supportsWebGL } from "../board3d";
+import { applyCameraIntent, supportsWebGL, type BoardCameraState, type CameraIntent } from "../board3d";
 import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import Board3DShell from "./Board3DShell";
@@ -34,6 +47,7 @@ interface GameScene3DProps {
 }
 
 const DICE = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+const DEFAULT_CAMERA_STATE: BoardCameraState = { mode: "followActivePlayer", focusedPlayerId: null };
 
 export default function GameScene3D({
   connected,
@@ -52,11 +66,34 @@ export default function GameScene3D({
   onLeave,
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
+  const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
+  const [cameraIntent, setCameraIntent] = useState<CameraIntent | null>(null);
+  const cameraIntentId = useRef(0);
   const canAdvance = isHost || isMyTurn;
   const editMode = useMemo(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("sceneEdit"),
     []
   );
+  const focusedPlayer = cameraState.focusedPlayerId
+    ? state.players.find((player) => player.id === cameraState.focusedPlayerId)
+    : undefined;
+  const dispatchCameraIntent = useCallback((intent: CameraIntent) => {
+    const nextIntent = { ...intent, id: ++cameraIntentId.current } as CameraIntent;
+    setCameraIntent(nextIntent);
+    if (intent.kind !== "nudgeFreeCamera") {
+      setCameraState((current) => applyCameraIntent(current, nextIntent));
+    }
+  }, []);
+  const focusPlayer = useCallback(
+    (playerId: string) => dispatchCameraIntent({ kind: "focusPlayer", playerId }),
+    [dispatchCameraIntent]
+  );
+
+  useEffect(() => {
+    if (!cameraState.focusedPlayerId) return;
+    if (state.players.some((player) => player.id === cameraState.focusedPlayerId)) return;
+    setCameraState((current) => ({ ...current, focusedPlayerId: null }));
+  }, [cameraState.focusedPlayerId, state.players]);
 
   if (!canLoad3D) {
     return (
@@ -89,6 +126,10 @@ export default function GameScene3D({
         activeMotion={activeMotion}
         diceCue={diceCue}
         interactive
+        cameraMode={cameraState.mode}
+        focusedPlayerId={cameraState.focusedPlayerId}
+        cameraIntent={cameraIntent}
+        onPlayerFocus={focusPlayer}
         className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_45%_-5%,#f2d8a7_0%,#dfa96b_30%,#96602c_62%,#2c1808_100%)]"
       />
 
@@ -100,16 +141,20 @@ export default function GameScene3D({
         isMyTurn={isMyTurn}
         canAdvance={canAdvance}
         editMode={editMode}
+        cameraState={cameraState}
+        focusedPlayer={focusedPlayer}
         eventBusyLabel={eventBusyLabel}
         rollBlocked={rollBlocked}
         statusLabel={statusLabel}
+        onCameraIntent={dispatchCameraIntent}
+        onFocusPlayer={focusPlayer}
         onRoll={onRoll}
         onNext={onNext}
         onLeave={onLeave}
       />
 
       <div className="sr-only" aria-live="polite">
-        {sceneStatus(state, activeId)}
+        {sceneStatus(state, activeId, cameraState, focusedPlayer)}
       </div>
     </main>
   );
@@ -123,9 +168,13 @@ function SceneChrome({
   isMyTurn,
   canAdvance,
   editMode,
+  cameraState,
+  focusedPlayer,
   eventBusyLabel,
   rollBlocked,
   statusLabel,
+  onCameraIntent,
+  onFocusPlayer,
   onRoll,
   onNext,
   onLeave,
@@ -137,9 +186,13 @@ function SceneChrome({
   isMyTurn: boolean;
   canAdvance: boolean;
   editMode: boolean;
+  cameraState: BoardCameraState;
+  focusedPlayer?: Player;
   eventBusyLabel?: string | null;
   rollBlocked: boolean;
   statusLabel?: string | null;
+  onCameraIntent: (intent: CameraIntent) => void;
+  onFocusPlayer: (playerId: string) => void;
   onRoll: () => void;
   onNext: () => void;
   onLeave: () => void;
@@ -153,21 +206,29 @@ function SceneChrome({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col gap-3 p-3 sm:p-5">
-      <div className="flex min-h-0 flex-1 items-start gap-3">
+      <div className="flex min-h-0 flex-1 flex-col items-start gap-3 sm:flex-row">
         <div className="flex min-w-0 flex-col gap-3">
           <ScorePanel
             players={sorted}
             active={active}
             activeId={activeId}
+            focusedPlayerId={cameraState.focusedPlayerId}
             connected={connected}
             phase={state.phase}
             round={state.round}
+            onFocusPlayer={onFocusPlayer}
           />
           {editMode && <SceneEditHint active={active} />}
         </div>
         {state.phase !== "finished" && (
-          <div className="ml-auto flex flex-col items-end gap-2">
+          <div className="relative z-30 ml-0 flex w-full flex-col items-start gap-2 sm:ml-auto sm:w-auto sm:items-end">
             <LeaveButton onLeave={onLeave} />
+            <CameraControlsPanel
+              cameraState={cameraState}
+              focusedPlayer={focusedPlayer}
+              active={active}
+              onCameraIntent={onCameraIntent}
+            />
           </div>
         )}
       </div>
@@ -197,16 +258,20 @@ function ScorePanel({
   players,
   active,
   activeId,
+  focusedPlayerId,
   connected,
   phase,
   round,
+  onFocusPlayer,
 }: {
   players: Player[];
   active?: Player;
   activeId?: string;
+  focusedPlayerId?: string | null;
   connected: boolean;
   phase: GameState["phase"];
   round: number;
+  onFocusPlayer: (playerId: string) => void;
 }) {
   return (
     <Card
@@ -239,30 +304,41 @@ function ScorePanel({
           <ol className="max-h-[38dvh] overflow-y-auto text-sm">
             {players.map((player, index) => {
               const isActive = player.id === activeId;
+              const isFocused = player.id === focusedPlayerId;
 
               return (
-                <li
-                  key={player.id}
-                  className={cn(
-                    "grid grid-cols-[1.2rem_0.8rem_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 py-1.5 font-black transition-colors",
-                    isActive ? "bg-[#f5d547]/14 text-[#fff8d6]" : "text-[#d4cfea]/80",
-                    player.connected ? "" : "opacity-40"
-                  )}
-                >
-                  <span className="retro text-center text-[8px] text-[#a89fc5]">{index + 1}</span>
-                  <span
-                    className="size-3 rounded-[2px] shadow-[1px_1px_0_rgb(0_0_0/0.4),0_0_6px_var(--player-glow)]"
-                    style={{ backgroundColor: player.color, ["--player-glow" as string]: `${player.color}66` }}
-                  />
-                  <span className="min-w-0 truncate text-[11px] sm:text-xs">
-                    {isActive ? <span className="text-[#f5d547]">▶ </span> : ""}
-                    {player.name}
-                    {player.groom ? " 🤵" : ""}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1.5 text-[10px]">
-                    <span className="text-[#d4cfea]">#{player.position}</span>
-                    <span className="text-[#fbbf24]">🪙{player.coins}</span>
-                  </span>
+                <li key={player.id}>
+                  <button
+                    type="button"
+                    aria-pressed={isFocused}
+                    aria-label={`Enfocar a ${player.name} en el mapa`}
+                    title={`Enfocar a ${player.name}`}
+                    onClick={() => onFocusPlayer(player.id)}
+                    className={cn(
+                      "grid w-full grid-cols-[1.2rem_0.8rem_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 py-1.5 text-left font-black transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#67e8f9]",
+                      isFocused
+                        ? "bg-[#67e8f9]/18 text-[#ecfeff] ring-1 ring-[#67e8f9]/60"
+                        : isActive
+                          ? "bg-[#f5d547]/14 text-[#fff8d6]"
+                          : "text-[#d4cfea]/80 hover:bg-white/8",
+                      player.connected ? "" : "opacity-40"
+                    )}
+                  >
+                    <span className="retro text-center text-[8px] text-[#a89fc5]">{index + 1}</span>
+                    <span
+                      className="size-3 rounded-[2px] shadow-[1px_1px_0_rgb(0_0_0/0.4),0_0_6px_var(--player-glow)]"
+                      style={{ backgroundColor: player.color, ["--player-glow" as string]: `${player.color}66` }}
+                    />
+                    <span className="min-w-0 truncate text-[11px] sm:text-xs">
+                      {isActive ? <span className="text-[#f5d547]">▶ </span> : ""}
+                      {player.name}
+                      {player.groom ? " 🤵" : ""}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5 text-[10px]">
+                      <span className="text-[#d4cfea]">#{player.position}</span>
+                      <span className="text-[#fbbf24]">🪙{player.coins}</span>
+                    </span>
+                  </button>
                 </li>
               );
             })}
@@ -270,6 +346,137 @@ function ScorePanel({
         </CardContent>
       </aside>
     </Card>
+  );
+}
+
+function CameraControlsPanel({
+  cameraState,
+  focusedPlayer,
+  active,
+  onCameraIntent,
+}: {
+  cameraState: BoardCameraState;
+  focusedPlayer?: Player;
+  active?: Player;
+  onCameraIntent: (intent: CameraIntent) => void;
+}) {
+  const contextPlayer = focusedPlayer ?? active;
+  const nudge = (pan: { x?: number; z?: number }, zoom = 0) => {
+    onCameraIntent({ kind: "nudgeFreeCamera", pan, zoom });
+  };
+
+  return (
+    <section
+      aria-label="Controles de cámara"
+      data-testid="camera-controls"
+      data-camera-mode={cameraState.mode}
+      data-focused-player-id={cameraState.focusedPlayerId ?? ""}
+      className="pointer-events-auto w-[min(15rem,calc(100vw-1.5rem))] rounded-sm border border-[#fff4bf]/25 bg-[#0e0a1a]/88 p-2 text-[#fff8d6] shadow-[0_0_0_1px_rgba(255,244,191,0.06),0_16px_40px_rgb(0_0_0/0.45)] backdrop-blur-xl"
+    >
+      <div className="flex items-center justify-end gap-1">
+        <CameraIconButton
+          label="Seguir jugador activo"
+          active={cameraState.mode === "followActivePlayer" && !cameraState.focusedPlayerId}
+          dataTestId="camera-mode-follow"
+          onClick={() => onCameraIntent({ kind: "resetToActivePlayer" })}
+        >
+          <LocateFixed className="size-4" />
+        </CameraIconButton>
+        <CameraIconButton
+          label="Vista general del mapa"
+          active={cameraState.mode === "overview"}
+          dataTestId="camera-mode-overview"
+          onClick={() => onCameraIntent({ kind: "frameOverview" })}
+        >
+          <MapIcon className="size-4" />
+        </CameraIconButton>
+        <CameraIconButton
+          label="Cámara libre"
+          active={cameraState.mode === "free"}
+          dataTestId="camera-mode-free"
+          onClick={() => onCameraIntent({ kind: "freeCamera" })}
+        >
+          <Move className="size-4" />
+        </CameraIconButton>
+        <CameraIconButton
+          label="Restablecer cámara al jugador activo"
+          dataTestId="camera-reset-active"
+          onClick={() => onCameraIntent({ kind: "resetToActivePlayer" })}
+        >
+          <RotateCcw className="size-4" />
+        </CameraIconButton>
+      </div>
+
+      <div className="mt-2 flex min-h-8 items-center gap-2 rounded-sm border border-white/10 bg-white/6 px-2 py-1.5">
+        {contextPlayer ? (
+          <>
+            <span
+              className="size-3 shrink-0 rounded-[2px] shadow-[1px_1px_0_rgb(0_0_0/0.35),0_0_8px_var(--player-glow)]"
+              style={{ backgroundColor: contextPlayer.color, ["--player-glow" as string]: `${contextPlayer.color}66` }}
+            />
+            <span className="min-w-0 truncate text-[10px] font-black uppercase tracking-wide text-[#d4cfea]">
+              {focusedPlayer ? "Foco" : "Activo"} {contextPlayer.name} #{contextPlayer.position}
+            </span>
+          </>
+        ) : (
+          <span className="min-w-0 truncate text-[10px] font-black uppercase tracking-wide text-[#d4cfea]">Tablero</span>
+        )}
+      </div>
+
+      {cameraState.mode === "free" && (
+        <div className="mt-2 grid grid-cols-[2.5rem_2.5rem_2.5rem_2.5rem] justify-end gap-1">
+          <CameraIconButton label="Mover cámara izquierda" onClick={() => nudge({ x: -0.85 })}>
+            <ArrowLeft className="size-4" />
+          </CameraIconButton>
+          <CameraIconButton label="Mover cámara arriba" onClick={() => nudge({ z: -0.85 })}>
+            <ArrowUp className="size-4" />
+          </CameraIconButton>
+          <CameraIconButton label="Mover cámara abajo" onClick={() => nudge({ z: 0.85 })}>
+            <ArrowDown className="size-4" />
+          </CameraIconButton>
+          <CameraIconButton label="Mover cámara derecha" onClick={() => nudge({ x: 0.85 })}>
+            <ArrowRight className="size-4" />
+          </CameraIconButton>
+          <CameraIconButton label="Acercar cámara" onClick={() => nudge({}, -0.14)}>
+            <ZoomIn className="size-4" />
+          </CameraIconButton>
+          <CameraIconButton label="Alejar cámara" onClick={() => nudge({}, 0.14)}>
+            <ZoomOut className="size-4" />
+          </CameraIconButton>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CameraIconButton({
+  label,
+  active = false,
+  dataTestId,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  dataTestId?: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Button
+      type="button"
+      aria-label={label}
+      aria-pressed={active || undefined}
+      title={label}
+      data-testid={dataTestId}
+      onClick={onClick}
+      className={cn(
+        "h-10 w-10 border border-white/12 p-0 text-[#fff8d6] shadow-none transition-colors hover:bg-[#67e8f9]/18 hover:text-[#ecfeff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#67e8f9]",
+        active ? "bg-[#67e8f9]/22 text-[#ecfeff] ring-1 ring-[#67e8f9]/70" : "bg-white/8"
+      )}
+    >
+      {children}
+    </Button>
   );
 }
 
@@ -544,9 +751,17 @@ function phaseLabel(phase: GameState["phase"]): string {
   return labels[phase];
 }
 
-function sceneStatus(state: GameState, activeId?: string): string {
+function sceneStatus(state: GameState, activeId?: string, cameraState?: BoardCameraState, focusedPlayer?: Player): string {
   const active = state.players.find((player) => player.id === activeId);
-  return `${phaseLabel(state.phase)}. ${active ? `Turno de ${active.name}.` : ""} Ronda ${state.round}.`;
+  const camera =
+    cameraState?.mode === "overview"
+      ? "Vista general del mapa."
+      : cameraState?.mode === "free"
+        ? "Cámara libre."
+        : focusedPlayer
+          ? `Cámara enfocada en ${focusedPlayer.name}.`
+          : "Cámara siguiendo al jugador activo.";
+  return `${phaseLabel(state.phase)}. ${active ? `Turno de ${active.name}.` : ""} Ronda ${state.round}. ${camera}`;
 }
 
 function LegacyGameScreen({

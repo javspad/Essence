@@ -66,6 +66,7 @@ Every slice must leave the project in a state that can be inspected by a human.
 | Surface | Status | Route or entry point | Purpose |
 | --- | --- | --- | --- |
 | Game | Existing | `/` | Join/create room and play the current board game. |
+| Board Camera Controls | Existing | In-game board HUD | Click player tokens, focus characters, see the full map, and toggle free camera movement. |
 | Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, and map props. |
 | Event Builder | Existing, with legacy component/file names | `/event-builder` (`/minigame-builder` legacy alias) | Edit events, activities, stories, and consequences. |
 | Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
@@ -83,9 +84,10 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `R-REF` Pre-roadmap refactors | [x] | None | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S0` Result and confirmation fixes | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S1` Domain language and schema hardening | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
-| `S2` Character identity and character sets | [ ] | `S1` | Character builder route and room creation with selected set. |
-| `S3` Reusable consequences and effects | [ ] | `S1` | Effect-engine tests and one configured duration effect. |
-| `S4` Artifact catalog, builder, and shop | [ ] | `S3` | Artifact builder route plus in-game shop purchase/use flow. |
+| `S-CAM` Map camera and character navigation | [x] | `S1` | `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright board-camera QA; `git diff --check`. |
+| `S2` Character identity and character sets | [ ] | `S-CAM` | Character builder route and room creation with selected set. |
+| `S3` Reusable consequences and effects | [ ] | `S1`, `S-CAM` | Effect-engine tests and one configured duration effect. |
+| `S4` Artifact catalog, builder, and shop | [ ] | `S3`, `S-CAM` | Artifact builder route plus in-game shop purchase/use flow. |
 | `S5` Cosmetics and face anchors | [ ] | `S2` | Cosmetic builder route plus anchored preview on multiple characters. |
 | `S6` Character traits | [ ] | `S2`, `S3` | Character builder trait config plus live trait trigger. |
 | `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Coin-source tests plus in-game spending flow. |
@@ -131,8 +133,9 @@ flowchart TD
   R["Pre-roadmap refactors"] --> A["Slice 0: Result and confirmation bug fixes"]
   R --> B["Slice 1: Domain language and schema hardening"]
   A --> B
-  B --> C["Slice 2: Character identity and character sets"]
-  B --> D["Slice 3: Reusable consequences and effects"]
+  B --> CAM["Slice S-CAM: Map camera and character navigation"]
+  CAM --> C["Slice 2: Character identity and character sets"]
+  CAM --> D["Slice 3: Reusable consequences and effects"]
   D --> E["Slice 4: Artifact catalog, builder, and shop"]
   C --> F["Slice 5: Cosmetics and face anchors"]
   D --> G["Slice 6: Character traits"]
@@ -218,6 +221,55 @@ Acceptance:
 - New features have a clear place in `shared/types.ts` before implementation starts.
 - Builder navigation is visible without memorizing routes.
 
+## Slice S-CAM (`S-CAM`): Map Camera And Character Navigation
+
+Goal: make the board inspectable before target selection, artifacts, effects, and richer character identity depend on it.
+
+Tasks:
+
+- [x] `S-CAM-01` Add stable click/hit targets to player tokens on the 3D board.
+- [x] `S-CAM-02` Track a selected/focused player in client presentation state without changing server gameplay state.
+- [x] `S-CAM-03` When a player token or player list entry is clicked, focus that character on the map and show enough context to identify them.
+- [x] `S-CAM-04` Add a camera mode toggle with at least: active-turn follow, full-map overview, and free camera.
+- [x] `S-CAM-05` In full-map overview, frame the whole board and keep every character/token visible enough to understand where everyone is.
+- [x] `S-CAM-06` In free camera mode, allow map movement/inspection with mouse or touch controls and provide a reset back to the active player.
+- [x] `S-CAM-07` Keep camera controls accessible with keyboard focus, descriptive labels/tooltips, and mobile-safe touch targets.
+- [x] `S-CAM-08` Reuse the same board/player focus primitive later for artifact target selection, effect inspection, and trajectory highlighting.
+- [x] `S-CAM-09` Add tests around pure camera/view helpers where possible and a manual QA checklist for the rendered 3D behavior.
+
+Suggested abstractions:
+
+- `CameraMode`: `followActivePlayer`, `overview`, `free`.
+- `FocusedPlayerId`: client-only selection/focus state that can be set from token clicks, scoreboard clicks, or future target selectors.
+- `CameraIntent`: a small presentation command such as focus player, frame full map, frame trajectory, or reset.
+- Token hit targets should expose stable player ids so future target selectors can reuse them instead of adding a separate picking layer.
+
+Current code to reuse:
+
+- `client/src/components/Board3DShell.tsx` for the 3D board shell and HUD placement.
+- `client/src/components/GameScene3D.tsx` for tokens, camera updates, and rendered board interactions.
+- `client/src/board3d.ts` and `client/src/boardView.test.ts` for camera math, token positions, and testable view helpers.
+- `client/src/gamePresentationMachine.ts` for presentation state boundaries around movement, reveal, and active-player focus.
+- `client/src/components/Scoreboard.tsx` for a secondary click/focus entry point into the same selected-player behavior.
+
+Verification notes:
+
+- Added reusable camera/focus primitives in `client/src/board3d.ts`: `CameraMode`, `FocusedPlayerId`, `CameraIntent`, `BoardCameraState`, `applyCameraIntent`, full-map overview framing, and free-camera bounds.
+- `Board3DShell` now accepts client-only camera state, exposes stable player token hit targets with player ids, highlights the focused token, frames overview mode, and supports free camera pan/zoom through drag, wheel, and HUD commands.
+- `GameScene3D` owns the focused-player state without mutating server gameplay state, adds a compact board HUD for active follow, overview, free camera, and reset-to-active-player, and lets score rows focus the same player primitive.
+- `Scoreboard` accepts optional focused-player callbacks so future target selectors can reuse the player-list focus surface.
+- Manual QA path: create a room, start the board, click a score row and a board token to focus the player, switch to overview, switch to free camera and move/zoom, then reset to active-player follow.
+- Verification passed: `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright board-camera QA through helper-managed server/client; `git diff --check`.
+
+Acceptance:
+
+- A player can click a character/token on the board and the camera focuses that character.
+- A player can click/select a player from the visible game UI and see where that character is on the map.
+- The overview mode frames the full map and makes every character location discoverable.
+- The free camera toggle allows map movement/inspection and can reset to active-turn follow without corrupting gameplay flow.
+- Camera modes work during idle turns, movement, event/reveal overlays, and after turn changes without mutating server state.
+- The implementation creates reusable hooks/helpers for future artifact target selection and effect inspection.
+
 ## Slice 2 (`S2`): Character Identity And Character Sets
 
 Goal: turn fixed player definitions into reusable configurable characters.
@@ -292,9 +344,9 @@ Tasks:
   - Purchase closes the shop and starts the artifact use flow.
 - [ ] `S4-09` Implement target selection UI:
   - List all players with positions and active effects.
-  - Hover/focus highlights target on board.
+  - Hover/focus highlights target on board by reusing `S-CAM` focused-player primitives.
   - Show trajectory from acting player to target.
-  - Center camera on that trajectory.
+  - Center camera on that trajectory with the reusable camera intent model.
 - [ ] `S4-10` Add optional outgoing/incoming animations for artifact use.
 - [ ] `S4-11` Add shared announcement and confirmation flow after artifact use.
 - [ ] `S4-12` Implement the first complete artifact: Mochila de Gaston.
@@ -466,6 +518,16 @@ These are captured from the notes and should be handled in Slice 0 unless a task
 
 ## Feature Backlog By Domain
 
+### Map Navigation
+
+- Clickable character/player tokens on the 3D board.
+- Scoreboard or player-list entries that can focus a character on the map.
+- Active-turn follow camera.
+- Full-map overview mode that shows where all characters are.
+- Free camera toggle for map inspection.
+- Reset control back to the active player/current turn.
+- Reusable focused-player and camera-intent helpers for target selection, effects, and artifact flows.
+
 ### Characters
 
 - Character Builder.
@@ -494,7 +556,7 @@ These are captured from the notes and should be handled in Slice 0 unless a task
 - Shop roll with four offers.
 - One artifact purchase per shop visit.
 - Immediate artifact use after purchase.
-- Target selection, board highlight, trajectory, camera centering.
+- Target selection, board highlight, trajectory, and camera centering built on `S-CAM`.
 - Active artifact/effect list in player positions.
 - Hover/tap remaining duration.
 - Effect-end notifications.
@@ -538,10 +600,11 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 | Better characters and character builder | `S2` | Includes defaults, room character sets, JSON import/export. |
 | Face photo, eyes, mouth, anchor angle | `S2`, `S5` | Character anchors power cosmetics and visuals. |
 | Default preloaded players/characters | `S2` | Migrates current `content.players`. |
+| Click characters, find them on the map, full-map overview, movable camera toggle | `S-CAM` | Adds board inspection before artifacts, effects, and richer character flows depend on it. |
 | Cosmetic system | `S5` | Visual-only, buy/equip, anchored previews. |
 | Artifact system | `S3`, `S4` | Reuses consequences/effects and adds catalog/shop/use flows. |
 | Artifact builder, rarity, rates, shop simulation | `S4` | Artifact Builder must expose these as UI and JSON. |
-| Artifact target selection, highlight, trajectory, camera centering | `S4` | Target selector acceptance path. |
+| Artifact target selection, highlight, trajectory, camera centering | `S-CAM`, `S4` | `S-CAM` provides focus/camera primitives; `S4` adds artifact-specific target flow. |
 | Artifact outgoing/incoming animations | `S4`, `S9` | Rule flow first, polish later. |
 | Artifact duration effects and expiration notifications | `S3`, `S4`, `S9` | Engine first, item integration second, polish last. |
 | Reusable consequence/effect logic | `S3` | Explicitly shared by minigames, events, artifacts, traits, and cells. |
@@ -621,7 +684,8 @@ Resolved:
 - Win condition: first player to reach the finish cell wins; coins are the secondary ranking/tie-breaker.
 - Artifact language: **Artifact** means gameplay item; current decorative map objects are **Map Props** in product/UI language.
 - Prompt/prenda confirmation: defaults to the rest of the connected group and can be configured with `confirmation.mode` or `confirmation.playerIds`.
+- Free camera controls stay available from the board HUD across board phases; event/reveal modal content keeps the center of the screen for the shared flow.
 
 ## Next Review Step
 
-Start with `S1` Domain Language And Schema Hardening. `R-REF` and `S0` are complete, and the remaining open decisions do not block `S1`.
+Start with `S2` Character Identity And Character Sets. `R-REF`, `S0`, `S1`, and `S-CAM` are complete, and character identity can now reuse the board focus/camera primitives.

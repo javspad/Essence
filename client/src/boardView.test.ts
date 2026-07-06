@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {
+  applyCameraIntent,
   board3DSlots,
+  boardCameraFreeBounds,
+  boardCameraOverviewShot,
   boardMotionSettings,
   boardRenderSettings,
   cameraFollowPosition,
@@ -39,6 +42,44 @@ assert.deepEqual(tokenWorldPosition([1, 0, 2], 0, 1), [1, 0.36, 2]);
 assert.deepEqual(tokenWorldPosition([1, 0, 2], 0, 2), [0.86, 0.36, 2]);
 assert.deepEqual(tokenWorldPosition([1, 0, 2], 1, 2), [1.14, 0.36, 2]);
 assert.deepEqual(cameraFollowPosition([2, 0, 3]), [2, 3.9, 9.6]);
+
+const cameraState = { mode: "followActivePlayer" as const, focusedPlayerId: null };
+assert.deepEqual(applyCameraIntent(cameraState, { kind: "focusPlayer", playerId: "bob" }), {
+  mode: "followActivePlayer",
+  focusedPlayerId: "bob",
+});
+assert.deepEqual(applyCameraIntent({ mode: "followActivePlayer", focusedPlayerId: "bob" }, { kind: "frameOverview" }), {
+  mode: "overview",
+  focusedPlayerId: "bob",
+});
+assert.deepEqual(applyCameraIntent({ mode: "overview", focusedPlayerId: "bob" }, { kind: "freeCamera" }), {
+  mode: "free",
+  focusedPlayerId: "bob",
+});
+assert.deepEqual(applyCameraIntent({ mode: "free", focusedPlayerId: "bob" }, { kind: "resetToActivePlayer" }), {
+  mode: "followActivePlayer",
+  focusedPlayerId: null,
+});
+assert.deepEqual(
+  applyCameraIntent({ mode: "free", focusedPlayerId: "bob" }, { kind: "nudgeFreeCamera", pan: { x: 1, z: 0 } }),
+  { mode: "free", focusedPlayerId: "bob" }
+);
+
+const cameraBounds = { minX: 0, minY: 0, maxX: 4, maxY: 3, width: 4, height: 3, spacing: 2 };
+assert.deepEqual(boardCameraOverviewShot(cameraBounds), {
+  position: [0, 11, 11.8],
+  look: [0, 0.35, 0],
+});
+assert.deepEqual(boardCameraOverviewShot(cameraBounds, [{ elevation: 2 }]), {
+  position: [0, 13, 11.8],
+  look: [0, 1.25, 0],
+});
+assert.deepEqual(boardCameraFreeBounds(cameraBounds, 1.5), {
+  minX: -5.5,
+  maxX: 5.5,
+  minZ: -4.5,
+  maxZ: 4.5,
+});
 
 const worldSlots = board3DSlots(
   Array.from({ length: 24 }, (_, id) => ({ id })),
