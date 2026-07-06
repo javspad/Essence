@@ -28,6 +28,8 @@ interface GameScene3DProps {
   statusLabel?: string | null;
   onRoll: () => void;
   onNext: () => void;
+  onShopSkip: () => void;
+  onShopBuy: (itemId: string) => void;
   onLeave: () => void;
 }
 
@@ -47,6 +49,8 @@ export default function GameScene3D({
   statusLabel,
   onRoll,
   onNext,
+  onShopSkip,
+  onShopBuy,
   onLeave,
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
@@ -66,6 +70,8 @@ export default function GameScene3D({
         canAdvance={canAdvance}
         onRoll={onRoll}
         onNext={onNext}
+        onShopSkip={onShopSkip}
+        onShopBuy={onShopBuy}
         onLeave={onLeave}
       />
     );
@@ -126,6 +132,8 @@ function SceneChrome({
   statusLabel,
   onRoll,
   onNext,
+  onShopSkip,
+  onShopBuy,
   onLeave,
 }: {
   connected: boolean;
@@ -140,6 +148,8 @@ function SceneChrome({
   statusLabel?: string | null;
   onRoll: () => void;
   onNext: () => void;
+  onShopSkip: () => void;
+  onShopBuy: (itemId: string) => void;
   onLeave: () => void;
 }) {
   const active = state.players.find((player) => player.id === activeId);
@@ -184,6 +194,7 @@ function SceneChrome({
         </div>
       )}
 
+      {state.phase === "shop" && <ShopOverlay state={state} canBuy={isMyTurn} onSkip={onShopSkip} onBuy={onShopBuy} />}
       {state.phase === "event" && <EventOverlay state={state} canAdvance={canAdvance} busyLabel={eventBusyLabel} onNext={onNext} />}
       {state.phase === "reveal" && <RevealOverlay state={state} canAdvance={canAdvance} onNext={onNext} />}
       {state.phase === "finished" && <VictoryOverlay state={state} onLeave={onLeave} />}
@@ -336,6 +347,81 @@ function TurnPanel({
   );
 }
 
+function ShopOverlay({
+  state,
+  canBuy,
+  onSkip,
+  onBuy,
+}: {
+  state: GameState;
+  canBuy: boolean;
+  onSkip: () => void;
+  onBuy: (itemId: string) => void;
+}) {
+  const shop = state.activeShop;
+  if (!shop) return null;
+  const player = state.players.find((candidate) => candidate.id === shop.playerId);
+  const unlocked = new Set(player?.character.unlockedCosmeticIds ?? []);
+  const equipped = player?.character.equippedCosmeticIds ?? {};
+
+  return (
+    <CenterOverlay>
+      <div className="modal-card from-sky-950/96 to-indigo-950/96">
+        <div className="inline-flex items-center gap-2 rounded-sm border border-cyan-300/35 bg-cyan-300/12 px-3 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-cyan-100">
+          Kiosco 24hs
+        </div>
+        <h2 className="mt-4 text-center text-3xl font-black text-white sm:text-5xl">{shop.name}</h2>
+        <p className="mx-auto mt-3 max-w-xl text-center text-sm font-black text-cyan-100/80 sm:text-base">
+          {player?.name ?? "Jugador"} pasó por el kiosco. Puede frenar a comprar o seguir de largo.
+          {shop.remainingSteps > 0 ? ` Quedan ${shop.remainingSteps} paso(s).` : " No quedan pasos después de esta parada."}
+        </p>
+
+        <div className="mt-5 grid gap-2 text-left sm:grid-cols-2">
+          {shop.items.map((item) => {
+            const isUnlocked = unlocked.has(item.id) || item.defaultUnlocked;
+            const isEquipped = equipped[item.slot] === item.id;
+            const affordable = Boolean(player && player.coins >= item.cost);
+            const disabled = !canBuy || isEquipped || (!isUnlocked && !affordable);
+            const cta = isEquipped ? "Equipado" : isUnlocked ? "Equipar" : `Comprar · ${item.cost}`;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onBuy(item.id)}
+                className="rounded-sm border border-white/12 bg-white/8 px-3 py-3 text-left transition hover:border-cyan-200/45 hover:bg-cyan-200/10 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-black text-white">{item.name}</span>
+                  <span className="rounded bg-[#facc15] px-1.5 py-0.5 text-[10px] font-black text-[#2a1a02]">
+                    {slotLabel(item.slot)}
+                  </span>
+                </span>
+                {item.description && <span className="mt-1 block text-xs font-bold text-cyan-100/70">{item.description}</span>}
+                <span className="mt-2 block text-xs font-black uppercase tracking-[0.12em] text-amber-100">{cta}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row">
+          <Button
+            type="button"
+            disabled={!canBuy}
+            onClick={onSkip}
+            className="min-h-12 bg-white/12 px-6 text-sm uppercase text-white hover:bg-white/18 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/55"
+          >
+            Seguir de largo
+          </Button>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100/65">
+            {canBuy ? `Monedas: ${player?.coins ?? 0}` : "Esperando al jugador"}
+          </p>
+        </div>
+      </div>
+    </CenterOverlay>
+  );
+}
+
 function EventOverlay({
   state,
   canAdvance,
@@ -383,6 +469,16 @@ function EventOverlay({
       </div>
     </CenterOverlay>
   );
+}
+
+function slotLabel(slot: string): string {
+  if (slot === "shirt") return "Camiseta";
+  if (slot === "shoes") return "Zapatillas";
+  if (slot === "hat") return "Sombrero";
+  if (slot === "mustache") return "Bigote";
+  if (slot === "nipplePiercing") return "Piercing";
+  if (slot === "tattoo") return "Tatuaje";
+  return slot;
 }
 
 function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdvance: boolean; onNext: () => void }) {
@@ -522,6 +618,7 @@ function SceneEditHint({ active }: { active?: Player }) {
 
 function turnTitle(state: GameState, active: Player | undefined, isMyTurn: boolean): string {
   if (state.phase === "moving") return "Moviendo ficha...";
+  if (state.phase === "shop") return "Parada en kiosco 24hs";
   if (state.phase === "event") return "Casillero especial";
   if (state.phase === "turn") return isMyTurn ? "¡Es tu turno!" : `Turno de ${active?.name ?? "..."}`;
   return active ? `Turno de ${active.name}` : "Tablero";
@@ -532,6 +629,7 @@ function phaseLabel(phase: GameState["phase"]): string {
     lobby: "Lobby",
     turn: "Turno",
     moving: "Movimiento",
+    shop: "Kiosco",
     event: "Evento",
     minigame: "Minijuego",
     reveal: "Resultados",

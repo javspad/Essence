@@ -120,6 +120,7 @@ export type MapArtifactKind =
   | "mountain"
   | "water"
   | "sign"
+  | "shop"
   | "plaza"
   | "decor"
   | "custom";
@@ -330,7 +331,7 @@ export interface PlayerStoryBank {
 }
 
 export type CharacterMovementStyle = "walk" | "hop";
-export type CharacterCosmeticSlot = "hat" | "mustache" | "nipplePiercing" | "tattoo";
+export type CharacterCosmeticSlot = "hat" | "mustache" | "nipplePiercing" | "tattoo" | "shirt" | "shoes";
 
 export interface CharacterBaseConfig {
   color: string;
@@ -353,6 +354,23 @@ export interface CharacterCosmeticDef {
   defaultUnlocked?: boolean;
   color?: string;
   description?: string;
+}
+
+export interface MapShopDef {
+  id: string;
+  name: string;
+  tileId: number;
+  mapId?: string;
+  itemIds: string[];
+}
+
+export interface ActiveShop {
+  id: string;
+  name: string;
+  playerId: string;
+  tileId: number;
+  remainingSteps: number;
+  items: CharacterCosmeticDef[];
 }
 
 export interface PlayerCharacter {
@@ -384,6 +402,7 @@ export interface GameContent {
   fates: Record<string, FateDef>;
   players: PlayerDef[];
   characterCosmetics?: CharacterCosmeticDef[];
+  shops?: MapShopDef[];
   /** monedas por puesto del ranking, de 1ro a último (se reparte por defecto) */
   coinPayout?: number[];
 }
@@ -410,6 +429,7 @@ export type Phase =
   | "lobby"
   | "turn" // esperando que el jugador activo tire
   | "moving" // animación de movimiento
+  | "shop" // pausa opcional al pasar por un kiosco
   | "event" // resolviendo un casillero no-minijuego (dare/fate)
   | "minigame" // minijuego en curso (clientes jugando local)
   | "reveal" // mostrando resultados
@@ -464,6 +484,7 @@ export interface GameState {
   boardLength: number;
   lastRoll: number | null;
   activeMinigame: ActiveMinigame | null;
+  activeShop?: ActiveShop | null;
   activeEvent: ActiveEvent | null;
   reveal: RevealPayload | null;
   winnerId: string | null;
@@ -547,6 +568,8 @@ export interface ClientToServerEvents {
   "game:start": () => void;
   "turn:roll": () => void;
   "turn:next": () => void;
+  "shop:skip": () => void;
+  "shop:buy": (payload: { itemId: string }) => void;
   "minigame:action": (payload: unknown) => void;
   "minigame:result": (payload: { score: number; payload: unknown; outcome?: "win" | "loss" }) => void;
   /** host fuerza el cierre del minijuego si alguien se colgó */

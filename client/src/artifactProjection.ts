@@ -80,6 +80,7 @@ const BUILT_IN_ASSET_PROJECTIONS: Record<string, ProjectionSource> = {
   "rock": gridCircle(0.35),
   "billboard": gridRect(1.2, 0.2),
   "bus": gridRect(1.3, 0.5),
+  "kiosco-24hs": gridRect(1.05, 0.85),
 };
 
 const KIND_FOOTPRINTS: Record<MapArtifactKind, MapAssetFootprint> = {
@@ -90,6 +91,7 @@ const KIND_FOOTPRINTS: Record<MapArtifactKind, MapAssetFootprint> = {
   mountain: { width: 1.45, height: 1.05, shape: "triangle" },
   water: { width: 1.6, height: 1.6, shape: "ellipse" },
   sign: { width: 0.7, height: 0.2, shape: "rect" },
+  shop: { width: 1.05, height: 0.85, shape: "rect" },
   plaza: { width: 1.65, height: 1.65, shape: "circle" },
   decor: { width: 0.7, height: 0.7, shape: "circle" },
   custom: { width: 1, height: 1, shape: "rect" },

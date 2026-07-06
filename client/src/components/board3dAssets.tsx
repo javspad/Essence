@@ -517,6 +517,8 @@ function MapArtifactMesh({
       return <Rocks position={position} rotationY={rotationY} scale={scale} tint={tint} />;
     case "billboard":
       return <Billboard position={position} rotationY={rotationY} scale={scale} label={artifact.label} />;
+    case "kiosco-24hs":
+      return <Kiosco24 position={position} rotationY={rotationY} scale={scale} label={artifact.label} />;
     case "bus":
       return <Bus position={position} rotationY={rotationY} scale={scale} tint={tint} />;
     default:
@@ -1389,6 +1391,51 @@ function Bus({ position, rotationY = 0, scale = 1, tint }: AssetProps) {
   );
 }
 
+function Kiosco24({ position, rotationY = 0, scale = 1, label }: AssetProps & { label?: string }) {
+  const signTexture = useMemo(() => makeLabelTexture(label ?? "24HS", "#123c7c", "#fef3c7"), [label]);
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow receiveShadow position={[0, 0.32, 0]}>
+        <boxGeometry args={[0.92, 0.58, 0.68]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.5} />
+      </mesh>
+      {/* franjas tipo kiosco argentino */}
+      {[-0.28, 0, 0.28].map((x) => (
+        <mesh key={x} position={[x, 0.33, 0.346]}>
+          <boxGeometry args={[0.12, 0.5, 0.018]} />
+          <meshStandardMaterial color="#38bdf8" roughness={0.42} />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0, 0.66, 0]}>
+        <boxGeometry args={[1.06, 0.16, 0.78]} />
+        <meshStandardMaterial color="#ef4444" roughness={0.45} />
+      </mesh>
+      <mesh castShadow position={[0, 0.78, 0.01]}>
+        <boxGeometry args={[1.16, 0.09, 0.86]} />
+        <meshStandardMaterial color="#facc15" roughness={0.42} />
+      </mesh>
+      <mesh position={[0, 0.77, 0.445]}>
+        <planeGeometry args={[0.56, 0.22]} />
+        <meshBasicMaterial map={signTexture} toneMapped={false} />
+      </mesh>
+      <mesh position={[-0.22, 0.24, 0.358]}>
+        <boxGeometry args={[0.22, 0.34, 0.02]} />
+        <meshStandardMaterial color="#1f2937" roughness={0.35} />
+      </mesh>
+      <mesh position={[0.2, 0.36, 0.358]}>
+        <boxGeometry args={[0.32, 0.22, 0.02]} />
+        <meshStandardMaterial color="#bae6fd" emissive="#38bdf8" emissiveIntensity={0.2} roughness={0.2} />
+      </mesh>
+      {[-0.35, 0.35].map((x) => (
+        <mesh key={x} position={[x, 0.12, 0.37]}>
+          <boxGeometry args={[0.16, 0.12, 0.08]} />
+          <meshStandardMaterial color="#f59e0b" roughness={0.55} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 // ── Fallback genérico para assets sin renderer dedicado ───────────────────────
 function ProjectedAssetBlock({
   artifact,
@@ -1438,6 +1485,7 @@ function artifactColor3D(kind?: MapAssetDef["kind"]): string {
   if (kind === "court") return "#7cc879";
   if (kind === "plaza") return "#f4d790";
   if (kind === "sign") return "#475569";
+  if (kind === "shop") return "#38bdf8";
   if (kind === "decor") return "#e2e8f0";
   return "#94a3b8";
 }

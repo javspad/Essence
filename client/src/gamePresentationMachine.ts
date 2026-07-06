@@ -421,7 +421,7 @@ function createRollPlan(previous: GameState, next: GameState): RollPlan | null {
   if (startPosition === null || finalPosition === null) return null;
 
   const rollLanding = clamp(startPosition + next.lastRoll, 0, Math.max(0, next.boardLength - 1));
-  const landingPosition = next.phase === "moving" ? finalPosition : rollLanding;
+  const landingPosition = next.phase === "moving" || next.phase === "shop" ? finalPosition : rollLanding;
   if (landingPosition === startPosition && finalPosition === startPosition) return null;
 
   const landingState =

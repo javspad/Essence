@@ -131,6 +131,7 @@ const ASSET_EMOJI: Record<string, string> = {
   "rock": "🪨",
   "billboard": "🖥️",
   "bus": "🚌",
+  "kiosco-24hs": "🏪",
 };
 
 const KIND_EMOJI: Record<MapAssetDef["kind"], string> = {
@@ -141,6 +142,7 @@ const KIND_EMOJI: Record<MapAssetDef["kind"], string> = {
   mountain: "⛰️",
   water: "💧",
   sign: "🪧",
+  shop: "🏪",
   plaza: "⛲",
   decor: "🌸",
   custom: "📦",
@@ -2087,6 +2089,7 @@ function artifactColor(kind?: MapAssetDef["kind"]): string {
   if (kind === "mountain") return "#78716c";
   if (kind === "court") return "#79c86d";
   if (kind === "sign") return "#475569";
+  if (kind === "shop") return "#38bdf8";
   if (kind === "plaza") return "#e6bc6a";
   if (kind === "decor") return "#e2a3c7";
   return "#b35a37";

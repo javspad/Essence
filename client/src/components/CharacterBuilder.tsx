@@ -23,6 +23,8 @@ const SLOT_LABELS: Record<CharacterCosmeticSlot, string> = {
   mustache: "Bigotes",
   nipplePiercing: "Piercings",
   tattoo: "Tatuajes",
+  shirt: "Camisetas",
+  shoes: "Zapatillas",
 };
 
 export default function CharacterBuilder() {

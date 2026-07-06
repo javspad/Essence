@@ -95,7 +95,7 @@ function ConnectedGame({
   const boardActiveId = boardState.turnOrder[boardState.activeIndex] ?? activeId ?? undefined;
   const boardIsMyTurn = boardMe.id === boardActiveId;
 
-  const boardPhaseVisible = ["turn", "moving", "event", "reveal", "finished"].includes(boardState.phase);
+  const boardPhaseVisible = ["turn", "moving", "shop", "event", "reveal", "finished"].includes(boardState.phase);
   const holdingMinigameForBoard = state.phase === "minigame" && !presentation.showMinigame;
 
   if (boardPhaseVisible || holdingMinigameForBoard) {
@@ -118,6 +118,8 @@ function ConnectedGame({
             actions.roll();
           }}
           onNext={actions.next}
+          onShopSkip={actions.skipShop}
+          onShopBuy={actions.buyShopItem}
           onLeave={actions.leave}
         />
       </Suspense>

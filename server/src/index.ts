@@ -99,6 +99,8 @@ io.on("connection", (socket) => {
   socket.on("game:start", () => withRoom((r) => r.startGame(socket.id)));
   socket.on("turn:roll", () => withRoom((r) => r.roll(socket.id)));
   socket.on("turn:next", () => withRoom((r) => r.next(socket.id)));
+  socket.on("shop:skip", () => withRoom((r) => r.shopSkip(socket.id)));
+  socket.on("shop:buy", (payload) => withRoom((r) => r.shopBuy(socket.id, payload)));
   socket.on("reveal:next", () => withRoom((r) => r.next(socket.id)));
   socket.on("minigame:action", (data) => withRoom((r) => r.minigameAction(socket.id, data)));
   socket.on("minigame:result", (payload) => withRoom((r) => void r.submitResult(socket.id, payload)));

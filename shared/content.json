@@ -162,6 +162,30 @@
       "description": "Bigote equipado sobre la placa de la cara."
     },
     {
+      "id": "mustache-chaplin",
+      "name": "Bigote Chaplin",
+      "slot": "mustache",
+      "cost": 9,
+      "color": "#160b05",
+      "description": "Bigote corto de comedia muda para la cara del personaje."
+    },
+    {
+      "id": "shirt-argentina-10",
+      "name": "Camiseta Argentina 10",
+      "slot": "shirt",
+      "cost": 14,
+      "color": "#75c7f0",
+      "description": "Camiseta celeste y blanca para jugar con mística."
+    },
+    {
+      "id": "shoes-cancheras",
+      "name": "Zapatillas cancheras",
+      "slot": "shoes",
+      "cost": 8,
+      "color": "#f8fafc",
+      "description": "Zapatillas blancas para moverse por el mapa con facha."
+    },
+    {
       "id": "piercing-pezon-plata",
       "name": "Piercing de pezones",
       "slot": "nipplePiercing",
@@ -176,6 +200,69 @@
       "cost": 7,
       "color": "#111827",
       "description": "Tatuaje visible en cuerpo o brazo, según la forma elegida."
+    }
+  ],
+  "shops": [
+    {
+      "id": "kiosco-escuela",
+      "name": "Kiosco 24hs de la Escuela",
+      "tileId": 4,
+      "mapId": "farewell-loop",
+      "itemIds": [
+        "mustache-gala",
+        "shoes-cancheras"
+      ]
+    },
+    {
+      "id": "kiosco-parque",
+      "name": "Kiosco 24hs del Parque",
+      "tileId": 12,
+      "mapId": "farewell-loop",
+      "itemIds": [
+        "hat-piluso",
+        "tattoo-rayo"
+      ]
+    },
+    {
+      "id": "kiosco-avenida",
+      "name": "Kiosco 24hs de la Avenida",
+      "tileId": 21,
+      "mapId": "farewell-loop",
+      "itemIds": [
+        "shirt-argentina-10",
+        "mustache-chaplin"
+      ]
+    },
+    {
+      "id": "kiosco-mirador",
+      "name": "Kiosco 24hs del Mirador",
+      "tileId": 31,
+      "mapId": "farewell-loop",
+      "itemIds": [
+        "piercing-pezon-plata",
+        "hat-piluso"
+      ]
+    },
+    {
+      "id": "kiosco-lago",
+      "name": "Kiosco 24hs del Lago",
+      "tileId": 39,
+      "mapId": "farewell-loop",
+      "itemIds": [
+        "shoes-cancheras",
+        "tattoo-rayo"
+      ]
+    },
+    {
+      "id": "kiosco-playa",
+      "name": "Kiosco 24hs de la Playa",
+      "tileId": 48,
+      "mapId": "farewell-loop",
+      "itemIds": [
+        "shirt-argentina-10",
+        "mustache-chaplin",
+        "piercing-pezon-plata"
+      ]
     }
   ],
   "board": [
@@ -654,6 +741,17 @@
       "tags": [
         "vehicle",
         "urbano"
+      ]
+    },
+    {
+      "id": "kiosco-24hs",
+      "name": "Kiosco 24hs",
+      "kind": "shop",
+      "defaultScale": 1,
+      "tags": [
+        "shop",
+        "urbano",
+        "cosmeticos"
       ]
     }
   ],
@@ -1661,6 +1759,90 @@
           },
           "scale": 1,
           "label": "START"
+        },
+        {
+          "id": "art-kiosco-escuela",
+          "assetId": "kiosco-24hs",
+          "position": {
+            "x": 3.6,
+            "y": 1.35,
+            "rot": 0
+          },
+          "scale": 0.9,
+          "label": "24HS",
+          "data": {
+            "shopId": "kiosco-escuela"
+          }
+        },
+        {
+          "id": "art-kiosco-parque",
+          "assetId": "kiosco-24hs",
+          "position": {
+            "x": 11.6,
+            "y": 1.55,
+            "rot": 12
+          },
+          "scale": 0.92,
+          "label": "24HS",
+          "data": {
+            "shopId": "kiosco-parque"
+          }
+        },
+        {
+          "id": "art-kiosco-avenida",
+          "assetId": "kiosco-24hs",
+          "position": {
+            "x": 10.5,
+            "y": 5.15,
+            "rot": 180
+          },
+          "scale": 0.95,
+          "label": "24HS",
+          "data": {
+            "shopId": "kiosco-avenida"
+          }
+        },
+        {
+          "id": "art-kiosco-mirador",
+          "assetId": "kiosco-24hs",
+          "position": {
+            "x": 6.55,
+            "y": 9.25,
+            "rot": -35
+          },
+          "scale": 0.9,
+          "label": "24HS",
+          "data": {
+            "shopId": "kiosco-mirador"
+          }
+        },
+        {
+          "id": "art-kiosco-lago",
+          "assetId": "kiosco-24hs",
+          "position": {
+            "x": 7.9,
+            "y": 13.2,
+            "rot": 180
+          },
+          "scale": 0.9,
+          "label": "24HS",
+          "data": {
+            "shopId": "kiosco-lago"
+          }
+        },
+        {
+          "id": "art-kiosco-playa",
+          "assetId": "kiosco-24hs",
+          "position": {
+            "x": 18.1,
+            "y": 9.75,
+            "rot": 70
+          },
+          "scale": 0.95,
+          "label": "24HS",
+          "data": {
+            "shopId": "kiosco-playa"
+          }
         },
         {
           "id": "art-cerco-1",

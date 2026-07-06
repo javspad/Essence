@@ -1,7 +1,9 @@
 import type { Server } from "socket.io";
 import type {
   ActiveMinigame,
+  ActiveShop,
   AppliedEventAction,
+  CharacterCosmeticDef,
   ClientToServerEvents,
   EventAction,
   EventActionTarget,
@@ -32,6 +34,7 @@ export class GameRoom {
   private resolving = false;
   private skippedTurns = new Set<string>();
   private extraTurnPlayerId: string | null = null;
+  private pendingShopMove: { playerId: string; remainingSteps: number } | null = null;
 
   constructor(io: IO, code: string, name: string, content: GameContent) {
     this.io = io;
@@ -59,6 +62,7 @@ export class GameRoom {
       boardLength: (activeMap?.board ?? content.board).length,
       lastRoll: null,
       activeMinigame: null,
+      activeShop: null,
       activeEvent: null,
       reveal: null,
       winnerId: null,
@@ -183,19 +187,121 @@ export class GameRoom {
     const roll = 1 + Math.floor(Math.random() * 6);
     this.state.lastRoll = roll;
 
+    this.moveActivePlayer(active, roll);
+  }
+
+  shopSkip(socketId: string) {
+    if (this.state.phase !== "shop" || !this.state.activeShop || !this.pendingShopMove) return;
+    const active = this.activePlayer();
+    const p = this.playerBySocket(socketId);
+    if (!active || !p || p.id !== active.id || p.id !== this.state.activeShop.playerId) return;
+    this.continueAfterShop(active);
+  }
+
+  shopBuy(socketId: string, payload: { itemId: string }) {
+    if (this.state.phase !== "shop" || !this.state.activeShop || !this.pendingShopMove) return;
+    if (!payload?.itemId) return;
+    const active = this.activePlayer();
+    const p = this.playerBySocket(socketId);
+    if (!active || !p || p.id !== active.id || p.id !== this.state.activeShop.playerId) return;
+
+    const item = this.state.activeShop.items.find((candidate) => candidate.id === payload.itemId);
+    if (!item) return;
+    if (!this.applyCosmeticPurchase(active, item)) return;
+    this.continueAfterShop(active);
+  }
+
+  private moveActivePlayer(active: Player, steps: number) {
     const finish = this.state.boardLength - 1;
-    active.position = Math.min(active.position + roll, finish);
+    const clampedSteps = Math.max(0, steps);
+    const shop = this.firstShopOnPath(active.position, clampedSteps);
+    if (shop) {
+      const consumed = Math.max(0, shop.tileId - active.position);
+      active.position = shop.tileId;
+      this.pendingShopMove = {
+        playerId: active.id,
+        remainingSteps: Math.max(0, clampedSteps - consumed),
+      };
+      this.state.activeShop = this.activeShopFor(shop, active, this.pendingShopMove.remainingSteps);
+      this.state.phase = "shop";
+      this.broadcast();
+      return;
+    }
+
+    active.position = Math.min(active.position + clampedSteps, finish);
+    this.state.activeShop = null;
+    this.pendingShopMove = null;
     this.state.phase = "moving";
     this.broadcast();
 
     const tile = this.state.board[active.position];
-
-    // Llegó al final → fin del juego.
     if (tile.type === "finish") {
       this.endGame();
       return;
     }
     this.triggerTile(tile, active);
+  }
+
+  private continueAfterShop(active: Player) {
+    const remainingSteps = this.pendingShopMove?.playerId === active.id ? this.pendingShopMove.remainingSteps : 0;
+    this.pendingShopMove = null;
+    this.state.activeShop = null;
+    this.state.lastRoll = remainingSteps;
+    if (remainingSteps <= 0) {
+      const tile = this.state.board[active.position];
+      if (tile.type === "finish") this.endGame();
+      else this.triggerTile(tile, active);
+      return;
+    }
+    this.moveActivePlayer(active, remainingSteps);
+  }
+
+  private firstShopOnPath(from: number, steps: number): NonNullable<GameContent["shops"]>[number] | null {
+    if (steps <= 0) return null;
+    const mapId = this.state.mapId;
+    const to = Math.min(from + steps, this.state.boardLength - 1);
+    const shops = (this.content.shops ?? [])
+      .filter((shop) => !shop.mapId || shop.mapId === mapId)
+      .filter((shop) => shop.tileId > from && shop.tileId <= to)
+      .sort((a, b) => a.tileId - b.tileId);
+    const shop = shops[0];
+    if (!shop) return null;
+    return shop;
+  }
+
+  private activeShopFor(shop: NonNullable<GameContent["shops"]>[number], active: Player, remainingSteps: number): ActiveShop {
+    const catalog = new Map((this.content.characterCosmetics ?? []).map((item) => [item.id, item] as const));
+    const items = shop.itemIds.flatMap((itemId) => {
+      const item = catalog.get(itemId);
+      return item ? [item] : [];
+    });
+    return {
+      id: shop.id,
+      name: shop.name,
+      playerId: active.id,
+      tileId: shop.tileId,
+      remainingSteps,
+      items,
+    };
+  }
+
+  private applyCosmeticPurchase(player: Player, item: CharacterCosmeticDef): boolean {
+    const unlocked = new Set(player.character.unlockedCosmeticIds ?? []);
+    const alreadyUnlocked = unlocked.has(item.id) || item.defaultUnlocked;
+    if (!alreadyUnlocked) {
+      if (player.coins < item.cost) return false;
+      player.coins = Math.max(0, player.coins - item.cost);
+      unlocked.add(item.id);
+    }
+    player.character = {
+      ...player.character,
+      unlockedCosmeticIds: [...unlocked],
+      equippedCosmeticIds: {
+        ...(player.character.equippedCosmeticIds ?? {}),
+        [item.slot]: item.id,
+      },
+    };
+    return true;
   }
 
   private triggerTile(tile: Tile, active: Player) {
@@ -396,7 +502,9 @@ export class GameRoom {
   private advanceTurn() {
     this.state.reveal = null;
     this.state.activeEvent = null;
+    this.state.activeShop = null;
     this.pendingEvent = null;
+    this.pendingShopMove = null;
     this.state.lastRoll = null;
 
     const order = this.state.turnOrder.filter((id) => {
@@ -526,7 +634,9 @@ export class GameRoom {
     this.state.winnerId = ranked[0]?.id ?? null;
     this.state.phase = "finished";
     this.state.activeMinigame = null;
+    this.state.activeShop = null;
     this.state.activeEvent = null;
+    this.pendingShopMove = null;
     this.broadcast();
   }
 }

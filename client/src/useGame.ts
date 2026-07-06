@@ -126,6 +126,8 @@ export function useGame() {
       start: () => socket.emit("game:start"),
       roll: () => socket.emit("turn:roll"),
       next: () => socket.emit("turn:next"),
+      skipShop: () => socket.emit("shop:skip"),
+      buyShopItem: (itemId: string) => socket.emit("shop:buy", { itemId }),
       forceResolve: () => socket.emit("minigame:force"),
       submitResult: (score: number, payload: unknown, outcome?: "win" | "loss") =>
         socket.emit("minigame:result", { score, payload, outcome }),
