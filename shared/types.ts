@@ -329,12 +329,47 @@ export interface PlayerStoryBank {
   overrides: PlayerEventOverride[];
 }
 
+export type CharacterMovementStyle = "walk" | "hop";
+export type CharacterCosmeticSlot = "hat" | "mustache" | "nipplePiercing" | "tattoo";
+
+export interface CharacterBaseConfig {
+  color: string;
+  /** escala vertical simple para el token 3D */
+  height: number;
+  /** escala horizontal simple para el token 3D */
+  weight: number;
+  movement: CharacterMovementStyle;
+  limbs: {
+    arms: boolean;
+    legs: boolean;
+  };
+}
+
+export interface CharacterCosmeticDef {
+  id: string;
+  name: string;
+  slot: CharacterCosmeticSlot;
+  cost: number;
+  defaultUnlocked?: boolean;
+  color?: string;
+  description?: string;
+}
+
+export interface PlayerCharacter {
+  base: CharacterBaseConfig;
+  /** ids del catálogo que ya puede equipar este jugador */
+  unlockedCosmeticIds?: string[];
+  /** slot -> cosmetic id; null/undefined significa nada equipado */
+  equippedCosmeticIds?: Partial<Record<CharacterCosmeticSlot, string | null>>;
+}
+
 export interface PlayerDef {
   id: string;
   name: string;
   /** marca al novio para casilleros `groom` y guiños */
   groom?: boolean;
   color?: string;
+  character?: PlayerCharacter;
 }
 
 export interface GameContent {
@@ -348,6 +383,7 @@ export interface GameContent {
   dares: Record<string, DareDef>;
   fates: Record<string, FateDef>;
   players: PlayerDef[];
+  characterCosmetics?: CharacterCosmeticDef[];
   /** monedas por puesto del ranking, de 1ro a último (se reparte por defecto) */
   coinPayout?: number[];
 }
@@ -367,6 +403,7 @@ export interface Player {
   isHost: boolean;
   groom: boolean;
   color: string;
+  character: PlayerCharacter;
 }
 
 export type Phase =
