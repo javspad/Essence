@@ -8,7 +8,7 @@ import {
   projectGroundPointToMap,
   projectObject3DToGroundPlane,
 } from "./artifactProjection";
-import { board3DMapBounds, board3DSlots, routeWorldPoints, terrainMaterialStyle } from "./board3d";
+import { board3DMapBounds, board3DSlots, routeWorldPoints, slotMaterialStyle, terrainMaterialStyle } from "./board3d";
 import {
   builderContentToGameContent,
   createInitialMapBuilderState,
@@ -69,6 +69,8 @@ assert.equal(exported.board.length, 3);
 assert.equal(exported.board[1].eventId, "event-quiz");
 assert.equal(exported.events?.["event-quiz"].activity?.type, "vote");
 assert.deepEqual(exported.maps?.[0].mapProps, exported.maps?.[0].artifacts);
+assert.equal(slotMaterialStyle("timing" as any).top, "#64748b");
+assert.equal(terrainMaterialStyle("legacy-road" as any).top, "#e6cf9d");
 
 const canonicalMapPropImport = normalizeContentSchema({
   ...content,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Gamepad2, LogIn, Map, Palette, RefreshCw, Users, Wrench } from "lucide-react";
+import { ArrowLeft, LogIn, RefreshCw, Users, Wrench } from "lucide-react";
 import type { RoomSummary } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -81,32 +81,6 @@ function MenuView({ name, setMode }: { name: string; setMode: (m: Mode) => void 
         <Wrench data-icon="inline-start" />
         Tools
       </Button>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Button
-          type="button"
-          onClick={() => { window.location.href = "/map-builder"; }}
-          className="h-11 w-full bg-[#34d399] text-[11px] uppercase text-[#062116]"
-        >
-          <Map data-icon="inline-start" />
-          Map builder
-        </Button>
-        <Button
-          type="button"
-          onClick={() => { window.location.href = "/event-builder"; }}
-          className="h-11 w-full bg-[#f472b6] text-[11px] uppercase text-[#2a0718]"
-        >
-          <Gamepad2 data-icon="inline-start" />
-          Event builder
-        </Button>
-        <Button
-          type="button"
-          onClick={() => { window.location.href = "/character-builder"; }}
-          className="h-11 w-full bg-[#38bdf8] text-[11px] uppercase text-[#061926]"
-        >
-          <Palette data-icon="inline-start" />
-          Personajes
-        </Button>
-      </div>
     </div>
   );
 }

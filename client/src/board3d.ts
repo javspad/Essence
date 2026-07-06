@@ -328,11 +328,11 @@ export function orbitLightPosition(timeSeconds: number, reducedMotion: boolean):
 }
 
 export function slotMaterialStyle(type?: TileType): SlotMaterialStyle {
-  return type ? SLOT_STYLE[type] : DEFAULT_SLOT_STYLE;
+  return type ? SLOT_STYLE[type] ?? DEFAULT_SLOT_STYLE : DEFAULT_SLOT_STYLE;
 }
 
 export function terrainMaterialStyle(terrain: MapTerrain = "stone"): TerrainMaterialStyle {
-  return TERRAIN_STYLE[terrain];
+  return TERRAIN_STYLE[terrain] ?? TERRAIN_STYLE.stone;
 }
 
 export function supportsWebGL(canvas?: { getContext: (name: string) => unknown } | null): boolean {
