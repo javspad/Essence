@@ -470,6 +470,8 @@ function ShopOverlay({
   const player = state.players.find((candidate) => candidate.id === shop.playerId);
   const unlocked = new Set(player?.character.unlockedCosmeticIds ?? []);
   const equipped = player?.character.equippedCosmeticIds ?? {};
+  const grouped = groupShopItems(shop.items);
+  const categories: ShopItemDef["category"][] = ["cosmetic", "steroid", "weapon"];
 
   return (
     <CenterOverlay>
@@ -483,31 +485,59 @@ function ShopOverlay({
           {shop.remainingSteps > 0 ? ` Quedan ${shop.remainingSteps} paso(s).` : " No quedan pasos después de esta parada."}
         </p>
 
-        <div className="mt-5 grid gap-2 text-left sm:grid-cols-2">
-          {shop.items.map((item) => {
-            const cosmeticId = item.effect.type === "unlockCosmetic" ? item.effect.cosmeticId : null;
-            const isUnlocked = Boolean(cosmeticId && unlocked.has(cosmeticId));
-            const isEquipped = Boolean(cosmeticId && Object.values(equipped).includes(cosmeticId));
-            const affordable = Boolean(player && player.coins >= item.cost);
-            const disabled = !canBuy || isEquipped || (!isUnlocked && !affordable);
-            const cta = isEquipped ? "Equipado" : isUnlocked ? "Equipar" : `${categoryAction(item.category)} · ${item.cost}`;
+        <div className="mx-auto mt-4 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+          <Badge className="border-amber-200/40 bg-amber-200/15 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-100">
+            Monedas: {player?.coins ?? 0}
+          </Badge>
+          <Badge className="border-white/20 bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/75">
+            Inventario: {inventorySummary(player)}
+          </Badge>
+        </div>
+
+        <div className="mt-5 grid max-h-[54dvh] gap-3 overflow-y-auto pr-1 text-left lg:grid-cols-3">
+          {categories.map((category) => {
+            const meta = shopCategoryMeta(category);
+            const items = grouped[category];
+            if (!items.length) return null;
             return (
-              <button
-                key={item.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => onBuy(item.id)}
-                className="rounded-sm border border-white/12 bg-white/8 px-3 py-3 text-left transition hover:border-cyan-200/45 hover:bg-cyan-200/10 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <span className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-black text-white">{item.name}</span>
-                  <span className="rounded bg-[#facc15] px-1.5 py-0.5 text-[10px] font-black text-[#2a1a02]">
-                    {categoryLabel(item.category)}
-                  </span>
-                </span>
-                {item.description && <span className="mt-1 block text-xs font-bold text-cyan-100/70">{item.description}</span>}
-                <span className="mt-2 block text-xs font-black uppercase tracking-[0.12em] text-amber-100">{cta}</span>
-              </button>
+              <section key={category} className={`rounded-sm border ${meta.border} ${meta.bg} p-3`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className={`retro text-[8px] uppercase tracking-[0.22em] ${meta.text}`}>{meta.label}</p>
+                    <p className="mt-1 text-[11px] font-bold text-white/65">{meta.copy}</p>
+                  </div>
+                  <Badge className={`shrink-0 px-1.5 py-0.5 text-[8px] ${meta.badge}`}>{items.length}</Badge>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  {items.map((item) => {
+                    const cosmeticId = item.effect.type === "unlockCosmetic" ? item.effect.cosmeticId : null;
+                    const isUnlocked = Boolean(cosmeticId && unlocked.has(cosmeticId));
+                    const isEquipped = Boolean(cosmeticId && Object.values(equipped).includes(cosmeticId));
+                    const affordable = Boolean(player && player.coins >= item.cost);
+                    const owned = itemInventoryCount(player, item.id);
+                    const disabled = !canBuy || isEquipped || (!isUnlocked && !affordable);
+                    const cta = shopItemCta(item, { isEquipped, isUnlocked, owned });
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onBuy(item.id)}
+                        className="rounded-sm border border-white/12 bg-white/8 px-3 py-3 text-left transition hover:border-cyan-200/45 hover:bg-cyan-200/10 disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-black text-white">{item.name}</span>
+                          <span className="shrink-0 rounded bg-[#facc15] px-1.5 py-0.5 text-[10px] font-black text-[#2a1a02]">
+                            {isUnlocked ? "Libre" : `${item.cost}`}
+                          </span>
+                        </span>
+                        {item.description && <span className="mt-1 block text-xs font-bold text-cyan-100/70">{item.description}</span>}
+                        <span className="mt-2 block text-xs font-black uppercase tracking-[0.12em] text-amber-100">{cta}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
             );
           })}
         </div>
@@ -522,7 +552,7 @@ function ShopOverlay({
             Seguir de largo
           </Button>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100/65">
-            {canBuy ? `Monedas: ${player?.coins ?? 0}` : "Esperando al jugador"}
+            {canBuy ? "Comprar termina la parada y seguís camino" : "Esperando al jugador"}
           </p>
         </div>
       </div>
@@ -579,18 +609,71 @@ function EventOverlay({
   );
 }
 
-function categoryLabel(category: string): string {
-  if (category === "cosmetic") return "Cosmético";
-  if (category === "steroid") return "Esteroide";
-  if (category === "weapon") return "Arma";
-  return category;
-}
-
 function categoryAction(category: string): string {
   if (category === "cosmetic") return "Comprar";
   if (category === "steroid") return "Tomar";
   if (category === "weapon") return "Guardar";
   return "Comprar";
+}
+
+function groupShopItems(items: ShopItemDef[]): Record<ShopItemDef["category"], ShopItemDef[]> {
+  return items.reduce(
+    (groups, item) => {
+      groups[item.category].push(item);
+      return groups;
+    },
+    { cosmetic: [], steroid: [], weapon: [] } as Record<ShopItemDef["category"], ShopItemDef[]>
+  );
+}
+
+function shopCategoryMeta(category: ShopItemDef["category"]) {
+  if (category === "cosmetic") {
+    return {
+      label: "Cosméticos",
+      copy: "Ropa, bigotes y accesorios para equipar al toque.",
+      border: "border-cyan-200/25",
+      bg: "bg-cyan-200/8",
+      text: "text-cyan-100",
+      badge: "border-cyan-100/30 bg-cyan-100/15 text-cyan-100",
+    };
+  }
+  if (category === "steroid") {
+    return {
+      label: "Esteroides",
+      copy: "Mejoras permanentes para altura y cuerpo.",
+      border: "border-fuchsia-200/25",
+      bg: "bg-fuchsia-200/8",
+      text: "text-fuchsia-100",
+      badge: "border-fuchsia-100/30 bg-fuchsia-100/15 text-fuchsia-100",
+    };
+  }
+  return {
+    label: "Armas",
+    copy: "Se guardan para usar en tu turno contra otros.",
+    border: "border-rose-200/25",
+    bg: "bg-rose-200/8",
+    text: "text-rose-100",
+    badge: "border-rose-100/30 bg-rose-100/15 text-rose-100",
+  };
+}
+
+function itemInventoryCount(player: Player | undefined, itemId: string): number {
+  return player?.inventory.find((entry) => entry.itemId === itemId)?.quantity ?? 0;
+}
+
+function inventorySummary(player: Player | undefined): string {
+  const total = player?.inventory.reduce((sum, entry) => sum + entry.quantity, 0) ?? 0;
+  return total ? `${total} item(s)` : "vacío";
+}
+
+function shopItemCta(
+  item: ShopItemDef,
+  status: { isEquipped: boolean; isUnlocked: boolean; owned: number }
+): string {
+  if (status.isEquipped) return "Equipado";
+  if (status.isUnlocked) return "Equipar";
+  const owned = status.owned > 0 ? ` · tenés ${status.owned}` : "";
+  return `${categoryAction(item.category)} · ${item.cost}${owned}`;
 }
 
 function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdvance: boolean; onNext: () => void }) {

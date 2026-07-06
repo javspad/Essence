@@ -235,7 +235,7 @@
       "category": "weapon",
       "cost": 16,
       "color": "#d6a15d",
-      "description": "Arma guardada: retrasa 2 casilleros a otro jugador cuando habilitemos uso de armas.",
+      "description": "Arma guardada: retrasa 2 casilleros a un jugador elegido durante tu turno.",
       "effect": {
         "type": "weaponMove",
         "target": "chosenOpponent",
@@ -248,7 +248,7 @@
       "category": "weapon",
       "cost": 11,
       "color": "#94a3b8",
-      "description": "Arma guardada para molestar a otro jugador en una próxima interacción.",
+      "description": "Arma guardada: retrasa 1 casillero al próximo rival durante tu turno.",
       "effect": {
         "type": "weaponMove",
         "target": "nextOpponent",
