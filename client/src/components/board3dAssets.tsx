@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
+  BoxGeometry,
   CanvasTexture,
   Color,
   DoubleSide,
@@ -124,6 +125,161 @@ export function makeMetaDiscTexture(label = "META"): CanvasTexture {
   ctx.fillText(label, 256, 360);
   return finishTexture(canvas);
 }
+
+/**
+ * Textura por defecto de la cara del token: iniciales sobre un disco crema.
+ * Es sólo el placeholder inicial — `AvatarFace` recibe cualquier CanvasTexture
+ * o THREE.Texture, así que más adelante alcanza con generar una textura a
+ * partir de la foto del jugador y pasarla en lugar de esta.
+ */
+export function makeFaceTexture(initials: string, color: string): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // esquinas transparentes: sólo pintamos un disco (la placa 3D ya es redonda,
+  // pero dejamos el canvas circular para que no se vean bordes cuadrados si
+  // se usa la textura en algo que no recorte).
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const radius = canvas.width / 2 - 6;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbf3df";
+  ctx.fill();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = color;
+  ctx.stroke();
+  ctx.fillStyle = "#3a2f22";
+  ctx.font = "900 118px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(initials.slice(0, 2).toUpperCase(), cx, cy + 8);
+  return finishTexture(canvas);
+}
+
+export function makePhotoFaceTexture(image: HTMLImageElement, color: string): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const radius = canvas.width / 2 - 6;
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+  const scale = Math.max(canvas.width / imageWidth, canvas.height / imageHeight);
+  const drawWidth = imageWidth * scale;
+  const drawHeight = imageHeight * scale;
+  const dx = (canvas.width - drawWidth) / 2;
+  const dy = (canvas.height - drawHeight) / 2;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbf3df";
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+  ctx.restore();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  return finishTexture(canvas);
+}
+
+const PLAYER_PHOTO_EXTENSIONS = ["webp", "jpg", "png"] as const;
+const playerPhotoCache = new Map<string, Promise<HTMLImageElement | null>>();
+
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+}
+
+export function loadPlayerPhoto(playerId: string): Promise<HTMLImageElement | null> {
+  const cached = playerPhotoCache.get(playerId);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    for (const extension of PLAYER_PHOTO_EXTENSIONS) {
+      const image = await loadImage(`/avatars/${encodeURIComponent(playerId)}.${extension}`);
+      if (image) return image;
+    }
+    return null;
+  })();
+  playerPhotoCache.set(playerId, promise);
+  return promise;
+}
+
+/**
+ * Interior de aula "iluminada" para las ventanas traseras de la escuela: pizarrón
+ * verde, un par de siluetas de banco/silla y luz cálida. Se genera UNA sola vez
+ * (textura + material a nivel de módulo) y se reutiliza en las 9 ventanas.
+ */
+function makeClassroomTexture(): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 192;
+  const ctx = canvas.getContext("2d")!;
+  // pared cálida de fondo
+  ctx.fillStyle = "#f6e2b8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // zócalo
+  ctx.fillStyle = "#e2c891";
+  ctx.fillRect(0, 150, canvas.width, 42);
+  // pizarrón verde oscuro
+  ctx.fillStyle = "#1f4d3d";
+  ctx.fillRect(48, 26, 160, 78);
+  ctx.strokeStyle = "#8a5a3b";
+  ctx.lineWidth = 8;
+  ctx.strokeRect(48, 26, 160, 78);
+  // tiza (líneas prolijas, decorativas)
+  ctx.strokeStyle = "rgba(255,255,255,0.55)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(66, 48);
+  ctx.lineTo(150, 48);
+  ctx.moveTo(66, 64);
+  ctx.lineTo(180, 64);
+  ctx.moveTo(66, 80);
+  ctx.lineTo(130, 80);
+  ctx.stroke();
+  // siluetas de banco + silla (cartoonish, bien legibles)
+  const desks: Array<[number, number]> = [
+    [40, 168],
+    [108, 172],
+    [176, 168],
+  ];
+  ctx.fillStyle = "#5b3a24";
+  for (const [x, y] of desks) {
+    ctx.fillRect(x, y - 22, 44, 8);
+    ctx.fillRect(x + 4, y - 14, 6, 16);
+    ctx.fillRect(x + 34, y - 14, 6, 16);
+  }
+  ctx.fillStyle = "#2f2318";
+  for (const [x, y] of desks) {
+    ctx.fillRect(x + 12, y - 38, 20, 16);
+  }
+  return finishTexture(canvas);
+}
+
+/** Textura + material compartidos de las ventanas de aula (misma instancia en las 9). */
+const CLASSROOM_TEXTURE = makeClassroomTexture();
+const CLASSROOM_WINDOW_MATERIAL = new MeshStandardMaterial({
+  map: CLASSROOM_TEXTURE,
+  emissive: new Color("#fde9b8"),
+  emissiveMap: CLASSROOM_TEXTURE,
+  emissiveIntensity: 0.45,
+  roughness: 0.55,
+});
 
 function finishTexture(canvas: HTMLCanvasElement): CanvasTexture {
   const texture = new CanvasTexture(canvas);
@@ -479,51 +635,220 @@ function Court({ position, rotationY = 0, scale = 1 }: AssetProps) {
   );
 }
 
+// ── "Escuela Argentina de 3 plantas" ──────────────────────────────────────────
+// Bloque rectangular: nivel sótano (entrada semi-hundida) + 3 plantas de aulas.
+// Frente (+Z local): galería exterior con baranda en cada planta + bloque de
+// escalera ciego en el extremo -X. Contrafrente (-Z local): ladrillo continuo
+// con la grilla 3×3 de ventanas de aula iluminadas.
+const SCHOOL_CONCRETE = "#d9d2c4";
+const SCHOOL_METAL = "#2f3540";
+const SCHOOL_WHITE = "#f8fafc";
+const SCHOOL_GLASS = "#bfe0f5";
+const SCHOOL_ARG_BLUE = "#74acdf";
+
+const SCHOOL_FLOOR_H = 0.42;
+const SCHOOL_BASE_H = 0.26;
+// Y de piso (donde apoyan puertas/galería) para cada una de las 3 plantas.
+const SCHOOL_FLOOR_YS = [0, 1, 2].map((i) => SCHOOL_BASE_H + i * SCHOOL_FLOOR_H);
+const SCHOOL_BODY_W = 2.2;
+const SCHOOL_BODY_D = 1.0;
+const SCHOOL_STAIR_W = 0.34;
+// centro del bloque de aulas (todo menos la escalera), del lado +X del edificio
+const SCHOOL_CLASS_W = SCHOOL_BODY_W - SCHOOL_STAIR_W;
+const SCHOOL_CLASS_CENTER_X = SCHOOL_STAIR_W / 2;
+const SCHOOL_STAIR_CENTER_X = -SCHOOL_BODY_W / 2 + SCHOOL_STAIR_W / 2;
+const SCHOOL_TOTAL_H = SCHOOL_BASE_H + 3 * SCHOOL_FLOOR_H; // altura de muros hasta el techo
+
+// ── Materiales compartidos (una instancia por tipo, reutilizada en todo el edificio) ──
+const SCHOOL_DOOR_MATERIAL = new MeshStandardMaterial({ color: SCHOOL_WHITE, roughness: 0.45 });
+const SCHOOL_WINDOW_FRAME_MATERIAL = new MeshStandardMaterial({ color: SCHOOL_WHITE, roughness: 0.5 });
+const SCHOOL_GLASS_MATERIAL = new MeshStandardMaterial({ color: SCHOOL_GLASS, roughness: 0.2, metalness: 0.05 });
+const SCHOOL_RAILING_MATERIAL = new MeshStandardMaterial({ color: SCHOOL_METAL, roughness: 0.5, metalness: 0.4 });
+const SCHOOL_CONCRETE_MATERIAL = new MeshStandardMaterial({ color: SCHOOL_CONCRETE, roughness: 0.72 });
+const SCHOOL_ROOF_MATERIAL = new MeshStandardMaterial({ color: SCHOOL_CONCRETE, roughness: 0.6 });
+
+// ── Geometrías compartidas (misma malla para cada repetición) ─────────────────
+const SCHOOL_DOOR_GEOMETRY = new BoxGeometry(0.22, 0.32, 0.02);
+const SCHOOL_SLIM_WINDOW_GEOMETRY = new BoxGeometry(0.09, 0.2, 0.015);
+const SCHOOL_RAIL_TOPBAR_GEOMETRY = new BoxGeometry(1, 0.02, 0.02); // escalada en X por planta
+const SCHOOL_RAIL_POST_GEOMETRY = new BoxGeometry(0.018, 0.28, 0.018);
+const SCHOOL_BACK_WINDOW_FRAME_GEOMETRY = new BoxGeometry(0.34, 0.3, 0.03);
+const SCHOOL_BACK_WINDOW_GLASS_GEOMETRY = new BoxGeometry(0.28, 0.24, 0.015);
+
+/** Baranda de galería: barra superior escalada + postes verticales (low-poly, 6 postes). */
+function CorridorRailing({ width, y, z }: { width: number; y: number; z: number }) {
+  const postXs = useMemo(() => {
+    const count = 6;
+    const arr: number[] = [];
+    for (let i = 0; i < count; i++) arr.push(-width / 2 + (i * width) / (count - 1));
+    return arr;
+  }, [width]);
+  return (
+    <group position={[0, y, z]}>
+      <mesh position={[0, 0.28, 0]} scale={[width, 1, 1]} geometry={SCHOOL_RAIL_TOPBAR_GEOMETRY} material={SCHOOL_RAILING_MATERIAL} dispose={null} />
+      {postXs.map((x) => (
+        <mesh key={x} position={[x, 0.14, 0]} geometry={SCHOOL_RAIL_POST_GEOMETRY} material={SCHOOL_RAILING_MATERIAL} dispose={null} />
+      ))}
+    </group>
+  );
+}
+
+/** Una planta del frente: losa de galería + baranda + 3 puertas + ventanas angostas. */
+function SchoolFrontFloor({ y }: { y: number }) {
+  const doorXs = [-SCHOOL_CLASS_W * 0.3, 0, SCHOOL_CLASS_W * 0.3];
+  const windowXs = [-SCHOOL_CLASS_W * 0.45, -SCHOOL_CLASS_W * 0.15, SCHOOL_CLASS_W * 0.15, SCHOOL_CLASS_W * 0.45];
+  const frontZ = SCHOOL_BODY_D / 2;
+  return (
+    <group position={[SCHOOL_CLASS_CENTER_X, y, 0]}>
+      {/* losa de galería que sobresale */}
+      <mesh receiveShadow position={[0, 0.015, frontZ + 0.07]}>
+        <boxGeometry args={[SCHOOL_CLASS_W, 0.03, 0.14]} />
+        <primitive object={SCHOOL_CONCRETE_MATERIAL} attach="material" />
+      </mesh>
+      <CorridorRailing width={SCHOOL_CLASS_W - 0.06} y={0.03} z={frontZ + 0.13} />
+      {/* puertas blancas de aula */}
+      {doorXs.map((x) => (
+        <mesh key={`door-${x}`} castShadow position={[x, 0.16, frontZ + 0.011]} geometry={SCHOOL_DOOR_GEOMETRY} material={SCHOOL_DOOR_MATERIAL} dispose={null} />
+      ))}
+      {/* ventanas angostas entre puertas */}
+      {windowXs.map((x) => (
+        <mesh key={`win-${x}`} position={[x, 0.2, frontZ + 0.011]} geometry={SCHOOL_SLIM_WINDOW_GEOMETRY} material={SCHOOL_GLASS_MATERIAL} dispose={null} />
+      ))}
+    </group>
+  );
+}
+
+/** Ventana grande de aula del contrafrente: marco blanco + vidrio con el aula iluminada. */
+function SchoolBackWindow({ x, y }: { x: number; y: number }) {
+  return (
+    <group position={[x, y, -SCHOOL_BODY_D / 2 - 0.001]}>
+      <mesh geometry={SCHOOL_BACK_WINDOW_FRAME_GEOMETRY} material={SCHOOL_WINDOW_FRAME_MATERIAL} dispose={null} />
+      <mesh position={[0, 0, -0.016]} geometry={SCHOOL_BACK_WINDOW_GLASS_GEOMETRY} material={CLASSROOM_WINDOW_MATERIAL} dispose={null} />
+    </group>
+  );
+}
+
+/** Mástil low-poly con bandera (blanca lisa o celeste-blanco-celeste argentina). */
+function Flagpole({ x, z, variant }: { x: number; z: number; variant: "white" | "argentina" }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh castShadow position={[0, 0.45, 0]}>
+        <cylinderGeometry args={[0.012, 0.016, 0.9, 7]} />
+        <meshStandardMaterial color="#94a3b8" metalness={0.35} roughness={0.4} />
+      </mesh>
+      {variant === "white" ? (
+        <mesh position={[0.09, 0.82, 0]}>
+          <boxGeometry args={[0.18, 0.12, 0.012]} />
+          <meshStandardMaterial color={SCHOOL_WHITE} roughness={0.5} side={DoubleSide} />
+        </mesh>
+      ) : (
+        <group position={[0.09, 0.82, 0]}>
+          {[-0.04, 0, 0.04].map((bandY, index) => (
+            <mesh key={bandY} position={[0, bandY, 0]}>
+              <boxGeometry args={[0.18, 0.04, 0.012]} />
+              <meshStandardMaterial color={index === 1 ? SCHOOL_WHITE : SCHOOL_ARG_BLUE} roughness={0.5} side={DoubleSide} />
+            </mesh>
+          ))}
+        </group>
+      )}
+    </group>
+  );
+}
+
+/** Rampa de acceso dividida: dos tramos cortos con baranda central. */
+function EntranceRamp() {
+  const z = SCHOOL_BODY_D / 2 + 0.1;
+  return (
+    <group position={[SCHOOL_CLASS_CENTER_X, 0, z]}>
+      {[-0.11, 0.11].map((x) => (
+        <mesh key={x} receiveShadow position={[x, 0.045, 0.06]} rotation={[-0.32, 0, 0]}>
+          <boxGeometry args={[0.18, 0.02, 0.22]} />
+          <primitive object={SCHOOL_CONCRETE_MATERIAL} attach="material" />
+        </mesh>
+      ))}
+      {/* baranda central de la rampa */}
+      <mesh position={[0, 0.13, 0.03]}>
+        <boxGeometry args={[0.018, 0.16, 0.018]} />
+        <primitive object={SCHOOL_RAILING_MATERIAL} attach="material" />
+      </mesh>
+      <mesh position={[0, 0.19, 0.03]} rotation={[-0.32, 0, 0]}>
+        <boxGeometry args={[0.018, 0.018, 0.24]} />
+        <primitive object={SCHOOL_RAILING_MATERIAL} attach="material" />
+      </mesh>
+    </group>
+  );
+}
+
 function School({ position, rotationY = 0, scale = 1, tint }: AssetProps) {
-  const brick = tint ?? "#b3543a";
-  const windows = useMemo(() => {
-    const cols = [-0.78, -0.28, 0.28, 0.78];
-    const rows = [0.72, 0.34];
-    return cols.flatMap((x) => rows.map((y) => [x, y] as const));
+  const brick = tint ?? "#b5533c";
+  const brickMaterial = useMemo(() => new MeshStandardMaterial({ color: brick, roughness: 0.78 }), [brick]);
+  useEffect(() => () => brickMaterial.dispose(), [brickMaterial]);
+
+  const backWindows = useMemo(() => {
+    const cols = [-SCHOOL_CLASS_W * 0.32, SCHOOL_CLASS_CENTER_X, SCHOOL_CLASS_CENTER_X + SCHOOL_CLASS_W * 0.32];
+    return SCHOOL_FLOOR_YS.map((y) => cols.map((x) => [x, y + SCHOOL_FLOOR_H * 0.5] as const)).flat();
   }, []);
 
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      {/* cuerpo de ladrillo apoyado en el piso */}
-      <mesh castShadow receiveShadow position={[0, 0.55, 0]}>
-        <boxGeometry args={[2.15, 1.1, 1.2]} />
-        <meshStandardMaterial color={brick} roughness={0.78} />
+      {/* cuerpo de ladrillo (zona de aulas), apoyado en el piso */}
+      <mesh castShadow receiveShadow position={[SCHOOL_CLASS_CENTER_X, SCHOOL_TOTAL_H / 2, 0]} material={brickMaterial}>
+        <boxGeometry args={[SCHOOL_CLASS_W, SCHOOL_TOTAL_H, SCHOOL_BODY_D]} />
       </mesh>
-      {/* techo plano con cornisa clara */}
-      <mesh position={[0, 1.16, 0]} castShadow>
-        <boxGeometry args={[2.32, 0.14, 1.34]} />
-        <meshStandardMaterial color="#e8d6bd" roughness={0.55} />
+      {/* bloque de escalera: ligeramente más alto y proa hacia +Z, ciego atrás/costado */}
+      <mesh
+        castShadow
+        receiveShadow
+        position={[SCHOOL_STAIR_CENTER_X, (SCHOOL_TOTAL_H + 0.08) / 2, 0.03]}
+        material={brickMaterial}
+      >
+        <boxGeometry args={[SCHOOL_STAIR_W, SCHOOL_TOTAL_H + 0.08, SCHOOL_BODY_D + 0.06]} />
       </mesh>
-      {/* grilla de ventanas */}
-      {windows.map(([x, y]) => (
-        <mesh key={`${x}:${y}`} position={[x, y, 0.615]}>
-          <boxGeometry args={[0.3, 0.24, 0.025]} />
-          <meshStandardMaterial color="#1e293b" emissive="#7dd3fc" emissiveIntensity={0.12} roughness={0.3} />
-        </mesh>
+
+      {/* nivel sótano: entrada recesada */}
+      <mesh position={[SCHOOL_CLASS_CENTER_X, SCHOOL_BASE_H / 2, SCHOOL_BODY_D / 2 - 0.04]}>
+        <boxGeometry args={[0.5, SCHOOL_BASE_H - 0.03, 0.08]} />
+        <meshStandardMaterial color="#241b16" roughness={0.9} />
+      </mesh>
+
+      {/* 3 plantas de galería frontal */}
+      {SCHOOL_FLOOR_YS.map((y) => (
+        <SchoolFrontFloor key={y} y={y} />
       ))}
-      {/* puerta con dintel */}
-      <mesh position={[0, 0.21, 0.63]}>
-        <boxGeometry args={[0.36, 0.42, 0.035]} />
-        <meshStandardMaterial color="#334155" roughness={0.4} />
+
+      {/* puertas de emergencia del bloque de escalera: una por planta, donde la galería lo toca */}
+      {SCHOOL_FLOOR_YS.map((y) => (
+        <mesh
+          key={`stair-door-${y}`}
+          castShadow
+          position={[SCHOOL_STAIR_CENTER_X + SCHOOL_STAIR_W / 2 - 0.01, y + 0.16, SCHOOL_BODY_D / 2 + 0.06]}
+          geometry={SCHOOL_DOOR_GEOMETRY}
+          material={SCHOOL_DOOR_MATERIAL}
+          dispose={null}
+        />
+      ))}
+
+      {/* techo plano con parapeto, sobre la zona de aulas */}
+      <mesh castShadow position={[SCHOOL_CLASS_CENTER_X, SCHOOL_TOTAL_H + 0.04, 0]} material={SCHOOL_ROOF_MATERIAL}>
+        <boxGeometry args={[SCHOOL_CLASS_W + 0.1, 0.08, SCHOOL_BODY_D + 0.1]} />
       </mesh>
-      <mesh position={[0, 0.46, 0.635]}>
-        <boxGeometry args={[0.46, 0.06, 0.03]} />
-        <meshStandardMaterial color="#e8d6bd" roughness={0.5} />
+      <mesh position={[SCHOOL_CLASS_CENTER_X, SCHOOL_TOTAL_H + 0.1, 0]} material={SCHOOL_ROOF_MATERIAL}>
+        <boxGeometry args={[SCHOOL_CLASS_W - 0.04, 0.05, SCHOOL_BODY_D - 0.04]} />
       </mesh>
-      {/* mástil con bandera */}
-      <mesh position={[1.28, 0.55, 0.35]} castShadow>
-        <cylinderGeometry args={[0.018, 0.024, 1.1, 8]} />
-        <meshStandardMaterial color="#94a3b8" metalness={0.35} roughness={0.4} />
+      {/* techo propio del bloque de escalera, un poco más alto */}
+      <mesh position={[SCHOOL_STAIR_CENTER_X, SCHOOL_TOTAL_H + 0.12, 0.03]} material={SCHOOL_ROOF_MATERIAL}>
+        <boxGeometry args={[SCHOOL_STAIR_W + 0.05, 0.08, SCHOOL_BODY_D + 0.11]} />
       </mesh>
-      <mesh position={[1.42, 1.0, 0.35]}>
-        <boxGeometry args={[0.26, 0.16, 0.015]} />
-        <meshStandardMaterial color="#7dd3fc" roughness={0.5} side={DoubleSide} />
-      </mesh>
+
+      {/* contrafrente: grilla 3×3 de ventanas grandes de aula iluminada */}
+      {backWindows.map(([x, y]) => (
+        <SchoolBackWindow key={`${x}:${y}`} x={x} y={y} />
+      ))}
+
+      {/* rampa de acceso dividida + mástiles frente a la entrada */}
+      <EntranceRamp />
+      <Flagpole x={SCHOOL_CLASS_CENTER_X - 0.4} z={SCHOOL_BODY_D / 2 + 0.2} variant="white" />
+      <Flagpole x={SCHOOL_CLASS_CENTER_X + 0.4} z={SCHOOL_BODY_D / 2 + 0.2} variant="argentina" />
     </group>
   );
 }

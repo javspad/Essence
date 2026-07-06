@@ -529,7 +529,7 @@
     {
       "id": "farewell-loop",
       "name": "Despedida clásica",
-      "description": "Diorama en terrazas: de la escuela al parque de la fuente, la avenida de los bondis y las oficinas, cruzando el lago y la playa hasta la loma rosa de la META.",
+      "description": "Diorama en terrazas: de la escuela al parque de la fuente, pasando por una lomita de pinos y la avenida de los bondis, subiendo a las oficinas con su mirador de piedra, cruzando el lago con su pasarela y laguna hasta la playa y la loma rosa de la META.",
       "theme": {
         "base": "#6fbe54",
         "path": "#e6cf9d",
@@ -542,7 +542,7 @@
           "type": "start",
           "label": "START",
           "layout": {
-            "x": -1,
+            "x": -1.5,
             "y": 0.5,
             "rot": 0
           }
@@ -552,17 +552,17 @@
           "type": "reaction",
           "minigameId": "reaction-1",
           "layout": {
-            "x": 0,
+            "x": -0.2,
             "y": 0.5,
             "rot": 0
           }
         },
         {
           "id": 2,
-          "type": "vote",
-          "minigameId": "mas-probable-1",
+          "type": "minigame",
+          "minigameId": "arcade-maze",
           "layout": {
-            "x": 1,
+            "x": 1.1,
             "y": 0.5,
             "rot": 0
           }
@@ -572,7 +572,7 @@
           "type": "dare",
           "dareId": "shot-1",
           "layout": {
-            "x": 2,
+            "x": 2.35,
             "y": 0.5,
             "rot": 0
           }
@@ -582,7 +582,7 @@
           "type": "trivia",
           "minigameId": "trivia-novio-1",
           "layout": {
-            "x": 3,
+            "x": 3.6,
             "y": 0.5,
             "rot": 0
           }
@@ -592,9 +592,9 @@
           "type": "minigame",
           "minigameId": "bostezo",
           "layout": {
-            "x": 4,
-            "y": 0.5,
-            "rot": -25
+            "x": 4.3,
+            "y": -0.15,
+            "rot": -15
           }
         },
         {
@@ -602,19 +602,19 @@
           "type": "star",
           "minigameId": "whack-amigos",
           "layout": {
-            "x": 5,
-            "y": 0,
-            "rot": 0
+            "x": 5.7,
+            "y": -1.3,
+            "rot": -20
           }
         },
         {
           "id": 7,
-          "type": "vote",
-          "minigameId": "quien-dijo-1",
+          "type": "minigame",
+          "minigameId": "arcade-flappy",
           "layout": {
-            "x": 6,
-            "y": 0,
-            "rot": 0
+            "x": 6.6,
+            "y": -1.5,
+            "rot": 10
           }
         },
         {
@@ -622,9 +622,9 @@
           "type": "fate",
           "fateId": "monedas-bonus",
           "layout": {
-            "x": 7,
-            "y": 0,
-            "rot": 25
+            "x": 7.2,
+            "y": 0.7,
+            "rot": 20
           }
         },
         {
@@ -632,309 +632,449 @@
           "type": "judge",
           "minigameId": "lujan",
           "layout": {
-            "x": 8,
-            "y": 0.5,
-            "rot": 0
+            "x": 8.6,
+            "y": -0.2,
+            "rot": 30
           }
         },
         {
           "id": 10,
-          "type": "estimate",
-          "minigameId": "estimate-noche",
+          "type": "vote",
+          "minigameId": "mas-probable-2",
           "layout": {
-            "x": 9,
-            "y": 0.5,
-            "rot": 60
+            "x": 9.7,
+            "y": 0.2,
+            "rot": 20
           }
         },
         {
           "id": 11,
-          "type": "dare",
-          "dareId": "reto-1",
+          "type": "estimate",
+          "minigameId": "estimate-noche",
           "layout": {
-            "x": 9.5,
-            "y": 1.5,
-            "rot": 60
+            "x": 10.8,
+            "y": 0.4,
+            "rot": 10
           }
         },
         {
           "id": 12,
-          "type": "reaction",
-          "minigameId": "reaction-1",
+          "type": "dare",
+          "dareId": "reto-1",
           "layout": {
-            "x": 10,
-            "y": 2.5,
-            "rot": 90
+            "x": 11.9,
+            "y": 0.7,
+            "rot": 20
           }
         },
         {
           "id": 13,
-          "type": "fate",
-          "fateId": "retroceder-2",
+          "type": "trivia",
+          "minigameId": "trivia-novio-1",
           "layout": {
-            "x": 10,
-            "y": 3.5,
-            "rot": 90
+            "x": 13.0,
+            "y": 1.1,
+            "rot": 40
           }
         },
         {
           "id": 14,
           "type": "minigame",
-          "minigameId": "bostezo",
+          "minigameId": "arcade-snake",
           "layout": {
-            "x": 10,
-            "y": 4.5,
-            "rot": 180
+            "x": 13.9,
+            "y": 1.9,
+            "rot": 60
           }
         },
         {
           "id": 15,
-          "type": "vote",
-          "minigameId": "dos-verdades-1",
+          "type": "reaction",
+          "minigameId": "reaction-1",
           "layout": {
-            "x": 9,
-            "y": 4.5,
-            "rot": 180
+            "x": 14.45,
+            "y": 3.35,
+            "rot": 75
           }
         },
         {
           "id": 16,
-          "type": "judge",
-          "minigameId": "lujan",
+          "type": "dare",
+          "dareId": "shot-2",
           "layout": {
-            "x": 8,
-            "y": 4.5,
-            "rot": -155
+            "x": 14.9,
+            "y": 3.8,
+            "rot": 85
           }
         },
         {
           "id": 17,
-          "type": "trivia",
-          "minigameId": "trivia-novio-1",
+          "type": "estimate",
+          "minigameId": "estimate-frang",
           "layout": {
-            "x": 7,
-            "y": 4,
-            "rot": 180
+            "x": 15.3,
+            "y": 4.6,
+            "rot": 95
           }
         },
         {
           "id": 18,
-          "type": "star",
-          "minigameId": "whack-amigos",
+          "type": "groom",
+          "minigameId": "trivia-novio-2",
           "layout": {
-            "x": 6,
-            "y": 4,
-            "rot": 155
+            "x": 14.7,
+            "y": 5.7,
+            "rot": 130
           }
         },
         {
           "id": 19,
-          "type": "estimate",
-          "minigameId": "estimate-frang",
+          "type": "minigame",
+          "minigameId": "bostezo",
           "layout": {
-            "x": 5,
-            "y": 4.5,
+            "x": 13.9,
+            "y": 6.0,
             "rot": 180
           }
         },
         {
           "id": 20,
-          "type": "groom",
-          "minigameId": "trivia-novio-2",
+          "type": "vote",
+          "minigameId": "mas-probable-1",
           "layout": {
-            "x": 4,
-            "y": 4.5,
+            "x": 12.2,
+            "y": 6.0,
             "rot": 180
           }
         },
         {
           "id": 21,
-          "type": "vote",
-          "minigameId": "mas-probable-2",
+          "type": "judge",
+          "minigameId": "lujan",
           "layout": {
-            "x": 3,
-            "y": 4.5,
+            "x": 10.5,
+            "y": 6.0,
             "rot": 180
           }
         },
         {
           "id": 22,
-          "type": "dare",
-          "dareId": "shot-2",
+          "type": "trivia",
+          "minigameId": "trivia-novio-1",
           "layout": {
-            "x": 2,
-            "y": 4.5,
-            "rot": 115
+            "x": 8.8,
+            "y": 6.0,
+            "rot": 180
           }
         },
         {
           "id": 23,
-          "type": "reaction",
-          "minigameId": "reaction-1",
+          "type": "star",
+          "minigameId": "whack-amigos",
           "layout": {
-            "x": 1.5,
-            "y": 5.5,
-            "rot": 90
+            "x": 7.5,
+            "y": 6.9,
+            "rot": -100
           }
         },
         {
           "id": 24,
-          "type": "vote",
-          "minigameId": "mas-probable-1",
+          "type": "estimate",
+          "minigameId": "estimate-noche",
           "layout": {
-            "x": 1.5,
-            "y": 6.5,
-            "rot": 65
+            "x": 8.8,
+            "y": 7.7,
+            "rot": 0
           }
         },
         {
           "id": 25,
-          "type": "judge",
-          "minigameId": "lujan",
+          "type": "minigame",
+          "minigameId": "arcade-horserace",
           "layout": {
-            "x": 2,
-            "y": 7.5,
+            "x": 10.5,
+            "y": 7.7,
             "rot": 0
           }
         },
         {
           "id": 26,
-          "type": "minigame",
-          "minigameId": "bostezo",
+          "type": "dare",
+          "dareId": "shot-1",
           "layout": {
-            "x": 3,
-            "y": 7.5,
+            "x": 12.2,
+            "y": 7.7,
             "rot": 0
           }
         },
         {
           "id": 27,
-          "type": "estimate",
-          "minigameId": "estimate-noche",
+          "type": "reaction",
+          "minigameId": "reaction-1",
           "layout": {
-            "x": 4,
-            "y": 7.5,
+            "x": 13.7,
+            "y": 7.7,
             "rot": 0
           }
         },
         {
           "id": 28,
-          "type": "dare",
-          "dareId": "shot-1",
+          "type": "fate",
+          "fateId": "retroceder-2",
           "layout": {
-            "x": 5,
-            "y": 7.5,
-            "rot": 60
+            "x": 13.0,
+            "y": 8.5,
+            "rot": -150
           }
         },
         {
           "id": 29,
-          "type": "fate",
-          "fateId": "retroceder-2",
+          "type": "judge",
+          "minigameId": "lujan",
           "layout": {
-            "x": 5.5,
-            "y": 8.5,
-            "rot": 0
+            "x": 11.4,
+            "y": 9.1,
+            "rot": 180
           }
         },
         {
           "id": 30,
-          "type": "star",
-          "minigameId": "whack-amigos",
+          "type": "vote",
+          "minigameId": "mas-probable-2",
           "layout": {
-            "x": 6.5,
-            "y": 8.5,
-            "rot": 0
+            "x": 9.4,
+            "y": 9.1,
+            "rot": 180
           }
         },
         {
           "id": 31,
-          "type": "vote",
-          "minigameId": "quien-dijo-1",
+          "type": "groom",
+          "minigameId": "trivia-novio-2",
           "layout": {
-            "x": 7.5,
-            "y": 8.5,
-            "rot": -60
+            "x": 7.4,
+            "y": 9.1,
+            "rot": 180
           }
         },
         {
           "id": 32,
-          "type": "reaction",
-          "minigameId": "reaction-1",
+          "type": "minigame",
+          "minigameId": "bostezo",
           "layout": {
-            "x": 8,
-            "y": 7.5,
-            "rot": -25
+            "x": 5.4,
+            "y": 9.1,
+            "rot": 180
           }
         },
         {
           "id": 33,
-          "type": "estimate",
-          "minigameId": "estimate-frang",
+          "type": "reaction",
+          "minigameId": "reaction-1",
           "layout": {
-            "x": 9,
-            "y": 7,
-            "rot": 0
+            "x": 3.6,
+            "y": 9.6,
+            "rot": 100
           }
         },
         {
           "id": 34,
-          "type": "dare",
-          "dareId": "reto-1",
+          "type": "estimate",
+          "minigameId": "estimate-frang",
           "layout": {
-            "x": 10,
-            "y": 7,
-            "rot": 25
+            "x": 3.0,
+            "y": 10.6,
+            "rot": 130
           }
         },
         {
           "id": 35,
-          "type": "vote",
-          "minigameId": "dos-verdades-1",
+          "type": "minigame",
+          "minigameId": "arcade-redlight",
           "layout": {
-            "x": 10.5,
-            "y": 7.5,
-            "rot": 45
+            "x": 3.4,
+            "y": 11.4,
+            "rot": 40
           }
         },
         {
           "id": 36,
-          "type": "groom",
-          "minigameId": "trivia-novio-2",
+          "type": "dare",
+          "dareId": "reto-1",
           "layout": {
-            "x": 11.5,
-            "y": 8,
-            "rot": 0
+            "x": 4.5,
+            "y": 11.9,
+            "rot": 20
           }
         },
         {
           "id": 37,
-          "type": "trivia",
-          "minigameId": "trivia-novio-1",
+          "type": "star",
+          "minigameId": "whack-amigos",
           "layout": {
-            "x": 12.5,
-            "y": 8,
-            "rot": 45
+            "x": 5.7,
+            "y": 11.7,
+            "rot": -10
           }
         },
         {
           "id": 38,
-          "type": "judge",
-          "minigameId": "lujan",
+          "type": "reaction",
+          "minigameId": "reaction-1",
           "layout": {
-            "x": 13,
-            "y": 8.5,
-            "rot": 135
+            "x": 6.9,
+            "y": 12.1,
+            "rot": 0
           }
         },
         {
           "id": 39,
+          "type": "fate",
+          "fateId": "monedas-bonus",
+          "layout": {
+            "x": 7.9,
+            "y": 12.4,
+            "rot": 10
+          }
+        },
+        {
+          "id": 40,
+          "type": "judge",
+          "minigameId": "lujan",
+          "layout": {
+            "x": 9.3,
+            "y": 12.1,
+            "rot": 5
+          }
+        },
+        {
+          "id": 41,
+          "type": "vote",
+          "minigameId": "mas-probable-1",
+          "layout": {
+            "x": 11.0,
+            "y": 11.85,
+            "rot": -10
+          }
+        },
+        {
+          "id": 42,
+          "type": "trivia",
+          "minigameId": "trivia-novio-1",
+          "layout": {
+            "x": 11.6,
+            "y": 11.3,
+            "rot": -20
+          }
+        },
+        {
+          "id": 43,
+          "type": "estimate",
+          "minigameId": "estimate-noche",
+          "layout": {
+            "x": 12.5,
+            "y": 10.6,
+            "rot": -30
+          }
+        },
+        {
+          "id": 44,
+          "type": "dare",
+          "dareId": "shot-2",
+          "layout": {
+            "x": 12.9,
+            "y": 8.9,
+            "rot": -40
+          }
+        },
+        {
+          "id": 45,
+          "type": "minigame",
+          "minigameId": "bostezo",
+          "layout": {
+            "x": 14.6,
+            "y": 9.3,
+            "rot": -20
+          }
+        },
+        {
+          "id": 46,
+          "type": "minigame",
+          "minigameId": "arcade-snake",
+          "layout": {
+            "x": 15.6,
+            "y": 9.1,
+            "rot": -10
+          }
+        },
+        {
+          "id": 47,
+          "type": "star",
+          "minigameId": "whack-amigos",
+          "layout": {
+            "x": 16.5,
+            "y": 9.5,
+            "rot": 20
+          }
+        },
+        {
+          "id": 48,
+          "type": "trivia",
+          "minigameId": "trivia-novio-1",
+          "layout": {
+            "x": 17.3,
+            "y": 10.0,
+            "rot": 60
+          }
+        },
+        {
+          "id": 49,
+          "type": "fate",
+          "fateId": "retroceder-2",
+          "layout": {
+            "x": 17.6,
+            "y": 12.0,
+            "rot": 90
+          }
+        },
+        {
+          "id": 50,
+          "type": "groom",
+          "minigameId": "trivia-novio-2",
+          "layout": {
+            "x": 16.1,
+            "y": 12.2,
+            "rot": 130
+          }
+        },
+        {
+          "id": 51,
+          "type": "judge",
+          "minigameId": "lujan",
+          "layout": {
+            "x": 15.1,
+            "y": 12.5,
+            "rot": 160
+          }
+        },
+        {
+          "id": 52,
+          "type": "minigame",
+          "minigameId": "arcade-horserace",
+          "layout": {
+            "x": 14.2,
+            "y": 12.1,
+            "rot": -160
+          }
+        },
+        {
+          "id": 53,
           "type": "finish",
           "label": "META",
           "layout": {
-            "x": 12.5,
-            "y": 9,
-            "rot": 135
+            "x": 13.9,
+            "y": 11.1,
+            "rot": 0
           }
         }
       ],
@@ -979,17 +1119,17 @@
           "id": "r-6-7",
           "from": 6,
           "to": 7,
-          "terrain": "stone"
+          "terrain": "grass"
         },
         {
           "id": "r-7-8",
           "from": 7,
           "to": 8,
-          "terrain": "stone",
+          "terrain": "grass",
           "points": [
             {
-              "x": 6.5,
-              "y": -0.15
+              "x": 6.9,
+              "y": -0.2
             }
           ]
         },
@@ -1003,74 +1143,74 @@
           "id": "r-9-10",
           "from": 9,
           "to": 10,
-          "terrain": "grass"
+          "terrain": "stone"
         },
         {
           "id": "r-10-11",
           "from": 10,
           "to": 11,
-          "terrain": "asphalt",
+          "terrain": "stone",
           "choiceLabel": "Bondi"
         },
         {
           "id": "r-11-12",
           "from": 11,
           "to": 12,
-          "terrain": "asphalt",
-          "points": [
-            {
-              "x": 9.65,
-              "y": 2.05
-            }
-          ]
+          "terrain": "stone"
         },
         {
           "id": "r-12-13",
           "from": 12,
           "to": 13,
-          "terrain": "asphalt"
+          "terrain": "stone"
         },
         {
           "id": "r-13-14",
           "from": 13,
           "to": 14,
-          "terrain": "asphalt"
+          "terrain": "stone"
         },
         {
           "id": "r-14-15",
           "from": 14,
           "to": 15,
-          "terrain": "stone"
+          "terrain": "asphalt"
         },
         {
           "id": "r-15-16",
           "from": 15,
           "to": 16,
-          "terrain": "stone"
+          "terrain": "asphalt"
         },
         {
           "id": "r-16-17",
           "from": 16,
           "to": 17,
-          "terrain": "grass"
+          "terrain": "asphalt",
+          "points": [
+            {
+              "x": 15.05,
+              "y": 4.2
+            }
+          ]
         },
         {
           "id": "r-17-18",
           "from": 17,
           "to": 18,
-          "terrain": "grass"
+          "terrain": "asphalt"
         },
         {
           "id": "r-18-19",
           "from": 18,
           "to": 19,
-          "terrain": "grass"
+          "terrain": "stone"
         },
         {
           "id": "r-19-20",
           "from": 19,
           "to": 20,
-          "terrain": "stone"
+          "terrain": "grass"
         },
         {
           "id": "r-20-21",
@@ -1088,13 +1228,19 @@
           "id": "r-22-23",
           "from": 22,
           "to": 23,
-          "terrain": "stone"
+          "terrain": "grass"
         },
         {
           "id": "r-23-24",
           "from": 23,
           "to": 24,
-          "terrain": "stone"
+          "terrain": "stone",
+          "points": [
+            {
+              "x": 8.1,
+              "y": 6.6
+            }
+          ]
         },
         {
           "id": "r-24-25",
@@ -1112,133 +1258,241 @@
           "id": "r-26-27",
           "from": 26,
           "to": 27,
-          "terrain": "stone"
+          "terrain": "grass"
         },
         {
           "id": "r-27-28",
           "from": 27,
           "to": 28,
-          "terrain": "stone"
+          "terrain": "stone",
+          "points": [
+            {
+              "x": 13.4,
+              "y": 8.15
+            }
+          ]
         },
         {
           "id": "r-28-29",
           "from": 28,
           "to": 29,
-          "terrain": "water",
-          "choiceLabel": "Al agua"
+          "terrain": "grass"
         },
         {
           "id": "r-29-30",
           "from": 29,
           "to": 30,
-          "terrain": "water"
+          "terrain": "grass"
         },
         {
           "id": "r-30-31",
           "from": 30,
           "to": 31,
-          "terrain": "water"
+          "terrain": "grass"
         },
         {
           "id": "r-31-32",
           "from": 31,
           "to": 32,
-          "terrain": "water",
-          "points": [
-            {
-              "x": 7.9,
-              "y": 8
-            }
-          ]
+          "terrain": "grass"
         },
         {
           "id": "r-32-33",
           "from": 32,
           "to": 33,
-          "terrain": "sand"
+          "terrain": "stone"
         },
         {
           "id": "r-33-34",
           "from": 33,
           "to": 34,
-          "terrain": "sand"
+          "terrain": "stone"
         },
         {
           "id": "r-34-35",
           "from": 34,
           "to": 35,
-          "terrain": "sand"
+          "terrain": "grass"
         },
         {
           "id": "r-35-36",
           "from": 35,
           "to": 36,
-          "terrain": "magic",
-          "choiceLabel": "A la cima"
+          "terrain": "grass"
         },
         {
           "id": "r-36-37",
           "from": 36,
           "to": 37,
-          "terrain": "magic"
+          "terrain": "sand",
+          "choiceLabel": "A la pasarela"
         },
         {
           "id": "r-37-38",
           "from": 37,
           "to": 38,
-          "terrain": "magic"
+          "terrain": "water"
         },
         {
           "id": "r-38-39",
           "from": 38,
           "to": 39,
+          "terrain": "water",
+          "points": [
+            {
+              "x": 7.4,
+              "y": 12.3
+            }
+          ]
+        },
+        {
+          "id": "r-39-40",
+          "from": 39,
+          "to": 40,
+          "terrain": "water"
+        },
+        {
+          "id": "r-40-41",
+          "from": 40,
+          "to": 41,
+          "terrain": "water"
+        },
+        {
+          "id": "r-41-42",
+          "from": 41,
+          "to": 42,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-42-43",
+          "from": 42,
+          "to": 43,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-43-44",
+          "from": 43,
+          "to": 44,
+          "terrain": "grass"
+        },
+        {
+          "id": "r-44-45",
+          "from": 44,
+          "to": 45,
+          "terrain": "sand",
+          "choiceLabel": "A la arena"
+        },
+        {
+          "id": "r-45-46",
+          "from": 45,
+          "to": 46,
+          "terrain": "sand"
+        },
+        {
+          "id": "r-46-47",
+          "from": 46,
+          "to": 47,
+          "terrain": "sand"
+        },
+        {
+          "id": "r-47-48",
+          "from": 47,
+          "to": 48,
+          "terrain": "sand"
+        },
+        {
+          "id": "r-48-49",
+          "from": 48,
+          "to": 49,
+          "terrain": "stone",
+          "choiceLabel": "A la cima"
+        },
+        {
+          "id": "r-49-50",
+          "from": 49,
+          "to": 50,
+          "terrain": "magic"
+        },
+        {
+          "id": "r-50-51",
+          "from": 50,
+          "to": 51,
+          "terrain": "magic"
+        },
+        {
+          "id": "r-51-52",
+          "from": 51,
+          "to": 52,
+          "terrain": "magic"
+        },
+        {
+          "id": "r-52-53",
+          "from": 52,
+          "to": 53,
           "terrain": "magic",
           "points": [
             {
-              "x": 12.95,
-              "y": 8.85
+              "x": 13.6,
+              "y": 11.6
             }
           ]
         },
         {
           "id": "d-paseo-parque",
-          "from": 5,
-          "to": 9,
+          "from": 9,
+          "to": 13,
           "terrain": "grass",
           "label": "Paseo del parque",
           "points": [
             {
-              "x": 5.3,
-              "y": 1.3
+              "x": 9.9,
+              "y": -0.6
             },
             {
-              "x": 6.5,
-              "y": 1.45
+              "x": 11.2,
+              "y": -0.5
             },
             {
-              "x": 7.7,
-              "y": 1.3
+              "x": 12.4,
+              "y": -0.2
             }
           ]
         },
         {
           "id": "d-muelle-lago",
-          "from": 27,
-          "to": 31,
+          "from": 36,
+          "to": 41,
           "terrain": "water",
           "label": "Muelle",
           "points": [
             {
-              "x": 4.6,
+              "x": 6.0,
+              "y": 12.9
+            },
+            {
+              "x": 7.9,
+              "y": 13.1
+            },
+            {
+              "x": 9.6,
+              "y": 12.85
+            }
+          ]
+        },
+        {
+          "id": "d-atajo-playa",
+          "from": 45,
+          "to": 48,
+          "terrain": "sand",
+          "label": "Atajo de la playa",
+          "points": [
+            {
+              "x": 15.6,
+              "y": 8.4
+            },
+            {
+              "x": 16.6,
               "y": 8.6
-            },
-            {
-              "x": 6,
-              "y": 9
-            },
-            {
-              "x": 7,
-              "y": 8.9
             }
           ]
         }
@@ -1248,9 +1502,9 @@
           "id": "art-escuela",
           "assetId": "club-house",
           "position": {
-            "x": 0.6,
-            "y": 2.1,
-            "rot": -12
+            "x": 0.5,
+            "y": -1.0,
+            "rot": -10
           },
           "scale": 1
         },
@@ -1258,9 +1512,9 @@
           "id": "art-cancha",
           "assetId": "mini-court",
           "position": {
-            "x": 2.8,
-            "y": 1.9,
-            "rot": 0
+            "x": 2.6,
+            "y": 2.0,
+            "rot": 5
           },
           "scale": 1
         },
@@ -1268,9 +1522,9 @@
           "id": "art-cartel-start",
           "assetId": "start-sign",
           "position": {
-            "x": -1,
+            "x": -1.5,
             "y": 1.3,
-            "z": 0.6,
+            "z": 0.0,
             "rot": 25
           },
           "scale": 1,
@@ -1280,7 +1534,7 @@
           "id": "art-cerco-1",
           "assetId": "fence",
           "position": {
-            "x": -0.4,
+            "x": -0.9,
             "y": 1.6,
             "rot": 90
           },
@@ -1290,8 +1544,8 @@
           "id": "art-cerco-2",
           "assetId": "fence",
           "position": {
-            "x": 0.6,
-            "y": 2.9,
+            "x": 0.4,
+            "y": 3.0,
             "rot": 0
           },
           "scale": 1
@@ -1300,7 +1554,7 @@
           "id": "art-cerco-3",
           "assetId": "fence",
           "position": {
-            "x": 1.7,
+            "x": 1.9,
             "y": 1.6,
             "rot": 90
           },
@@ -1310,17 +1564,17 @@
           "id": "art-pino-1",
           "assetId": "oak-tree",
           "position": {
-            "x": -0.9,
+            "x": -1.4,
             "y": 2.4
           },
-          "scale": 1
+          "scale": 1.0
         },
         {
           "id": "art-pino-2",
           "assetId": "oak-tree",
           "position": {
-            "x": 2,
-            "y": 2.7
+            "x": 2.0,
+            "y": 2.8
           },
           "scale": 1.1
         },
@@ -1328,17 +1582,82 @@
           "id": "art-pino-3",
           "assetId": "oak-tree",
           "position": {
-            "x": -0.6,
+            "x": -1.1,
             "y": -0.6
           },
           "scale": 0.9
         },
         {
+          "id": "art-pino-4",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 3.6,
+            "y": 1.9
+          },
+          "scale": 0.85
+        },
+        {
+          "id": "art-farol-0",
+          "assetId": "streetlamp",
+          "position": {
+            "x": -0.6,
+            "y": 1.5,
+            "rot": 0
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-lomita-pino-1",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 5.3,
+            "y": -1.6
+          },
+          "scale": 1.15
+        },
+        {
+          "id": "art-lomita-pino-2",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 6.3,
+            "y": -1.9
+          },
+          "scale": 1.0
+        },
+        {
+          "id": "art-lomita-pino-3",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 8.5,
+            "y": -1.0
+          },
+          "scale": 0.9
+        },
+        {
+          "id": "art-lomita-rocas",
+          "assetId": "rock",
+          "position": {
+            "x": 5.9,
+            "y": -1.0
+          },
+          "scale": 0.9
+        },
+        {
+          "id": "art-lomita-banco",
+          "assetId": "bench",
+          "position": {
+            "x": 6.4,
+            "y": -0.05,
+            "rot": 10
+          },
+          "scale": 1
+        },
+        {
           "id": "art-fuente",
           "assetId": "fountain",
           "position": {
-            "x": 6.5,
-            "y": 0.9
+            "x": 11.2,
+            "y": -0.55
           },
           "scale": 1
         },
@@ -1346,8 +1665,8 @@
           "id": "art-banco-1",
           "assetId": "bench",
           "position": {
-            "x": 5.6,
-            "y": 1.2,
+            "x": 9.6,
+            "y": -0.4,
             "rot": 115
           },
           "scale": 1
@@ -1356,8 +1675,8 @@
           "id": "art-banco-2",
           "assetId": "bench",
           "position": {
-            "x": 7.4,
-            "y": 1.2,
+            "x": 12.9,
+            "y": 0.8,
             "rot": -115
           },
           "scale": 1
@@ -1366,8 +1685,8 @@
           "id": "art-banco-3",
           "assetId": "bench",
           "position": {
-            "x": 6.5,
-            "y": -0.75,
+            "x": 11.2,
+            "y": 1.8,
             "rot": 0
           },
           "scale": 1
@@ -1376,8 +1695,8 @@
           "id": "art-cantero-1",
           "assetId": "flower-bed",
           "position": {
-            "x": 5,
-            "y": 1.35
+            "x": 10.2,
+            "y": 0.0
           },
           "scale": 1,
           "tint": "#f472b6"
@@ -1386,8 +1705,8 @@
           "id": "art-cantero-2",
           "assetId": "flower-bed",
           "position": {
-            "x": 8,
-            "y": 1.35
+            "x": 13.0,
+            "y": -0.1
           },
           "scale": 1,
           "tint": "#fbbf24"
@@ -1396,18 +1715,28 @@
           "id": "art-cantero-3",
           "assetId": "flower-bed",
           "position": {
-            "x": 4.8,
-            "y": -0.7
+            "x": 9.4,
+            "y": 1.4
           },
           "scale": 1,
           "tint": "#a78bfa"
         },
         {
+          "id": "art-cantero-6",
+          "assetId": "flower-bed",
+          "position": {
+            "x": 12.4,
+            "y": 2.1
+          },
+          "scale": 1,
+          "tint": "#f9a8d4"
+        },
+        {
           "id": "art-farol-1",
           "assetId": "streetlamp",
           "position": {
-            "x": 5.4,
-            "y": -0.6
+            "x": 9.0,
+            "y": 0.6
           },
           "scale": 1
         },
@@ -1415,26 +1744,26 @@
           "id": "art-farol-2",
           "assetId": "streetlamp",
           "position": {
-            "x": 7.6,
-            "y": -0.6
+            "x": 13.6,
+            "y": 1.0
           },
           "scale": 1
         },
         {
-          "id": "art-pino-4",
+          "id": "art-pino-5",
           "assetId": "oak-tree",
           "position": {
-            "x": 4,
+            "x": 10.7,
             "y": 1.9
           },
-          "scale": 0.85
+          "scale": 1.05
         },
         {
           "id": "art-bondi-1",
           "assetId": "bus",
           "position": {
-            "x": 9.2,
-            "y": -0.2,
+            "x": 15.6,
+            "y": 3.4,
             "rot": 10
           },
           "scale": 1,
@@ -1444,8 +1773,8 @@
           "id": "art-bondi-2",
           "assetId": "bus",
           "position": {
-            "x": 10.6,
-            "y": 1.7,
+            "x": 16.3,
+            "y": 4.6,
             "rot": 65
           },
           "scale": 1,
@@ -1455,8 +1784,8 @@
           "id": "art-traffic",
           "assetId": "party-van",
           "position": {
-            "x": 8.8,
-            "y": 2.3,
+            "x": 16.2,
+            "y": 4.2,
             "rot": 120
           },
           "scale": 1
@@ -1465,27 +1794,18 @@
           "id": "art-farol-3",
           "assetId": "streetlamp",
           "position": {
-            "x": 10,
-            "y": 1,
+            "x": 15.6,
+            "y": 4.6,
             "rot": 0
           },
           "scale": 1
         },
         {
-          "id": "art-pino-5",
-          "assetId": "oak-tree",
-          "position": {
-            "x": 3.4,
-            "y": -0.7
-          },
-          "scale": 1.05
-        },
-        {
           "id": "art-oficina-1",
           "assetId": "glass-building",
           "position": {
-            "x": 9.4,
-            "y": 5.6,
+            "x": 17.0,
+            "y": 7.0,
             "rot": -8
           },
           "scale": 1
@@ -1494,18 +1814,28 @@
           "id": "art-oficina-2",
           "assetId": "glass-building",
           "position": {
-            "x": 8.1,
-            "y": 5.7,
+            "x": 13.0,
+            "y": 4.5,
             "rot": 6
           },
           "scale": 0.9
         },
         {
+          "id": "art-oficina-3",
+          "assetId": "glass-building",
+          "position": {
+            "x": 9.5,
+            "y": 4.5,
+            "rot": -4
+          },
+          "scale": 0.95
+        },
+        {
           "id": "art-pantallas",
           "assetId": "billboard",
           "position": {
-            "x": 10.8,
-            "y": 5.4,
+            "x": 15.2,
+            "y": 7.6,
             "rot": -20
           },
           "scale": 1
@@ -1514,17 +1844,17 @@
           "id": "art-pino-6",
           "assetId": "oak-tree",
           "position": {
-            "x": 7,
-            "y": 5.5
+            "x": 11.5,
+            "y": 4.6
           },
-          "scale": 1
+          "scale": 1.0
         },
         {
           "id": "art-pino-7",
           "assetId": "oak-tree",
           "position": {
-            "x": 11.7,
-            "y": 5.1
+            "x": 6.3,
+            "y": 6.3
           },
           "scale": 0.9
         },
@@ -1532,35 +1862,199 @@
           "id": "art-pino-8",
           "assetId": "oak-tree",
           "position": {
-            "x": 2.6,
-            "y": 5.6
+            "x": 5.5,
+            "y": 7.9
           },
           "scale": 1.15
+        },
+        {
+          "id": "art-pino-12",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 6.5,
+            "y": 8.5
+          },
+          "scale": 1.0
+        },
+        {
+          "id": "art-pino-13",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 13.0,
+            "y": 6.9
+          },
+          "scale": 0.95
         },
         {
           "id": "art-rocas-1",
           "assetId": "rock",
           "position": {
-            "x": 11.5,
-            "y": 3.5
+            "x": 6.0,
+            "y": 9.4
           },
-          "scale": 1
+          "scale": 1.0
         },
         {
           "id": "art-rocas-2",
           "assetId": "rock",
           "position": {
-            "x": 1.6,
-            "y": 3.5
+            "x": 8.0,
+            "y": 6.5
           },
           "scale": 0.8
+        },
+        {
+          "id": "art-cerco-4",
+          "assetId": "fence",
+          "position": {
+            "x": 7.0,
+            "y": 7.3,
+            "rot": 45
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-cerco-5",
+          "assetId": "fence",
+          "position": {
+            "x": 12.0,
+            "y": 8.9,
+            "rot": 0
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-farol-4",
+          "assetId": "streetlamp",
+          "position": {
+            "x": 10.5,
+            "y": 6.4
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-farol-5",
+          "assetId": "streetlamp",
+          "position": {
+            "x": 8.8,
+            "y": 8.1
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-mirador-roca-1",
+          "assetId": "rock",
+          "position": {
+            "x": 17.0,
+            "y": 7.5
+          },
+          "scale": 1.3
+        },
+        {
+          "id": "art-mirador-roca-2",
+          "assetId": "rock",
+          "position": {
+            "x": 17.5,
+            "y": 7.0
+          },
+          "scale": 1.0
+        },
+        {
+          "id": "art-mirador-pino",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 16.5,
+            "y": 7.5
+          },
+          "scale": 1.1
+        },
+        {
+          "id": "art-pino-9",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 3.0,
+            "y": 8.5
+          },
+          "scale": 1.0
+        },
+        {
+          "id": "art-pino-10",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 1.5,
+            "y": 12.0
+          },
+          "scale": 1.2
+        },
+        {
+          "id": "art-pino-11b",
+          "assetId": "oak-tree",
+          "position": {
+            "x": 12.0,
+            "y": 11.5
+          },
+          "scale": 1.0
+        },
+        {
+          "id": "art-rocas-3",
+          "assetId": "rock",
+          "position": {
+            "x": 4.0,
+            "y": 10.9
+          },
+          "scale": 1.0
+        },
+        {
+          "id": "art-rocas-4",
+          "assetId": "rock",
+          "position": {
+            "x": 2.7,
+            "y": 12.3
+          },
+          "scale": 1.2
+        },
+        {
+          "id": "art-rocas-7",
+          "assetId": "rock",
+          "position": {
+            "x": 12.7,
+            "y": 9.6
+          },
+          "scale": 0.9
+        },
+        {
+          "id": "art-montanas-1",
+          "assetId": "mountain-cluster",
+          "position": {
+            "x": 1.5,
+            "y": 13.3
+          },
+          "scale": 1.4
+        },
+        {
+          "id": "art-montanas-2",
+          "assetId": "mountain-cluster",
+          "position": {
+            "x": 17.5,
+            "y": -1.5
+          },
+          "scale": 1.15
+        },
+        {
+          "id": "art-montanas-3",
+          "assetId": "mountain-cluster",
+          "position": {
+            "x": 9.0,
+            "y": 13.85
+          },
+          "scale": 1.25
         },
         {
           "id": "art-velero-1",
           "assetId": "sailboat",
           "position": {
-            "x": 5.1,
-            "y": 9.2,
+            "x": 6.8,
+            "y": 12.6,
             "z": -0.06,
             "rot": -25
           },
@@ -1570,92 +2064,60 @@
           "id": "art-velero-2",
           "assetId": "sailboat",
           "position": {
-            "x": 7,
-            "y": 9.4,
+            "x": 7.7,
+            "y": 11.7,
             "z": -0.06,
             "rot": 40
           },
           "scale": 0.9
         },
         {
-          "id": "art-cascada",
+          "id": "art-velero-3",
+          "assetId": "sailboat",
+          "position": {
+            "x": 9.3,
+            "y": 12.6,
+            "z": -0.06,
+            "rot": 15
+          },
+          "scale": 0.85
+        },
+        {
+          "id": "art-cascada-1",
           "assetId": "waterfall",
           "position": {
-            "x": 2.6,
-            "y": 6,
+            "x": 2.5,
+            "y": 10.7,
             "rot": 180
           },
           "scale": 1.2
         },
         {
-          "id": "art-pino-9",
-          "assetId": "oak-tree",
+          "id": "art-cascada-2",
+          "assetId": "waterfall",
           "position": {
-            "x": 2.1,
-            "y": 8.8
+            "x": 12.5,
+            "y": 13.12,
+            "rot": 180
           },
-          "scale": 1
+          "scale": 1.0
         },
         {
-          "id": "art-pino-10",
-          "assetId": "oak-tree",
+          "id": "art-cantero-4",
+          "assetId": "flower-bed",
           "position": {
-            "x": 3.1,
-            "y": 9.4
+            "x": 5.0,
+            "y": 11.1
           },
-          "scale": 1.2
-        },
-        {
-          "id": "art-pino-11",
-          "assetId": "oak-tree",
-          "position": {
-            "x": 8.6,
-            "y": 9.8
-          },
-          "scale": 1
-        },
-        {
-          "id": "art-rocas-3",
-          "assetId": "rock",
-          "position": {
-            "x": 3.7,
-            "y": 8.5
-          },
-          "scale": 1
-        },
-        {
-          "id": "art-rocas-4",
-          "assetId": "rock",
-          "position": {
-            "x": 1.5,
-            "y": 9.5
-          },
-          "scale": 1.2
-        },
-        {
-          "id": "art-montanas-1",
-          "assetId": "mountain-cluster",
-          "position": {
-            "x": 1.3,
-            "y": 10
-          },
-          "scale": 1.4
-        },
-        {
-          "id": "art-montanas-2",
-          "assetId": "mountain-cluster",
-          "position": {
-            "x": 13.4,
-            "y": 10
-          },
-          "scale": 1.15
+          "scale": 1,
+          "tint": "#fda4af"
         },
         {
           "id": "art-palmera-1",
           "assetId": "palm-tree",
           "position": {
-            "x": 9.4,
-            "y": 8.3,
+            "x": 14.9,
+            "y": 8.75,
             "rot": 20
           },
           "scale": 1
@@ -1664,7 +2126,7 @@
           "id": "art-palmera-2",
           "assetId": "palm-tree",
           "position": {
-            "x": 10.4,
+            "x": 15.1,
             "y": 8.7,
             "rot": -35
           },
@@ -1674,19 +2136,39 @@
           "id": "art-palmera-3",
           "assetId": "palm-tree",
           "position": {
-            "x": 10.9,
-            "y": 9.5,
+            "x": 16.05,
+            "y": 8.72,
             "rot": 60
           },
           "scale": 0.85
         },
         {
-          "id": "art-playa-set",
+          "id": "art-palmera-4",
+          "assetId": "palm-tree",
+          "position": {
+            "x": 17.5,
+            "y": 9.2,
+            "rot": -10
+          },
+          "scale": 0.95
+        },
+        {
+          "id": "art-playa-set-1",
           "assetId": "beach-set",
           "position": {
-            "x": 9.9,
-            "y": 7.9,
+            "x": 15.4,
+            "y": 8.9,
             "rot": -15
+          },
+          "scale": 1
+        },
+        {
+          "id": "art-playa-set-2",
+          "assetId": "beach-set",
+          "position": {
+            "x": 17.0,
+            "y": 9.4,
+            "rot": 25
           },
           "scale": 1
         },
@@ -1694,8 +2176,8 @@
           "id": "art-rocas-5",
           "assetId": "rock",
           "position": {
-            "x": 9.2,
-            "y": 9.7
+            "x": 14.2,
+            "y": 9.6
           },
           "scale": 0.8
         },
@@ -1703,117 +2185,147 @@
           "id": "art-arco",
           "assetId": "wedding-arch",
           "position": {
-            "x": 12.4,
-            "y": 9.1,
+            "x": 13.7,
+            "y": 11.3,
             "rot": -40
           },
-          "scale": 1
+          "scale": 1.3
         },
         {
           "id": "art-cartel-end",
           "assetId": "finish-sign",
           "position": {
-            "x": 13.3,
-            "y": 9.3,
-            "z": 0.6,
+            "x": 12.6,
+            "y": 10.9,
+            "z": 0.0,
             "rot": -25
           },
           "scale": 1,
           "label": "THE END"
         },
         {
-          "id": "art-cantero-4",
-          "assetId": "flower-bed",
-          "position": {
-            "x": 11.8,
-            "y": 8.8
-          },
-          "scale": 1,
-          "tint": "#f9a8d4"
-        },
-        {
           "id": "art-cantero-5",
           "assetId": "flower-bed",
           "position": {
-            "x": 13.2,
-            "y": 7.9
+            "x": 14.4,
+            "y": 12.3
           },
           "scale": 1,
           "tint": "#fda4af"
         },
         {
+          "id": "art-cantero-7",
+          "assetId": "flower-bed",
+          "position": {
+            "x": 16.2,
+            "y": 11.6
+          },
+          "scale": 1,
+          "tint": "#f9a8d4"
+        },
+        {
           "id": "art-rocas-6",
           "assetId": "rock",
           "position": {
-            "x": 11.2,
-            "y": 7.1
+            "x": 16.5,
+            "y": 12.4
           },
           "scale": 0.9
         }
       ],
       "boardShape": {
-        "minX": -1,
-        "minY": -1,
-        "maxX": 14,
-        "maxY": 10
+        "minX": -2,
+        "minY": -2.2,
+        "maxX": 18.5,
+        "maxY": 14
       },
       "terraces": [
         {
+          "id": "t-knoll",
+          "minX": 5.2,
+          "minY": -2.0,
+          "maxX": 7.1,
+          "maxY": -0.95,
+          "elevation": 0.35,
+          "surface": "grass",
+          "label": "Lomita de los pinos"
+        },
+        {
           "id": "t-plaza-parque",
-          "minX": 4,
-          "minY": -1,
-          "maxX": 9.5,
-          "maxY": 1.5,
-          "elevation": 0.12,
+          "minX": 8.1,
+          "minY": -0.75,
+          "maxX": 14.5,
+          "maxY": 2.5,
+          "elevation": 0.15,
           "surface": "plaza",
           "label": "Plaza del parque"
         },
         {
           "id": "t-meseta-media",
-          "minX": 1,
-          "minY": 3.5,
-          "maxX": 14,
-          "maxY": 10,
-          "elevation": 0.55,
+          "minX": 4.9,
+          "minY": 5.6,
+          "maxX": 15.6,
+          "maxY": 9.6,
+          "elevation": 0.75,
           "surface": "grass",
           "label": "Meseta de las oficinas"
         },
         {
+          "id": "t-mirador",
+          "minX": 16.3,
+          "minY": 6.6,
+          "maxX": 17.8,
+          "maxY": 8.4,
+          "elevation": 1.2,
+          "surface": "stone",
+          "label": "Mirador de piedra"
+        },
+        {
           "id": "t-meseta-alta",
-          "minX": 1,
-          "minY": 6.5,
-          "maxX": 14,
-          "maxY": 10,
-          "elevation": 1.1,
+          "minX": 2.4,
+          "minY": 10.55,
+          "maxX": 13.9,
+          "maxY": 12.9,
+          "elevation": 1.3,
           "surface": "grass",
           "label": "Meseta del lago"
         },
         {
           "id": "t-lago",
-          "minX": 4,
-          "minY": 8,
-          "maxX": 8,
-          "maxY": 10,
-          "elevation": 1.02,
+          "minX": 5.9,
+          "minY": 11.5,
+          "maxX": 8.7,
+          "maxY": 12.9,
+          "elevation": 1.28,
           "surface": "water",
           "label": "Lago"
         },
         {
+          "id": "t-laguna",
+          "minX": 8.9,
+          "minY": 11.6,
+          "maxX": 9.9,
+          "maxY": 12.9,
+          "elevation": 1.32,
+          "surface": "water",
+          "label": "Laguna chica"
+        },
+        {
           "id": "t-playa",
-          "minX": 9,
-          "minY": 6.5,
-          "maxX": 11,
-          "maxY": 10,
-          "elevation": 1.12,
+          "minX": 13.9,
+          "minY": 8.6,
+          "maxX": 17.9,
+          "maxY": 10.0,
+          "elevation": 1.35,
           "surface": "sand",
           "label": "Playa"
         },
         {
           "id": "t-meta",
-          "minX": 11.5,
-          "minY": 7.5,
-          "maxX": 13.5,
-          "maxY": 9.5,
+          "minX": 13.5,
+          "minY": 11.0,
+          "maxX": 17.9,
+          "maxY": 13.0,
           "elevation": 1.7,
           "color": "#e8a7a0",
           "label": "Loma de la META"
@@ -1937,6 +2449,45 @@
           "mati",
           "seba"
         ]
+      }
+    },
+    "arcade-maze": {
+      "type": "maze",
+      "content": {
+        "label": "Encontrá la salida del laberinto antes que los pibes",
+        "cols": 13,
+        "rows": 13
+      }
+    },
+    "arcade-flappy": {
+      "type": "flappy",
+      "content": {
+        "label": "Volá entre quilombos de la noche sin pegarte contra nada",
+        "maxDurationMs": 90000
+      }
+    },
+    "arcade-snake": {
+      "type": "snake",
+      "content": {
+        "label": "Sobreviví a la víbora de la previa y dejá afuera a los pibes",
+        "gridSize": 100,
+        "durationMs": 120000
+      }
+    },
+    "arcade-horserace": {
+      "type": "horserace",
+      "content": {
+        "label": "Picá como si cerrara el boliche y ganale al resto",
+        "trackLength": 40,
+        "durationMs": 45000
+      }
+    },
+    "arcade-redlight": {
+      "type": "redlight",
+      "content": {
+        "label": "Avanzá cuando dé verde y no te regalés en rojo",
+        "trackLength": 45,
+        "durationMs": 60000
       }
     }
   },

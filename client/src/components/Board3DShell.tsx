@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
+  CircleGeometry,
   Color,
+  CylinderGeometry,
   DoubleSide,
   Euler,
+  OctahedronGeometry,
   Quaternion,
+  SphereGeometry,
   Vector3,
   type Group,
   type Mesh,
   type PointLight,
+  type Texture,
 } from "three";
 import type { MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
 import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
@@ -36,6 +41,9 @@ import {
 } from "../board3d";
 import { movementPath } from "../boardView";
 import {
+  loadPlayerPhoto,
+  makeFaceTexture,
+  makePhotoFaceTexture,
   makeMetaDiscTexture,
   MapArtifacts,
   STONE_TILE_GEOMETRY,
@@ -98,6 +106,23 @@ export default function Board3DShell({
   const slotPositions = useMemo(() => new Map(slots.map((slot) => [slot.id, slot.position] as const)), [slots]);
   const activePlayer = activeId ? players.find((player) => player.id === activeId) : undefined;
   const activeSlot = slotPositions.get(activePlayer?.position ?? 0) ?? [0, 0, 0];
+  // La cámara sigue al que se está moviendo (evento incluido), no solo al del turno.
+  const trackedId = activeMotion?.playerId ?? activeId;
+  const trackedPlayer = trackedId ? players.find((player) => player.id === trackedId) : undefined;
+  const trackedSlot = slotPositions.get(trackedPlayer?.position ?? activePlayer?.position ?? 0) ?? activeSlot;
+  // Posición viva del muñeco animado: el token la escribe cada frame, la cámara la lee.
+  const trackedTokenRef = useRef<Vector3 | null>(null);
+  // Toma general del diorama (se usa al cambiar de turno).
+  const wideShot = useMemo(() => {
+    const maxElev = Math.max(0, ...(terraces ?? []).map((terrace) => terrace.elevation));
+    const depth = bounds.height * bounds.spacing;
+    const width = bounds.width * bounds.spacing;
+    const dist = Math.max(width, depth) * 0.55 + 4.5;
+    return {
+      position: [0.4, 4.2 + maxElev + dist * 0.4, depth / 2 + dist * 0.68] as Vec3,
+      look: [0, 0.35 + maxElev * 0.35, 0] as Vec3,
+    };
+  }, [bounds, terraces]);
   const activePath = new Set(
     activeMotion && activeMotion.playerId === activeId
       ? activeMotion.path
@@ -152,7 +177,7 @@ export default function Board3DShell({
   return (
     <div aria-hidden={interactive ? undefined : true} className={shellClassName}>
       <Canvas
-        camera={{ position: [0, 7.2, 9], fov: 42, near: 0.1, far: 100 }}
+        camera={{ position: [0, 5, 10.2], fov: 42, near: 0.1, far: 100 }}
         dpr={renderSettings.dpr}
         fallback={<Board3DFallback />}
         frameloop={renderSettings.frameloop}
@@ -160,7 +185,15 @@ export default function Board3DShell({
         shadows={renderSettings.shadows}
       >
         <WebGLContextGuard onLost={disableWebGL} />
-        <FollowCamera target={activeSlot} motion={motion} />
+        <CinematicCamera
+          target={trackedSlot}
+          tokenRef={trackedTokenRef}
+          motion={motion}
+          walking={activeMotion !== null}
+          dice={Boolean(diceCue)}
+          turnKey={activeId ?? ""}
+          wide={wideShot}
+        />
         <ambientLight intensity={0.62} color="#fff8e1" />
         <directionalLight
           position={[5, 10, 7]}
@@ -202,10 +235,19 @@ export default function Board3DShell({
         ))}
 
         {tokens.map(({ player, active, path, motionKind, motionNonce }) => (
-          <PlayerToken key={player.id} player={player} active={active} path={path} motion={motion} motionKind={motionKind} motionNonce={motionNonce} />
+          <PlayerToken
+            key={player.id}
+            player={player}
+            active={active}
+            path={path}
+            motion={motion}
+            motionKind={motionKind}
+            motionNonce={motionNonce}
+            trackRef={player.id === trackedId ? trackedTokenRef : undefined}
+          />
         ))}
 
-        {diceCue && dicePosition && <FloatingDice cue={diceCue} position={dicePosition} />}
+        {diceCue && dicePosition && <FloatingDice cue={diceCue} position={dicePosition} motion={motion} />}
 
         {children}
       </Canvas>
@@ -270,7 +312,8 @@ function BoardTable({
         <boxGeometry args={[fieldWidth - 0.08, 0.015, fieldDepth - 0.08]} />
         <meshStandardMaterial color="#7ccf63" roughness={0.76} transparent opacity={0.55} />
       </mesh>
-      <BoardShapeRim boardShape={boardShape} bounds={bounds} />
+      {/* Con relieve, el borde del diorama lo marca el propio terreno: nada de riel oscuro */}
+      {!terraces?.length && <BoardShapeRim boardShape={boardShape} bounds={bounds} />}
       {/* mesetas del relieve, de menor a mayor elevación */}
       <TerracedTerrain terraces={terraces} bounds={bounds} animated={animated} />
       <MapArtifacts artifacts={artifacts} assetCatalog={assetCatalog} bounds={bounds} terraces={terraces} />
@@ -466,25 +509,110 @@ function RouteStairs({ from, to, width }: { from: Vec3; to: Vec3; width: number 
   );
 }
 
-function FollowCamera({ target, motion }: { target: Vec3; motion: BoardMotionSettings }) {
+const SHOT_WIDE_SECONDS = 1.7;
+
+/**
+ * Cámara cinematográfica: sigue al muñeco que se mueve (posición viva vía ref),
+ * abre una toma general al cambiar el turno, se acerca con ángulo lateral durante
+ * la tirada del dado y respira suavemente en reposo. Con reduced motion se
+ * comporta como la cámara fija de siempre.
+ */
+function CinematicCamera({
+  target,
+  tokenRef,
+  motion,
+  walking,
+  dice,
+  turnKey,
+  wide,
+}: {
+  target: Vec3;
+  tokenRef: { current: Vector3 | null };
+  motion: BoardMotionSettings;
+  walking: boolean;
+  dice: boolean;
+  turnKey: string;
+  wide: { position: Vec3; look: Vec3 };
+}) {
   const { camera } = useThree();
   const initialized = useRef(false);
-  const desired = useMemo(() => new Vector3(...cameraFollowPosition(target)), [target]);
-  // mirar un poco más arriba cuando el casillero está sobre una meseta
-  const lookAt = useMemo(() => new Vector3(target[0], target[1] * 0.55, target[2]), [target]);
+  const shot = useRef<"follow" | "wide">("follow");
+  const shotStart = useRef(0);
+  const clockNow = useRef(0);
+  const sideSign = useRef(1);
+  const turnCount = useRef(0);
+  const prevTurnKey = useRef<string | null>(null);
+  const desired = useRef(new Vector3());
+  const desiredLook = useRef(new Vector3());
+  const look = useRef(new Vector3(target[0], target[1] * 0.55, target[2]));
+
+  // Cambio de turno: alterna el costado de la cámara y, turno por medio, abre una toma general.
+  useEffect(() => {
+    if (prevTurnKey.current !== null && turnKey && turnKey !== prevTurnKey.current) {
+      turnCount.current += 1;
+      sideSign.current = turnCount.current % 2 === 0 ? 1 : -1;
+      if (motion.cameraLerpSpeed > 0 && turnCount.current % 2 === 1) {
+        shot.current = "wide";
+        shotStart.current = clockNow.current;
+      }
+    }
+    prevTurnKey.current = turnKey;
+  }, [motion.cameraLerpSpeed, turnKey]);
 
   useLayoutEffect(() => {
     if (initialized.current && motion.cameraLerpSpeed !== 0) return;
-    camera.position.copy(desired);
-    camera.lookAt(lookAt);
+    camera.position.set(...cameraFollowPosition(target));
+    look.current.set(target[0], target[1] * 0.55, target[2]);
+    camera.lookAt(look.current);
     camera.updateProjectionMatrix();
     initialized.current = true;
-  }, [camera, desired, lookAt, motion.cameraLerpSpeed]);
+  }, [camera, motion.cameraLerpSpeed, target]);
 
-  useFrame((_, delta) => {
-    const amount = frameLerp(delta, motion.cameraLerpSpeed);
-    camera.position.lerp(desired, amount);
-    camera.lookAt(lookAt);
+  useFrame((state, delta) => {
+    const t = state.clock.elapsedTime;
+    clockNow.current = t;
+    const animated = motion.cameraLerpSpeed > 0;
+    const live = tokenRef.current;
+    const anchor: Vec3 = animated && live ? [live.x, live.y, live.z] : target;
+
+    // El dado o una caminata cortan la toma general.
+    if (shot.current === "wide" && (dice || walking || t - shotStart.current > SHOT_WIDE_SECONDS)) {
+      shot.current = "follow";
+    }
+
+    if (shot.current === "wide") {
+      desired.current.set(...wide.position);
+      desiredLook.current.set(...wide.look);
+    } else if (dice && animated) {
+      // Tirada: más cerca, más abajo y con ángulo lateral (alterna por turno).
+      const base = cameraFollowPosition(anchor);
+      desired.current.set(anchor[0] + 1.35 * sideSign.current, base[1] - 0.85, anchor[2] + 4.7);
+      desiredLook.current.set(anchor[0], anchor[1] + 0.75, anchor[2]);
+    } else {
+      const base = cameraFollowPosition(anchor);
+      desired.current.set(base[0], base[1], base[2]);
+      desiredLook.current.set(anchor[0], anchor[1] + 0.45, anchor[2]);
+      if (animated && !walking) {
+        // Respiración sutil en reposo + costado alternado: nada de cámara clavada.
+        desired.current.x += Math.sin(t * 0.32) * 0.3 + 0.55 * sideSign.current;
+        desired.current.y += Math.sin(t * 0.21) * 0.12;
+        desired.current.z += Math.cos(t * 0.26) * 0.2;
+      }
+    }
+
+    if (!animated) {
+      camera.position.copy(desired.current);
+      look.current.copy(desiredLook.current);
+      camera.lookAt(look.current);
+      return;
+    }
+
+    // Lerp adaptativo: acelera cuando quedó lejos (cambio de jugador al otro lado del mapa).
+    const distance = camera.position.distanceTo(desired.current);
+    const speed = motion.cameraLerpSpeed * (1 + Math.min(2, distance * 0.45));
+    camera.position.lerp(desired.current, frameLerp(delta, speed));
+    look.current.lerp(desiredLook.current, frameLerp(delta, speed * 1.2));
+    camera.lookAt(look.current);
   });
 
   return null;
@@ -746,6 +874,30 @@ function SlotDecalMesh({
   );
 }
 
+// ── Geometrías compartidas del token (una sola instancia para todos los pawns) ──
+const TOKEN_BASE_GEOMETRY = new CylinderGeometry(0.2, 0.23, 0.07, 24);
+const TOKEN_BODY_GEOMETRY = new SphereGeometry(0.19, 24, 18);
+const TOKEN_HEAD_GEOMETRY = new SphereGeometry(0.135, 24, 18);
+/** Placa facial: cilindro bien achatado, cara plana mirando a +Z. */
+const TOKEN_FACE_GEOMETRY = new CylinderGeometry(0.1, 0.1, 0.02, 28);
+const TOKEN_CROWN_GEOMETRY = new CylinderGeometry(0.05, 0.07, 0.05, 6);
+const TOKEN_SHADOW_GEOMETRY = new CircleGeometry(0.2, 20);
+const TOKEN_MARKER_GEOMETRY = new OctahedronGeometry(0.085);
+
+/**
+ * Placa facial del token: recibe cualquier THREE.Texture y la proyecta sobre
+ * el disco achatado que mira a +Z. Puede mostrar iniciales o una textura
+ * circular creada desde la foto del jugador.
+ */
+function AvatarFace({ texture, opacity }: { texture: Texture; opacity: number }) {
+  return (
+    // Levemente inclinada hacia arriba: la cámara mira desde arriba y así la cara se lee mejor
+    <mesh castShadow position={[0, 0.505, 0.088]} rotation={[Math.PI / 2 - 0.24, 0, 0]} geometry={TOKEN_FACE_GEOMETRY} dispose={null}>
+      <meshStandardMaterial map={texture} roughness={0.5} metalness={0.02} transparent opacity={opacity} />
+    </mesh>
+  );
+}
+
 function PlayerToken({
   player,
   active,
@@ -753,6 +905,7 @@ function PlayerToken({
   motion,
   motionKind,
   motionNonce,
+  trackRef,
 }: {
   player: Player;
   active: boolean;
@@ -760,6 +913,8 @@ function PlayerToken({
   motion: BoardMotionSettings;
   motionKind: BoardMotionKind;
   motionNonce: string;
+  /** la cámara lee de acá la posición viva del muñeco seguido */
+  trackRef?: { current: Vector3 | null };
 }) {
   const group = useRef<Group | null>(null);
   const pawnGroup = useRef<Group | null>(null);
@@ -767,6 +922,42 @@ function PlayerToken({
   const segment = useRef(0);
   const progress = useRef(0);
   const baseColor = useMemo(() => new Color(player.color).multiplyScalar(0.62), [player.color]);
+  const initials = useMemo(() => playerInitials(player.name), [player.name]);
+  const faceTextureRef = useRef<Texture | null>(null);
+  const [faceTexture, setFaceTextureState] = useState<Texture>(() => {
+    const texture = makeFaceTexture(initials, player.color);
+    faceTextureRef.current = texture;
+    return texture;
+  });
+  const replaceFaceTexture = useCallback((texture: Texture) => {
+    const previousTexture = faceTextureRef.current;
+    if (previousTexture && previousTexture !== texture) previousTexture.dispose();
+    faceTextureRef.current = texture;
+    setFaceTextureState(texture);
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    replaceFaceTexture(makeFaceTexture(initials, player.color));
+    void loadPlayerPhoto(player.id).then((image) => {
+      if (cancelled || !image) return;
+      const texture = makePhotoFaceTexture(image, player.color);
+      if (cancelled) {
+        texture.dispose();
+        return;
+      }
+      replaceFaceTexture(texture);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initials, player.color, player.id, replaceFaceTexture]);
+  useEffect(
+    () => () => {
+      faceTextureRef.current?.dispose();
+      faceTextureRef.current = null;
+    },
+    [],
+  );
   const pathKey = `${motionKind}:${motionNonce}:${path.map((point) => point.join(",")).join("|")}`;
   const points = useMemo(() => path.map((point) => new Vector3(...point)), [pathKey]);
   const finalPoint = path[path.length - 1] ?? [0, 0, 0];
@@ -797,6 +988,8 @@ function PlayerToken({
         token.position.copy(points[next]);
       }
     }
+    // La cámara sigue esta posición viva (no el destino final)
+    if (trackRef) trackRef.current = (trackRef.current ?? new Vector3()).copy(token.position);
     // Floating turn marker above the active pawn (pawn itself stays still)
     if (markerRef.current && active && motion.tokenStepSeconds !== 0) {
       markerRef.current.position.y = 0.94 + Math.sin(state.clock.elapsedTime * 2.6) * 0.05;
@@ -810,49 +1003,34 @@ function PlayerToken({
     <group ref={group} position={start}>
       <group ref={pawnGroup}>
         {/* Base disc */}
-        <mesh castShadow position={[0, 0.035, 0]}>
-          <cylinderGeometry args={[0.2, 0.23, 0.07, 24]} />
+        <mesh castShadow position={[0, 0.035, 0]} geometry={TOKEN_BASE_GEOMETRY} dispose={null}>
           <meshStandardMaterial color={baseColor} roughness={0.5} metalness={0.15} transparent opacity={opacity * 0.95} />
         </mesh>
-        {/* Rounded body */}
-        <mesh castShadow position={[0, 0.24, 0]} scale={[1, 1.1, 1]}>
-          <sphereGeometry args={[0.165, 24, 18]} />
+        {/* Cuerpo tipo juguete: silueta capsule (esfera achatada verticalmente) */}
+        <mesh castShadow position={[0, 0.235, 0]} scale={[1, 1.15, 1]} geometry={TOKEN_BODY_GEOMETRY} dispose={null}>
           <meshStandardMaterial color={player.color} roughness={0.35} metalness={0.1} transparent opacity={opacity} />
         </mesh>
-        {/* Head */}
-        <mesh castShadow position={[0, 0.46, 0]}>
-          <sphereGeometry args={[0.125, 24, 18]} />
+        {/* Cabeza redonda */}
+        <mesh castShadow position={[0, 0.5, 0]} geometry={TOKEN_HEAD_GEOMETRY} dispose={null}>
           <meshStandardMaterial color={player.color} roughness={0.3} metalness={0.08} transparent opacity={opacity} />
         </mesh>
-        {/* Eyes */}
-        {[-0.048, 0.048].map((x) => (
-          <group key={x}>
-            <mesh position={[x, 0.48, 0.1]}>
-              <sphereGeometry args={[0.036, 12, 10]} />
-              <meshStandardMaterial color="#ffffff" roughness={0.25} transparent opacity={opacity} />
-            </mesh>
-            <mesh position={[x, 0.482, 0.128]}>
-              <sphereGeometry args={[0.015, 10, 8]} />
-              <meshStandardMaterial color="#1f2430" roughness={0.3} transparent opacity={opacity} />
-            </mesh>
-          </group>
-        ))}
-        {/* Top button accent */}
-        <mesh castShadow position={[0, 0.575, 0]}>
-          <sphereGeometry args={[0.045, 14, 12]} />
-          <meshStandardMaterial color="#fdf6e3" roughness={0.35} metalness={0.08} transparent opacity={opacity} />
-        </mesh>
+        {/* Placa facial plana mirando a +Z (cámara): hoy iniciales, mañana la foto */}
+        <AvatarFace texture={faceTexture} opacity={opacity} />
+        {/* Corona dorada para el novio/a */}
+        {player.groom && (
+          <mesh castShadow position={[0, 0.615, 0]} geometry={TOKEN_CROWN_GEOMETRY} dispose={null}>
+            <meshStandardMaterial color="#facc15" emissive="#f59e0b" emissiveIntensity={0.35} roughness={0.35} metalness={0.4} transparent opacity={opacity} />
+          </mesh>
+        )}
       </group>
       {/* Floating turn marker */}
       {active && (
-        <mesh ref={markerRef} position={[0, 0.94, 0]}>
-          <octahedronGeometry args={[0.085]} />
+        <mesh ref={markerRef} position={[0, 0.94, 0]} geometry={TOKEN_MARKER_GEOMETRY} dispose={null}>
           <meshStandardMaterial color="#fde047" emissive="#f59e0b" emissiveIntensity={0.85} roughness={0.25} />
         </mesh>
       )}
       {/* Soft shadow disc */}
-      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.2, 20]} />
+      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} geometry={TOKEN_SHADOW_GEOMETRY} dispose={null}>
         <meshStandardMaterial color="#000000" transparent opacity={active ? 0.26 : 0.18} side={DoubleSide} />
       </mesh>
     </group>
@@ -918,39 +1096,86 @@ const DICE_FACE_UP_EULER: Record<number, [number, number, number]> = {
   6: [Math.PI, 0, 0],
 };
 
-function FloatingDice({ cue, position }: { cue: BoardDiceCue; position: Vec3 }) {
+// Duración total del tiro: tirar+girar por ~0.7s y asentar con rebote por ~0.3s.
+const DICE_TOSS_SECONDS = 0.7;
+const DICE_SETTLE_SECONDS = 0.35;
+const DICE_ROLL_TOTAL_SECONDS = DICE_TOSS_SECONDS + DICE_SETTLE_SECONDS;
+const DICE_TOSS_ARC_HEIGHT = 0.9;
+
+function FloatingDice({ cue, position, motion }: { cue: BoardDiceCue; position: Vec3; motion: BoardMotionSettings }) {
   const group = useRef<Group | null>(null);
   const cubeRef = useRef<Group | null>(null);
   const value = Math.max(1, Math.min(6, cue.value ?? 1));
   const DICE_SIZE = 0.64;
+  const animated = motion.tokenStepSeconds !== 0;
+  // Cuánto pasó desde que arrancó el tiro actual (nonce), para animar en función
+  // del tiempo transcurrido en vez de acumular estado cuadro a cuadro.
+  const rollStartRef = useRef<number | null>(null);
+  const rollSeedRef = useRef(0);
   const settledQuat = useMemo(() => {
     const align = new Quaternion().setFromEuler(new Euler(...DICE_FACE_UP_EULER[value]));
     const tilt = new Quaternion().setFromEuler(new Euler(0.52, 0, 0));
     return tilt.multiply(align);
   }, [value]);
 
+  useEffect(() => {
+    // Nueva tirada: reiniciamos el reloj de la animación. Semilla determinística
+    // por nonce (no Math.random en el frame) para variar un poco el tumble eje
+    // a eje entre tiradas sin depender de aleatoriedad por cuadro.
+    rollStartRef.current = null;
+    let seed = 0;
+    for (let i = 0; i < cue.nonce.length; i++) seed = (seed * 31 + cue.nonce.charCodeAt(i)) >>> 0;
+    rollSeedRef.current = seed;
+  }, [cue.nonce]);
+
   useFrame((state, delta) => {
     if (!group.current) return;
-    // Fast small bob when rolling, gentle drift when settled
-    const bob = cue.rolling
-      ? Math.sin(state.clock.elapsedTime * 14) * 0.04
-      : Math.sin(state.clock.elapsedTime * 2.4) * 0.05;
-    group.current.position.set(position[0], position[1] + 1.18 + bob, position[2]);
+    if (rollStartRef.current === null) rollStartRef.current = state.clock.elapsedTime;
+    const elapsedRoll = state.clock.elapsedTime - rollStartRef.current;
+    const skipToss = !animated; // reduced motion: directo a la pose asentada
+    const inToss = !skipToss && elapsedRoll < DICE_ROLL_TOTAL_SECONDS;
 
     const cube = cubeRef.current;
-    if (!cube) return;
-    if (cue.rolling) {
-      // Only the cube spins; the glow below stays put
-      cube.rotation.x += delta * 9.5;
-      cube.rotation.y += delta * 13.2;
-      cube.rotation.z += delta * 7.1;
-      cube.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 18) * 0.05);
+
+    if (inToss) {
+      const tossT = Math.min(1, elapsedRoll / DICE_TOSS_SECONDS);
+      // Arco de salto: sube y baja como una parábola (0 -> 1 -> 0).
+      const arc = Math.sin(Math.min(1, tossT) * Math.PI);
+      const bob = arc * DICE_TOSS_ARC_HEIGHT;
+      group.current.position.set(position[0], position[1] + 1.18 + bob, position[2]);
+
+      if (cube) {
+        if (elapsedRoll < DICE_TOSS_SECONDS) {
+          // Tumble determinístico en 2 ejes, con velocidad propia por tirada
+          // (semilla del nonce) — nada de Math.random dentro de useFrame.
+          const seedA = 6.5 + (rollSeedRef.current % 7) * 0.6;
+          const seedB = 8.5 + ((rollSeedRef.current >> 3) % 7) * 0.5;
+          cube.rotation.x = elapsedRoll * seedA;
+          cube.rotation.z = elapsedRoll * seedB;
+          cube.rotation.y += delta * 4.5;
+          cube.scale.setScalar(1 + Math.sin(tossT * Math.PI) * 0.06);
+        } else {
+          // Fase de asentado con un pequeño rebote antes de quedar quieto.
+          const settleT = Math.min(1, (elapsedRoll - DICE_TOSS_SECONDS) / DICE_SETTLE_SECONDS);
+          const bounce = Math.sin(settleT * Math.PI) * (1 - settleT) * 0.12;
+          cube.position.y = bounce;
+          cube.quaternion.slerp(settledQuat, easeOut(settleT));
+          cube.scale.setScalar(1 + (1 - settleT) * 0.04);
+        }
+      }
     } else {
-      // Settle with the rolled value facing up, tilted toward the camera
-      cube.quaternion.slerp(settledQuat, frameLerp(delta, 9));
-      cube.scale.setScalar(cube.scale.x + (1 - cube.scale.x) * frameLerp(delta, 10));
+      // Reposo: flota suavemente arriba del token, cara legible hacia arriba.
+      const bob = Math.sin(state.clock.elapsedTime * 2.4) * 0.05;
+      group.current.position.set(position[0], position[1] + 1.18 + bob, position[2]);
+      if (cube) {
+        cube.position.y = 0;
+        cube.quaternion.slerp(settledQuat, frameLerp(delta, 9));
+        cube.scale.setScalar(cube.scale.x + (1 - cube.scale.x) * frameLerp(delta, 10));
+      }
     }
   });
+
+  const rolling = cue.rolling;
 
   return (
     <group ref={group} position={[position[0], position[1] + 1.18, position[2]]}>
@@ -963,7 +1188,7 @@ function FloatingDice({ cue, position }: { cue: BoardDiceCue; position: Vec3 }) 
             roughness={0.24}
             metalness={0.04}
             emissive="#fef9c3"
-            emissiveIntensity={cue.rolling ? 0.22 : 0.08}
+            emissiveIntensity={rolling ? 0.22 : 0.08}
           />
         </mesh>
         {/* Pips on all six faces (opposites sum to 7) */}
@@ -976,9 +1201,9 @@ function FloatingDice({ cue, position }: { cue: BoardDiceCue; position: Vec3 }) 
         <meshStandardMaterial
           color="#fde047"
           emissive="#f59e0b"
-          emissiveIntensity={cue.rolling ? 0.6 : 0.35}
+          emissiveIntensity={rolling ? 0.6 : 0.35}
           transparent
-          opacity={cue.rolling ? 0.65 : 0.42}
+          opacity={rolling ? 0.65 : 0.42}
           side={DoubleSide}
         />
       </mesh>
@@ -1117,4 +1342,12 @@ function playersByPosition(players: Player[]): Map<number, Player[]> {
 
 function easeOut(t: number): number {
   return 1 - Math.pow(1 - t, 3);
+}
+
+/** Iniciales para la placa facial por defecto (1-2 letras, ej. "Juan Pérez" → "JP"). */
+function playerInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
