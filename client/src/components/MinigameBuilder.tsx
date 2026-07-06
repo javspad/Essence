@@ -17,10 +17,10 @@ import type {
 } from "@essence/shared";
 import { characterForPlayerDef } from "@essence/shared/character";
 import seedContent from "@shared/content.json";
+import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import {
   EVENT_ACTIVITY_TYPES,
   eventTitle,
-  normalizeGameContentEvents,
   resolveActivityParticipantIds,
   resolveActivitySubjectIds,
   resolveEventActionTargetIds,
@@ -32,7 +32,7 @@ import { ENGINES } from "../minigames";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import MinigameHost from "./MinigameHost";
 
-const BASE_CONTENT = normalizeGameContentEvents(seedContent as GameContent);
+const BASE_CONTENT = normalizeContentSchema(seedContent);
 const PLAYER_POOL = BASE_CONTENT.players;
 const INITIAL_PLAYERS = PLAYER_POOL.slice(0, Math.min(4, PLAYER_POOL.length)).map(toPlayer);
 const STORAGE_KEY = "essence:event-builder:draft:v1";
@@ -85,7 +85,7 @@ export default function MinigameBuilder() {
   const resolved = selected && protagonist ? resolveEventForPlayer(content, selectedId, protagonist) : null;
   const activity = resolved?.activity;
   const hasEngine = activity ? Boolean(ENGINES[activity.type]) : false;
-  const exportJson = useMemo(() => JSON.stringify(normalizeGameContentEvents(content), null, 2), [content]);
+  const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(content), null, 2), [content]);
   const filteredEventIds = useMemo(
     () =>
       activityFilter === "all"
@@ -253,7 +253,7 @@ export default function MinigameBuilder() {
 
   const importJson = () => {
     try {
-      const parsed = normalizeGameContentEvents(JSON.parse(importText) as GameContent);
+      const parsed = normalizeContentSchema(JSON.parse(importText));
       const ids = Object.keys(parsed.events ?? {});
       setContent(parsed);
       setSelectedId(ids[0] ?? "");
@@ -372,6 +372,9 @@ export default function MinigameBuilder() {
           <button onClick={resetRun} className="h-8 rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-black text-slate-100 transition hover:bg-white/10">
             Reset run
           </button>
+          <a href="/tools" className="flex h-8 items-center rounded-md border border-amber-200/25 bg-amber-300/10 px-2.5 text-xs font-black text-amber-100 transition hover:bg-amber-300/15">
+            Tools
+          </a>
           <a href="/" className="flex h-8 items-center rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-black text-slate-100 transition hover:bg-white/10">
             Home
           </a>
@@ -1385,7 +1388,7 @@ function loadInitialContent(): GameContent {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return BASE_CONTENT;
-    return normalizeGameContentEvents(JSON.parse(saved) as GameContent);
+    return normalizeContentSchema(JSON.parse(saved));
   } catch {
     return BASE_CONTENT;
   }

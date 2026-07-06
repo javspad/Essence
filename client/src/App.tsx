@@ -11,6 +11,7 @@ const GameScene3D = lazy(() => import("./components/GameScene3D"));
 const MapBuilder = lazy(() => import("./components/MapBuilder"));
 const EventBuilder = lazy(() => import("./components/MinigameBuilder"));
 const CharacterBuilder = lazy(() => import("./components/CharacterBuilder"));
+const ToolsHub = lazy(() => import("./components/ToolsHub"));
 
 export default function App() {
   const path = typeof window !== "undefined" ? window.location.pathname : "/";
@@ -21,6 +22,15 @@ export default function App() {
     path === "/event-builder" || path === "/minigame-builder" || search.has("eventBuilder") || search.has("minigameBuilder");
   const characterBuilderMode =
     path === "/character-builder" || search.has("characterBuilder");
+  const toolsMode = path === "/tools";
+
+  if (toolsMode) {
+    return (
+      <Suspense fallback={<SceneLoading code="TOOLS" />}>
+        <ToolsHub />
+      </Suspense>
+    );
+  }
 
   if (builderMode) {
     return (

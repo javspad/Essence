@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Gamepad2, LogIn, Map, Palette, RefreshCw, Users } from "lucide-react";
+import { ArrowLeft, Gamepad2, LogIn, Map, Palette, RefreshCw, Users, Wrench } from "lucide-react";
 import type { RoomSummary } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -72,6 +72,14 @@ function MenuView({ name, setMode }: { name: string; setMode: (m: Mode) => void 
       >
         <LogIn data-icon="inline-start" />
         Unirme
+      </Button>
+      <Button
+        type="button"
+        onClick={() => { window.location.href = "/tools"; }}
+        className="h-11 w-full bg-[#fbbf24] text-[11px] uppercase text-[#211505]"
+      >
+        <Wrench data-icon="inline-start" />
+        Tools
       </Button>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Button

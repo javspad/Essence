@@ -15,7 +15,7 @@ import type {
   TileLayout,
   TileType,
 } from "@essence/shared";
-import { normalizeGameContentEvents } from "@essence/shared/events";
+import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import { defaultAssetFootprint } from "./artifactProjection";
 
 export type BuilderTool = "select" | "cell" | "route" | "artifact" | "terrace" | "json";
@@ -132,7 +132,7 @@ const DEFAULT_ASSETS: MapAssetDef[] = [
 ];
 
 export function createInitialMapBuilderState(content: GameContent): MapBuilderState {
-  const builderContent = normalizeBuilderContent(normalizeGameContentEvents(content));
+  const builderContent = normalizeBuilderContent(normalizeContentSchema(content));
   return {
     content: builderContent,
     activeMapId: builderContent.activeMapId,
@@ -144,13 +144,14 @@ export function createInitialMapBuilderState(content: GameContent): MapBuilderSt
 }
 
 export function normalizeBuilderContent(content: GameContent): BuilderContent {
-  const normalizedContent = normalizeGameContentEvents(content);
+  const normalizedContent = normalizeContentSchema(content);
   const maps = content.maps?.length
     ? normalizedContent.maps!.map((map) => ({
       ...map,
       board: cloneTiles(map.board.length ? map.board : normalizedContent.board),
       routes: map.routes?.length ? cloneRoutes(map.routes) : createLinearRoutes(map.board.length ? map.board : normalizedContent.board),
       artifacts: cloneArtifacts(map.artifacts ?? []),
+      mapProps: cloneArtifacts(map.artifacts ?? []),
       terraces: cloneTerraces(map.terraces),
       boardShape: normalizeBoardShape(cloneBoardShape(map.boardShape) ?? createDefaultBoardShape(map.board.length ? map.board : normalizedContent.board)),
     }))
@@ -162,6 +163,7 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
           board: cloneTiles(normalizedContent.board),
           routes: createLinearRoutes(normalizedContent.board),
           artifacts: [],
+          mapProps: [],
           terraces: [],
           boardShape: createDefaultBoardShape(content.board),
         },
@@ -178,8 +180,8 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
 
 export function builderContentToGameContent(base: GameContent, builder: BuilderContent): GameContent {
   const activeMap = builder.maps.find((map) => map.id === builder.activeMapId) ?? builder.maps[0];
-  return normalizeGameContentEvents({
-    ...normalizeGameContentEvents(base),
+  return normalizeContentSchema({
+    ...normalizeContentSchema(base),
     activeMapId: activeMap?.id ?? builder.activeMapId,
     board: activeMap ? cloneTiles(activeMap.board) : base.board,
     maps: builder.maps.map(cloneMap),
@@ -681,7 +683,7 @@ function updateActiveMapState(
   let updatedActive: MapDefinition | null = null;
   const maps = state.content.maps.map((map) => {
     if (map.id !== state.activeMapId) return map;
-    const updated = update(map);
+    const updated = syncMapProps(update(map));
     updatedActive = updated;
     return updated;
   });
@@ -759,6 +761,7 @@ function createEmptyMap(id: string): MapDefinition {
       { id: "r-1-2", from: 1, to: 2, terrain: "grass" },
     ],
     artifacts: [],
+    mapProps: [],
     terraces: [],
   };
 }
@@ -812,15 +815,21 @@ function midpointForRoute(board: Tile[], route: MapRoute): TileLayout {
 }
 
 function cloneMap(map: MapDefinition): MapDefinition {
+  const artifacts = cloneArtifacts(map.artifacts);
   return {
     ...map,
     theme: map.theme ? { ...map.theme } : undefined,
     board: cloneTiles(map.board),
     routes: cloneRoutes(map.routes),
-    artifacts: cloneArtifacts(map.artifacts),
+    artifacts,
+    mapProps: cloneArtifacts(artifacts),
     terraces: cloneTerraces(map.terraces),
     boardShape: cloneBoardShape(map.boardShape),
   };
+}
+
+function syncMapProps(map: MapDefinition): MapDefinition {
+  return { ...map, mapProps: cloneArtifacts(map.artifacts) };
 }
 
 function cloneTerraces(terraces?: MapTerrace[]): MapTerrace[] {

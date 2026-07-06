@@ -25,6 +25,7 @@ import {
   resolveEventForPlayer,
   resolveTileEventForPlayer,
 } from "@essence/shared/events";
+import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";
 
 const board: Tile[] = [
   { id: 0, type: "start", layout: { x: 0, y: 0 } },
@@ -67,6 +68,61 @@ assert.equal(exported.activeMapId, builder.activeMapId);
 assert.equal(exported.board.length, 3);
 assert.equal(exported.board[1].eventId, "event-quiz");
 assert.equal(exported.events?.["event-quiz"].activity?.type, "vote");
+assert.deepEqual(exported.maps?.[0].mapProps, exported.maps?.[0].artifacts);
+
+const canonicalMapPropImport = normalizeContentSchema({
+  ...content,
+  activeMapId: "props-map",
+  assetCatalog: [{ id: "oak-tree", name: "Pino", kind: "tree" }],
+  maps: [
+    {
+      id: "props-map",
+      name: "Props map",
+      board,
+      routes: [],
+      mapProps: [{ id: "tree-1", assetId: "oak-tree", position: { x: 1, y: 1 } }],
+    },
+  ],
+});
+assert.equal(canonicalMapPropImport.maps?.[0].artifacts.length, 1);
+assert.deepEqual(canonicalMapPropImport.maps?.[0].mapProps, canonicalMapPropImport.maps?.[0].artifacts);
+assert.equal(normalizeBuilderContent(canonicalMapPropImport).maps[0].artifacts[0].id, "tree-1");
+
+const invalidSchemaResult = validateGameContent({
+  ...content,
+  players: [{ id: "p1", name: "P1" }],
+  events: {
+    "bad-target": {
+      name: "Bad target",
+      story: { title: "Bad target" },
+      actions: [{ type: "coins", value: 3, target: { playerId: "missing" } }],
+    },
+  },
+  activeMapId: "bad-map",
+  assetCatalog: [{ id: "oak-tree", name: "Pino", kind: "tree" }],
+  maps: [
+    {
+      id: "bad-map",
+      name: "Bad map",
+      board,
+      routes: [{ id: "bad-route", from: 1, to: 99, terrain: "stone" }],
+      artifacts: [{ id: "missing-prop", assetId: "missing-asset", position: { x: 1, y: 1 } }],
+    },
+  ],
+});
+assert.deepEqual(invalidSchemaResult.errors, [
+  "events.bad-target.actions[0].target references missing player missing",
+  "maps.bad-map.routes.bad-route.to references missing board cell 99",
+  "maps.bad-map.mapProps.missing-prop references missing asset missing-asset",
+]);
+
+const futureCatalogValidation = validateGameContent({
+  ...content,
+  effects: {
+    "bad-effect": { id: "bad-effect", name: "Bad effect" },
+  },
+});
+assert.deepEqual(futureCatalogValidation.errors, ["effects.bad-effect.duration is required"]);
 
 const overrideContent = normalizeGameContentEvents({
   ...content,

@@ -413,7 +413,7 @@ function WaterSurface({ width, depth, y, animated }: { width: number; depth: num
   );
 }
 
-// ── Artefactos del mapa ───────────────────────────────────────────────────────
+// ── Map props ─────────────────────────────────────────────────────────────────
 export function MapArtifacts({
   artifacts,
   assetCatalog,
@@ -448,7 +448,7 @@ function MapArtifactMesh({
   bounds: Board3DMapBounds;
   terraces?: MapTerrace[];
 }) {
-  // el artefacto apoya sobre el terreno: worldY = elevación de terraza + (z ?? 0)
+  // El map prop apoya sobre el terreno: worldY = elevación de terraza + (z ?? 0)
   const position = layoutToWorldPosition(
     artifact.position,
     bounds.maxX,

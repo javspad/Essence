@@ -57,6 +57,10 @@ Abrí `http://localhost:5173/map-builder` para editar mapas visualmente. El buil
 
 Abrí `http://localhost:5173/event-builder` para editar eventos, actividades, stories, consecuencias y playtests. `http://localhost:5173/minigame-builder` queda como alias legado.
 
+### Tools hub
+
+Abrí `http://localhost:5173/tools` para encontrar los builders disponibles. El Content JSON exportado usa `mapProps` como campo canónico para objetos decorativos del mapa y conserva `artifacts` como compatibilidad de importación/runtime.
+
 ## Motores de minijuego disponibles
 
 `vote`, `buzzer`, `timing` (skin *bostezo*), `judge` (skin *lujan*, usa Anthropic), `reaction`, `estimate`, `whack`.

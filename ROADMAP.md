@@ -68,7 +68,7 @@ Every slice must leave the project in a state that can be inspected by a human.
 | Game | Existing | `/` | Join/create room and play the current board game. |
 | Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, and map props. |
 | Event Builder | Existing, with legacy component/file names | `/event-builder` (`/minigame-builder` legacy alias) | Edit events, activities, stories, and consequences. |
-| Tools Hub | Planned | `/tools` | Link to every builder and validator so UIs are discoverable. |
+| Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
 | Character Builder | Planned | `/character-builder` | Edit characters, face photos, anchors, sets, and traits. |
 | Artifact Builder | Planned | `/artifact-builder` | Edit artifact rules, rarity, effects, visuals, animations, and shop simulation. |
 | Cosmetic Builder | Planned | `/cosmetic-builder` | Edit visual-only items and anchor placement. |
@@ -82,7 +82,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | --- | --- | --- | --- |
 | `R-REF` Pre-roadmap refactors | [x] | None | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S0` Result and confirmation fixes | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
-| `S1` Domain language and schema hardening | [ ] | `R-REF` | Content validation tests and builder import/export checks. |
+| `S1` Domain language and schema hardening | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S2` Character identity and character sets | [ ] | `S1` | Character builder route and room creation with selected set. |
 | `S3` Reusable consequences and effects | [ ] | `S1` | Effect-engine tests and one configured duration effect. |
 | `S4` Artifact catalog, builder, and shop | [ ] | `S3` | Artifact builder route plus in-game shop purchase/use flow. |
@@ -187,19 +187,30 @@ Goal: make the future item/effect work fit the current event system instead of s
 
 Tasks:
 
-- [ ] `S1-01` Confirm canonical domain terms in `UBIQUITOUS_LANGUAGE.md`.
-- [ ] `S1-02` Decide whether current `MapArtifact` should become domain-language **Map Prop** while **Artifact** means gameplay item.
-- [ ] `S1-03` Add a content schema module or validation helpers for `GameContent`, events, actions, maps, and future item catalogs.
-- [ ] `S1-04` Rename UI copy in the map builder from "Artefactos" to "Props" or "Map props" if the term decision is accepted.
-- [ ] `S1-05` Expand shared tests around event normalization, trigger matching, action targets, map validation, and builder export/import.
-- [ ] `S1-06` Document the stable rule: immediate state changes are **Consequences**; duration-based modifiers are **Effects**.
-- [ ] `S1-07` Add a `/tools` surface or equivalent navigation so every builder can be found from the app.
+- [x] `S1-01` Confirm canonical domain terms in `UBIQUITOUS_LANGUAGE.md`.
+- [x] `S1-02` Decide whether current `MapArtifact` should become domain-language **Map Prop** while **Artifact** means gameplay item.
+- [x] `S1-03` Add a content schema module or validation helpers for `GameContent`, events, actions, maps, and future item catalogs.
+- [x] `S1-04` Rename UI copy in the map builder from "Artefactos" to "Props" or "Map props" if the term decision is accepted.
+- [x] `S1-05` Expand shared tests around event normalization, trigger matching, action targets, map validation, and builder export/import.
+- [x] `S1-06` Document the stable rule: immediate state changes are **Consequences**; duration-based modifiers are **Effects**.
+- [x] `S1-07` Add a `/tools` surface or equivalent navigation so every builder can be found from the app.
 
 Suggested fields:
 
 - `GameContent.events`: existing event catalog.
 - `GameContent.assetCatalog`: current map prop assets.
 - Future `GameContent.characters`, `characterSets`, `cosmetics`, `artifacts`, and `effects`.
+
+Verification notes:
+
+- Confirmed the glossary decision: **Map Prop** is the decorative map object; **Artifact** is reserved for future gameplay items.
+- Added `shared/contentValidation.ts` with schema normalization and validation for `GameContent`, events, action targets, maps, map props, and future catalog shells.
+- Migrated authored content to `mapProps` while preserving legacy `artifacts` as a normalized runtime/import mirror.
+- Added regressions for `mapProps` import/export compatibility, missing event action targets, missing map route targets, missing map prop assets, event normalization, trigger matching, action target resolution, map validation, and builder export/import.
+- Added `/tools` and linked it from the join screen, Map Builder, and Event Builder.
+- Stable rule documented in `UBIQUITOUS_LANGUAGE.md`: immediate state changes are **Consequences**; duration-based modifiers are **Effects**.
+- Manual QA path: open `/tools`, navigate to Map Builder and Event Builder, import/export Content JSON, and confirm map props remain visible in the 3D map preview.
+- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`.
 
 Acceptance:
 

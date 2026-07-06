@@ -45,10 +45,11 @@ import {
   type MapBuilderState,
   type TerraceCorner,
 } from "../mapBuilder";
-import { eventIdsForTile, eventTitle, normalizeGameContentEvents, resolveTileEventForPlayer } from "@essence/shared/events";
+import { normalizeContentSchema } from "@essence/shared/contentValidation";
+import { eventIdsForTile, eventTitle, resolveTileEventForPlayer } from "@essence/shared/events";
 import Board3DShell from "./Board3DShell";
 
-const BASE_CONTENT = normalizeGameContentEvents(seedContent as GameContent);
+const BASE_CONTENT = normalizeContentSchema(seedContent);
 const STORAGE_KEY = "essence:map-builder:draft";
 
 const TILE_LABEL: Record<TileType, string> = {
@@ -225,7 +226,7 @@ export default function MapBuilder() {
 
   const importJson = () => {
     try {
-      const parsed = JSON.parse(importText) as GameContent;
+      const parsed = JSON.parse(importText);
       dispatch({ type: "replace_content", content: normalizeBuilderContent(parsed) });
       setImportText("");
       setJsonModalOpen(false);
@@ -427,6 +428,9 @@ function MapTopBar({
       <button type="button" onClick={onToggleTest} className={`builder-button ${testMode ? "active" : ""}`}>
         {testMode ? "Stop test" : "Test map"}
       </button>
+      <a href="/tools" className="builder-button">
+        Tools
+      </a>
       <a href="/" className="builder-button">
         Game
       </a>

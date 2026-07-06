@@ -111,7 +111,7 @@ export interface MapRoute {
   bidirectional?: boolean;
 }
 
-export type MapArtifactKind =
+export type MapPropKind =
   | "tree"
   | "house"
   | "court"
@@ -122,6 +122,9 @@ export type MapArtifactKind =
   | "plaza"
   | "decor"
   | "custom";
+
+/** @deprecated Use MapPropKind; Artifact is reserved for gameplay items. */
+export type MapArtifactKind = MapPropKind;
 
 export type MapAssetFootprintShape = "rect" | "circle" | "ellipse" | "triangle";
 
@@ -154,7 +157,7 @@ export interface MapAssetProjection {
 export interface MapAssetDef {
   id: string;
   name: string;
-  kind: MapArtifactKind;
+  kind: MapPropKind;
   defaultScale?: number;
   footprint?: MapAssetFootprint;
   projection?: MapAssetProjection;
@@ -162,7 +165,7 @@ export interface MapAssetDef {
   tags?: string[];
 }
 
-export interface MapArtifact {
+export interface MapProp {
   id: string;
   assetId: string;
   label?: string;
@@ -172,6 +175,9 @@ export interface MapArtifact {
   tint?: string;
   data?: Record<string, unknown>;
 }
+
+/** @deprecated Use MapProp; Artifact is reserved for gameplay items. */
+export type MapArtifact = MapProp;
 
 export interface MapTheme {
   base?: string;
@@ -186,7 +192,10 @@ export interface MapDefinition {
   description?: string;
   board: Tile[];
   routes: MapRoute[];
-  artifacts: MapArtifact[];
+  /** Legacy runtime field kept for existing content/import compatibility. Prefer mapProps in authored JSON. */
+  artifacts: MapProp[];
+  /** Canonical authored field for decorative board objects. */
+  mapProps?: MapProp[];
   /** relieve: mesetas con elevación; sin terrazas el mapa es plano (nivel 0) */
   terraces?: MapTerrace[];
   boardShape?: MapBoardShape;
@@ -378,6 +387,66 @@ export interface PlayerDef {
   character?: PlayerCharacter;
 }
 
+export type CatalogRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+
+export type EffectDuration =
+  | { mode: "turns"; value: number }
+  | { mode: "rounds"; value: number }
+  | { mode: "untilTriggered" }
+  | { mode: "game" };
+
+export interface FaceAnchor {
+  x: number;
+  y: number;
+  angle?: number;
+}
+
+export interface CharacterDef {
+  id: string;
+  name: string;
+  color?: string;
+  groom?: boolean;
+  facePhoto?: string;
+  faceAnchors?: Record<string, FaceAnchor>;
+  defaultCosmetics?: string[];
+  defaultTraits?: string[];
+}
+
+export interface CharacterSetDef {
+  id: string;
+  name: string;
+  characterIds: string[];
+}
+
+export interface CosmeticDef {
+  id: string;
+  name: string;
+  description?: string;
+  price?: number;
+  assetId?: string;
+  anchor?: string;
+}
+
+export interface EffectDef {
+  id: string;
+  name: string;
+  description?: string;
+  duration: EffectDuration;
+  actions?: EventAction[];
+}
+
+export interface ArtifactDef {
+  id: string;
+  name: string;
+  description?: string;
+  price?: number;
+  rarity?: CatalogRarity;
+  target?: EventActionTarget;
+  consequences?: EventAction[];
+  effects?: string[];
+  visualAssetId?: string;
+}
+
 export interface GameContent {
   board: Tile[];
   activeMapId?: string;
@@ -385,6 +454,11 @@ export interface GameContent {
   assetCatalog?: MapAssetDef[];
   events?: Record<string, GameEventDef>;
   playerStories?: Record<string, PlayerStoryBank>;
+  characters?: Record<string, CharacterDef>;
+  characterSets?: Record<string, CharacterSetDef>;
+  cosmetics?: Record<string, CosmeticDef>;
+  artifacts?: Record<string, ArtifactDef>;
+  effects?: Record<string, EffectDef>;
   minigames: Record<string, MinigameDef>;
   dares: Record<string, DareDef>;
   fates: Record<string, FateDef>;

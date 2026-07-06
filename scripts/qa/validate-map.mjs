@@ -7,6 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const contentPath = resolve(__dirname, "../../shared/content.json");
 const json = JSON.parse(readFileSync(contentPath, "utf8"));
 const map = json.maps.find((m) => m.id === "farewell-loop");
+const mapProps = map?.mapProps ?? map?.artifacts ?? [];
 const errors = [];
 const ok = (cond, msg) => { if (!cond) errors.push(msg); };
 
@@ -52,7 +53,7 @@ for (let i = 0; i < board.length - 1; i++) {
 // --- map props ---
 const assetIds = new Set(json.assetCatalog.map((a) => a.id));
 const artIds = new Set();
-for (const a of map.artifacts) {
+for (const a of mapProps) {
   ok(!artIds.has(a.id), `map prop duplicado ${a.id}`);
   artIds.add(a.id);
   ok(assetIds.has(a.assetId), `map prop ${a.id}: assetId inexistente ${a.assetId}`);
@@ -91,14 +92,14 @@ const elevationAt = (x, y) => Math.max(0, ...map.terraces.filter((t) => x >= t.m
 const typeCount = {};
 for (const t of board) typeCount[t.type] = (typeCount[t.type] ?? 0) + 1;
 const artCount = {};
-for (const a of map.artifacts) artCount[a.assetId] = (artCount[a.assetId] ?? 0) + 1;
+for (const a of mapProps) artCount[a.assetId] = (artCount[a.assetId] ?? 0) + 1;
 
 if (errors.length) {
   console.error("ERRORES:\n" + errors.map((e) => "  - " + e).join("\n"));
   process.exit(1);
 }
 console.log("VALIDACIÓN OK");
-console.log("cells:", board.length, "| routes:", map.routes.length, "| map props:", map.artifacts.length, "| terraces:", map.terraces.length, "| assets:", json.assetCatalog.length);
+console.log("cells:", board.length, "| routes:", map.routes.length, "| map props:", mapProps.length, "| terraces:", map.terraces.length, "| assets:", json.assetCatalog.length);
 console.log("tipos:", JSON.stringify(typeCount));
 console.log("map props:", JSON.stringify(artCount));
 console.log("terrazas:", map.terraces.map((t) => `${t.id}@${t.elevation}${t.surface ? "/" + t.surface : ""}${t.color ? "/" + t.color : ""}`).join(", "));

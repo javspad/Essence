@@ -85,6 +85,12 @@ This glossary is a working draft for Essence, based on the planning notes and th
 - An **Effect Instance** belongs to exactly one **Target Player** and may reference one **Acting Player** as its source.
 - A **Shop Roll** contains several **Artifact Offers**, and the **Acting Player** can buy at most one offer per shop visit under the current notes.
 
+## Stable Rules
+
+- A **Consequence** is immediate: it changes state now, awards/removes **Coins**, moves a **Player**, or asks for a confirmed offline action.
+- An **Effect** has duration: it modifies future interactions for turns, rounds, a trigger window, or the whole **Game**.
+- Decorative board objects are authored as **Map Props** in Content JSON (`mapProps`); legacy runtime/import code may still mirror them through `artifacts` until the implementation rename is safe.
+
 ## Example Dialogue
 
 > **Dev:** "When a **Player** lands on a shop cell, are the things in the shop **Cosmetics** or **Artifacts**?"
@@ -101,7 +107,7 @@ This glossary is a working draft for Essence, based on the planning notes and th
 
 ## Flagged Ambiguities
 
-- "Artifact" currently means decorative map object in code (`MapArtifact`) but gameplay item in the notes. Recommendation: reserve **Artifact** for gameplay items and rename the domain/UI concept for decorative board objects to **Map Prop**.
+- "Artifact" historically meant decorative map object in code (`MapArtifact`, `artifacts`). Recommendation: reserve **Artifact** for gameplay items, use **Map Prop** in domain/UI/schema language, and keep only compatibility mirrors for legacy imports/runtime.
 - "Minigame" is used for every interactive activity, including votes, prompts, and judge flows. Recommendation: use **Activity** for the generic resolver and **Minigame** only for competitive arcade-style activities.
 - "Buff", "default effect", and "character effect" overlap. Recommendation: call the reusable rule modifier an **Effect**, and call a default character-attached effect a **Character Trait**.
 - "Consequence" and "Effect" overlap. Recommendation: **Consequence** is immediate; **Effect** has duration or modifies future interactions.
