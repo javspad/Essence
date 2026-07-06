@@ -35,6 +35,8 @@ export class GameRoom {
   private content: GameContent;
   private state: GameState;
   private pendingResults = new Map<string, MinigameResult>();
+  private pendingJudgeVotes = new Map<string, MinigameResult>();
+  private pendingJudgeSubmissionOwners = new Map<string, string>();
   private pendingEvent: ResolvedGameEvent | null = null;
   private resolving = false;
   private skippedTurns = new Set<string>();
@@ -242,6 +244,8 @@ export class GameRoom {
 
   private startActivity(event: ResolvedGameEvent, activePlayer: Player, activity: EventActivity) {
     this.pendingResults.clear();
+    this.pendingJudgeVotes.clear();
+    this.pendingJudgeSubmissionOwners.clear();
     const participants = this.activityParticipants(activity, activePlayer);
     const subjects = this.activitySubjects(activity, activePlayer, participants);
     if (!participants.length || !subjects.length) {
@@ -259,6 +263,7 @@ export class GameRoom {
       participants,
       subjects,
       submitted: [],
+      ...(activity.type === "judge" ? { judge: { phase: "writing" as const } } : {}),
     };
     this.state.activeMinigame = active;
     this.state.phase = "minigame";
@@ -292,6 +297,21 @@ export class GameRoom {
     const mg = this.state.activeMinigame;
     if (!p || !mg) return;
     if (!mg.participants.includes(p.id)) return;
+
+    if (mg.type === "judge" && mg.judge?.phase === "voting") {
+      if (this.pendingJudgeVotes.has(p.id)) return;
+      const vote = result.payload as { votedForSubmissionId?: string } | null | undefined;
+      if (!vote?.votedForSubmissionId || !this.pendingJudgeSubmissionOwners.has(vote.votedForSubmissionId)) return;
+
+      this.pendingJudgeVotes.set(p.id, { playerId: p.id, score: 0, payload: result.payload, outcome: result.outcome });
+      if (!mg.submitted.includes(p.id)) mg.submitted.push(p.id);
+      this.broadcast();
+
+      const allVotesIn = mg.participants.every((id) => this.pendingJudgeVotes.has(id));
+      if (allVotesIn) await this.resolveActiveMinigame();
+      return;
+    }
+
     if (this.pendingResults.has(p.id)) return;
 
     this.pendingResults.set(p.id, { playerId: p.id, score: result.score, payload: result.payload, outcome: result.outcome });
@@ -299,6 +319,10 @@ export class GameRoom {
     this.broadcast();
 
     const allIn = mg.participants.every((id) => this.pendingResults.has(id));
+    if (allIn && mg.type === "judge") {
+      this.startJudgeVoting(mg);
+      return;
+    }
     if (allIn) await this.resolveActiveMinigame();
   }
 
@@ -306,7 +330,27 @@ export class GameRoom {
   async forceResolve(socketId: string) {
     const p = this.playerBySocket(socketId);
     if (!p?.isHost || !this.state.activeMinigame) return;
+    if (this.state.activeMinigame.type === "judge" && this.state.activeMinigame.judge?.phase !== "voting") {
+      this.startJudgeVoting(this.state.activeMinigame);
+      return;
+    }
     await this.resolveActiveMinigame();
+  }
+
+  private startJudgeVoting(mg: ActiveMinigame) {
+    const submissions = mg.participants.map((playerId, index) => {
+      const result = this.pendingResults.get(playerId);
+      const payload = result?.payload as { message?: string } | null | undefined;
+      const id = `judge-${index + 1}`;
+      const text = payload?.message?.trim() || "(sin respuesta)";
+      this.pendingJudgeSubmissionOwners.set(id, playerId);
+      return { id, text };
+    });
+
+    mg.judge = { phase: "voting", submissions };
+    mg.submitted = [];
+    this.pendingJudgeVotes.clear();
+    this.broadcast();
   }
 
   private async resolveActiveMinigame() {
@@ -320,11 +364,14 @@ export class GameRoom {
         this.advanceTurn();
         return;
       }
+      const results = mg.type === "judge" && mg.judge?.phase === "voting"
+        ? this.judgeVoteResults(mg)
+        : [...this.pendingResults.values()];
       const reveal = await resolveMinigame({
         minigameId: mg.id,
         eventId: mg.eventId,
         def,
-        results: [...this.pendingResults.values()],
+        results,
         participants: mg.participants,
         subjects: mg.subjects,
         players: this.state.players,
@@ -354,6 +401,8 @@ export class GameRoom {
       this.state.activeMinigame = null;
       this.state.phase = "reveal";
       this.pendingResults.clear();
+      this.pendingJudgeVotes.clear();
+      this.pendingJudgeSubmissionOwners.clear();
       this.pendingEvent = null;
       this.broadcast();
       this.io.to(this.code).emit("minigame:reveal", this.state.reveal);
@@ -365,6 +414,25 @@ export class GameRoom {
     } finally {
       this.resolving = false;
     }
+  }
+
+  private judgeVoteResults(mg: ActiveMinigame): MinigameResult[] {
+    const submissions = mg.judge?.submissions ?? [];
+    return submissions.map((submission) => {
+      const ownerId = this.pendingJudgeSubmissionOwners.get(submission.id) ?? "";
+      const voters = [...this.pendingJudgeVotes.values()]
+        .filter((vote) => (vote.payload as { votedForSubmissionId?: string } | null | undefined)?.votedForSubmissionId === submission.id)
+        .map((vote) => vote.playerId);
+      return {
+        playerId: ownerId,
+        score: voters.length,
+        payload: {
+          message: submission.text,
+          votes: voters.length,
+          voters,
+        },
+      };
+    });
   }
 
   // --- Avance / cierre -----------------------------------------------------

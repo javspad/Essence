@@ -23,7 +23,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
   // Reset cuando arranca un minijuego nuevo.
   useEffect(() => {
     setFinished(false);
-  }, [mg?.id, state.round, state.activeIndex]);
+  }, [mg?.id, mg?.judge?.phase, state.round, state.activeIndex]);
 
   if (!mg) return null;
 
@@ -56,11 +56,12 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
       <div className="relative flex min-h-full w-full flex-col justify-center py-6">
         <ActivityStory story={mg.story} />
         <Engine
-          key={`${mg.id}-${state.round}-${state.activeIndex}-spectator`}
+          key={`${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}-spectator`}
           content={mg.content}
           players={connectedPlayers}
           participants={participantPlayers}
           subjects={subjectPlayers}
+          activeMinigame={mg}
           me={me}
           onFinish={() => undefined}
           onAction={onAction}
@@ -107,11 +108,12 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
       </Button>
       <ActivityStory story={mg.story} />
       <Engine
-        key={`${mg.id}-${state.round}-${state.activeIndex}`}
+        key={`${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`}
         content={mg.content}
         players={mg.type === "vote" ? subjectPlayers : connectedPlayers}
         participants={participantPlayers}
         subjects={subjectPlayers}
+        activeMinigame={mg}
         me={me}
         onFinish={handleFinish}
         onAction={onAction}

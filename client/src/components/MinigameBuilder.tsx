@@ -124,8 +124,8 @@ export default function MinigameBuilder() {
 
   const state = useMemo<GameState | null>(() => {
     if (!resolved || !activity || !protagonist || players.length === 0) return null;
-    return createTestState(selectedId, resolved, players, submitted, runKey, protagonist.id);
-  }, [activity, players, protagonist, resolved, runKey, selectedId, submitted]);
+    return createTestState(selectedId, resolved, players, submitted, results, runKey, protagonist.id);
+  }, [activity, players, protagonist, resolved, results, runKey, selectedId, submitted]);
   const playtestResolution = useMemo(
     () => createPlaytestResolution(resolved, state, players, results),
     [players, resolved, results, state]
@@ -1123,8 +1123,8 @@ function createPlaytestResolution(
   const submittedCount = participants.filter((id) => minigame.submitted.includes(id)).length;
   const complete = requiredCount > 0 && participants.every((id) => minigame.submitted.includes(id));
   const subjects = minigame.subjects?.length ? minigame.subjects : participants;
-  const ranking = playtestRanking(minigame.type, subjects, participants, results, event.activity?.rigged);
-  const entries = playtestRevealEntries(minigame.type, event.activity?.content, ranking, subjects, participants, players, results);
+  const ranking = playtestRanking(minigame.type, subjects, participants, results, event.activity?.rigged, minigame.judge?.submissions);
+  const entries = playtestRevealEntries(minigame.type, event.activity?.content, ranking, subjects, participants, players, results, minigame.judge?.submissions);
   const landingPlayerId = minigame.protagonistId ?? ranking[0];
   const actions = complete
     ? [
@@ -1145,19 +1145,21 @@ function playtestRanking(
   subjects: string[],
   participants: string[],
   results: RunResult[],
-  rigged: EventActivity["rigged"]
+  rigged: EventActivity["rigged"],
+  judgeSubmissions?: { id: string; text: string }[]
 ): string[] {
   const resultByPlayer = new Map<string, RunResult>();
   for (const result of results) {
     if (!resultByPlayer.has(result.playerId)) resultByPlayer.set(result.playerId, result);
   }
   const voteScores = type === "vote" ? voteScoresFor(subjects, participants, resultByPlayer) : null;
+  const judgeScores = type === "judge" ? judgeVoteScoresFor(subjects, participants, results, judgeSubmissions) : null;
   const promptScore = type === "prompt" ? participants.filter((id) => resultByPlayer.has(id)).length : null;
   const order = new Map(subjects.map((id, index) => [id, index]));
   const ranked = [...subjects]
     .sort((a, b) => {
-      const aScore = voteScores?.get(a) ?? promptScore ?? resultByPlayer.get(a)?.score ?? Number.NEGATIVE_INFINITY;
-      const bScore = voteScores?.get(b) ?? promptScore ?? resultByPlayer.get(b)?.score ?? Number.NEGATIVE_INFINITY;
+      const aScore = judgeScores?.get(a) ?? voteScores?.get(a) ?? promptScore ?? resultByPlayer.get(a)?.score ?? Number.NEGATIVE_INFINITY;
+      const bScore = judgeScores?.get(b) ?? voteScores?.get(b) ?? promptScore ?? resultByPlayer.get(b)?.score ?? Number.NEGATIVE_INFINITY;
       return bScore - aScore || (order.get(a) ?? 0) - (order.get(b) ?? 0);
     });
   return applyRig(ranked, rigged);
@@ -1172,6 +1174,23 @@ function voteScoresFor(subjects: string[], participants: string[], resultByPlaye
   return scores;
 }
 
+function judgeVoteScoresFor(
+  subjects: string[],
+  participants: string[],
+  results: RunResult[],
+  submissions?: { id: string; text: string }[]
+): Map<string, number> {
+  const scores = new Map<string, number>(subjects.map((id) => [id, 0]));
+  if (!submissions?.length) return scores;
+  const ownerBySubmission = new Map(submissions.map((submission, index) => [submission.id, participants[index]]));
+  for (const result of results) {
+    const votedForSubmissionId = (result.payload as { votedForSubmissionId?: string } | undefined)?.votedForSubmissionId;
+    const ownerId = votedForSubmissionId ? ownerBySubmission.get(votedForSubmissionId) : undefined;
+    if (ownerId && scores.has(ownerId)) scores.set(ownerId, (scores.get(ownerId) ?? 0) + 1);
+  }
+  return scores;
+}
+
 function playtestRevealEntries(
   type: EventActivityType,
   content: unknown,
@@ -1179,7 +1198,8 @@ function playtestRevealEntries(
   subjects: string[],
   participants: string[],
   players: Player[],
-  results: RunResult[]
+  results: RunResult[],
+  judgeSubmissions?: { id: string; text: string }[]
 ): RevealEntry[] {
   const resultByPlayer = new Map<string, RunResult>();
   for (const result of results) {
@@ -1188,6 +1208,7 @@ function playtestRevealEntries(
   const votersBySubject = type === "vote" ? votersBySubjectFor(subjects, participants, resultByPlayer) : null;
   const confirmedBy = type === "prompt" ? participants.filter((id) => resultByPlayer.has(id)) : [];
   const missingConfirmers = type === "prompt" ? participants.filter((id) => !resultByPlayer.has(id)) : [];
+  const judgeVotesByOwner = type === "judge" ? judgeVotesByOwnerFor(participants, results, judgeSubmissions) : null;
 
   return ranking.map((playerId, index) => {
     const result = resultByPlayer.get(playerId);
@@ -1216,11 +1237,40 @@ function playtestRevealEntries(
         voters.length ? `Votos de ${namesFor(voters, players)}` : "Sin votos"
       );
     }
+    if (type === "judge") {
+      const votes = judgeVotesByOwner?.get(playerId) ?? [];
+      const submission = judgeSubmissions?.[participants.indexOf(playerId)];
+      return playtestEntry(
+        players,
+        playerId,
+        index + 1,
+        votes.length,
+        { message: submission?.text ?? "", votes: votes.length, voters: votes },
+        `${votes.length} ${votes.length === 1 ? "voto" : "votos"}`,
+        `Texto: ${submission?.text ?? "(sin respuesta)"} - ${votes.length ? `Votos de ${namesFor(votes, players)}` : "Sin votos"}`
+      );
+    }
     const score = result?.score ?? Number.NEGATIVE_INFINITY;
     const payload = result?.payload ?? null;
     const display = playtestResultDisplay(type, content, score, payload);
     return playtestEntry(players, playerId, index + 1, Number.isFinite(score) ? score : 0, payload, display.resultLabel, display.detailLabel);
   });
+}
+
+function judgeVotesByOwnerFor(
+  participants: string[],
+  results: RunResult[],
+  submissions?: { id: string; text: string }[]
+): Map<string, string[]> {
+  const votesByOwner = new Map(participants.map((id) => [id, [] as string[]]));
+  if (!submissions?.length) return votesByOwner;
+  const ownerBySubmission = new Map(submissions.map((submission, index) => [submission.id, participants[index]]));
+  for (const result of results) {
+    const votedForSubmissionId = (result.payload as { votedForSubmissionId?: string } | undefined)?.votedForSubmissionId;
+    const ownerId = votedForSubmissionId ? ownerBySubmission.get(votedForSubmissionId) : undefined;
+    if (ownerId) votesByOwner.get(ownerId)?.push(result.playerId);
+  }
+  return votesByOwner;
 }
 
 function votersBySubjectFor(subjects: string[], participants: string[], resultByPlayer: Map<string, RunResult>): Map<string, string[]> {
@@ -1536,12 +1586,14 @@ function createTestState(
   event: ResolvedGameEvent,
   players: Player[],
   submitted: string[],
+  results: RunResult[],
   runKey: number,
   protagonistId: string
 ): GameState {
   const activity = event.activity!;
   const participants = activityParticipants(activity, players, protagonistId);
   const subjects = activitySubjects(activity, players, protagonistId, participants);
+  const judgePlaytest = activity.type === "judge" ? judgePlaytestState(participants, results) : null;
   return {
     code: "TEST",
     roomName: "Event builder",
@@ -1572,11 +1624,45 @@ function createTestState(
       story: event.story,
       participants,
       subjects,
-      submitted,
+      submitted: judgePlaytest?.submitted ?? submitted,
+      ...(judgePlaytest ? { judge: judgePlaytest.judge } : {}),
     },
     activeEvent: null,
     reveal: null,
     winnerId: null,
+  };
+}
+
+function judgePlaytestState(participants: string[], results: RunResult[]): { submitted: string[]; judge: NonNullable<GameState["activeMinigame"]>["judge"] } {
+  const messagesByPlayer = new Map<string, string>();
+  const votesByPlayer = new Map<string, string>();
+  for (const result of results) {
+    const payload = result.payload as { message?: string; votedForSubmissionId?: string } | undefined;
+    if (typeof payload?.message === "string" && !messagesByPlayer.has(result.playerId)) {
+      messagesByPlayer.set(result.playerId, payload.message.trim() || "(sin respuesta)");
+    }
+    if (typeof payload?.votedForSubmissionId === "string" && !votesByPlayer.has(result.playerId)) {
+      votesByPlayer.set(result.playerId, payload.votedForSubmissionId);
+    }
+  }
+
+  const allMessagesIn = participants.every((id) => messagesByPlayer.has(id));
+  if (!allMessagesIn) {
+    return {
+      submitted: participants.filter((id) => messagesByPlayer.has(id)),
+      judge: { phase: "writing" },
+    };
+  }
+
+  return {
+    submitted: participants.filter((id) => votesByPlayer.has(id)),
+    judge: {
+      phase: "voting",
+      submissions: participants.map((id, index) => ({
+        id: `judge-${index + 1}`,
+        text: messagesByPlayer.get(id) ?? "(sin respuesta)",
+      })),
+    },
   };
 }
 

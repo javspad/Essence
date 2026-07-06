@@ -283,3 +283,65 @@ await withRolls([1], async () => {
   assert.equal(room.getState().reveal?.entries[0].resultLabel, "1/2 confirmaciones");
   assert.equal(room.getState().reveal?.entries[0].detailLabel, "Confirmaron Bob · Faltan Carla");
 });
+
+const judgeVoteContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "judge", eventId: "best-line" },
+    { id: 2, type: "finish" },
+  ],
+  events: {
+    "best-line": {
+      name: "Best line",
+      kind: "activity",
+      story: { title: "Best line", prompt: "Write the best one-liner." },
+      activity: { type: "judge", content: { prompt: "Write anonymously." } },
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "alice", name: "Alice", color: "#f87171" },
+    { id: "bob", name: "Bob", color: "#60a5fa" },
+    { id: "carla", name: "Carla", color: "#34d399" },
+  ],
+});
+
+await withRolls([1], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TST6", "Test room", judgeVoteContent);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.join("socket-carla", "Carla");
+  room.startGame("socket-alice");
+  room.roll("socket-alice");
+
+  await room.submitResult("socket-alice", { score: 0, payload: { message: "Alice line" } });
+  await room.submitResult("socket-bob", { score: 0, payload: { message: "Bob line" } });
+  await room.submitResult("socket-carla", { score: 0, payload: { message: "Carla line" } });
+
+  assert.equal(room.getState().phase, "minigame");
+  assert.equal(room.getState().activeMinigame?.judge?.phase, "voting");
+  assert.deepEqual(room.getState().activeMinigame?.submitted, []);
+
+  const submissions = room.getState().activeMinigame?.judge?.submissions ?? [];
+  assert.equal(submissions.length, 3);
+  assert.equal(submissions.some((submission) => "playerId" in submission), false, "anonymous voting options do not expose authors");
+  const optionForText = (text: string) => submissions.find((submission) => submission.text === text)?.id ?? "";
+
+  await room.submitResult("socket-alice", { score: 0, payload: { votedForSubmissionId: optionForText("Bob line") } });
+  await room.submitResult("socket-bob", { score: 0, payload: { votedForSubmissionId: optionForText("Carla line") } });
+  await room.submitResult("socket-carla", { score: 0, payload: { votedForSubmissionId: optionForText("Bob line") } });
+
+  assert.equal(room.getState().phase, "reveal");
+  assert.deepEqual(room.getState().reveal?.ranking, ["bob", "carla", "alice"]);
+  assert.equal(room.getState().reveal?.entries[0].resultLabel, "2 votos");
+  assert.equal(room.getState().reveal?.entries[0].detailLabel, "Texto: Bob line · Votos de Alice, Carla");
+  assert.deepEqual(room.getState().reveal?.entries[0].payload, {
+    message: "Bob line",
+    votes: 2,
+    voters: ["alice", "carla"],
+  });
+});

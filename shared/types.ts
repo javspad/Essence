@@ -435,6 +435,10 @@ export interface ActiveMinigame {
   subjects?: string[];
   /** ids que ya enviaron resultado */
   submitted: string[];
+  judge?: {
+    phase: "writing" | "voting";
+    submissions?: { id: string; text: string }[];
+  };
 }
 
 export interface ActiveEvent {

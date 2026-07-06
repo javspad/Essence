@@ -168,6 +168,27 @@ async function resolveJudge(
   participants: string[],
   byId: Map<string, MinigameResult>
 ): Promise<ScoredResult[]> {
+  const voteScored = participants.some((id) => {
+    const payload = byId.get(id)?.payload as { votes?: unknown; voters?: unknown } | undefined;
+    return typeof payload?.votes === "number" || Array.isArray(payload?.voters);
+  });
+  if (voteScored) {
+    return participants.map((id) => {
+      const result = byId.get(id);
+      const payload = (result?.payload ?? {}) as { message?: string; votes?: number; voters?: string[] };
+      const votes = typeof payload.votes === "number" ? payload.votes : Array.isArray(payload.voters) ? payload.voters.length : 0;
+      return {
+        playerId: id,
+        score: votes,
+        payload: {
+          message: payload.message ?? "",
+          votes,
+          voters: Array.isArray(payload.voters) ? payload.voters : [],
+        },
+      };
+    });
+  }
+
   const persona = (def.content as { persona?: string })?.persona ?? "lujan";
   const verdicts = await Promise.all(
     participants.map(async (id) => {
@@ -228,6 +249,7 @@ function formatEntryDisplay(
     case "vote":
       return formatVoteDisplay(p, nameOf);
     case "judge":
+      if (typeof p.votes === "number" || Array.isArray(p.voters)) return formatJudgeVoteDisplay(p, nameOf);
       return {
         resultLabel: `${formatScore(result.score)}/100`,
         detailLabel: typeof p.message === "string" && p.message ? p.message : undefined,
@@ -313,6 +335,18 @@ function formatBuzzerDisplay(def: MinigameDef | EventActivity, payload: Record<s
     resultLabel: payload.correct ? "Correcto" : "Incorrecto",
     detailLabel: [`Eligió ${picked}`, `Correcta: ${correct}`, time].filter(Boolean).join(" · "),
     flavor: formatFlavor(def, payload, ""),
+  };
+}
+
+function formatJudgeVoteDisplay(payload: Record<string, unknown>, nameOf: (id: string) => string) {
+  const voters = stringArray(payload.voters);
+  const votes = typeof payload.votes === "number" ? payload.votes : voters.length;
+  const message = typeof payload.message === "string" ? payload.message : "";
+  const voteText = voters.length ? `Votos de ${namesFor(voters, nameOf)}` : "Sin votos";
+  return {
+    resultLabel: `${votes} ${votes === 1 ? "voto" : "votos"}`,
+    detailLabel: [`Texto: ${message || "(sin respuesta)"}`, voteText].join(" · "),
+    flavor: `${votes} ${votes === 1 ? "voto" : "votos"}`,
   };
 }
 
