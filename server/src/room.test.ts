@@ -72,6 +72,24 @@ const players = [
 ];
 
 {
+  const { io, events } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "QUIT", "Leave test", content);
+  assert.deepEqual(room.join("socket-alice", "Alice"), { ok: true, playerId: "alice" });
+  assert.deepEqual(room.join("socket-bob", "Bob"), { ok: true, playerId: "bob" });
+
+  assert.deepEqual(room.leave("socket-bob"), { closed: false });
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.connected, false);
+
+  assert.deepEqual(room.leave("socket-alice"), { closed: true });
+  assert.equal(room.getState().players.every((player) => !player.connected), true);
+  assert.deepEqual(events.at(-1), {
+    room: "QUIT",
+    event: "room:closed",
+    payload: { message: "El host cerró la sala." },
+  });
+}
+
+{
   const reveal = await resolveMinigame({
     minigameId: "trivia-capital",
     def: {

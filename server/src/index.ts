@@ -90,9 +90,25 @@ io.on("connection", (socket) => {
     if (room) fn(room);
   };
 
-  socket.on("room:leave", () => {
-    withRoom((r) => r.disconnect(socket.id));
-    socket.leave(socketIndex.get(socket.id) ?? "");
+  socket.on("room:leave", async () => {
+    const code = socketIndex.get(socket.id);
+    if (!code) return;
+    const room = rooms.get(code);
+    if (!room) {
+      socketIndex.delete(socket.id);
+      return;
+    }
+
+    const result = room.leave(socket.id);
+    if (result.closed) {
+      const socketIds = await io.in(code).allSockets();
+      for (const id of socketIds) socketIndex.delete(id);
+      io.in(code).socketsLeave(code);
+      rooms.delete(code);
+      return;
+    }
+
+    socket.leave(code);
     socketIndex.delete(socket.id);
   });
 

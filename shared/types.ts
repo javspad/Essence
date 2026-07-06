@@ -643,6 +643,7 @@ export interface ClientToServerEvents {
 
 export interface ServerToClientEvents {
   state: (state: GameState) => void;
+  "room:closed": (payload: { message: string }) => void;
   "minigame:start": (payload: {
     id: string;
     type: EventActivityType;

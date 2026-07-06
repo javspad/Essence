@@ -2,18 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { GameState, Player } from "@essence/shared";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   Dice5,
-  LocateFixed,
   LogOut,
   Map as MapIcon,
-  Move,
-  RotateCcw,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -68,6 +59,7 @@ export default function GameScene3D({
   const canLoad3D = useMemo(() => supportsWebGL(), []);
   const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
   const [cameraIntent, setCameraIntent] = useState<CameraIntent | null>(null);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const cameraIntentId = useRef(0);
   const canAdvance = isHost || isMyTurn;
   const editMode = useMemo(
@@ -88,6 +80,11 @@ export default function GameScene3D({
     (playerId: string) => dispatchCameraIntent({ kind: "focusPlayer", playerId }),
     [dispatchCameraIntent]
   );
+  const requestLeave = useCallback(() => setLeaveConfirmOpen(true), []);
+  const confirmLeave = useCallback(() => {
+    setLeaveConfirmOpen(false);
+    onLeave();
+  }, [onLeave]);
 
   useEffect(() => {
     if (!cameraState.focusedPlayerId) return;
@@ -97,16 +94,26 @@ export default function GameScene3D({
 
   if (!canLoad3D) {
     return (
-      <LegacyGameScreen
-        state={state}
-        me={me}
-        activeId={activeId}
-        isMyTurn={isMyTurn}
-        canAdvance={canAdvance}
-        onRoll={onRoll}
-        onNext={onNext}
-        onLeave={onLeave}
-      />
+      <div className="relative min-h-full">
+        <LegacyGameScreen
+          state={state}
+          me={me}
+          activeId={activeId}
+          isMyTurn={isMyTurn}
+          canAdvance={canAdvance}
+          onRoll={onRoll}
+          onNext={onNext}
+          onLeave={requestLeave}
+        />
+        {leaveConfirmOpen && (
+          <LeaveConfirmationOverlay
+            isHost={isHost}
+            playerName={me.name}
+            onCancel={() => setLeaveConfirmOpen(false)}
+            onConfirm={confirmLeave}
+          />
+        )}
+      </div>
     );
   }
 
@@ -142,7 +149,6 @@ export default function GameScene3D({
         canAdvance={canAdvance}
         editMode={editMode}
         cameraState={cameraState}
-        focusedPlayer={focusedPlayer}
         eventBusyLabel={eventBusyLabel}
         rollBlocked={rollBlocked}
         statusLabel={statusLabel}
@@ -150,8 +156,17 @@ export default function GameScene3D({
         onFocusPlayer={focusPlayer}
         onRoll={onRoll}
         onNext={onNext}
-        onLeave={onLeave}
+        onLeave={requestLeave}
       />
+
+      {leaveConfirmOpen && (
+        <LeaveConfirmationOverlay
+          isHost={isHost}
+          playerName={me.name}
+          onCancel={() => setLeaveConfirmOpen(false)}
+          onConfirm={confirmLeave}
+        />
+      )}
 
       <div className="sr-only" aria-live="polite">
         {sceneStatus(state, activeId, cameraState, focusedPlayer)}
@@ -169,7 +184,6 @@ function SceneChrome({
   canAdvance,
   editMode,
   cameraState,
-  focusedPlayer,
   eventBusyLabel,
   rollBlocked,
   statusLabel,
@@ -187,7 +201,6 @@ function SceneChrome({
   canAdvance: boolean;
   editMode: boolean;
   cameraState: BoardCameraState;
-  focusedPlayer?: Player;
   eventBusyLabel?: string | null;
   rollBlocked: boolean;
   statusLabel?: string | null;
@@ -221,14 +234,9 @@ function SceneChrome({
           {editMode && <SceneEditHint active={active} />}
         </div>
         {state.phase !== "finished" && (
-          <div className="relative z-30 ml-0 flex w-full flex-col items-start gap-2 sm:ml-auto sm:w-auto sm:items-end">
+          <div className="relative z-30 ml-0 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
+            <MapToggleButton cameraMode={cameraState.mode} onCameraIntent={onCameraIntent} />
             <LeaveButton onLeave={onLeave} />
-            <CameraControlsPanel
-              cameraState={cameraState}
-              focusedPlayer={focusedPlayer}
-              active={active}
-              onCameraIntent={onCameraIntent}
-            />
           </div>
         )}
       </div>
@@ -349,133 +357,25 @@ function ScorePanel({
   );
 }
 
-function CameraControlsPanel({
-  cameraState,
-  focusedPlayer,
-  active,
-  onCameraIntent,
-}: {
-  cameraState: BoardCameraState;
-  focusedPlayer?: Player;
-  active?: Player;
-  onCameraIntent: (intent: CameraIntent) => void;
-}) {
-  const contextPlayer = focusedPlayer ?? active;
-  const nudge = (pan: { x?: number; z?: number }, zoom = 0) => {
-    onCameraIntent({ kind: "nudgeFreeCamera", pan, zoom });
-  };
+function MapToggleButton({ cameraMode, onCameraIntent }: { cameraMode: BoardCameraState["mode"]; onCameraIntent: (intent: CameraIntent) => void }) {
+  const showingMap = cameraMode === "overview";
+  const label = showingMap ? "Volver al jugador actual" : "Ver mapa completo";
 
-  return (
-    <section
-      aria-label="Controles de cámara"
-      data-testid="camera-controls"
-      data-camera-mode={cameraState.mode}
-      data-focused-player-id={cameraState.focusedPlayerId ?? ""}
-      className="pointer-events-auto w-[min(15rem,calc(100vw-1.5rem))] rounded-sm border border-[#fff4bf]/25 bg-[#0e0a1a]/88 p-2 text-[#fff8d6] shadow-[0_0_0_1px_rgba(255,244,191,0.06),0_16px_40px_rgb(0_0_0/0.45)] backdrop-blur-xl"
-    >
-      <div className="flex items-center justify-end gap-1">
-        <CameraIconButton
-          label="Seguir jugador activo"
-          active={cameraState.mode === "followActivePlayer" && !cameraState.focusedPlayerId}
-          dataTestId="camera-mode-follow"
-          onClick={() => onCameraIntent({ kind: "resetToActivePlayer" })}
-        >
-          <LocateFixed className="size-4" />
-        </CameraIconButton>
-        <CameraIconButton
-          label="Vista general del mapa"
-          active={cameraState.mode === "overview"}
-          dataTestId="camera-mode-overview"
-          onClick={() => onCameraIntent({ kind: "frameOverview" })}
-        >
-          <MapIcon className="size-4" />
-        </CameraIconButton>
-        <CameraIconButton
-          label="Cámara libre"
-          active={cameraState.mode === "free"}
-          dataTestId="camera-mode-free"
-          onClick={() => onCameraIntent({ kind: "freeCamera" })}
-        >
-          <Move className="size-4" />
-        </CameraIconButton>
-        <CameraIconButton
-          label="Restablecer cámara al jugador activo"
-          dataTestId="camera-reset-active"
-          onClick={() => onCameraIntent({ kind: "resetToActivePlayer" })}
-        >
-          <RotateCcw className="size-4" />
-        </CameraIconButton>
-      </div>
-
-      <div className="mt-2 flex min-h-8 items-center gap-2 rounded-sm border border-white/10 bg-white/6 px-2 py-1.5">
-        {contextPlayer ? (
-          <>
-            <span
-              className="size-3 shrink-0 rounded-[2px] shadow-[1px_1px_0_rgb(0_0_0/0.35),0_0_8px_var(--player-glow)]"
-              style={{ backgroundColor: contextPlayer.color, ["--player-glow" as string]: `${contextPlayer.color}66` }}
-            />
-            <span className="min-w-0 truncate text-[10px] font-black uppercase tracking-wide text-[#d4cfea]">
-              {focusedPlayer ? "Foco" : "Activo"} {contextPlayer.name} #{contextPlayer.position}
-            </span>
-          </>
-        ) : (
-          <span className="min-w-0 truncate text-[10px] font-black uppercase tracking-wide text-[#d4cfea]">Tablero</span>
-        )}
-      </div>
-
-      {cameraState.mode === "free" && (
-        <div className="mt-2 grid grid-cols-[2.5rem_2.5rem_2.5rem_2.5rem] justify-end gap-1">
-          <CameraIconButton label="Mover cámara izquierda" onClick={() => nudge({ x: -0.85 })}>
-            <ArrowLeft className="size-4" />
-          </CameraIconButton>
-          <CameraIconButton label="Mover cámara arriba" onClick={() => nudge({ z: -0.85 })}>
-            <ArrowUp className="size-4" />
-          </CameraIconButton>
-          <CameraIconButton label="Mover cámara abajo" onClick={() => nudge({ z: 0.85 })}>
-            <ArrowDown className="size-4" />
-          </CameraIconButton>
-          <CameraIconButton label="Mover cámara derecha" onClick={() => nudge({ x: 0.85 })}>
-            <ArrowRight className="size-4" />
-          </CameraIconButton>
-          <CameraIconButton label="Acercar cámara" onClick={() => nudge({}, -0.14)}>
-            <ZoomIn className="size-4" />
-          </CameraIconButton>
-          <CameraIconButton label="Alejar cámara" onClick={() => nudge({}, 0.14)}>
-            <ZoomOut className="size-4" />
-          </CameraIconButton>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function CameraIconButton({
-  label,
-  active = false,
-  dataTestId,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  dataTestId?: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
   return (
     <Button
       type="button"
       aria-label={label}
-      aria-pressed={active || undefined}
+      aria-pressed={showingMap || undefined}
       title={label}
-      data-testid={dataTestId}
-      onClick={onClick}
+      data-testid="camera-map-toggle"
+      data-camera-mode={cameraMode}
+      onClick={() => onCameraIntent(showingMap ? { kind: "resetToActivePlayer" } : { kind: "frameOverview" })}
       className={cn(
-        "h-10 w-10 border border-white/12 p-0 text-[#fff8d6] shadow-none transition-colors hover:bg-[#67e8f9]/18 hover:text-[#ecfeff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#67e8f9]",
-        active ? "bg-[#67e8f9]/22 text-[#ecfeff] ring-1 ring-[#67e8f9]/70" : "bg-white/8"
+        "pointer-events-auto flex h-9 w-10 items-center justify-center border border-[#fff4bf]/35 p-0 text-[#fff8d6] shadow-[0_0_0_1px_rgba(255,244,191,0.08),0_8px_24px_rgb(0_0_0/0.4)] backdrop-blur-xl transition-colors hover:bg-[#67e8f9]/18 hover:text-[#ecfeff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#67e8f9]",
+        showingMap ? "bg-[#67e8f9]/22 text-[#ecfeff] ring-1 ring-[#67e8f9]/70" : "bg-[#0e0a1a]/88"
       )}
     >
-      {children}
+      <MapIcon className="size-4" />
     </Button>
   );
 }
@@ -708,10 +608,62 @@ function ActionButton({ children, disabled, onClick }: { children: ReactNode; di
   );
 }
 
+function LeaveConfirmationOverlay({
+  isHost,
+  playerName,
+  onCancel,
+  onConfirm,
+}: {
+  isHost: boolean;
+  playerName: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="pointer-events-auto fixed inset-0 z-40 flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm sm:p-6">
+      <section
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="leave-confirm-title"
+        aria-describedby="leave-confirm-body"
+        className="w-[min(28rem,calc(100vw-1.5rem))] rounded-sm border border-[#fff4bf]/35 bg-[#0e0a1a]/96 p-5 text-[#fff8d6] shadow-[0_0_0_1px_rgba(255,244,191,0.08),0_24px_70px_rgb(0_0_0/0.6)]"
+      >
+        <p id="leave-confirm-title" className="text-xl font-black text-[#fff4bf]">
+          {isHost ? "¿Cerrar la sala?" : "¿Salir de la sala?"}
+        </p>
+        <p id="leave-confirm-body" className="mt-3 text-sm font-bold leading-6 text-[#d4cfea]">
+          {isHost
+            ? `${playerName}, si salís como host se cierra la sala y todos vuelven al inicio.`
+            : `${playerName}, vas a salir de la sala. El host verá que ya no estás conectado.`}
+        </p>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            className="min-h-11 px-4 text-xs font-black uppercase tracking-wider text-[#d4cfea] hover:bg-white/10"
+          >
+            Seguir jugando
+          </Button>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            className="min-h-11 bg-[#fb7185] px-4 text-xs font-black uppercase tracking-wider text-[#2a070b] hover:bg-[#fda4af]"
+          >
+            {isHost ? "Cerrar sala" : "Salir"}
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function LeaveButton({ onLeave }: { onLeave: () => void }) {
   return (
     <Button
       type="button"
+      aria-label="Salir de la sala"
+      title="Salir de la sala"
       onClick={onLeave}
       className="pointer-events-auto flex h-9 items-center gap-1.5 border border-[#fb7185]/40 bg-[#2a070b]/80 px-3 text-[10px] font-black uppercase tracking-wider text-[#fda4af] shadow-[0_0_0_1px_rgba(251,113,133,0.1),0_8px_24px_rgb(0_0_0/0.4)] backdrop-blur-xl transition-colors hover:bg-[#fb7185]/25 hover:text-white"
     >

@@ -55,10 +55,18 @@ export function useGame() {
     const onMinigameStart = (m: MinigameStart) => setMinigameStart(m);
     const onReveal = (_r: RevealPayload) => setMinigameStart(null);
     const onError = (e: { message: string }) => setError(e.message);
+    const onRoomClosed = (payload: { message: string }) => {
+      localStorage.removeItem(STORAGE_KEY);
+      setPlayerId(null);
+      setState(null);
+      setMinigameStart(null);
+      setError(payload.message);
+    };
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("state", onState);
+    socket.on("room:closed", onRoomClosed);
     socket.on("minigame:start", onMinigameStart);
     socket.on("minigame:reveal", onReveal);
     socket.on("error", onError);
@@ -67,6 +75,7 @@ export function useGame() {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("state", onState);
+      socket.off("room:closed", onRoomClosed);
       socket.off("minigame:start", onMinigameStart);
       socket.off("minigame:reveal", onReveal);
       socket.off("error", onError);

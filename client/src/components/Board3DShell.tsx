@@ -133,17 +133,6 @@ export default function Board3DShell({
   const trackedTokenRef = useRef<Vector3 | null>(null);
   const overviewShot = useMemo(() => boardCameraOverviewShot(bounds, terraces), [bounds, terraces]);
   const freeBounds = useMemo(() => boardCameraFreeBounds(bounds), [bounds]);
-  // Toma general del diorama (se usa al cambiar de turno).
-  const wideShot = useMemo(() => {
-    const maxElev = Math.max(0, ...(terraces ?? []).map((terrace) => terrace.elevation));
-    const depth = bounds.height * bounds.spacing;
-    const width = bounds.width * bounds.spacing;
-    const dist = Math.max(width, depth) * 0.55 + 4.5;
-    return {
-      position: [0.4, 4.2 + maxElev + dist * 0.4, depth / 2 + dist * 0.68] as Vec3,
-      look: [0, 0.35 + maxElev * 0.35, 0] as Vec3,
-    };
-  }, [bounds, terraces]);
   const activePath = new Set(
     activeMotion && activeMotion.playerId === activeId
       ? activeMotion.path
@@ -214,7 +203,6 @@ export default function Board3DShell({
           walking={activeMotion !== null}
           dice={Boolean(diceCue)}
           turnKey={activeId ?? ""}
-          wide={wideShot}
           overview={overviewShot}
           freeBounds={freeBounds}
           cameraIntent={cameraIntent}
@@ -536,13 +524,10 @@ function RouteStairs({ from, to, width }: { from: Vec3; to: Vec3; width: number 
   );
 }
 
-const SHOT_WIDE_SECONDS = 1.7;
-
 /**
  * Cámara cinematográfica: sigue al muñeco que se mueve (posición viva vía ref),
- * abre una toma general al cambiar el turno, se acerca con ángulo lateral durante
- * la tirada del dado y respira suavemente en reposo. Con reduced motion se
- * comporta como la cámara fija de siempre.
+ * se acerca con ángulo lateral durante la tirada del dado y respira suavemente
+ * en reposo. Con reduced motion se comporta como la cámara fija de siempre.
  */
 function CinematicCamera({
   mode,
@@ -552,7 +537,6 @@ function CinematicCamera({
   walking,
   dice,
   turnKey,
-  wide,
   overview,
   freeBounds,
   cameraIntent,
@@ -564,18 +548,13 @@ function CinematicCamera({
   walking: boolean;
   dice: boolean;
   turnKey: string;
-  wide: BoardCameraShot;
   overview: BoardCameraShot;
   freeBounds: BoardCameraFreeBounds;
   cameraIntent: CameraIntent | null;
 }) {
   const { camera, gl } = useThree();
   const initialized = useRef(false);
-  const shot = useRef<"follow" | "wide">("follow");
-  const shotStart = useRef(0);
-  const clockNow = useRef(0);
   const sideSign = useRef(1);
-  const turnCount = useRef(0);
   const prevTurnKey = useRef<string | null>(null);
   const desired = useRef(new Vector3());
   const desiredLook = useRef(new Vector3());
@@ -609,23 +588,17 @@ function CinematicCamera({
     [freeBounds]
   );
 
-  // Cambio de turno: alterna el costado de la cámara y, turno por medio, abre una toma general.
+  // Cambio de turno: alterna el costado de la cámara sin abrir una toma general automática.
   useEffect(() => {
     if (mode !== "followActivePlayer") {
-      shot.current = "follow";
       prevTurnKey.current = turnKey;
       return;
     }
     if (prevTurnKey.current !== null && turnKey && turnKey !== prevTurnKey.current) {
-      turnCount.current += 1;
-      sideSign.current = turnCount.current % 2 === 0 ? 1 : -1;
-      if (motion.cameraLerpSpeed > 0 && turnCount.current % 2 === 1) {
-        shot.current = "wide";
-        shotStart.current = clockNow.current;
-      }
+      sideSign.current *= -1;
     }
     prevTurnKey.current = turnKey;
-  }, [mode, motion.cameraLerpSpeed, turnKey]);
+  }, [mode, turnKey]);
 
   useLayoutEffect(() => {
     if (initialized.current && motion.cameraLerpSpeed !== 0) return;
@@ -722,15 +695,9 @@ function CinematicCamera({
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
-    clockNow.current = t;
     const animated = motion.cameraLerpSpeed > 0;
     const live = tokenRef.current;
     const anchor: Vec3 = animated && live ? [live.x, live.y, live.z] : target;
-
-    // El dado o una caminata cortan la toma general.
-    if (mode === "followActivePlayer" && shot.current === "wide" && (dice || walking || t - shotStart.current > SHOT_WIDE_SECONDS)) {
-      shot.current = "follow";
-    }
 
     if (mode === "overview") {
       desired.current.set(...overview.position);
@@ -738,9 +705,6 @@ function CinematicCamera({
     } else if (mode === "free") {
       desired.current.copy(freePosition.current);
       desiredLook.current.copy(freeLook.current);
-    } else if (shot.current === "wide") {
-      desired.current.set(...wide.position);
-      desiredLook.current.set(...wide.look);
     } else if (dice && animated) {
       // Tirada: más cerca, más abajo y con ángulo lateral (alterna por turno).
       const base = cameraFollowPosition(anchor);

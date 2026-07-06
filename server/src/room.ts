@@ -152,6 +152,22 @@ export class GameRoom {
     this.broadcast();
   }
 
+  leave(socketId: string): { closed: boolean } {
+    const player = this.playerBySocket(socketId);
+    if (!player) return { closed: false };
+    if (player.isHost) {
+      for (const p of this.state.players) {
+        p.connected = false;
+        p.socketId = null;
+      }
+      this.io.to(this.code).emit("room:closed", { message: "El host cerró la sala." });
+      return { closed: true };
+    }
+
+    this.disconnect(socketId);
+    return { closed: false };
+  }
+
   private playerBySocket(socketId: string): Player | undefined {
     return this.state.players.find((p) => p.socketId === socketId);
   }
