@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { GameState, Player } from "@essence/shared";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import {
@@ -58,9 +58,7 @@ export default function GameScene3D({
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
   const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
-  const [cameraIntent, setCameraIntent] = useState<CameraIntent | null>(null);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const cameraIntentId = useRef(0);
   const canAdvance = isHost || isMyTurn;
   const editMode = useMemo(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("sceneEdit"),
@@ -70,11 +68,7 @@ export default function GameScene3D({
     ? state.players.find((player) => player.id === cameraState.focusedPlayerId)
     : undefined;
   const dispatchCameraIntent = useCallback((intent: CameraIntent) => {
-    const nextIntent = { ...intent, id: ++cameraIntentId.current } as CameraIntent;
-    setCameraIntent(nextIntent);
-    if (intent.kind !== "nudgeFreeCamera") {
-      setCameraState((current) => applyCameraIntent(current, nextIntent));
-    }
+    setCameraState((current) => applyCameraIntent(current, intent));
   }, []);
   const focusPlayer = useCallback(
     (playerId: string) => dispatchCameraIntent({ kind: "focusPlayer", playerId }),
@@ -135,7 +129,6 @@ export default function GameScene3D({
         interactive
         cameraMode={cameraState.mode}
         focusedPlayerId={cameraState.focusedPlayerId}
-        cameraIntent={cameraIntent}
         onPlayerFocus={focusPlayer}
         className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_45%_-5%,#f2d8a7_0%,#dfa96b_30%,#96602c_62%,#2c1808_100%)]"
       />
@@ -708,11 +701,9 @@ function sceneStatus(state: GameState, activeId?: string, cameraState?: BoardCam
   const camera =
     cameraState?.mode === "overview"
       ? "Vista general del mapa."
-      : cameraState?.mode === "free"
-        ? "Cámara libre."
-        : focusedPlayer
-          ? `Cámara enfocada en ${focusedPlayer.name}.`
-          : "Cámara siguiendo al jugador activo.";
+      : focusedPlayer
+        ? `Cámara enfocada en ${focusedPlayer.name}.`
+        : "Cámara siguiendo al jugador activo.";
   return `${phaseLabel(state.phase)}. ${active ? `Turno de ${active.name}.` : ""} Ronda ${state.round}. ${camera}`;
 }
 

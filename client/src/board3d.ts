@@ -58,7 +58,7 @@ export interface BoardRenderSettings {
   powerPreference: WebGLPowerPreference;
 }
 
-export type CameraMode = "followActivePlayer" | "overview" | "free";
+export type CameraMode = "followActivePlayer" | "overview";
 export type FocusedPlayerId = string | null;
 
 export interface BoardCameraState {
@@ -75,21 +75,12 @@ export type CameraIntent = CameraIntentBase &
     | { kind: "followActivePlayer" }
     | { kind: "focusPlayer"; playerId: string }
     | { kind: "frameOverview" }
-    | { kind: "freeCamera" }
     | { kind: "resetToActivePlayer" }
-    | { kind: "nudgeFreeCamera"; pan?: { x?: number; z?: number }; zoom?: number }
   );
 
 export interface BoardCameraShot {
   position: Vec3;
   look: Vec3;
-}
-
-export interface BoardCameraFreeBounds {
-  minX: number;
-  maxX: number;
-  minZ: number;
-  maxZ: number;
 }
 
 export const BOARD_GRID_SPACING = 1.35;
@@ -260,7 +251,6 @@ export function cameraFollowPosition(slotPosition: Vec3): Vec3 {
 export function applyCameraIntent(state: BoardCameraState, intent: CameraIntent): BoardCameraState {
   if (intent.kind === "focusPlayer") return { mode: "followActivePlayer", focusedPlayerId: intent.playerId };
   if (intent.kind === "frameOverview") return { ...state, mode: "overview" };
-  if (intent.kind === "freeCamera") return { ...state, mode: "free" };
   if (intent.kind === "followActivePlayer" || intent.kind === "resetToActivePlayer") {
     return { mode: "followActivePlayer", focusedPlayerId: null };
   }
@@ -280,20 +270,6 @@ export function boardCameraOverviewShot(
   return {
     position: [0, round(4.8 + maxElevation + diagonal * 0.62), round(4.2 + span * 0.95)],
     look: [0, round(0.35 + maxElevation * 0.45), 0],
-  };
-}
-
-export function boardCameraFreeBounds(
-  bounds: Pick<Board3DMapBounds, "width" | "height" | "spacing">,
-  margin = 3
-): BoardCameraFreeBounds {
-  const halfWidth = (bounds.width * bounds.spacing) / 2;
-  const halfDepth = (bounds.height * bounds.spacing) / 2;
-  return {
-    minX: round(-halfWidth - margin),
-    maxX: round(halfWidth + margin),
-    minZ: round(-halfDepth - margin),
-    maxZ: round(halfDepth + margin),
   };
 }
 

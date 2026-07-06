@@ -22,7 +22,6 @@ import { normalizePlayerCharacter } from "@essence/shared/character";
 import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
 import {
   board3DMapBounds,
-  boardCameraFreeBounds,
   boardCameraOverviewShot,
   board3DSlots,
   BOARD_GRID_SPACING,
@@ -40,10 +39,8 @@ import {
   tokenWorldPosition,
   type Board3DMapBounds,
   type Board3DSlot,
-  type BoardCameraFreeBounds,
   type BoardCameraShot,
   type BoardMotionSettings,
-  type CameraIntent,
   type CameraMode,
   type FocusedPlayerId,
   type SlotDecal,
@@ -81,7 +78,6 @@ interface Board3DShellProps {
   interactive?: boolean;
   cameraMode?: CameraMode;
   focusedPlayerId?: FocusedPlayerId;
-  cameraIntent?: CameraIntent | null;
   onPlayerFocus?: (playerId: string) => void;
 }
 
@@ -103,7 +99,6 @@ export default function Board3DShell({
   interactive = false,
   cameraMode = "followActivePlayer",
   focusedPlayerId = null,
-  cameraIntent = null,
   onPlayerFocus,
 }: Board3DShellProps) {
   const reducedMotion = useReducedMotion();
@@ -132,7 +127,6 @@ export default function Board3DShell({
   // Posición viva del muñeco animado: el token la escribe cada frame, la cámara la lee.
   const trackedTokenRef = useRef<Vector3 | null>(null);
   const overviewShot = useMemo(() => boardCameraOverviewShot(bounds, terraces), [bounds, terraces]);
-  const freeBounds = useMemo(() => boardCameraFreeBounds(bounds), [bounds]);
   const activePath = new Set(
     activeMotion && activeMotion.playerId === activeId
       ? activeMotion.path
@@ -204,8 +198,6 @@ export default function Board3DShell({
           dice={Boolean(diceCue)}
           turnKey={activeId ?? ""}
           overview={overviewShot}
-          freeBounds={freeBounds}
-          cameraIntent={cameraIntent}
         />
         <ambientLight intensity={0.62} color="#fff8e1" />
         <directionalLight
@@ -538,8 +530,6 @@ function CinematicCamera({
   dice,
   turnKey,
   overview,
-  freeBounds,
-  cameraIntent,
 }: {
   mode: CameraMode;
   target: Vec3;
@@ -549,44 +539,14 @@ function CinematicCamera({
   dice: boolean;
   turnKey: string;
   overview: BoardCameraShot;
-  freeBounds: BoardCameraFreeBounds;
-  cameraIntent: CameraIntent | null;
 }) {
-  const { camera, gl } = useThree();
+  const { camera } = useThree();
   const initialized = useRef(false);
   const sideSign = useRef(1);
   const prevTurnKey = useRef<string | null>(null);
   const desired = useRef(new Vector3());
   const desiredLook = useRef(new Vector3());
   const look = useRef(new Vector3(target[0], target[1] * 0.55, target[2]));
-  const previousMode = useRef<CameraMode>("followActivePlayer");
-  const freePosition = useRef(new Vector3(...cameraFollowPosition(target)));
-  const freeLook = useRef(new Vector3(target[0], target[1] + 0.45, target[2]));
-  const drag = useRef<{ pointerId: number; x: number; y: number } | null>(null);
-
-  const panFreeCamera = useCallback(
-    (x: number, z: number, zoom = 0) => {
-      if (x !== 0 || z !== 0) {
-        const nextX = clampNumber(freeLook.current.x + x, freeBounds.minX, freeBounds.maxX);
-        const nextZ = clampNumber(freeLook.current.z + z, freeBounds.minZ, freeBounds.maxZ);
-        const deltaX = nextX - freeLook.current.x;
-        const deltaZ = nextZ - freeLook.current.z;
-        freeLook.current.x = nextX;
-        freeLook.current.z = nextZ;
-        freePosition.current.x += deltaX;
-        freePosition.current.z += deltaZ;
-      }
-
-      if (zoom !== 0) {
-        const offset = freePosition.current.clone().sub(freeLook.current);
-        if (offset.lengthSq() < 0.01) offset.set(0, 5.5, 7);
-        const maxDistance = Math.max(8, Math.hypot(freeBounds.maxX - freeBounds.minX, freeBounds.maxZ - freeBounds.minZ) * 1.35);
-        offset.setLength(clampNumber(offset.length() * (1 + zoom), 2.8, maxDistance));
-        freePosition.current.copy(freeLook.current).add(offset);
-      }
-    },
-    [freeBounds]
-  );
 
   // Cambio de turno: alterna el costado de la cámara sin abrir una toma general automática.
   useEffect(() => {
@@ -609,90 +569,6 @@ function CinematicCamera({
     initialized.current = true;
   }, [camera, motion.cameraLerpSpeed, target]);
 
-  useEffect(() => {
-    if (mode === "free" && previousMode.current !== "free") {
-      freePosition.current.copy(camera.position);
-      freeLook.current.copy(look.current);
-      if (freePosition.current.distanceTo(freeLook.current) < 1) {
-        freePosition.current.set(...cameraFollowPosition(target));
-        freeLook.current.set(target[0], target[1] + 0.45, target[2]);
-      }
-    }
-    previousMode.current = mode;
-  }, [camera, mode, target]);
-
-  useEffect(() => {
-    if (mode !== "free" || cameraIntent?.kind !== "nudgeFreeCamera") return;
-    panFreeCamera(cameraIntent.pan?.x ?? 0, cameraIntent.pan?.z ?? 0, cameraIntent.zoom ?? 0);
-  }, [cameraIntent, mode, panFreeCamera]);
-
-  useEffect(() => {
-    const canvas = gl.domElement;
-    if (mode !== "free") return;
-
-    const previousTouchAction = canvas.style.touchAction;
-    const previousCursor = canvas.style.cursor;
-    canvas.style.touchAction = "none";
-    canvas.style.cursor = "grab";
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      event.preventDefault();
-      drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-      canvas.style.cursor = "grabbing";
-      try {
-        canvas.setPointerCapture(event.pointerId);
-      } catch {
-        // Pointer capture can fail if the browser already released the pointer.
-      }
-    };
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const current = drag.current;
-      if (!current || current.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      const dx = event.clientX - current.x;
-      const dy = event.clientY - current.y;
-      drag.current = { ...current, x: event.clientX, y: event.clientY };
-      const distance = Math.max(4, freePosition.current.distanceTo(freeLook.current));
-      const panScale = distance * 0.0024;
-      panFreeCamera(-dx * panScale, dy * panScale);
-    };
-
-    const handlePointerUp = (event: PointerEvent) => {
-      if (drag.current?.pointerId !== event.pointerId) return;
-      drag.current = null;
-      canvas.style.cursor = "grab";
-      try {
-        canvas.releasePointerCapture(event.pointerId);
-      } catch {
-        // The browser may have released capture already.
-      }
-    };
-
-    const handleWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      panFreeCamera(0, 0, event.deltaY > 0 ? 0.12 : -0.12);
-    };
-
-    canvas.addEventListener("pointerdown", handlePointerDown);
-    canvas.addEventListener("pointermove", handlePointerMove);
-    canvas.addEventListener("pointerup", handlePointerUp);
-    canvas.addEventListener("pointercancel", handlePointerUp);
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
-
-    return () => {
-      canvas.removeEventListener("pointerdown", handlePointerDown);
-      canvas.removeEventListener("pointermove", handlePointerMove);
-      canvas.removeEventListener("pointerup", handlePointerUp);
-      canvas.removeEventListener("pointercancel", handlePointerUp);
-      canvas.removeEventListener("wheel", handleWheel);
-      canvas.style.touchAction = previousTouchAction;
-      canvas.style.cursor = previousCursor;
-      drag.current = null;
-    };
-  }, [gl, mode, panFreeCamera]);
-
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
     const animated = motion.cameraLerpSpeed > 0;
@@ -702,9 +578,6 @@ function CinematicCamera({
     if (mode === "overview") {
       desired.current.set(...overview.position);
       desiredLook.current.set(...overview.look);
-    } else if (mode === "free") {
-      desired.current.copy(freePosition.current);
-      desiredLook.current.copy(freeLook.current);
     } else if (dice && animated) {
       // Tirada: más cerca, más abajo y con ángulo lateral (alterna por turno).
       const base = cameraFollowPosition(anchor);
@@ -731,18 +604,13 @@ function CinematicCamera({
 
     // Lerp adaptativo: acelera cuando quedó lejos (cambio de jugador al otro lado del mapa).
     const distance = camera.position.distanceTo(desired.current);
-    const baseSpeed = mode === "free" ? Math.max(6, motion.cameraLerpSpeed) : motion.cameraLerpSpeed;
-    const speed = baseSpeed * (1 + Math.min(2, distance * 0.45));
+    const speed = motion.cameraLerpSpeed * (1 + Math.min(2, distance * 0.45));
     camera.position.lerp(desired.current, frameLerp(delta, speed));
     look.current.lerp(desiredLook.current, frameLerp(delta, speed * 1.2));
     camera.lookAt(look.current);
   });
 
   return null;
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 function AnimatedPartyLights({ motion }: { motion: BoardMotionSettings }) {

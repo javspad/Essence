@@ -66,7 +66,7 @@ Every slice must leave the project in a state that can be inspected by a human.
 | Surface | Status | Route or entry point | Purpose |
 | --- | --- | --- | --- |
 | Game | Existing | `/` | Join/create room and play the current board game. |
-| Board Camera Controls | Existing | In-game board HUD | Click player tokens, focus characters, see the full map, and toggle free camera movement. |
+| Board Camera Controls | Existing | In-game board HUD | Click player tokens, focus characters, and toggle a full-map overview. |
 | Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, and map props. |
 | Event Builder | Existing, with legacy component/file names | `/event-builder` (`/minigame-builder` legacy alias) | Edit events, activities, stories, and consequences. |
 | Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
@@ -230,16 +230,16 @@ Tasks:
 - [x] `S-CAM-01` Add stable click/hit targets to player tokens on the 3D board.
 - [x] `S-CAM-02` Track a selected/focused player in client presentation state without changing server gameplay state.
 - [x] `S-CAM-03` When a player token or player list entry is clicked, focus that character on the map and show enough context to identify them.
-- [x] `S-CAM-04` Add a camera mode toggle with at least: active-turn follow, full-map overview, and free camera.
+- [x] `S-CAM-04` Add a camera mode toggle for active-turn follow and full-map overview.
 - [x] `S-CAM-05` In full-map overview, frame the whole board and keep every character/token visible enough to understand where everyone is.
-- [x] `S-CAM-06` In free camera mode, allow map movement/inspection with mouse or touch controls and provide a reset back to the active player.
+- [x] `S-CAM-06` Keep map inspection constrained to overview and player focus; do not expose manual camera movement.
 - [x] `S-CAM-07` Keep camera controls accessible with keyboard focus, descriptive labels/tooltips, and mobile-safe touch targets.
 - [x] `S-CAM-08` Reuse the same board/player focus primitive later for artifact target selection, effect inspection, and trajectory highlighting.
 - [x] `S-CAM-09` Add tests around pure camera/view helpers where possible and a manual QA checklist for the rendered 3D behavior.
 
 Suggested abstractions:
 
-- `CameraMode`: `followActivePlayer`, `overview`, `free`.
+- `CameraMode`: `followActivePlayer`, `overview`.
 - `FocusedPlayerId`: client-only selection/focus state that can be set from token clicks, scoreboard clicks, or future target selectors.
 - `CameraIntent`: a small presentation command such as focus player, frame full map, frame trajectory, or reset.
 - Token hit targets should expose stable player ids so future target selectors can reuse them instead of adding a separate picking layer.
@@ -254,11 +254,11 @@ Current code to reuse:
 
 Verification notes:
 
-- Added reusable camera/focus primitives in `client/src/board3d.ts`: `CameraMode`, `FocusedPlayerId`, `CameraIntent`, `BoardCameraState`, `applyCameraIntent`, full-map overview framing, and free-camera bounds.
-- `Board3DShell` now accepts client-only camera state, exposes stable player token hit targets with player ids, highlights the focused token, frames overview mode, and supports free camera pan/zoom through drag, wheel, and HUD commands.
-- `GameScene3D` owns the focused-player state without mutating server gameplay state, adds a compact board HUD for active follow, overview, free camera, and reset-to-active-player, and lets score rows focus the same player primitive.
+- Added reusable camera/focus primitives in `client/src/board3d.ts`: `CameraMode`, `FocusedPlayerId`, `CameraIntent`, `BoardCameraState`, `applyCameraIntent`, and full-map overview framing.
+- `Board3DShell` now accepts client-only camera state, exposes stable player token hit targets with player ids, highlights the focused token, and frames overview mode.
+- `GameScene3D` owns the focused-player state without mutating server gameplay state, adds compact board HUD controls for active follow, overview, and reset-to-active-player, and lets score rows focus the same player primitive.
 - `Scoreboard` accepts optional focused-player callbacks so future target selectors can reuse the player-list focus surface.
-- Manual QA path: create a room, start the board, click a score row and a board token to focus the player, switch to overview, switch to free camera and move/zoom, then reset to active-player follow.
+- Manual QA path: create a room, start the board, click a score row and a board token to focus the player, switch to overview, then reset to active-player follow.
 - Verification passed: `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright board-camera QA through helper-managed server/client; `git diff --check`.
 
 Acceptance:
@@ -266,7 +266,7 @@ Acceptance:
 - A player can click a character/token on the board and the camera focuses that character.
 - A player can click/select a player from the visible game UI and see where that character is on the map.
 - The overview mode frames the full map and makes every character location discoverable.
-- The free camera toggle allows map movement/inspection and can reset to active-turn follow without corrupting gameplay flow.
+- Map inspection is available through player focus and full-map overview without exposing manual camera movement.
 - Camera modes work during idle turns, movement, event/reveal overlays, and after turn changes without mutating server state.
 - The implementation creates reusable hooks/helpers for future artifact target selection and effect inspection.
 
@@ -524,7 +524,7 @@ These are captured from the notes and should be handled in Slice 0 unless a task
 - Scoreboard or player-list entries that can focus a character on the map.
 - Active-turn follow camera.
 - Full-map overview mode that shows where all characters are.
-- Free camera toggle for map inspection.
+- Full-map overview toggle for map inspection.
 - Reset control back to the active player/current turn.
 - Reusable focused-player and camera-intent helpers for target selection, effects, and artifact flows.
 
@@ -600,7 +600,7 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 | Better characters and character builder | `S2` | Includes defaults, room character sets, JSON import/export. |
 | Face photo, eyes, mouth, anchor angle | `S2`, `S5` | Character anchors power cosmetics and visuals. |
 | Default preloaded players/characters | `S2` | Migrates current `content.players`. |
-| Click characters, find them on the map, full-map overview, movable camera toggle | `S-CAM` | Adds board inspection before artifacts, effects, and richer character flows depend on it. |
+| Click characters, find them on the map, full-map overview | `S-CAM` | Adds board inspection before artifacts, effects, and richer character flows depend on it. |
 | Cosmetic system | `S5` | Visual-only, buy/equip, anchored previews. |
 | Artifact system | `S3`, `S4` | Reuses consequences/effects and adds catalog/shop/use flows. |
 | Artifact builder, rarity, rates, shop simulation | `S4` | Artifact Builder must expose these as UI and JSON. |
@@ -684,7 +684,7 @@ Resolved:
 - Win condition: first player to reach the finish cell wins; coins are the secondary ranking/tie-breaker.
 - Artifact language: **Artifact** means gameplay item; current decorative map objects are **Map Props** in product/UI language.
 - Prompt/prenda confirmation: defaults to the rest of the connected group and can be configured with `confirmation.mode` or `confirmation.playerIds`.
-- Free camera controls stay available from the board HUD across board phases; event/reveal modal content keeps the center of the screen for the shared flow.
+- Manual camera movement is intentionally out of scope; map inspection uses player focus plus full-map overview.
 
 ## Next Review Step
 
