@@ -31,6 +31,7 @@ export class GameRoom {
   private state: GameState;
   private pendingResults = new Map<string, MinigameResult>();
   private pendingEvent: ResolvedGameEvent | null = null;
+  private readonly shopItems: ShopItemDef[];
   private awardsStar = false;
   private resolving = false;
   private skippedTurns = new Set<string>();
@@ -42,6 +43,7 @@ export class GameRoom {
     this.code = code;
     this.name = name;
     this.content = content;
+    this.shopItems = shopItemsForContent(content);
     const activeMap =
       content.maps?.find((map) => map.id === content.activeMapId) ??
       content.maps?.[0];
@@ -63,8 +65,10 @@ export class GameRoom {
       boardLength: (activeMap?.board ?? content.board).length,
       lastRoll: null,
       activeMinigame: null,
+      shopItems: this.shopItems,
       activeShop: null,
       activeEvent: null,
+      lastItemAction: null,
       reveal: null,
       winnerId: null,
     };
@@ -188,6 +192,7 @@ export class GameRoom {
 
     const roll = 1 + Math.floor(Math.random() * 6);
     this.state.lastRoll = roll;
+    this.state.lastItemAction = null;
 
     this.moveActivePlayer(active, roll);
   }
@@ -211,6 +216,46 @@ export class GameRoom {
     if (!item) return;
     if (!this.applyCosmeticPurchase(active, item)) return;
     this.continueAfterShop(active);
+  }
+
+  useItem(socketId: string, payload: { itemId: string; targetPlayerId?: string }) {
+    if (this.state.phase !== "turn") return;
+    if (!payload?.itemId) return;
+    const active = this.activePlayer();
+    const player = this.playerBySocket(socketId);
+    if (!active || !player || player.id !== active.id) return;
+
+    const inventoryEntry = active.inventory.find((entry) => entry.itemId === payload.itemId && entry.quantity > 0);
+    if (!inventoryEntry) {
+      this.sendError(socketId, "No tenés ese item en el inventario");
+      return;
+    }
+
+    const item = this.shopItems.find((candidate) => candidate.id === payload.itemId);
+    if (!item || item.category !== "weapon" || item.effect.type !== "weaponMove") {
+      this.sendError(socketId, "Ese item no se puede usar durante el turno");
+      return;
+    }
+
+    const target = this.weaponTargetFor(active, item.effect.target, payload.targetPlayerId);
+    if (!target) {
+      this.sendError(socketId, "Elegí otro jugador como objetivo");
+      return;
+    }
+
+    target.position = clamp(target.position + item.effect.delta, 0, this.state.boardLength - 1);
+    inventoryEntry.quantity -= 1;
+    if (inventoryEntry.quantity <= 0) {
+      active.inventory = active.inventory.filter((entry) => entry !== inventoryEntry);
+    }
+
+    this.state.lastItemAction = {
+      type: "move",
+      targetPlayerIds: [target.id],
+      text: `${active.name} usó ${item.name}: ${moveSummary([target.id], this.state.players, item.effect.delta)}`,
+      value: item.effect.delta,
+    };
+    this.broadcast();
   }
 
   private moveActivePlayer(active: Player, steps: number) {
@@ -272,7 +317,7 @@ export class GameRoom {
   }
 
   private activeShopFor(shop: NonNullable<GameContent["shops"]>[number], active: Player, remainingSteps: number): ActiveShop {
-    const catalog = new Map(shopItemsForContent(this.content).map((item) => [item.id, item] as const));
+    const catalog = new Map(this.shopItems.map((item) => [item.id, item] as const));
     const items = shop.itemIds.flatMap((itemId) => {
       const item = catalog.get(itemId);
       return item ? [item] : [];
@@ -330,6 +375,30 @@ export class GameRoom {
     if (current) current.quantity += 1;
     else player.inventory.push({ itemId: item.id, category: item.category, quantity: 1 });
     return true;
+  }
+
+  private weaponTargetFor(active: Player, targetMode: "chosenOpponent" | "nextOpponent", targetPlayerId?: string): Player | null {
+    const opponents = this.state.turnOrder
+      .map((id) => this.state.players.find((player) => player.id === id))
+      .filter((player): player is Player => Boolean(player?.connected && player.id !== active.id));
+    if (opponents.length === 0) return null;
+
+    if (targetMode === "chosenOpponent") {
+      return opponents.find((player) => player.id === targetPlayerId) ?? null;
+    }
+
+    const activeIndex = this.state.turnOrder.indexOf(active.id);
+    if (activeIndex < 0) return opponents[0] ?? null;
+    for (let offset = 1; offset <= this.state.turnOrder.length; offset += 1) {
+      const nextId = this.state.turnOrder[(activeIndex + offset) % this.state.turnOrder.length];
+      const candidate = opponents.find((player) => player.id === nextId);
+      if (candidate) return candidate;
+    }
+    return opponents[0] ?? null;
+  }
+
+  private sendError(socketId: string, message: string) {
+    this.io.to(socketId).emit("error", { message });
   }
 
   private triggerTile(tile: Tile, active: Player) {
@@ -531,6 +600,7 @@ export class GameRoom {
     this.state.reveal = null;
     this.state.activeEvent = null;
     this.state.activeShop = null;
+    this.state.lastItemAction = null;
     this.pendingEvent = null;
     this.pendingShopMove = null;
     this.state.lastRoll = null;

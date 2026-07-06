@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import type { GameState, Player } from "@essence/shared";
+import type { GameState, Player, ShopItemDef } from "@essence/shared";
 import { Dice5, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -30,6 +30,7 @@ interface GameScene3DProps {
   onNext: () => void;
   onShopSkip: () => void;
   onShopBuy: (itemId: string) => void;
+  onUseItem: (itemId: string, targetPlayerId?: string) => void;
   onLeave: () => void;
 }
 
@@ -51,6 +52,7 @@ export default function GameScene3D({
   onNext,
   onShopSkip,
   onShopBuy,
+  onUseItem,
   onLeave,
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
@@ -109,6 +111,9 @@ export default function GameScene3D({
         statusLabel={statusLabel}
         onRoll={onRoll}
         onNext={onNext}
+        onShopSkip={onShopSkip}
+        onShopBuy={onShopBuy}
+        onUseItem={onUseItem}
         onLeave={onLeave}
       />
 
@@ -134,6 +139,7 @@ function SceneChrome({
   onNext,
   onShopSkip,
   onShopBuy,
+  onUseItem,
   onLeave,
 }: {
   connected: boolean;
@@ -150,6 +156,7 @@ function SceneChrome({
   onNext: () => void;
   onShopSkip: () => void;
   onShopBuy: (itemId: string) => void;
+  onUseItem: (itemId: string, targetPlayerId?: string) => void;
   onLeave: () => void;
 }) {
   const active = state.players.find((player) => player.id === activeId);
@@ -157,7 +164,7 @@ function SceneChrome({
   const showTurnPanel =
     state.phase !== "reveal" &&
     state.phase !== "finished" &&
-    (isMyTurn || state.phase === "moving" || Boolean(state.lastRoll));
+    (isMyTurn || state.phase === "moving" || Boolean(state.lastRoll) || Boolean(state.lastItemAction));
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col gap-3 p-3 sm:p-5">
@@ -190,6 +197,7 @@ function SceneChrome({
             rollBlocked={rollBlocked}
             statusLabel={statusLabel}
             onRoll={onRoll}
+            onUseItem={onUseItem}
           />
         </div>
       )}
@@ -290,6 +298,7 @@ function TurnPanel({
   rollBlocked,
   statusLabel,
   onRoll,
+  onUseItem,
 }: {
   state: GameState;
   me: Player;
@@ -298,6 +307,7 @@ function TurnPanel({
   rollBlocked: boolean;
   statusLabel?: string | null;
   onRoll: () => void;
+  onUseItem: (itemId: string, targetPlayerId?: string) => void;
 }) {
   return (
     <Card
@@ -330,21 +340,118 @@ function TurnPanel({
             {statusLabel ?? turnTitle(state, active, isMyTurn)}
           </p>
 
+          {state.lastItemAction && (
+            <p className="mt-3 rounded-sm border border-rose-300/25 bg-rose-300/10 px-3 py-2 text-xs font-black text-rose-100">
+              {state.lastItemAction.text}
+            </p>
+          )}
+
           {state.phase === "turn" && isMyTurn && (
-            <Button
-              type="button"
-              onClick={onRoll}
-              disabled={rollBlocked}
-              className="pointer-events-auto mt-4 h-12 w-full bg-[#f5d547] px-5 text-sm font-black uppercase tracking-wider text-[#201507] shadow-[0_4px_0_#b9991a] transition-all hover:bg-[#ffe96c] hover:shadow-[0_2px_0_#b9991a] hover:translate-y-px active:translate-y-[3px] active:shadow-none disabled:translate-y-0 disabled:shadow-none"
-            >
-              <Dice5 data-icon="inline-start" />
-              Tirar
-            </Button>
+            <>
+              <WeaponInventory state={state} me={me} onUseItem={onUseItem} />
+              <Button
+                type="button"
+                onClick={onRoll}
+                disabled={rollBlocked}
+                className="pointer-events-auto mt-4 h-12 w-full bg-[#f5d547] px-5 text-sm font-black uppercase tracking-wider text-[#201507] shadow-[0_4px_0_#b9991a] transition-all hover:bg-[#ffe96c] hover:shadow-[0_2px_0_#b9991a] hover:translate-y-px active:translate-y-[3px] active:shadow-none disabled:translate-y-0 disabled:shadow-none"
+              >
+                <Dice5 data-icon="inline-start" />
+                Tirar
+              </Button>
+            </>
           )}
         </CardContent>
       </section>
     </Card>
   );
+}
+
+function WeaponInventory({
+  state,
+  me,
+  onUseItem,
+}: {
+  state: GameState;
+  me: Player;
+  onUseItem: (itemId: string, targetPlayerId?: string) => void;
+}) {
+  const catalog = new Map((state.shopItems ?? []).map((item) => [item.id, item] as const));
+  const weapons = me.inventory
+    .filter((entry) => entry.category === "weapon" && entry.quantity > 0)
+    .flatMap((entry) => {
+      const item = catalog.get(entry.itemId);
+      return item?.effect.type === "weaponMove" ? [{ entry, item }] : [];
+    });
+  const opponents = state.players.filter((player) => player.connected && player.id !== me.id);
+  if (!weapons.length || !opponents.length) return null;
+
+  return (
+    <div className="mt-4 rounded-sm border border-rose-300/25 bg-rose-300/10 p-3">
+      <p className="retro text-[8px] uppercase tracking-widest text-rose-100/80">Armas en bolsillo</p>
+      <div className="mt-2 grid gap-2">
+        {weapons.map(({ entry, item }) => (
+          <div key={entry.itemId} className="rounded-sm bg-[#1f1020]/80 p-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-black text-white">{item.name}</p>
+                <p className="mt-0.5 text-[10px] font-bold text-rose-100/70">{weaponEffectLabel(item)}</p>
+              </div>
+              <Badge className="shrink-0 border-rose-200/30 bg-rose-200/15 px-1.5 py-0.5 text-[8px] text-rose-100">
+                x{entry.quantity}
+              </Badge>
+            </div>
+            <WeaponTargetControls item={item} opponents={opponents} onUseItem={onUseItem} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WeaponTargetControls({
+  item,
+  opponents,
+  onUseItem,
+}: {
+  item: ShopItemDef;
+  opponents: Player[];
+  onUseItem: (itemId: string, targetPlayerId?: string) => void;
+}) {
+  if (item.effect.type !== "weaponMove") return null;
+  if (item.effect.target === "nextOpponent") {
+    return (
+      <button
+        type="button"
+        onClick={() => onUseItem(item.id)}
+        className="mt-2 w-full rounded-sm border border-white/10 bg-white/10 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-rose-50 transition hover:bg-white/18"
+      >
+        Usar contra el próximo
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {opponents.map((opponent) => (
+        <button
+          key={opponent.id}
+          type="button"
+          onClick={() => onUseItem(item.id, opponent.id)}
+          className="rounded-sm border border-white/10 bg-white/10 px-2 py-1.5 text-[10px] font-black text-rose-50 transition hover:bg-white/18"
+          style={{ boxShadow: `inset 3px 0 0 ${opponent.color}` }}
+        >
+          {opponent.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function weaponEffectLabel(item: ShopItemDef): string {
+  if (item.effect.type !== "weaponMove") return item.description ?? "Item especial";
+  const direction = item.effect.delta >= 0 ? "avanza" : "retrocede";
+  const target = item.effect.target === "nextOpponent" ? "el próximo rival" : "un rival";
+  return `${target} ${direction} ${Math.abs(item.effect.delta)} casillero(s)`;
 }
 
 function ShopOverlay({

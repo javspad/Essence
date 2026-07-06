@@ -509,8 +509,10 @@ export interface GameState {
   boardLength: number;
   lastRoll: number | null;
   activeMinigame: ActiveMinigame | null;
+  shopItems?: ShopItemDef[];
   activeShop?: ActiveShop | null;
   activeEvent: ActiveEvent | null;
+  lastItemAction?: AppliedEventAction | null;
   reveal: RevealPayload | null;
   winnerId: string | null;
 }
@@ -595,6 +597,7 @@ export interface ClientToServerEvents {
   "turn:next": () => void;
   "shop:skip": () => void;
   "shop:buy": (payload: { itemId: string }) => void;
+  "item:use": (payload: { itemId: string; targetPlayerId?: string }) => void;
   "minigame:action": (payload: unknown) => void;
   "minigame:result": (payload: { score: number; payload: unknown; outcome?: "win" | "loss" }) => void;
   /** host fuerza el cierre del minijuego si alguien se colgó */

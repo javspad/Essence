@@ -120,6 +120,7 @@ function ConnectedGame({
           onNext={actions.next}
           onShopSkip={actions.skipShop}
           onShopBuy={actions.buyShopItem}
+          onUseItem={actions.useItem}
           onLeave={actions.leave}
         />
       </Suspense>
