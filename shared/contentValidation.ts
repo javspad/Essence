@@ -7,6 +7,7 @@ import type {
   EventAction,
   EventActionTarget,
   EventOutcomeBranch,
+  FaceAnchor,
   GameContent,
   GameEventDef,
   MapBoardShape,
@@ -16,9 +17,10 @@ import type {
   MapTerrace,
   PlayerDef,
   Tile,
-  TileLayout,
 } from "./types";
 import { EVENT_ACTIVITY_TYPES, normalizeGameContentEvents } from "./events";
+import { DEFAULT_CHARACTER_SET_ID, defaultCharacterSetForPlayers, playerDefToCharacter } from "./characters";
+import { z } from "zod";
 
 export type ContentValidationSeverity = "error" | "warning";
 
@@ -40,11 +42,52 @@ type MapDefinitionImport = Omit<MapDefinition, "artifacts"> & {
   mapProps?: MapProp[];
 };
 
+const FaceAnchorSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  angle: z.number().finite().optional(),
+});
+
+const CharacterLoadoutSchema = z
+  .object({
+    cosmeticIds: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const CharacterDefSchema = z
+  .object({
+    id: z.string().min(1),
+    displayName: z.string().min(1),
+    name: z.string().optional(),
+    color: z.string().optional(),
+    groom: z.boolean().optional(),
+    facePhoto: z.string().optional(),
+    faceAnchors: z.record(FaceAnchorSchema).optional(),
+    bodyAnchors: z.record(FaceAnchorSchema).optional(),
+    defaultLoadout: CharacterLoadoutSchema.optional(),
+    defaultCosmetics: z.array(z.string()).optional(),
+    defaultTraits: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const CharacterSetDefSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    characterIds: z.array(z.string().min(1)).min(1),
+  })
+  .passthrough();
+
 export function normalizeContentSchema(input: unknown): GameContent {
   const content = input as GameContent;
   const normalized = normalizeGameContentEvents(content);
+  const players = clonePlayers(normalized.players ?? []);
+  const characters = normalizeCharacters(normalized.characters, players);
   return {
     ...normalized,
+    players,
+    characters,
+    characterSets: normalizeCharacterSets(normalized.characterSets, characters, players),
     board: cloneTiles(normalized.board),
     maps: normalized.maps?.map((map) => normalizeMapDefinition(map as MapDefinitionImport)),
     assetCatalog: normalized.assetCatalog?.map((asset) => ({
@@ -68,15 +111,16 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   const error = (path: string, message: string) => issues.push({ severity: "error", path, message });
   const warning = (path: string, message: string) => issues.push({ severity: "warning", path, message });
 
-  const playerIds = validatePlayers(normalized.players, error);
+  const legacyPlayerIds = validatePlayers(normalized.players, error);
+  const characterIds = validateCharacters(normalized.characters, error);
+  validateCharacterSets(normalized.characterSets, characterIds, error);
+  const playerIds = new Set([...legacyPlayerIds, ...characterIds]);
   const assetIds = validateAssetCatalog(normalized, error);
 
   for (const [id, event] of Object.entries(normalized.events ?? {})) {
     validateEvent(`events.${id}`, event, playerIds, error);
   }
 
-  validateCatalogIds(normalized.characters, "characters", error);
-  validateCatalogIds(normalized.characterSets, "characterSets", error);
   validateCatalogIds(normalized.cosmetics, "cosmetics", error);
   validateCatalogIds(normalized.artifacts, "artifacts", error);
   validateCatalogIds(normalized.effects, "effects", error);
@@ -140,6 +184,44 @@ function validatePlayers(players: PlayerDef[], error: (path: string, message: st
     if (!player.name?.trim()) error(`players.${player.id}.name`, "must not be empty");
   }
   return ids;
+}
+
+function validateCharacters(
+  characters: Record<string, CharacterDef> | undefined,
+  error: (path: string, message: string) => void
+): Set<string> {
+  const ids = new Set<string>();
+  for (const [id, character] of Object.entries(characters ?? {})) {
+    if (ids.has(id)) error(`characters.${id}`, "is duplicated");
+    ids.add(id);
+    const result = CharacterDefSchema.safeParse(character);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(`characters.${id}`, issue.path), issue.message);
+      }
+    }
+    if (character.id && character.id !== id) error(`characters.${id}.id`, `must match catalog key ${id}`);
+  }
+  return ids;
+}
+
+function validateCharacterSets(
+  characterSets: Record<string, CharacterSetDef> | undefined,
+  characterIds: Set<string>,
+  error: (path: string, message: string) => void
+) {
+  for (const [id, set] of Object.entries(characterSets ?? {})) {
+    const result = CharacterSetDefSchema.safeParse(set);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(`characterSets.${id}`, issue.path), issue.message);
+      }
+    }
+    if (set.id && set.id !== id) error(`characterSets.${id}.id`, `must match catalog key ${id}`);
+    for (const characterId of set.characterIds ?? []) {
+      if (!characterIds.has(characterId)) error(`characterSets.${id}.characterIds`, `references missing character ${characterId}`);
+    }
+  }
 }
 
 function validateAssetCatalog(content: GameContent, error: (path: string, message: string) => void): Set<string> {
@@ -336,18 +418,12 @@ function validateFutureCatalogReferences(
   error: (path: string, message: string) => void,
   warning: (path: string, message: string) => void
 ) {
-  const characterIds = new Set(Object.keys(content.characters ?? {}));
   const cosmeticIds = new Set(Object.keys(content.cosmetics ?? {}));
   const effectIds = new Set(Object.keys(content.effects ?? {}));
 
-  for (const [id, set] of Object.entries(content.characterSets ?? {}) as [string, CharacterSetDef][]) {
-    for (const characterId of set.characterIds ?? []) {
-      if (!characterIds.has(characterId)) error(`characterSets.${id}.characterIds`, `references missing character ${characterId}`);
-    }
-  }
   for (const [id, character] of Object.entries(content.characters ?? {}) as [string, CharacterDef][]) {
-    for (const cosmeticId of character.defaultCosmetics ?? []) {
-      if (!cosmeticIds.has(cosmeticId)) error(`characters.${id}.defaultCosmetics`, `references missing cosmetic ${cosmeticId}`);
+    for (const cosmeticId of [...(character.defaultLoadout?.cosmeticIds ?? []), ...(character.defaultCosmetics ?? [])]) {
+      if (!cosmeticIds.has(cosmeticId)) error(`characters.${id}.defaultLoadout.cosmeticIds`, `references missing cosmetic ${cosmeticId}`);
     }
     for (const traitId of character.defaultTraits ?? []) {
       if (!effectIds.has(traitId)) error(`characters.${id}.defaultTraits`, `references missing effect ${traitId}`);
@@ -376,6 +452,106 @@ function validateFutureCatalogReferences(
   for (const [id, cosmetic] of Object.entries(content.cosmetics ?? {}) as [string, CosmeticDef][]) {
     if (cosmetic.price !== undefined && cosmetic.price < 0) error(`cosmetics.${id}.price`, "must be non-negative");
   }
+}
+
+function normalizeCharacters(
+  characters: Record<string, CharacterDef> | undefined,
+  players: PlayerDef[]
+): Record<string, CharacterDef> {
+  const normalized: Record<string, CharacterDef> = {};
+  for (const player of players) {
+    normalized[player.id] = cloneCharacter(playerDefToCharacter(player));
+  }
+  for (const [key, character] of Object.entries(characters ?? {})) {
+    const id = stringValue(character.id) || key;
+    const displayName = stringValue(character.displayName) || stringValue(character.name) || normalized[id]?.displayName || id;
+    const defaultLoadout = isRecord(character.defaultLoadout) ? character.defaultLoadout : undefined;
+    const defaultCosmetics = stringArray(character.defaultCosmetics);
+    const defaultTraits = stringArray(character.defaultTraits);
+    const cosmeticIds = stringArray(defaultLoadout?.cosmeticIds ?? defaultCosmetics);
+    normalized[id] = cloneCharacter({
+      ...character,
+      id,
+      displayName,
+      color: character.color ?? normalized[id]?.color,
+      groom: character.groom ?? normalized[id]?.groom,
+      faceAnchors: cloneAnchors(character.faceAnchors),
+      bodyAnchors: cloneAnchors(character.bodyAnchors),
+      defaultLoadout: cosmeticIds.length ? { ...defaultLoadout, cosmeticIds } : (defaultLoadout as CharacterDef["defaultLoadout"]),
+      defaultCosmetics: defaultCosmetics.length ? defaultCosmetics : undefined,
+      defaultTraits: defaultTraits.length ? defaultTraits : undefined,
+    });
+  }
+  return normalized;
+}
+
+function normalizeCharacterSets(
+  characterSets: Record<string, CharacterSetDef> | undefined,
+  characters: Record<string, CharacterDef>,
+  players: PlayerDef[]
+): Record<string, CharacterSetDef> {
+  const source =
+    Object.keys(characterSets ?? {}).length > 0
+      ? characterSets ?? {}
+      : {
+          [DEFAULT_CHARACTER_SET_ID]: {
+            ...defaultCharacterSetForPlayers(players),
+            characterIds: Object.keys(characters).length ? Object.keys(characters) : players.map((player) => player.id),
+          },
+        };
+  const normalized: Record<string, CharacterSetDef> = {};
+  for (const [key, set] of Object.entries(source)) {
+    const id = stringValue(set.id) || key;
+    normalized[id] = {
+      ...set,
+      id,
+      name: stringValue(set.name) || id,
+      characterIds: stringArray(set.characterIds),
+    };
+  }
+  return normalized;
+}
+
+function clonePlayers(players: PlayerDef[]): PlayerDef[] {
+  return players.map((player) => ({ ...player }));
+}
+
+function cloneCharacter(character: CharacterDef): CharacterDef {
+  return {
+    ...character,
+    faceAnchors: cloneAnchors(character.faceAnchors),
+    bodyAnchors: cloneAnchors(character.bodyAnchors),
+    defaultLoadout: character.defaultLoadout
+      ? {
+          ...character.defaultLoadout,
+          cosmeticIds: character.defaultLoadout.cosmeticIds ? [...character.defaultLoadout.cosmeticIds] : undefined,
+        }
+      : undefined,
+    defaultCosmetics: character.defaultCosmetics ? [...character.defaultCosmetics] : undefined,
+    defaultTraits: character.defaultTraits ? [...character.defaultTraits] : undefined,
+  };
+}
+
+function cloneAnchors(anchors: unknown): Record<string, FaceAnchor> | undefined {
+  if (!isRecord(anchors)) return undefined;
+  const out: Record<string, FaceAnchor> = {};
+  for (const [id, anchor] of Object.entries(anchors)) {
+    if (!isRecord(anchor)) continue;
+    out[id] = { ...(anchor as unknown as FaceAnchor) };
+  }
+  return out;
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim()) : [];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function cloneTiles(board: Tile[]): Tile[] {
@@ -426,4 +602,8 @@ function createLinearRoutes(board: Tile[]): MapRoute[] {
 
 function formatIssue(issue: ContentValidationIssue): string {
   return issue.path ? `${issue.path} ${issue.message}` : issue.message;
+}
+
+function zodPath(prefix: string, path: (string | number)[]): string {
+  return path.length ? `${prefix}.${path.join(".")}` : prefix;
 }

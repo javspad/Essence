@@ -53,6 +53,29 @@ assert.equal(builder.maps[0].board[1].eventId, "event-quiz");
 const normalizedEvents = normalizeGameContentEvents(content);
 assert.equal(normalizedEvents.events?.["event-quiz"].activity?.type, "vote");
 
+const migratedCharacters = normalizeContentSchema({
+  ...content,
+  players: [
+    { id: "javi", name: "Javi", groom: true, color: "#f59e0b" },
+    { id: "nico", name: "Nico", color: "#ef4444" },
+  ],
+});
+assert.deepEqual(Object.keys(migratedCharacters.characters ?? {}), ["javi", "nico"]);
+assert.equal(migratedCharacters.characters?.javi.displayName, "Javi");
+assert.equal(migratedCharacters.characters?.javi.groom, true);
+assert.deepEqual(migratedCharacters.characterSets?.default.characterIds, ["javi", "nico"]);
+
+const invalidCharacterSet = validateGameContent({
+  ...content,
+  characters: {
+    p1: { id: "p1", displayName: "P1" },
+  },
+  characterSets: {
+    bad: { id: "bad", name: "Bad set", characterIds: ["missing"] },
+  },
+});
+assert.deepEqual(invalidCharacterSet.errors, ["characterSets.bad.characterIds references missing character missing"]);
+
 let state = createInitialMapBuilderState(content);
 state = mapBuilderReducer(state, { type: "start_route", from: 0 });
 state = mapBuilderReducer(state, { type: "finish_route", to: 2 });

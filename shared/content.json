@@ -178,6 +178,149 @@
       "description": "Tatuaje visible en cuerpo o brazo, según la forma elegida."
     }
   ],
+  "characters": {
+    "javi": {
+      "id": "javi",
+      "displayName": "Javi",
+      "groom": true,
+      "color": "#f59e0b",
+      "faceAnchors": {
+        "leftEye": { "x": 0.42, "y": 0.38, "angle": 0 },
+        "rightEye": { "x": 0.58, "y": 0.38, "angle": 0 },
+        "mouth": { "x": 0.5, "y": 0.62, "angle": 0 }
+      },
+      "bodyAnchors": {
+        "head": { "x": 0.5, "y": 0.16, "angle": 0 },
+        "chest": { "x": 0.5, "y": 0.44, "angle": 0 },
+        "leftHand": { "x": 0.28, "y": 0.46, "angle": 0 },
+        "rightHand": { "x": 0.72, "y": 0.46, "angle": 0 },
+        "back": { "x": 0.5, "y": 0.48, "angle": 0 }
+      },
+      "defaultLoadout": { "cosmeticIds": [] },
+      "defaultTraits": []
+    },
+    "nico": {
+      "id": "nico",
+      "displayName": "Nico",
+      "color": "#ef4444",
+      "faceAnchors": {
+        "leftEye": { "x": 0.42, "y": 0.38, "angle": 0 },
+        "rightEye": { "x": 0.58, "y": 0.38, "angle": 0 },
+        "mouth": { "x": 0.5, "y": 0.62, "angle": 0 }
+      },
+      "bodyAnchors": {
+        "head": { "x": 0.5, "y": 0.16, "angle": 0 },
+        "chest": { "x": 0.5, "y": 0.44, "angle": 0 },
+        "leftHand": { "x": 0.28, "y": 0.46, "angle": 0 },
+        "rightHand": { "x": 0.72, "y": 0.46, "angle": 0 },
+        "back": { "x": 0.5, "y": 0.48, "angle": 0 }
+      },
+      "defaultLoadout": { "cosmeticIds": [] },
+      "defaultTraits": []
+    },
+    "frang": {
+      "id": "frang",
+      "displayName": "FranG",
+      "color": "#3b82f6",
+      "faceAnchors": {
+        "leftEye": { "x": 0.42, "y": 0.38, "angle": 0 },
+        "rightEye": { "x": 0.58, "y": 0.38, "angle": 0 },
+        "mouth": { "x": 0.5, "y": 0.62, "angle": 0 }
+      },
+      "bodyAnchors": {
+        "head": { "x": 0.5, "y": 0.16, "angle": 0 },
+        "chest": { "x": 0.5, "y": 0.44, "angle": 0 },
+        "leftHand": { "x": 0.28, "y": 0.46, "angle": 0 },
+        "rightHand": { "x": 0.72, "y": 0.46, "angle": 0 },
+        "back": { "x": 0.5, "y": 0.48, "angle": 0 }
+      },
+      "defaultLoadout": { "cosmeticIds": [] },
+      "defaultTraits": []
+    },
+    "lucho": {
+      "id": "lucho",
+      "displayName": "Lucho",
+      "color": "#22c55e",
+      "faceAnchors": {
+        "leftEye": { "x": 0.42, "y": 0.38, "angle": 0 },
+        "rightEye": { "x": 0.58, "y": 0.38, "angle": 0 },
+        "mouth": { "x": 0.5, "y": 0.62, "angle": 0 }
+      },
+      "bodyAnchors": {
+        "head": { "x": 0.5, "y": 0.16, "angle": 0 },
+        "chest": { "x": 0.5, "y": 0.44, "angle": 0 },
+        "leftHand": { "x": 0.28, "y": 0.46, "angle": 0 },
+        "rightHand": { "x": 0.72, "y": 0.46, "angle": 0 },
+        "back": { "x": 0.5, "y": 0.48, "angle": 0 }
+      },
+      "defaultLoadout": { "cosmeticIds": [] },
+      "defaultTraits": []
+    },
+    "tincho": {
+      "id": "tincho",
+      "displayName": "Tincho",
+      "color": "#a855f7",
+      "faceAnchors": {
+        "leftEye": { "x": 0.42, "y": 0.38, "angle": 0 },
+        "rightEye": { "x": 0.58, "y": 0.38, "angle": 0 },
+        "mouth": { "x": 0.5, "y": 0.62, "angle": 0 }
+      },
+      "bodyAnchors": {
+        "head": { "x": 0.5, "y": 0.16, "angle": 0 },
+        "chest": { "x": 0.5, "y": 0.44, "angle": 0 },
+        "leftHand": { "x": 0.28, "y": 0.46, "angle": 0 },
+        "rightHand": { "x": 0.72, "y": 0.46, "angle": 0 },
+        "back": { "x": 0.5, "y": 0.48, "angle": 0 }
+      },
+      "defaultLoadout": { "cosmeticIds": [] },
+      "defaultTraits": []
+    },
+    "mati": {
+      "id": "mati",
+      "displayName": "Mati",
+      "color": "#ec4899",
+      "faceAnchors": {
+        "leftEye": { "x": 0.42, "y": 0.38, "angle": 0 },
+        "rightEye": { "x": 0.58, "y": 0.38, "angle": 0 },
+        "mouth": { "x": 0.5, "y": 0.62, "angle": 0 }
+      },
+      "bodyAnchors": {
+        "head": { "x": 0.5, "y": 0.16, "angle": 0 },
+        "chest": { "x": 0.5, "y": 0.44, "angle": 0 },
+        "leftHand": { "x": 0.28, "y": 0.46, "angle": 0 },
+        "rightHand": { "x": 0.72, "y": 0.46, "angle": 0 },
+        "back": { "x": 0.5, "y": 0.48, "angle": 0 }
+      },
+      "defaultLoadout": { "cosmeticIds": [] },
+      "defaultTraits": []
+    },
+    "seba": {
+      "id": "seba",
+      "displayName": "Seba",
+      "color": "#14b8a6",
+      "faceAnchors": {
+        "leftEye": { "x": 0.42, "y": 0.38, "angle": 0 },
+        "rightEye": { "x": 0.58, "y": 0.38, "angle": 0 },
+        "mouth": { "x": 0.5, "y": 0.62, "angle": 0 }
+      },
+      "bodyAnchors": {
+        "head": { "x": 0.5, "y": 0.16, "angle": 0 },
+        "chest": { "x": 0.5, "y": 0.44, "angle": 0 },
+        "leftHand": { "x": 0.28, "y": 0.46, "angle": 0 },
+        "rightHand": { "x": 0.72, "y": 0.46, "angle": 0 },
+        "back": { "x": 0.5, "y": 0.48, "angle": 0 }
+      },
+      "defaultLoadout": { "cosmeticIds": [] },
+      "defaultTraits": []
+    }
+  },
+  "characterSets": {
+    "default": {
+      "id": "default",
+      "name": "Despedida original",
+      "characterIds": ["javi", "nico", "frang", "lucho", "tincho", "mati", "seba"]
+    }
+  },
   "board": [
     {
       "id": 0,

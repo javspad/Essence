@@ -21,10 +21,10 @@ This glossary is a working draft for Essence, based on the planning notes and th
 
 | Term | Definition | Aliases to avoid |
 | --- | --- | --- |
-| **Player Slot** | A preconfigured identity that a joining user can claim. | Player definition, roster entry |
+| **Player Slot** | A claimable position in a **Room** backed by one **Character** from the selected **Character Set**. | Player definition, roster entry |
 | **Player** | A connected or reconnectable participant inside a **Room**. | Character, user |
-| **Character** | The configurable visual/personality profile for a **Player Slot**. | Player, avatar |
-| **Character Set** | A reusable roster of **Characters** available when creating a **Room**. | Player set, roster |
+| **Character** | An authored visual/personality identity profile that can become a **Player Slot** in a **Room**. | Player, avatar |
+| **Character Set** | The reusable roster of **Characters** selected when creating a **Room**. | Player set, roster |
 | **Face Photo** | The image used as the visual face of a **Character**. | Avatar image |
 | **Face Anchor** | A marked position and angle on the **Face Photo** used to attach visuals such as eyes, mouth, glasses, or moustache. | Eye position, mouth position when used generically |
 | **Character Trait** | A default positive or negative **Effect** attached to a **Character**. | Buff, default effect |
@@ -74,7 +74,7 @@ This glossary is a working draft for Essence, based on the planning notes and th
 ## Relationships
 
 - A **Room** runs exactly one **Game** at a time.
-- A **Room** uses one **Character Set**, and each connected **Player** claims one **Player Slot** from that set.
+- A **Room** selects exactly one **Character Set**, and each connected **Player** claims exactly one **Player Slot** from that set.
 - A **Character** belongs to one or more **Character Sets** and can define zero or more **Character Traits**.
 - A **Board Cell** can point to one or more candidate **Events**.
 - An **Event** can have zero or one **Activity** and zero or more **Consequences**.
@@ -89,21 +89,22 @@ This glossary is a working draft for Essence, based on the planning notes and th
 
 - A **Consequence** is immediate: it changes state now, awards/removes **Coins**, moves a **Player**, or asks for a confirmed offline action.
 - An **Effect** has duration: it modifies future interactions for turns, rounds, a trigger window, or the whole **Game**.
+- Joining a **Room** claims an existing **Character** slot; free-text names are reconnection/import compatibility, not a way to invent a new **Character** during play.
 - Decorative board objects are authored as **Map Props** in Content JSON (`mapProps`); legacy runtime/import code may still mirror them through `artifacts` until the implementation rename is safe.
 
 ## Example Dialogue
 
-> **Dev:** "When a **Player** lands on a shop cell, are the things in the shop **Cosmetics** or **Artifacts**?"
+> **Dev:** "When the host creates a **Room**, do players type names or choose **Characters**?"
 >
-> **Domain expert:** "Both can be bought from shop surfaces, but they are different: **Cosmetics** are permanent visual choices, while **Artifacts** are gameplay items used immediately."
+> **Domain expert:** "The host selects a **Character Set**, then each person claims a **Player Slot** backed by one **Character**."
 >
-> **Dev:** "So the mochila de Gaston is an **Artifact** because it applies an **Effect**, and the backpack shown on the character is an **Effect Visual**?"
+> **Dev:** "So if Nico joins, the live **Player** id and board token come from the Nico **Character**?"
 >
-> **Domain expert:** "Exactly. If the same backpack were just visual and had no rule impact, it would be a **Cosmetic**."
+> **Domain expert:** "Exactly. The **Character** is authored content; the **Player** is the runtime participant connected to that slot."
 >
-> **Dev:** "And the trees, houses, and signs in the map builder are **Map Props**, not **Artifacts**?"
+> **Dev:** "Where do face positions and future glasses placement live?"
 >
-> **Domain expert:** "Yes. They decorate the map and should not share the gameplay item language."
+> **Domain expert:** "On the **Character**, through **Face Anchors** and body anchors. Later **Cosmetics** can attach there without changing gameplay."
 
 ## Flagged Ambiguities
 
@@ -112,5 +113,6 @@ This glossary is a working draft for Essence, based on the planning notes and th
 - "Buff", "default effect", and "character effect" overlap. Recommendation: call the reusable rule modifier an **Effect**, and call a default character-attached effect a **Character Trait**.
 - "Consequence" and "Effect" overlap. Recommendation: **Consequence** is immediate; **Effect** has duration or modifies future interactions.
 - "Player", "Character", and "avatar" overlap. Recommendation: **Player** is the live room participant; **Character** is the configured identity/visual profile.
+- "name" and "display name" overlap in character/player code. Recommendation: use **displayName** for authored **Character** content and reserve runtime **Player.name** for the claimed slot's visible name.
 - "Participant" and "affected player" overlap in artifacts and minigames. Recommendation: use **Participant** only for players who submit activity input, **Subject** for players who can be ranked, and **Target Player** for players selected by an item/effect.
 - "Star" was removed from code as a score marker and is not part of product language. Recommendation: do not reintroduce stars as a scoring resource; use the configured **Win Condition** plus **Coins** for ranking context.

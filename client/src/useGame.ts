@@ -16,6 +16,7 @@ interface Session {
   code: string;
   name: string;
   playerId: string;
+  characterId?: string;
 }
 
 function loadSession(): Session | null {
@@ -40,7 +41,7 @@ export function useGame() {
       // Reconexión automática si había sesión.
       const s = loadSession();
       if (s) {
-        socket.emit("room:join", { code: s.code, name: s.name }, (res) => {
+        socket.emit("room:join", { code: s.code, name: s.name, characterId: s.characterId }, (res) => {
           if (res.ok) setPlayerId(res.playerId);
           else localStorage.removeItem(STORAGE_KEY);
         });
@@ -82,26 +83,26 @@ export function useGame() {
     };
   }, []);
 
-  const persist = (code: string, name: string, pid: string) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ code, name, playerId: pid }));
+  const persist = (code: string, name: string, pid: string, characterId?: string) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ code, name, playerId: pid, characterId }));
   };
 
-  const create = useCallback((name: string, roomName: string) => {
+  const create = useCallback((name: string, roomName: string, characterSetId?: string, characterId?: string) => {
     setError(null);
-    socket.emit("room:create", { name, roomName }, (res) => {
+    socket.emit("room:create", { name, roomName, characterSetId, characterId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
-        persist(res.code, name, res.playerId);
+        persist(res.code, name, res.playerId, characterId ?? res.playerId);
       } else setError(res.error);
     });
   }, []);
 
-  const join = useCallback((code: string, name: string) => {
+  const join = useCallback((code: string, name: string, characterId?: string) => {
     setError(null);
-    socket.emit("room:join", { code: code.toUpperCase(), name }, (res) => {
+    socket.emit("room:join", { code: code.toUpperCase(), name, characterId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
-        persist(res.code, name, res.playerId);
+        persist(res.code, name, res.playerId, characterId ?? res.playerId);
       } else setError(res.error);
     });
   }, []);

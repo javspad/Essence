@@ -6,7 +6,8 @@ import { existsSync } from "node:fs";
 import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
-import type { ClientToServerEvents, RoomSummary, ServerToClientEvents } from "@essence/shared";
+import type { CharacterSetSummary, ClientToServerEvents, RoomSummary, ServerToClientEvents } from "@essence/shared";
+import { characterSetSummaries } from "@essence/shared/characters";
 import { content } from "./content.js";
 import { GameRoom } from "./room.js";
 
@@ -26,8 +27,6 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 const rooms = new Map<string, GameRoom>();
 const socketIndex = new Map<string, string>(); // socketId -> code
 
-const MAX_PLAYERS = content.players.length;
-
 function genCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // sin I/O para no confundir
   let code = "";
@@ -42,32 +41,39 @@ function listRooms(): RoomSummary[] {
   const out: RoomSummary[] = [];
   for (const room of rooms.values()) {
     if (room.isEmpty) continue;
-    out.push(room.summary(MAX_PLAYERS));
+    out.push(room.summary());
   }
   return out.sort((a, b) => Number(a.phase !== "lobby") - Number(b.phase !== "lobby"));
 }
 
+function listCharacterSets(): CharacterSetSummary[] {
+  return characterSetSummaries(content);
+}
+
 io.on("connection", (socket) => {
-  socket.on("room:create", ({ name, roomName }, ack) => {
+  socket.on("room:create", ({ name, roomName, characterSetId, characterId }, ack) => {
     const trimmedRoom = (roomName ?? "").trim();
     if (!trimmedRoom) {
       ack({ ok: false, error: "Poné un nombre a la sala" });
       return;
     }
     const code = genCode();
-    const room = new GameRoom(io, code, trimmedRoom.slice(0, 40), content);
+    const room = new GameRoom(io, code, trimmedRoom.slice(0, 40), content, { characterSetId });
     rooms.set(code, room);
     socket.join(code);
     socketIndex.set(socket.id, code);
-    const res = room.join(socket.id, name);
+    const res = room.join(socket.id, name, { characterId });
     if (!res.ok) {
+      socket.leave(code);
+      socketIndex.delete(socket.id);
+      rooms.delete(code);
       ack(res);
       return;
     }
     ack({ ok: true, playerId: res.playerId, code });
   });
 
-  socket.on("room:join", ({ code, name }, ack) => {
+  socket.on("room:join", ({ code, name, characterId }, ack) => {
     const room = rooms.get(code.toUpperCase());
     if (!room) {
       ack({ ok: false, error: "Sala inexistente" });
@@ -75,8 +81,10 @@ io.on("connection", (socket) => {
     }
     socket.join(room.code);
     socketIndex.set(socket.id, room.code);
-    const res = room.join(socket.id, name);
+    const res = room.join(socket.id, name, { characterId });
     if (!res.ok) {
+      socket.leave(room.code);
+      socketIndex.delete(socket.id);
       ack(res);
       return;
     }
@@ -138,6 +146,10 @@ app.get("/health", (_req, res) => res.json({ ok: true, rooms: rooms.size }));
 /** Listado de salas disponibles para la pantalla "unirme". */
 app.get("/api/rooms", (_req, res) => {
   res.json({ rooms: listRooms() });
+});
+
+app.get("/api/character-sets", (_req, res) => {
+  res.json({ characterSets: listCharacterSets() });
 });
 
 const clientDist = resolve(__dirname, "../../client/dist");

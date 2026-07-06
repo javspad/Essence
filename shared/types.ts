@@ -401,13 +401,23 @@ export interface FaceAnchor {
   angle?: number;
 }
 
+export interface CharacterLoadout {
+  cosmeticIds?: string[];
+}
+
 export interface CharacterDef {
   id: string;
-  name: string;
+  /** Canonical authored name shown to players. */
+  displayName: string;
+  /** Legacy/import alias normalized into displayName. */
+  name?: string;
   color?: string;
   groom?: boolean;
   facePhoto?: string;
   faceAnchors?: Record<string, FaceAnchor>;
+  bodyAnchors?: Record<string, FaceAnchor>;
+  defaultLoadout?: CharacterLoadout;
+  /** Legacy/import alias normalized into defaultLoadout.cosmeticIds. */
   defaultCosmetics?: string[];
   defaultTraits?: string[];
 }
@@ -416,6 +426,24 @@ export interface CharacterSetDef {
   id: string;
   name: string;
   characterIds: string[];
+}
+
+export interface CharacterSlot {
+  id: string;
+  displayName: string;
+  color: string;
+  groom: boolean;
+  facePhoto?: string;
+  faceAnchors?: Record<string, FaceAnchor>;
+  bodyAnchors?: Record<string, FaceAnchor>;
+  claimedByPlayerId?: string;
+  connected?: boolean;
+}
+
+export interface CharacterSetSummary {
+  id: string;
+  name: string;
+  characters: CharacterSlot[];
 }
 
 export interface CosmeticDef {
@@ -474,6 +502,7 @@ export interface GameContent {
 
 export interface Player {
   id: string;
+  characterId?: string;
   name: string;
   socketId: string | null; // null = desconectado
   connected: boolean;
@@ -530,6 +559,9 @@ export interface GameState {
   /** nombre legible de la sala, elegido por el host al crearla */
   roomName: string;
   phase: Phase;
+  characterSetId?: string;
+  characterSetName?: string;
+  characterSlots?: CharacterSlot[];
   mapId?: string;
   /** layout del tablero (tipos/labels); el contenido sensible no viaja */
   board: Tile[];
@@ -608,6 +640,9 @@ export interface RoomSummary {
   code: string;
   name: string;
   phase: Phase;
+  characterSetId?: string;
+  characterSetName?: string;
+  characterSlots?: CharacterSlot[];
   /** cantidad de jugadores conectados ahora */
   players: number;
   /** cupo máximo definido por el contenido (content.players.length) */
@@ -622,11 +657,11 @@ export interface RoomSummary {
 
 export interface ClientToServerEvents {
   "room:join": (
-    payload: { code: string; name: string },
+    payload: { code: string; name?: string; characterId?: string },
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   "room:create": (
-    payload: { name: string; roomName: string },
+    payload: { name?: string; roomName: string; characterSetId?: string; characterId?: string },
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   /** El jugador abandona la sala voluntariamente. */

@@ -2,6 +2,7 @@ import type { Server } from "socket.io";
 import type {
   ActiveMinigame,
   AppliedEventAction,
+  CharacterDef,
   ClientToServerEvents,
   EventAction,
   EventActionTarget,
@@ -15,7 +16,7 @@ import type {
   ServerToClientEvents,
   Tile,
 } from "@essence/shared";
-import { characterForPlayerDef } from "@essence/shared/character";
+import { characterDisplayName, characterSlotsForContent, resolveCharacterSet } from "@essence/shared/characters";
 import {
   eventTitle,
   resolveActivityParticipantIds,
@@ -27,6 +28,14 @@ import {
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
+
+interface GameRoomOptions {
+  characterSetId?: string;
+}
+
+interface JoinOptions {
+  characterId?: string;
+}
 
 export class GameRoom {
   readonly code: string;
@@ -42,11 +51,12 @@ export class GameRoom {
   private skippedTurns = new Set<string>();
   private extraTurnPlayerId: string | null = null;
 
-  constructor(io: IO, code: string, name: string, content: GameContent) {
+  constructor(io: IO, code: string, name: string, content: GameContent, options: GameRoomOptions = {}) {
     this.io = io;
     this.code = code;
     this.name = name;
     this.content = content;
+    const characterSet = resolveCharacterSet(content, options.characterSetId);
     const activeMap =
       content.maps?.find((map) => map.id === content.activeMapId) ??
       content.maps?.[0];
@@ -54,6 +64,9 @@ export class GameRoom {
       code,
       roomName: name,
       phase: "lobby",
+      characterSetId: characterSet.id,
+      characterSetName: characterSet.name,
+      characterSlots: characterSlotsForContent(content, characterSet.id),
       mapId: activeMap?.id,
       board: activeMap?.board ?? content.board,
       routes: activeMap?.routes,
@@ -79,36 +92,45 @@ export class GameRoom {
   }
 
   getState(): GameState {
+    this.refreshCharacterSlots();
     return this.state;
   }
 
   /** Resumen público para el listado de salas (/api/rooms). */
-  summary(maxPlayers: number) {
+  summary() {
+    this.refreshCharacterSlots();
     const connected = this.state.players.filter((p) => p.connected);
     const host = this.state.players.find((p) => p.isHost) ?? this.state.players[0];
     return {
       code: this.code,
       name: this.name,
       phase: this.state.phase,
+      characterSetId: this.state.characterSetId,
+      characterSetName: this.state.characterSetName,
+      characterSlots: this.state.characterSlots,
       players: connected.length,
-      maxPlayers,
+      maxPlayers: this.state.characterSlots?.length ?? this.content.players.length,
       host: host?.name ?? null,
     };
   }
 
   broadcast() {
+    this.refreshCharacterSlots();
     this.io.to(this.code).emit("state", this.state);
   }
 
   // --- Lobby ---------------------------------------------------------------
 
-  /** Reclama un slot de jugador por nombre (reconexión) o el primer libre. */
-  join(socketId: string, name: string): { ok: true; playerId: string } | { ok: false; error: string } {
+  /** Reclama un personaje de la sala, con compatibilidad de reconexión por nombre. */
+  join(socketId: string, name = "", options: JoinOptions = {}): { ok: true; playerId: string } | { ok: false; error: string } {
     const trimmed = name.trim();
-    if (!trimmed) return { ok: false, error: "Poné un nombre" };
+    const requestedCharacterId = options.characterId?.trim();
+    if (!trimmed && !requestedCharacterId) return { ok: false, error: "Elegí un personaje" };
 
-    // ¿reconexión? mismo nombre, slot ya existente.
-    const existing = this.state.players.find((p) => p.name.toLowerCase() === trimmed.toLowerCase());
+    const character = this.claimableCharacter(trimmed, requestedCharacterId);
+    if (!character.ok) return character;
+
+    const existing = this.state.players.find((p) => p.id === character.def.id);
     if (existing) {
       existing.socketId = socketId;
       existing.connected = true;
@@ -116,32 +138,9 @@ export class GameRoom {
       return { ok: true, playerId: existing.id };
     }
 
-    // Slot predefinido cuyo nombre coincide (ata rig a la persona real).
-    const defByName = this.content.players.find(
-      (d) => d.name.toLowerCase() === trimmed.toLowerCase() && !this.state.players.some((p) => p.id === d.id)
-    );
-    // Si no, primer slot predefinido libre.
-    const def =
-      defByName ??
-      this.content.players.find((d) => !this.state.players.some((p) => p.id === d.id));
-
-    if (!def) return { ok: false, error: "La sala está llena" };
-
-    const player: Player = {
-      id: def.id,
-      name: defByName ? def.name : trimmed,
-      socketId,
-      connected: true,
-      position: 0,
-      coins: 0,
-      isHost: this.state.players.length === 0,
-      groom: !!def.groom,
-      color: def.color ?? "#888888",
-      character: characterForPlayerDef(def),
-    };
-    this.state.players.push(player);
+    this.state.players.push(this.playerFromCharacter(character.def, socketId));
     this.broadcast();
-    return { ok: true, playerId: player.id };
+    return { ok: true, playerId: character.def.id };
   }
 
   disconnect(socketId: string) {
@@ -174,6 +173,68 @@ export class GameRoom {
 
   private connectedPlayers(): Player[] {
     return this.state.players.filter((p) => p.connected);
+  }
+
+  private refreshCharacterSlots() {
+    this.state.characterSlots = characterSlotsForContent(this.content, this.state.characterSetId, this.state.players);
+  }
+
+  private claimableCharacter(
+    trimmedName: string,
+    requestedCharacterId?: string
+  ): { ok: true; def: CharacterDef } | { ok: false; error: string } {
+    const slots = characterSlotsForContent(this.content, this.state.characterSetId, this.state.players);
+    const slotIds = new Set(slots.map((slot) => slot.id));
+    const characters = Object.fromEntries(
+      slots.map((slot) => [
+        slot.id,
+        {
+          id: slot.id,
+          displayName: slot.displayName,
+          color: slot.color,
+          groom: slot.groom,
+          facePhoto: slot.facePhoto,
+          faceAnchors: slot.faceAnchors,
+          bodyAnchors: slot.bodyAnchors,
+        } satisfies CharacterDef,
+      ])
+    );
+
+    if (requestedCharacterId) {
+      if (!slotIds.has(requestedCharacterId)) return { ok: false, error: "Ese personaje no existe en esta sala" };
+      const existing = this.state.players.find((player) => player.id === requestedCharacterId);
+      if (existing?.connected) return { ok: false, error: "Ese personaje ya está ocupado" };
+      return { ok: true, def: characters[requestedCharacterId] };
+    }
+
+    const existingByName = this.state.players.find((player) => player.name.toLowerCase() === trimmedName.toLowerCase());
+    if (existingByName) {
+      if (existingByName.connected) return { ok: false, error: "Ese personaje ya está ocupado" };
+      return { ok: true, def: characters[existingByName.id] };
+    }
+
+    const byDisplayName = slots.find(
+      (slot) => slot.displayName.toLowerCase() === trimmedName.toLowerCase() && !this.state.players.some((player) => player.id === slot.id)
+    );
+    const firstFree = slots.find((slot) => !this.state.players.some((player) => player.id === slot.id));
+    const slot = byDisplayName ?? firstFree;
+    if (!slot) return { ok: false, error: "La sala está llena" };
+    return { ok: true, def: characters[slot.id] };
+  }
+
+  private playerFromCharacter(character: CharacterDef, socketId: string): Player {
+    return {
+      id: character.id,
+      characterId: character.id,
+      name: characterDisplayName(character),
+      socketId,
+      connected: true,
+      position: 0,
+      coins: 0,
+      isHost: this.state.players.length === 0,
+      groom: Boolean(character.groom),
+      color: character.color ?? "#888888",
+    };
   }
 
   // --- Inicio --------------------------------------------------------------

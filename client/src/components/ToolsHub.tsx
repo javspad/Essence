@@ -2,6 +2,14 @@ import { ArrowRight, Gamepad2, Home, Map, Palette, Sparkles, UserRound, Wrench }
 
 const TOOL_LINKS = [
   {
+    href: "/character-builder",
+    title: "Character builder",
+    eyebrow: "Characters",
+    body: "Identity, face anchors, character sets",
+    icon: UserRound,
+    accent: "amber",
+  },
+  {
     href: "/map-builder",
     title: "Map builder",
     eyebrow: "Maps",
@@ -20,7 +28,6 @@ const TOOL_LINKS = [
 ];
 
 const PLANNED_TOOLS = [
-  { title: "Character builder", eyebrow: "Characters", icon: UserRound },
   { title: "Artifact builder", eyebrow: "Gameplay items", icon: Sparkles },
   { title: "Cosmetic builder", eyebrow: "Visual items", icon: Palette },
 ];
@@ -50,7 +57,9 @@ export default function ToolsHub() {
           const accent =
             tool.accent === "emerald"
               ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-              : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100";
+              : tool.accent === "amber"
+                ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100";
           return (
             <a
               key={tool.href}

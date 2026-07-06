@@ -70,7 +70,7 @@ Every slice must leave the project in a state that can be inspected by a human.
 | Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, and map props. |
 | Event Builder | Existing, with legacy component/file names | `/event-builder` (`/minigame-builder` legacy alias) | Edit events, activities, stories, and consequences. |
 | Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
-| Character Builder | Planned | `/character-builder` | Edit characters, face photos, anchors, sets, and traits. |
+| Character Builder | Existing | `/character-builder` | Edit characters, face photos, anchors, sets, and traits. |
 | Artifact Builder | Planned | `/artifact-builder` | Edit artifact rules, rarity, effects, visuals, animations, and shop simulation. |
 | Cosmetic Builder | Planned | `/cosmetic-builder` | Edit visual-only items and anchor placement. |
 | Shop UI | Planned | In-game button beside roll button and shop-cell flow | Buy/equip cosmetics and roll/buy/use artifacts. |
@@ -85,7 +85,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S0` Result and confirmation fixes | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S1` Domain language and schema hardening | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S-CAM` Map camera and character navigation | [x] | `S1` | `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright board-camera QA; `git diff --check`. |
-| `S2` Character identity and character sets | [ ] | `S-CAM` | Character builder route and room creation with selected set. |
+| `S2` Character identity and character sets | [x] | `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright character flow QA; `git diff --check`. |
 | `S3` Reusable consequences and effects | [ ] | `S1`, `S-CAM` | Effect-engine tests and one configured duration effect. |
 | `S4` Artifact catalog, builder, and shop | [ ] | `S3`, `S-CAM` | Artifact builder route plus in-game shop purchase/use flow. |
 | `S5` Cosmetics and face anchors | [ ] | `S2` | Cosmetic builder route plus anchored preview on multiple characters. |
@@ -276,15 +276,15 @@ Goal: turn fixed player definitions into reusable configurable characters.
 
 Tasks:
 
-- [ ] `S2-01` Add `CharacterDef` with id, display name, color, groom flag, face photo reference, face anchors, default loadout, and default traits.
-- [ ] `S2-02` Add `CharacterSetDef` so room creation can choose which preloaded characters may join.
-- [ ] `S2-03` Update room creation to include a selected character set.
-- [ ] `S2-04` Update join logic so a player claims a character slot from the selected set.
-- [ ] `S2-05` Build a Character Builder for creating/editing characters.
-- [ ] `S2-06` Make the Character Builder reachable from `/character-builder` and the tools surface.
-- [ ] `S2-07` Support downloading and importing the character JSON.
-- [ ] `S2-08` Seed default characters from the current `content.players`.
-- [ ] `S2-09` Add migration compatibility so existing `players` content still works.
+- [x] `S2-01` Add `CharacterDef` with id, display name, color, groom flag, face photo reference, face anchors, default loadout, and default traits.
+- [x] `S2-02` Add `CharacterSetDef` so room creation can choose which preloaded characters may join.
+- [x] `S2-03` Update room creation to include a selected character set.
+- [x] `S2-04` Update join logic so a player claims a character slot from the selected set.
+- [x] `S2-05` Build a Character Builder for creating/editing characters.
+- [x] `S2-06` Make the Character Builder reachable from `/character-builder` and the tools surface.
+- [x] `S2-07` Support downloading and importing the character JSON.
+- [x] `S2-08` Seed default characters from the current `content.players`.
+- [x] `S2-09` Add migration compatibility so existing `players` content still works.
 
 Face anchor fields:
 
@@ -292,6 +292,16 @@ Face anchor fields:
 - `rightEye`: x, y, angle.
 - `mouth`: x, y, angle.
 - Optional body anchors for chest, head, hands, and back.
+
+Verification notes:
+
+- Added shared character contracts and helpers for `CharacterDef`, `CharacterSetDef`, visible room character slots, and character set summaries.
+- `normalizeContentSchema` now migrates legacy `players` into default `characters` and `characterSets`, while Zod-backed character validation checks anchors, set membership, default loadouts, and trait/cosmetic references.
+- Seeded `shared/content.json` with explicit default characters, face/body anchors, empty loadouts, empty traits, and the `Despedida original` character set.
+- Room creation accepts a selected character set; `/api/character-sets` and `/api/rooms` expose set/slot summaries; join/create flows claim a character slot and prevent duplicate connected claims.
+- Added `/character-builder` with character editing, face/body anchor editing, set membership editing, local draft persistence, JSON import/export, and a `/tools` link.
+- Manual QA path: open `/tools`, navigate to `/character-builder`, verify import/export JSON, create a room with `Despedida original`, join as another character slot, start the board, confirm tokens render, and confirm no free-camera control appears.
+- Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright character flow QA with screenshots at `/tmp/essence-s2-character-builder.png` and `/tmp/essence-s2-board.png`; `git diff --check`.
 
 Acceptance:
 

@@ -65,6 +65,28 @@ const content: GameContent = normalizeGameContentEvents({
   ],
 });
 
+const characterSetContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "finish" },
+  ],
+  events: {},
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "legacy-a", name: "Legacy A", color: "#111111" },
+    { id: "legacy-b", name: "Legacy B", color: "#222222" },
+  ],
+  characters: {
+    groom: { id: "groom", displayName: "Groom", groom: true, color: "#f59e0b" },
+    guest: { id: "guest", displayName: "Guest", color: "#38bdf8" },
+  },
+  characterSets: {
+    duo: { id: "duo", name: "Duo", characterIds: ["groom", "guest"] },
+  },
+});
+
 const players = [
   { id: "alice", name: "Alice", socketId: "socket-alice", connected: true, position: 0, coins: 0, isHost: true, groom: false, color: "#f87171" },
   { id: "bob", name: "Bob", socketId: "socket-bob", connected: true, position: 0, coins: 0, isHost: false, groom: false, color: "#60a5fa" },
@@ -162,6 +184,34 @@ const players = [
   for (const player of room.getState().players) {
     assert.equal("stars" in player, false, "players expose coins, not deprecated stars");
   }
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "CHAR", "Characters", characterSetContent, {
+    characterSetId: "duo",
+  } as any);
+
+  assert.deepEqual((room as any).join("socket-guest", "Whoever", { characterId: "guest" }), {
+    ok: true,
+    playerId: "guest",
+  });
+  assert.equal(room.getState().characterSetId, "duo");
+  assert.equal(room.getState().characterSlots?.find((slot) => slot.id === "guest")?.claimedByPlayerId, "guest");
+  assert.equal(room.getState().players.find((player) => player.id === "guest")?.name, "Guest");
+  assert.equal(room.getState().players.find((player) => player.id === "guest")?.color, "#38bdf8");
+
+  assert.deepEqual((room as any).join("socket-steal", "Steal", { characterId: "guest" }), {
+    ok: false,
+    error: "Ese personaje ya está ocupado",
+  });
+
+  assert.deepEqual((room as any).join("socket-groom", "Host", { characterId: "groom" }), {
+    ok: true,
+    playerId: "groom",
+  });
+  assert.equal(room.getState().players.find((player) => player.id === "groom")?.groom, true);
+  assert.deepEqual((room as any).join("socket-full", "Full"), { ok: false, error: "La sala está llena" });
 }
 
 await withRolls([1, 1, 2], async () => {

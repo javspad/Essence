@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, LogIn, RefreshCw, Users, Wrench } from "lucide-react";
-import type { RoomSummary } from "@essence/shared";
+import { ArrowLeft, Check, LogIn, RefreshCw, Users, Wrench } from "lucide-react";
+import type { CharacterSetSummary, CharacterSlot, RoomSummary } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/8bit/input";
 
 interface Props {
   error: string | null;
-  onCreate: (name: string, roomName: string) => void;
-  onJoin: (code: string, name: string) => void;
+  onCreate: (name: string, roomName: string, characterSetId?: string, characterId?: string) => void;
+  onJoin: (code: string, name: string, characterId?: string) => void;
 }
 
 type Mode = "menu" | "create" | "join";
@@ -37,7 +37,7 @@ export default function JoinScreen({ error, onCreate, onJoin }: Props) {
             className="h-14 w-full bg-[#100b1a] text-center text-lg font-black text-[#fff8d6]"
           />
 
-          {mode === "menu" && <MenuView name={name} setMode={setMode} />}
+          {mode === "menu" && <MenuView setMode={setMode} />}
           {mode === "create" && (
             <CreateView name={name} error={error} onCreate={onCreate} onBack={() => setMode("menu")} />
           )}
@@ -52,13 +52,12 @@ export default function JoinScreen({ error, onCreate, onJoin }: Props) {
   );
 }
 
-function MenuView({ name, setMode }: { name: string; setMode: (m: Mode) => void }) {
+function MenuView({ setMode }: { setMode: (m: Mode) => void }) {
   return (
     <div className="flex w-full flex-col gap-4">
       <Button
         type="button"
-        onClick={() => name.trim() && setMode("create")}
-        disabled={!name.trim()}
+        onClick={() => setMode("create")}
         className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
       >
         <Users data-icon="inline-start" />
@@ -66,8 +65,7 @@ function MenuView({ name, setMode }: { name: string; setMode: (m: Mode) => void 
       </Button>
       <Button
         type="button"
-        onClick={() => name.trim() && setMode("join")}
-        disabled={!name.trim()}
+        onClick={() => setMode("join")}
         className="h-12 w-full bg-[#38bdf8] text-sm uppercase text-[#061926]"
       >
         <LogIn data-icon="inline-start" />
@@ -93,10 +91,44 @@ function CreateView({
 }: {
   name: string;
   error: string | null;
-  onCreate: (name: string, roomName: string) => void;
+  onCreate: (name: string, roomName: string, characterSetId?: string, characterId?: string) => void;
   onBack: () => void;
 }) {
   const [roomName, setRoomName] = useState("");
+  const [sets, setSets] = useState<CharacterSetSummary[] | null>(null);
+  const [characterSetId, setCharacterSetId] = useState("");
+  const [characterId, setCharacterId] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/character-sets")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { characterSets: CharacterSetSummary[] }) => {
+        if (cancelled) return;
+        setSets(data.characterSets);
+        const firstSet = data.characterSets[0];
+        if (firstSet) {
+          setCharacterSetId((current) => current || firstSet.id);
+          setCharacterId((current) => current || firstSet.characters[0]?.id || "");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSets([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedSet = sets?.find((set) => set.id === characterSetId) ?? sets?.[0] ?? null;
+  const selectedCharacter = selectedSet?.characters.find((slot) => slot.id === characterId) ?? selectedSet?.characters[0] ?? null;
+  const createName = name.trim() || selectedCharacter?.displayName || "";
+
+  const selectSet = (set: CharacterSetSummary) => {
+    setCharacterSetId(set.id);
+    setCharacterId(set.characters[0]?.id ?? "");
+  };
+
   return (
     <div className="flex w-full flex-col gap-4">
       <p className="text-center text-xs font-bold uppercase text-[#c7bddc]">Nombre de la sala</p>
@@ -108,10 +140,61 @@ function CreateView({
         maxLength={40}
         className="h-14 w-full bg-[#100b1a] text-center text-lg font-black text-[#fff8d6]"
       />
+      <div className="space-y-2">
+        <p className="retro text-[10px] uppercase text-[#c7bddc]">Set de personajes</p>
+        {sets === null ? (
+          <p className="text-center text-sm font-bold text-[#c7bddc]">Cargando personajes...</p>
+        ) : sets.length === 0 ? (
+          <p className="border-2 border-dashed border-[#fff4bf]/20 bg-[#0d1829] p-3 text-center text-sm font-black text-[#fff8d6]">
+            No hay sets disponibles
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {sets.map((set) => (
+              <button
+                key={set.id}
+                type="button"
+                onClick={() => selectSet(set)}
+                className={`grid grid-cols-[1fr_auto] items-center gap-2 border-2 p-3 text-left transition ${
+                  set.id === selectedSet?.id
+                    ? "border-[#f5d547] bg-[#2a210b]"
+                    : "border-[#fff4bf]/20 bg-[#0d1829] hover:border-[#f5d547]/70"
+                }`}
+              >
+                <span className="min-w-0 truncate font-black text-[#fff8d6]">{set.name}</span>
+                <Badge className="border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]">
+                  <Users data-icon="inline-start" />
+                  {set.characters.length}
+                </Badge>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {selectedSet && (
+        <div className="space-y-2">
+          <p className="retro text-[10px] uppercase text-[#c7bddc]">Tu personaje</p>
+          <div className="grid grid-cols-2 gap-2">
+            {selectedSet.characters.map((slot) => (
+              <CharacterSlotButton
+                key={slot.id}
+                slot={slot}
+                selected={slot.id === selectedCharacter?.id}
+                onClick={() => setCharacterId(slot.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
       <Button
         type="button"
-        onClick={() => name.trim() && roomName.trim() && onCreate(name.trim(), roomName.trim())}
-        disabled={!name.trim() || !roomName.trim()}
+        onClick={() =>
+          roomName.trim() &&
+          selectedSet &&
+          selectedCharacter &&
+          onCreate(createName, roomName.trim(), selectedSet.id, selectedCharacter.id)
+        }
+        disabled={!roomName.trim() || !selectedSet || !selectedCharacter}
         className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
       >
         <Users data-icon="inline-start" />
@@ -134,7 +217,7 @@ function JoinView({
 }: {
   name: string;
   error: string | null;
-  onJoin: (code: string, name: string) => void;
+  onJoin: (code: string, name: string, characterId?: string) => void;
   onBack: () => void;
 }) {
   const [rooms, setRooms] = useState<RoomSummary[] | null>(null);
@@ -185,31 +268,57 @@ function JoinView({
         </div>
       ) : (
         <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-          {joinable.map((r) => (
-            <button
-              key={r.code}
-              type="button"
-              onClick={() => name.trim() && onJoin(r.code, name.trim())}
-              disabled={!name.trim()}
-              className="group grid grid-cols-[1fr_auto] items-center gap-3 border-2 border-[#fff4bf]/20 bg-[#0d1829] p-3 text-left transition hover:border-[#f5d547] hover:bg-[#15102a] disabled:opacity-50"
-            >
-              <span className="min-w-0">
-                <span className="flex items-center gap-2">
-                  <span className="truncate font-black text-[#fff8d6]">{r.name}</span>
-                  <Badge className="border-[#fde68a] bg-[#f5d547] px-1.5 py-0.5 text-[8px] uppercase text-[#201507]">
-                    {r.code}
+          {joinable.map((r) => {
+            const slots = r.characterSlots ?? [];
+            const availableSlots = slots.filter((slot) => !slot.claimedByPlayerId);
+            return (
+              <div key={r.code} data-room-code={r.code} className="border-2 border-[#fff4bf]/20 bg-[#0d1829] p-3 text-left">
+                <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate font-black text-[#fff8d6]">{r.name}</span>
+                      <Badge className="border-[#fde68a] bg-[#f5d547] px-1.5 py-0.5 text-[8px] uppercase text-[#201507]">
+                        {r.code}
+                      </Badge>
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] text-[#c7bddc]">
+                      {r.characterSetName ?? "Personajes"} · {r.host ? `Host: ${r.host}` : "Sin host"}
+                    </span>
+                  </span>
+                  <Badge className="border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]">
+                    <Users data-icon="inline-start" />
+                    {r.players}/{r.maxPlayers}
                   </Badge>
-                </span>
-                <span className="mt-0.5 block truncate text-[11px] text-[#c7bddc]">
-                  {r.host ? `Anfitrión: ${r.host}` : "Sin anfitrión"}
-                </span>
-              </span>
-              <Badge className="border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]">
-                <Users data-icon="inline-start" />
-                {r.players}/{r.maxPlayers}
-              </Badge>
-            </button>
-          ))}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {slots.length > 0 ? (
+                    slots.map((slot) => (
+                      <CharacterSlotButton
+                        key={slot.id}
+                        slot={slot}
+                        disabled={Boolean(slot.claimedByPlayerId)}
+                        selected={false}
+                        onClick={() => onJoin(r.code, name.trim() || slot.displayName, slot.id)}
+                      />
+                    ))
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={() => name.trim() && onJoin(r.code, name.trim())}
+                      disabled={!name.trim()}
+                      className="col-span-2 h-10 w-full bg-[#f5d547] text-xs uppercase text-[#201507]"
+                    >
+                      <LogIn data-icon="inline-start" />
+                      Entrar
+                    </Button>
+                  )}
+                </div>
+                {availableSlots.length === 0 && (
+                  <p className="mt-2 text-center text-[10px] font-bold uppercase text-[#fb7185]">Sala completa</p>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -257,5 +366,41 @@ function JoinView({
 
       {error && <p className="animate-pop text-center font-semibold text-[#fb7185]">{error}</p>}
     </div>
+  );
+}
+
+function CharacterSlotButton({
+  slot,
+  selected,
+  disabled = false,
+  onClick,
+}: {
+  slot: CharacterSlot;
+  selected: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`grid min-h-12 grid-cols-[0.9rem_minmax(0,1fr)_auto] items-center gap-2 border-2 px-2 py-2 text-left transition disabled:opacity-45 ${
+        selected ? "border-[#f5d547] bg-[#2a210b]" : "border-[#fff4bf]/20 bg-[#100b1a] hover:border-[#f5d547]/70"
+      }`}
+    >
+      <span className="size-3 rounded-[2px] border border-black/35" style={{ background: slot.color }} />
+      <span className="min-w-0 truncate text-xs font-black text-[#fff8d6]">
+        {slot.displayName}
+        {slot.groom ? " groom" : ""}
+      </span>
+      {selected ? (
+        <Check className="h-4 w-4 text-[#f5d547]" />
+      ) : disabled ? (
+        <span className="text-[9px] font-black uppercase text-[#fb7185]">Ocupado</span>
+      ) : (
+        <span className="text-[9px] font-black uppercase text-[#34d399]">Libre</span>
+      )}
+    </button>
   );
 }

@@ -20,8 +20,7 @@ export default function App() {
     path === "/map-builder" || search.has("mapBuilder");
   const eventBuilderMode =
     path === "/event-builder" || path === "/minigame-builder" || search.has("eventBuilder") || search.has("minigameBuilder");
-  const characterBuilderMode =
-    path === "/character-builder" || search.has("characterBuilder");
+  const characterBuilderMode = path === "/character-builder" || search.has("characterBuilder");
   const toolsMode = path === "/tools";
 
   if (toolsMode) {

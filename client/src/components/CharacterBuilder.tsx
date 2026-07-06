@@ -1,134 +1,130 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Download, Home, Palette, RefreshCw, Save, Sparkles } from "lucide-react";
-import type { CharacterCosmeticSlot, GameContent, Player, PlayerCharacter, PlayerDef, Tile } from "@essence/shared";
-import {
-  DEFAULT_CHARACTER_COSMETICS,
-  characterForPlayerDef,
-  normalizePlayerCharacter,
-} from "@essence/shared/character";
+import { Download, Home, Plus, Trash2, Upload, Wrench } from "lucide-react";
+import type { CharacterDef, CharacterSetDef, FaceAnchor, GameContent } from "@essence/shared";
+import { characterDisplayName } from "@essence/shared/characters";
+import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import seedContent from "@shared/content.json";
-import Board3DShell from "./Board3DShell";
 
+const BASE_CONTENT = normalizeContentSchema(seedContent);
 const STORAGE_KEY = "essence:character-builder:draft:v1";
-const BASE_CONTENT = ensureCharacterContent(seedContent as GameContent);
-
-const PREVIEW_TILES: Tile[] = [
-  { id: 0, type: "start", label: "SET", layout: { x: 0, y: 0 } },
-  { id: 1, type: "finish", label: "GO", layout: { x: 1, y: 0 } },
-];
-
-const COLOR_SWATCHES = ["#f59e0b", "#ef4444", "#3b82f6", "#22c55e", "#a855f7", "#ec4899", "#14b8a6", "#fef3c7"];
-const SLOT_LABELS: Record<CharacterCosmeticSlot, string> = {
-  hat: "Sombreros",
-  mustache: "Bigotes",
-  nipplePiercing: "Piercings",
-  tattoo: "Tatuajes",
-};
+const FACE_ANCHORS = ["leftEye", "rightEye", "mouth"] as const;
+const BODY_ANCHORS = ["head", "chest", "leftHand", "rightHand", "back"] as const;
 
 export default function CharacterBuilder() {
   const [content, setContent] = useState<GameContent>(() => loadInitialContent());
-  const [selectedId, setSelectedId] = useState(() => content.players[0]?.id ?? "");
-  const [saveStatus, setSaveStatus] = useState("");
+  const characterIds = useMemo(() => Object.keys(content.characters ?? {}), [content.characters]);
+  const setIds = useMemo(() => Object.keys(content.characterSets ?? {}), [content.characterSets]);
+  const [selectedCharacterId, setSelectedCharacterId] = useState(characterIds[0] ?? "");
+  const [selectedSetId, setSelectedSetId] = useState(setIds[0] ?? "");
+  const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [importText, setImportText] = useState("");
-  const [devCosmetics, setDevCosmetics] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
 
-  const selected = content.players.find((player) => player.id === selectedId) ?? content.players[0];
-  const selectedCharacter = selected ? normalizePlayerCharacter(selected.character, selected.color) : normalizePlayerCharacter(undefined);
-  const exportJson = useMemo(() => JSON.stringify(ensureCharacterContent(content), null, 2), [content]);
-  const cosmeticCatalog = content.characterCosmetics?.length ? content.characterCosmetics : DEFAULT_CHARACTER_COSMETICS;
-  const previewPlayer = useMemo(() => (selected ? toPreviewPlayer(selected) : null), [selected]);
-  const previewNonce = selected
-    ? [
-        selected.id,
-        selectedCharacter.base.color,
-        selectedCharacter.base.height,
-        selectedCharacter.base.weight,
-        selectedCharacter.base.movement,
-        selectedCharacter.base.limbs.arms,
-        selectedCharacter.base.limbs.legs,
-        Object.values(selectedCharacter.equippedCosmeticIds ?? {}).join(","),
-      ].join(":")
-    : "empty";
+  const selectedCharacter = selectedCharacterId ? content.characters?.[selectedCharacterId] : undefined;
+  const selectedSet = selectedSetId ? content.characterSets?.[selectedSetId] : undefined;
+  const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(content), null, 2), [content]);
 
   useEffect(() => {
-    if (selectedId && content.players.some((player) => player.id === selectedId)) return;
-    setSelectedId(content.players[0]?.id ?? "");
-  }, [content.players, selectedId]);
+    if (selectedCharacterId && characterIds.includes(selectedCharacterId)) return;
+    setSelectedCharacterId(characterIds[0] ?? "");
+  }, [characterIds, selectedCharacterId]);
+
+  useEffect(() => {
+    if (selectedSetId && setIds.includes(selectedSetId)) return;
+    setSelectedSetId(setIds[0] ?? "");
+  }, [selectedSetId, setIds]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, exportJson);
+  }, [exportJson]);
 
   useEffect(() => {
     if (!saveStatus) return;
-    const timeout = window.setTimeout(() => setSaveStatus(""), 1800);
+    const timeout = window.setTimeout(() => setSaveStatus(""), 1600);
     return () => window.clearTimeout(timeout);
   }, [saveStatus]);
 
-  const updateSelected = (updater: (player: PlayerDef) => PlayerDef) => {
-    if (!selected) return;
+  const updateCharacter = (id: string, updater: (character: CharacterDef) => CharacterDef) => {
     setContent((current) => ({
       ...current,
-      players: current.players.map((player) => (player.id === selected.id ? updater(player) : player)),
-    }));
-  };
-
-  const updateCharacter = (updater: (character: PlayerCharacter) => PlayerCharacter) => {
-    updateSelected((player) => {
-      const current = normalizePlayerCharacter(player.character, player.color);
-      const next = updater(current);
-      return {
-        ...player,
-        color: next.base.color,
-        character: next,
-      };
-    });
-  };
-
-  const setBase = <K extends keyof PlayerCharacter["base"]>(key: K, value: PlayerCharacter["base"][K]) => {
-    updateCharacter((character) => ({
-      ...character,
-      base: {
-        ...character.base,
-        [key]: value,
+      characters: {
+        ...(current.characters ?? {}),
+        [id]: updater(current.characters?.[id] ?? emptyCharacter(id)),
       },
     }));
   };
 
-  const setLimbs = (arms: boolean, legs: boolean) => {
-    updateCharacter((character) => ({
-      ...character,
-      base: {
-        ...character.base,
-        limbs: { arms, legs },
+  const updateSet = (id: string, updater: (set: CharacterSetDef) => CharacterSetDef) => {
+    setContent((current) => ({
+      ...current,
+      characterSets: {
+        ...(current.characterSets ?? {}),
+        [id]: updater(current.characterSets?.[id] ?? emptySet(id)),
       },
     }));
   };
 
-  const toggleCosmetic = (slot: CharacterCosmeticSlot, cosmeticId: string) => {
-    if (!devCosmetics) return;
-    updateCharacter((character) => {
-      const equipped = { ...(character.equippedCosmeticIds ?? {}) };
-      equipped[slot] = equipped[slot] === cosmeticId ? null : cosmeticId;
+  const createCharacter = () => {
+    const id = nextId("character", content.characters ?? {});
+    setContent((current) => ({
+      ...current,
+      characters: {
+        ...(current.characters ?? {}),
+        [id]: emptyCharacter(id),
+      },
+    }));
+    setSelectedCharacterId(id);
+    setSaveStatus("Created");
+  };
+
+  const deleteCharacter = (id: string) => {
+    const character = content.characters?.[id];
+    if (!character) return;
+    if (!window.confirm(`Delete "${characterDisplayName(character)}"?`)) return;
+    setContent((current) => {
+      const { [id]: _deleted, ...characters } = current.characters ?? {};
       return {
-        ...character,
-        unlockedCosmeticIds: Array.from(new Set([...(character.unlockedCosmeticIds ?? []), cosmeticId])),
-        equippedCosmeticIds: equipped,
+        ...current,
+        characters,
+        characterSets: Object.fromEntries(
+          Object.entries(current.characterSets ?? {}).map(([setId, set]) => [
+            setId,
+            { ...set, characterIds: set.characterIds.filter((characterId) => characterId !== id) },
+          ])
+        ),
       };
     });
+    setSaveStatus("Deleted");
   };
 
-  const saveDraft = () => {
-    localStorage.setItem(STORAGE_KEY, exportJson);
-    setSaveStatus("Guardado");
+  const createSet = () => {
+    const id = nextId("set", content.characterSets ?? {});
+    setContent((current) => ({
+      ...current,
+      characterSets: {
+        ...(current.characterSets ?? {}),
+        [id]: { id, name: "New character set", characterIds: Object.keys(current.characters ?? {}).slice(0, 4) },
+      },
+    }));
+    setSelectedSetId(id);
+    setSaveStatus("Created");
   };
 
-  const resetDraft = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setContent(BASE_CONTENT);
-    setImportText("");
-    setSaveStatus("Reseteado");
+  const deleteSet = (id: string) => {
+    if (setIds.length <= 1) return;
+    const set = content.characterSets?.[id];
+    if (!set) return;
+    if (!window.confirm(`Delete "${set.name}"?`)) return;
+    setContent((current) => {
+      const { [id]: _deleted, ...characterSets } = current.characterSets ?? {};
+      return { ...current, characterSets };
+    });
+    setSaveStatus("Deleted");
   };
 
   const copyJson = async () => {
     await navigator.clipboard?.writeText(exportJson);
-    setSaveStatus("Copiado");
+    setSaveStatus("Copied");
   };
 
   const downloadJson = () => {
@@ -139,324 +135,548 @@ export default function CharacterBuilder() {
     anchor.download = "content.character-builder.json";
     anchor.click();
     URL.revokeObjectURL(url);
+    setSaveStatus("Downloaded");
   };
 
   const importJson = () => {
     try {
-      const parsed = ensureCharacterContent(JSON.parse(importText) as GameContent);
-      setContent(parsed);
-      setSelectedId(parsed.players[0]?.id ?? "");
+      const parsed = JSON.parse(importText);
+      const next = normalizeContentSchema(isFullContent(parsed) ? parsed : { ...BASE_CONTENT, ...parsed });
+      setContent(next);
+      setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
+      setSelectedSetId(Object.keys(next.characterSets ?? {})[0] ?? "");
       setImportText("");
-      setSaveStatus("Importado");
+      setJsonModalOpen(false);
+      setSaveStatus("Imported");
     } catch {
-      window.alert("JSON inválido");
+      window.alert("JSON invalido");
     }
   };
 
-  if (!selected || !previewPlayer) {
-    return (
-      <main className="flex min-h-full items-center justify-center bg-[#140f1f] p-6 text-[#fff8d6]">
-        No hay jugadores predefinidos en el contenido.
-      </main>
-    );
-  }
+  const resetDraft = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setContent(BASE_CONTENT);
+    setSelectedCharacterId(Object.keys(BASE_CONTENT.characters ?? {})[0] ?? "");
+    setSelectedSetId(Object.keys(BASE_CONTENT.characterSets ?? {})[0] ?? "");
+    setImportText("");
+    setJsonModalOpen(false);
+    setSaveStatus("Reset");
+  };
 
   return (
-    <main className="character-builder-shell min-h-full bg-[#120d1a] text-[#fff8d6]">
-      <header className="sticky top-0 z-30 border-b border-[#ffd166]/20 bg-[#120d1a]/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#38bdf8]">Essence dev tool</p>
-            <h1 className="truncate text-xl font-black text-white">Character builder</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {saveStatus && <span className="rounded-md border border-[#34d399]/35 bg-[#34d399]/12 px-2 py-1 text-xs font-black text-[#a7f3d0]">{saveStatus}</span>}
-            <button type="button" onClick={saveDraft} className="builder-button compact">
-              <Save className="size-3.5" /> Guardar
-            </button>
-            <button type="button" onClick={copyJson} className="builder-button compact">
-              <Copy className="size-3.5" /> Copiar JSON
-            </button>
-            <button type="button" onClick={downloadJson} className="builder-button compact">
-              <Download className="size-3.5" /> Descargar
-            </button>
-            <button type="button" onClick={resetDraft} className="builder-button danger compact">
-              <RefreshCw className="size-3.5" /> Reset
-            </button>
-            <a href="/" className="builder-button compact">
-              <Home className="size-3.5" /> Inicio
-            </a>
-          </div>
+    <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#10151d] text-slate-100">
+      <header className="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#141b25]/98 px-4 py-3 shadow-lg shadow-black/25">
+        <div className="min-w-0">
+          <p className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-amber-200">Essence tools</p>
+          <h1 className="truncate text-xl font-black tracking-normal text-white">Character builder</h1>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button onClick={() => setJsonModalOpen(true)} className="builder-button preview gap-2">
+            <Upload className="h-4 w-4" />
+            Import/export
+          </button>
+          <button onClick={downloadJson} className="builder-button gap-2">
+            <Download className="h-4 w-4" />
+            Download
+          </button>
+          <span className="min-w-16 text-center text-xs font-black text-amber-200">{saveStatus}</span>
+          <a href="/tools" className="builder-button gap-2">
+            <Wrench className="h-4 w-4" />
+            Tools
+          </a>
+          <a href="/" className="builder-button gap-2">
+            <Home className="h-4 w-4" />
+            Home
+          </a>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl gap-4 p-4 lg:grid-cols-[18rem_minmax(0,1fr)_22rem]">
-        <aside className="min-h-0 rounded-lg border border-[#ffd166]/20 bg-[#1b1328] p-3">
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#fbbf24]">Personajes base</p>
-          <div className="grid gap-2">
-            {content.players.map((player) => {
-              const character = normalizePlayerCharacter(player.character, player.color);
-              const active = player.id === selected.id;
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[18rem_minmax(0,1fr)_20rem]">
+        <aside className="flex min-h-0 flex-col border-b border-white/10 bg-[#101722] p-3 lg:border-b-0 lg:border-r">
+          <PanelHeader eyebrow={`${characterIds.length} characters`} title="Characters" action={createCharacter} />
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+            {characterIds.map((id) => {
+              const character = content.characters?.[id];
+              if (!character) return null;
               return (
                 <button
-                  key={player.id}
+                  key={id}
                   type="button"
-                  onClick={() => setSelectedId(player.id)}
-                  className={`flex items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
-                    active ? "border-[#38bdf8] bg-[#38bdf8]/14" : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                  onClick={() => setSelectedCharacterId(id)}
+                  className={`grid grid-cols-[0.9rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border p-2 text-left transition ${
+                    id === selectedCharacterId ? "border-amber-200/70 bg-amber-300/12" : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
                   }`}
                 >
-                  <span className="size-5 rounded-full border border-black/35" style={{ background: character.base.color }} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-black text-white">{player.name}</span>
-                    <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#c7bddc]">{player.id}</span>
-                  </span>
-                  {player.groom && <span className="rounded bg-[#facc15] px-1.5 py-0.5 text-[9px] font-black text-[#2a1a02]">NOVIO</span>}
+                  <span className="size-3 rounded-[2px] border border-black/35" style={{ background: character.color ?? "#888888" }} />
+                  <span className="min-w-0 truncate text-sm font-black text-white">{characterDisplayName(character)}</span>
+                  {character.groom && <span className="text-[0.58rem] font-black uppercase text-amber-200">Groom</span>}
                 </button>
               );
             })}
           </div>
         </aside>
 
-        <section className="grid min-h-[38rem] overflow-hidden rounded-lg border border-[#ffd166]/20 bg-[#21162f] lg:grid-rows-[minmax(20rem,1fr)_auto]">
-          <div className="relative min-h-[22rem] overflow-hidden bg-[#23151f]">
-            <Board3DShell
-              tiles={PREVIEW_TILES}
-              players={[previewPlayer]}
-              activeId={previewPlayer.id}
-              boardLength={2}
-              lastRoll={1}
-              activeMotion={{ playerId: previewPlayer.id, path: [0, 1], kind: "walk", nonce: previewNonce }}
-              interactive={false}
-              className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-15%,#f6d28a_0%,#c66b4c_42%,#432137_100%)]"
+        <section className="min-h-0 overflow-y-auto bg-[#151c27] p-3">
+          {selectedCharacter ? (
+            <CharacterEditor
+              character={selectedCharacter}
+              onChange={(updater) => updateCharacter(selectedCharacter.id, updater)}
+              onDelete={() => deleteCharacter(selectedCharacter.id)}
             />
-            <div className="pointer-events-none absolute left-4 top-4 rounded-md border border-white/15 bg-black/30 px-3 py-2 backdrop-blur">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#fbbf24]">Preview real del token</p>
-              <p className="mt-1 text-sm font-black text-white">{selected.name}</p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 border-t border-white/10 p-4 md:grid-cols-3">
-            <Metric label="Alto" value={`${Math.round(selectedCharacter.base.height * 100)}%`} />
-            <Metric label="Cuerpo" value={`${Math.round(selectedCharacter.base.weight * 100)}%`} />
-            <Metric label="Movimiento" value={selectedCharacter.base.movement === "hop" ? "Saltando" : "Caminando"} />
-          </div>
+          ) : (
+            <EmptyState label="Create a character to start editing." />
+          )}
         </section>
 
-        <aside className="grid gap-4">
-          <section className="rounded-lg border border-[#ffd166]/20 bg-[#1b1328] p-4">
-            <div className="mb-4 flex items-center gap-2">
-              <Palette className="size-4 text-[#38bdf8]" />
-              <h2 className="font-black text-white">Base inicial</h2>
-            </div>
-
-            <label className="block text-xs font-black uppercase tracking-[0.14em] text-[#c7bddc]">Color</label>
-            <div className="mt-2 grid grid-cols-8 gap-2">
-              {COLOR_SWATCHES.map((color) => (
+        <aside className="min-h-0 overflow-y-auto border-t border-white/10 bg-[#101722] p-3 lg:border-l lg:border-t-0">
+          <PanelHeader eyebrow={`${setIds.length} sets`} title="Character sets" action={createSet} />
+          <div className="mt-3 space-y-2">
+            {setIds.map((id) => {
+              const set = content.characterSets?.[id];
+              if (!set) return null;
+              return (
                 <button
-                  key={color}
+                  key={id}
                   type="button"
-                  onClick={() => setBase("color", color)}
-                  className={`aspect-square rounded-md border-2 ${selectedCharacter.base.color === color ? "border-white" : "border-black/35"}`}
-                  style={{ background: color }}
-                  aria-label={`Elegir color ${color}`}
-                />
-              ))}
-            </div>
-            <input
-              type="color"
-              value={selectedCharacter.base.color}
-              onChange={(event) => setBase("color", event.target.value)}
-              className="mt-3 h-10 w-full rounded-md border border-white/15 bg-[#100b1a]"
-            />
-
-            <RangeControl
-              label="Qué tan alto"
-              value={selectedCharacter.base.height}
-              min={0.75}
-              max={1.35}
-              step={0.01}
-              onChange={(value) => setBase("height", value)}
-            />
-            <RangeControl
-              label="Qué tan gordo"
-              value={selectedCharacter.base.weight}
-              min={0.75}
-              max={1.45}
-              step={0.01}
-              onChange={(value) => setBase("weight", value)}
-            />
-
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setBase("movement", "walk")}
-                className={`builder-button ${selectedCharacter.base.movement === "walk" ? "active" : ""}`}
-              >
-                Caminando
-              </button>
-              <button
-                type="button"
-                onClick={() => setBase("movement", "hop")}
-                className={`builder-button ${selectedCharacter.base.movement === "hop" ? "active" : ""}`}
-              >
-                Saltando
-              </button>
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setLimbs(false, false)} className={`builder-button ${!selectedCharacter.base.limbs.arms && !selectedCharacter.base.limbs.legs ? "active" : ""}`}>
-                Solo pelota
-              </button>
-              <button type="button" onClick={() => setLimbs(true, true)} className={`builder-button ${selectedCharacter.base.limbs.arms && selectedCharacter.base.limbs.legs ? "active" : ""}`}>
-                Brazos y piernas
-              </button>
-              <button type="button" onClick={() => setLimbs(true, false)} className={`builder-button ${selectedCharacter.base.limbs.arms && !selectedCharacter.base.limbs.legs ? "active" : ""}`}>
-                Solo brazos
-              </button>
-              <button type="button" onClick={() => setLimbs(false, true)} className={`builder-button ${!selectedCharacter.base.limbs.arms && selectedCharacter.base.limbs.legs ? "active" : ""}`}>
-                Solo piernas
-              </button>
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[#ffd166]/20 bg-[#1b1328] p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="size-4 text-[#f472b6]" />
-                <h2 className="font-black text-white">Cosméticos</h2>
-              </div>
-              <button type="button" onClick={() => setDevCosmetics((value) => !value)} className={`builder-button compact ${devCosmetics ? "active" : ""}`}>
-                Modo dev
-              </button>
-            </div>
-            <p className="mb-3 text-xs font-bold text-[#c7bddc]">
-              En la partida inicial quedan bloqueados. El catálogo ya sale en el JSON para comprarlos después en el mapa.
-            </p>
-            <div className="grid gap-2">
-              {cosmeticCatalog.map((item) => {
-                const equipped = selectedCharacter.equippedCosmeticIds?.[item.slot] === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    disabled={!devCosmetics}
-                    onClick={() => toggleCosmetic(item.slot, item.id)}
-                    className={`rounded-md border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                      equipped ? "border-[#f472b6] bg-[#f472b6]/14" : "border-white/10 bg-white/[0.03] hover:border-white/25"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-black text-white">{item.name}</span>
-                      <span className="rounded bg-[#facc15] px-1.5 py-0.5 text-[10px] font-black text-[#2a1a02]">{item.cost} monedas</span>
+                  onClick={() => setSelectedSetId(id)}
+                  className={`w-full rounded-md border p-3 text-left transition ${
+                    id === selectedSetId ? "border-cyan-200/70 bg-cyan-300/12" : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-black text-white">{set.name}</span>
+                    <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[0.62rem] font-black text-cyan-100">
+                      {set.characterIds.length}
                     </span>
-                    <span className="mt-1 block text-[10px] font-black uppercase tracking-[0.12em] text-[#c7bddc]">{SLOT_LABELS[item.slot]}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[#ffd166]/20 bg-[#1b1328] p-4">
-            <h2 className="font-black text-white">Importar JSON</h2>
-            <textarea
-              value={importText}
-              onChange={(event) => setImportText(event.target.value)}
-              placeholder="Pegá content.json o un export del builder"
-              className="mt-3 h-28 w-full resize-none rounded-md border border-white/15 bg-[#100b1a] p-3 text-xs font-bold text-[#fff8d6] outline-none focus:border-[#38bdf8]"
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {selectedSet && (
+            <SetEditor
+              set={selectedSet}
+              characters={content.characters ?? {}}
+              canDelete={setIds.length > 1}
+              onChange={(updater) => updateSet(selectedSet.id, updater)}
+              onDelete={() => deleteSet(selectedSet.id)}
             />
-            <button type="button" onClick={importJson} disabled={!importText.trim()} className="builder-button mt-2 w-full disabled:opacity-45">
-              Importar
-            </button>
-          </section>
+          )}
         </aside>
       </div>
+
+      {jsonModalOpen && (
+        <JsonModal
+          exportJson={exportJson}
+          importText={importText}
+          setImportText={setImportText}
+          onCopy={copyJson}
+          onDownload={downloadJson}
+          onImport={importJson}
+          onReset={resetDraft}
+          onClose={() => setJsonModalOpen(false)}
+        />
+      )}
     </main>
   );
 }
 
-function RangeControl({
+function CharacterEditor({
+  character,
+  onChange,
+  onDelete,
+}: {
+  character: CharacterDef;
+  onChange: (updater: (character: CharacterDef) => CharacterDef) => void;
+  onDelete: () => void;
+}) {
+  const update = (patch: Partial<CharacterDef>) => onChange((current) => ({ ...current, ...patch }));
+  return (
+    <div className="mx-auto max-w-4xl space-y-3">
+      <section className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-amber-200">Identity</p>
+            <h2 className="mt-1 text-2xl font-black text-white">{characterDisplayName(character)}</h2>
+          </div>
+          <button onClick={onDelete} className="builder-button danger gap-2">
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <TextInput label="Id" value={character.id} disabled onChange={() => undefined} />
+          <TextInput label="Display name" value={character.displayName} onChange={(displayName) => update({ displayName })} />
+          <ColorInput label="Color" value={character.color ?? "#888888"} onChange={(color) => update({ color })} />
+          <TextInput label="Face photo" value={character.facePhoto ?? ""} onChange={(facePhoto) => update({ facePhoto: facePhoto || undefined })} />
+          <label className="mt-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+            <input
+              type="checkbox"
+              checked={Boolean(character.groom)}
+              onChange={(event) => update({ groom: event.target.checked || undefined })}
+              className="size-4 accent-amber-300"
+            />
+            Groom flag
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-cyan-200">Face anchors</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          {FACE_ANCHORS.map((id) => (
+            <AnchorEditor
+              key={id}
+              label={anchorLabel(id)}
+              value={character.faceAnchors?.[id]}
+              onChange={(anchor) =>
+                update({
+                  faceAnchors: {
+                    ...(character.faceAnchors ?? {}),
+                    [id]: anchor,
+                  },
+                })
+              }
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-emerald-200">Body anchors</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {BODY_ANCHORS.map((id) => (
+            <AnchorEditor
+              key={id}
+              label={anchorLabel(id)}
+              value={character.bodyAnchors?.[id]}
+              onChange={(anchor) =>
+                update({
+                  bodyAnchors: {
+                    ...(character.bodyAnchors ?? {}),
+                    [id]: anchor,
+                  },
+                })
+              }
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-fuchsia-200">Defaults</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <TextInput
+            label="Default cosmetics"
+            value={(character.defaultLoadout?.cosmeticIds ?? []).join(", ")}
+            onChange={(value) =>
+              update({
+                defaultLoadout: {
+                  ...(character.defaultLoadout ?? {}),
+                  cosmeticIds: csv(value),
+                },
+                defaultCosmetics: undefined,
+              })
+            }
+          />
+          <TextInput
+            label="Default traits"
+            value={(character.defaultTraits ?? []).join(", ")}
+            onChange={(value) => update({ defaultTraits: csv(value) })}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SetEditor({
+  set,
+  characters,
+  canDelete,
+  onChange,
+  onDelete,
+}: {
+  set: CharacterSetDef;
+  characters: Record<string, CharacterDef>;
+  canDelete: boolean;
+  onChange: (updater: (set: CharacterSetDef) => CharacterSetDef) => void;
+  onDelete: () => void;
+}) {
+  const update = (patch: Partial<CharacterSetDef>) => onChange((current) => ({ ...current, ...patch }));
+  const toggleCharacter = (characterId: string) => {
+    const nextIds = set.characterIds.includes(characterId)
+      ? set.characterIds.filter((id) => id !== characterId)
+      : [...set.characterIds, characterId];
+    update({ characterIds: nextIds });
+  };
+
+  return (
+    <section className="mt-4 rounded-md border border-white/10 bg-white/[0.035] p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[0.58rem] font-black uppercase tracking-[0.16em] text-cyan-200">Selected set</p>
+          <h2 className="truncate text-lg font-black text-white">{set.name}</h2>
+        </div>
+        <button onClick={onDelete} disabled={!canDelete} className="builder-button danger compact gap-2 disabled:opacity-40">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <TextInput label="Set name" value={set.name} onChange={(name) => update({ name })} />
+      <div className="mt-3 space-y-2">
+        {Object.values(characters).map((character) => (
+          <label
+            key={character.id}
+            className="grid grid-cols-[1rem_0.8rem_minmax(0,1fr)] items-center gap-2 rounded-md border border-white/10 bg-black/15 p-2 text-sm font-black text-white"
+          >
+            <input
+              type="checkbox"
+              checked={set.characterIds.includes(character.id)}
+              onChange={() => toggleCharacter(character.id)}
+              className="size-4 accent-cyan-300"
+            />
+            <span className="size-3 rounded-[2px] border border-black/35" style={{ background: character.color ?? "#888888" }} />
+            <span className="min-w-0 truncate">{characterDisplayName(character)}</span>
+          </label>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AnchorEditor({ label, value, onChange }: { label: string; value?: FaceAnchor; onChange: (value: FaceAnchor) => void }) {
+  const anchor = value ?? { x: 0.5, y: 0.5, angle: 0 };
+  const update = (patch: Partial<FaceAnchor>) => onChange({ ...anchor, ...patch });
+  return (
+    <div className="rounded-md border border-white/10 bg-black/15 p-3">
+      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-300">{label}</p>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <NumberInput label="X" value={anchor.x} step={0.01} onChange={(x) => update({ x })} />
+        <NumberInput label="Y" value={anchor.y} step={0.01} onChange={(y) => update({ y })} />
+        <NumberInput label="A" value={anchor.angle ?? 0} step={1} onChange={(angle) => update({ angle })} />
+      </div>
+    </div>
+  );
+}
+
+function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: string; action: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
+        <h2 className="truncate text-base font-black text-white">{title}</h2>
+      </div>
+      <button onClick={action} className="builder-button compact gap-2">
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function TextInput({
   label,
   value,
-  min,
-  max,
-  step,
+  disabled = false,
   onChange,
 }: {
   label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
 }) {
   return (
-    <label className="mt-4 block">
-      <span className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#c7bddc]">
-        {label}
-        <span className="text-[#fff8d6]">{Math.round(value * 100)}%</span>
-      </span>
+    <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+      {label}
       <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="mt-2 w-full accent-[#38bdf8]"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 w-full rounded-md border border-white/15 bg-[#151922] px-3 py-2 text-sm font-bold text-white outline-none focus:border-amber-300 disabled:opacity-55"
       />
     </label>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <div className="rounded-md border border-white/10 bg-black/18 px-3 py-2">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#c7bddc]">{label}</p>
-      <p className="mt-1 text-lg font-black text-white">{value}</p>
+    <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+      {label}
+      <span className="mt-2 grid grid-cols-[3rem_minmax(0,1fr)] gap-2">
+        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full rounded-md border border-white/15 bg-[#151922]" />
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full rounded-md border border-white/15 bg-[#151922] px-3 py-2 text-sm font-bold text-white outline-none focus:border-amber-300"
+        />
+      </span>
+    </label>
+  );
+}
+
+function NumberInput({
+  label,
+  value,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-500">
+      {label}
+      <input
+        type="number"
+        step={step}
+        value={Number.isFinite(value) ? value : 0}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-1 w-full rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-xs font-black text-white outline-none focus:border-cyan-300"
+      />
+    </label>
+  );
+}
+
+function JsonModal({
+  exportJson,
+  importText,
+  setImportText,
+  onCopy,
+  onDownload,
+  onImport,
+  onReset,
+  onClose,
+}: {
+  exportJson: string;
+  importText: string;
+  setImportText: (value: string) => void;
+  onCopy: () => void;
+  onDownload: () => void;
+  onImport: () => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div data-json-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3">
+      <section className="w-[min(58rem,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-white/15 bg-[#121923] text-slate-100 shadow-2xl shadow-black/45">
+        <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-300">Character JSON</h2>
+          <button type="button" onClick={onClose} className="builder-button compact">
+            Close
+          </button>
+        </header>
+        <div className="grid max-h-[calc(100dvh-8rem)] gap-3 overflow-auto p-4 lg:grid-cols-2">
+          <div>
+            <label className="block text-xs font-bold text-slate-300">
+              Import content
+              <textarea
+                value={importText}
+                onChange={(event) => setImportText(event.target.value)}
+                placeholder="Paste a content JSON or a characters/characterSets fragment"
+                className="mt-1 h-72 w-full resize-none rounded-md border border-white/10 bg-[#0d1218] p-2 font-mono text-xs text-slate-100 outline-none focus:border-amber-300"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={onImport} disabled={!importText.trim()} className="builder-button gap-2 disabled:opacity-40">
+                <Upload className="h-4 w-4" />
+                Import
+              </button>
+              <button type="button" onClick={onReset} className="builder-button danger">
+                Reset draft
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-300">
+              Current export
+              <textarea
+                readOnly
+                value={exportJson}
+                className="mt-1 h-72 w-full resize-none rounded-md border border-white/10 bg-black/30 p-2 font-mono text-[0.65rem] text-slate-200"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={onCopy} className="builder-button">
+                Copy
+              </button>
+              <button type="button" onClick={onDownload} className="builder-button gap-2">
+                <Download className="h-4 w-4" />
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-full items-center justify-center">
+      <p className="rounded-md border border-dashed border-white/10 p-4 text-sm font-black text-slate-400">{label}</p>
     </div>
   );
 }
 
 function loadInitialContent(): GameContent {
-  if (typeof localStorage === "undefined") return BASE_CONTENT;
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return BASE_CONTENT;
   try {
-    return ensureCharacterContent(JSON.parse(saved) as GameContent);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return BASE_CONTENT;
+    return normalizeContentSchema(JSON.parse(saved));
   } catch {
     return BASE_CONTENT;
   }
 }
 
-function ensureCharacterContent(content: GameContent): GameContent {
+function emptyCharacter(id: string): CharacterDef {
   return {
-    ...content,
-    characterCosmetics: content.characterCosmetics?.length ? content.characterCosmetics : DEFAULT_CHARACTER_COSMETICS,
-    players: content.players.map((player) => {
-      const character = characterForPlayerDef(player);
-      return {
-        ...player,
-        color: character.base.color,
-        character,
-      };
-    }),
+    id,
+    displayName: "New character",
+    color: "#f5d547",
+    faceAnchors: {
+      leftEye: { x: 0.42, y: 0.38, angle: 0 },
+      rightEye: { x: 0.58, y: 0.38, angle: 0 },
+      mouth: { x: 0.5, y: 0.62, angle: 0 },
+    },
+    bodyAnchors: {
+      head: { x: 0.5, y: 0.16, angle: 0 },
+      chest: { x: 0.5, y: 0.44, angle: 0 },
+      leftHand: { x: 0.28, y: 0.46, angle: 0 },
+      rightHand: { x: 0.72, y: 0.46, angle: 0 },
+      back: { x: 0.5, y: 0.48, angle: 0 },
+    },
+    defaultLoadout: { cosmeticIds: [] },
+    defaultTraits: [],
   };
 }
 
-function toPreviewPlayer(def: PlayerDef): Player {
-  const character = characterForPlayerDef(def);
-  return {
-    id: def.id,
-    name: def.name,
-    socketId: "character-builder",
-    connected: true,
-    position: 1,
-    coins: 0,
-    stars: 0,
-    isHost: false,
-    groom: Boolean(def.groom),
-    color: character.base.color,
-    character,
-  };
+function emptySet(id: string): CharacterSetDef {
+  return { id, name: "New character set", characterIds: [] };
+}
+
+function nextId(prefix: string, records: Record<string, unknown>): string {
+  let index = Object.keys(records).length + 1;
+  let id = `${prefix}-${index}`;
+  while (records[id]) {
+    index += 1;
+    id = `${prefix}-${index}`;
+  }
+  return id;
+}
+
+function csv(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function anchorLabel(id: string): string {
+  return id.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+}
+
+function isFullContent(value: unknown): value is GameContent {
+  return Boolean(value && typeof value === "object" && "board" in value && "players" in value);
 }
