@@ -12,7 +12,7 @@ ok(map, "falta el mapa farewell-loop");
 
 // --- board ids secuenciales, start/finish ---
 const board = map.board;
-ok(board.length >= 40 && board.length <= 48, `cantidad de casilleros fuera de rango: ${board.length}`);
+ok(board.length === 54, `cantidad de casilleros fuera de rango: ${board.length}`);
 board.forEach((t, i) => ok(t.id === i, `id no secuencial en posición ${i}: ${t.id}`));
 const starts = board.filter((t) => t.type === "start");
 const finishes = board.filter((t) => t.type === "finish");

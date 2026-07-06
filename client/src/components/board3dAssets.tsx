@@ -159,6 +159,66 @@ export function makeFaceTexture(initials: string, color: string): CanvasTexture 
   return finishTexture(canvas);
 }
 
+export function makePhotoFaceTexture(image: HTMLImageElement, color: string): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const radius = canvas.width / 2 - 6;
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+  const scale = Math.max(canvas.width / imageWidth, canvas.height / imageHeight);
+  const drawWidth = imageWidth * scale;
+  const drawHeight = imageHeight * scale;
+  const dx = (canvas.width - drawWidth) / 2;
+  const dy = (canvas.height - drawHeight) / 2;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbf3df";
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+  ctx.restore();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  return finishTexture(canvas);
+}
+
+const PLAYER_PHOTO_EXTENSIONS = ["webp", "jpg", "png"] as const;
+const playerPhotoCache = new Map<string, Promise<HTMLImageElement | null>>();
+
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+}
+
+export function loadPlayerPhoto(playerId: string): Promise<HTMLImageElement | null> {
+  const cached = playerPhotoCache.get(playerId);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    for (const extension of PLAYER_PHOTO_EXTENSIONS) {
+      const image = await loadImage(`/avatars/${encodeURIComponent(playerId)}.${extension}`);
+      if (image) return image;
+    }
+    return null;
+  })();
+  playerPhotoCache.set(playerId, promise);
+  return promise;
+}
+
 /**
  * Interior de aula "iluminada" para las ventanas traseras de la escuela: pizarrón
  * verde, un par de siluetas de banco/silla y luz cálida. Se genera UNA sola vez
