@@ -21,7 +21,7 @@ export interface Board3DMapBounds {
   spacing: number;
 }
 
-export type SlotDecal = "ring" | "coin" | "star" | "diamond" | "bolt";
+export type SlotDecal = "ring" | "coin" | "spark" | "diamond" | "bolt";
 
 export interface SlotMaterialStyle {
   top: string;
@@ -70,15 +70,14 @@ const DEFAULT_SLOT_STYLE: SlotMaterialStyle = {
 
 const SLOT_STYLE: Record<TileType, SlotMaterialStyle> = {
   start: { top: "#cbd5e1", side: "#475569", accent: "#f8fafc", emissive: "#e2e8f0", decal: "coin" },
-  finish: { top: "#f59e0b", side: "#92400e", accent: "#fef3c7", emissive: "#fbbf24", decal: "star" },
+  finish: { top: "#f59e0b", side: "#92400e", accent: "#fef3c7", emissive: "#fbbf24", decal: "spark" },
   minigame: { top: "#6366f1", side: "#3730a3", accent: "#c4b5fd", emissive: "#818cf8", decal: "diamond" },
   trivia: { top: "#38bdf8", side: "#0369a1", accent: "#e0f2fe", emissive: "#7dd3fc", decal: "ring" },
   vote: { top: "#8b5cf6", side: "#5b21b6", accent: "#ddd6fe", emissive: "#a78bfa", decal: "diamond" },
   judge: { top: "#ec4899", side: "#9d174d", accent: "#fce7f3", emissive: "#f472b6", decal: "coin" },
   dare: { top: "#f43f5e", side: "#9f1239", accent: "#ffe4e6", emissive: "#fb7185", decal: "bolt" },
   fate: { top: "#d946ef", side: "#86198f", accent: "#fae8ff", emissive: "#e879f9", decal: "diamond" },
-  groom: { top: "#facc15", side: "#a16207", accent: "#fef9c3", emissive: "#fde047", decal: "star" },
-  star: { top: "#fde047", side: "#ca8a04", accent: "#fefce8", emissive: "#facc15", decal: "star" },
+  groom: { top: "#facc15", side: "#a16207", accent: "#fef9c3", emissive: "#fde047", decal: "spark" },
   reaction: { top: "#22c55e", side: "#166534", accent: "#dcfce7", emissive: "#4ade80", decal: "bolt" },
   estimate: { top: "#06b6d4", side: "#0e7490", accent: "#cffafe", emissive: "#22d3ee", decal: "ring" },
 };

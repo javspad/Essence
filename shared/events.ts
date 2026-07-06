@@ -34,7 +34,7 @@ export const EVENT_ACTIVITY_TYPES: EventActivityType[] = [
   "redlight",
 ];
 
-const LEGACY_MINIGAME_TILE_TYPES = new Set(["minigame", "trivia", "vote", "judge", "groom", "star", "reaction", "estimate"]);
+const LEGACY_MINIGAME_TILE_TYPES = new Set(["minigame", "trivia", "vote", "judge", "groom", "reaction", "estimate"]);
 
 export function normalizeGameContentEvents(content: GameContent): GameContent {
   const events: Record<string, GameEventDef> = Object.fromEntries(

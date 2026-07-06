@@ -28,7 +28,6 @@ export class GameRoom {
   private state: GameState;
   private pendingResults = new Map<string, MinigameResult>();
   private pendingEvent: ResolvedGameEvent | null = null;
-  private awardsStar = false;
   private resolving = false;
   private skippedTurns = new Set<string>();
   private extraTurnPlayerId: string | null = null;
@@ -125,7 +124,6 @@ export class GameRoom {
       connected: true,
       position: 0,
       coins: 0,
-      stars: 0,
       isHost: this.state.players.length === 0,
       groom: !!def.groom,
       color: def.color ?? "#888888",
@@ -192,7 +190,7 @@ export class GameRoom {
 
     // Llegó al final → fin del juego.
     if (tile.type === "finish") {
-      this.endGame();
+      this.endGame(active.id);
       return;
     }
     this.triggerTile(tile, active);
@@ -201,7 +199,6 @@ export class GameRoom {
   private triggerTile(tile: Tile, active: Player) {
     const event = resolveTileEventForPlayer(this.content, tile, active);
     if (event) {
-      this.awardsStar = tile.type === "star";
       this.startEvent(event, active);
       return;
     }
@@ -350,25 +347,11 @@ export class GameRoom {
             ...this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId),
           ]
         : [];
-      if (this.awardsStar && reveal.ranking[0]) {
-        const winner = this.state.players.find((x) => x.id === reveal.ranking[0]);
-        if (winner) {
-          winner.stars += 1;
-          actions.push({
-            type: "stars",
-            targetPlayerIds: [winner.id],
-            text: `${winner.name} gana una estrella`,
-            value: 1,
-          });
-        }
-      }
-
       this.state.reveal = { ...reveal, actions };
       this.state.activeMinigame = null;
       this.state.phase = "reveal";
       this.pendingResults.clear();
       this.pendingEvent = null;
-      this.awardsStar = false;
       this.broadcast();
       this.io.to(this.code).emit("minigame:reveal", this.state.reveal);
     } catch (err) {
@@ -394,6 +377,11 @@ export class GameRoom {
   }
 
   private advanceTurn() {
+    if (this.state.winnerId) {
+      this.endGame(this.state.winnerId);
+      return;
+    }
+
     this.state.reveal = null;
     this.state.activeEvent = null;
     this.pendingEvent = null;
@@ -481,18 +469,12 @@ export class GameRoom {
       }
       return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, this.state.players, action.value, "moneda"), value: action.value };
     }
-    if (action.type === "stars") {
-      for (const id of targetPlayerIds) {
-        const player = this.state.players.find((p) => p.id === id);
-        if (player) player.stars = Math.max(0, player.stars + action.value);
-      }
-      return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, this.state.players, action.value, "estrella"), value: action.value };
-    }
     if (action.type === "move") {
       for (const id of targetPlayerIds) {
         const player = this.state.players.find((p) => p.id === id);
         if (player) player.position = clamp(player.position + action.delta, 0, this.state.boardLength - 1);
       }
+      this.recordFinishWinner(targetPlayerIds);
       return { type: action.type, targetPlayerIds, text: action.text ?? moveSummary(targetPlayerIds, this.state.players, action.delta), value: action.delta };
     }
     if (action.type === "moveTo") {
@@ -500,6 +482,7 @@ export class GameRoom {
         const player = this.state.players.find((p) => p.id === id);
         if (player) player.position = clamp(action.tileId, 0, this.state.boardLength - 1);
       }
+      this.recordFinishWinner(targetPlayerIds);
       return { type: action.type, targetPlayerIds, text: action.text ?? `Mover a casillero ${action.tileId}`, tileId: action.tileId };
     }
     if (action.type === "skipTurn") {
@@ -519,15 +502,22 @@ export class GameRoom {
     });
   }
 
-  private endGame() {
-    const ranked = [...this.state.players].sort(
-      (a, b) => b.stars - a.stars || b.coins - a.coins
-    );
-    this.state.winnerId = ranked[0]?.id ?? null;
+  private endGame(winnerId: string) {
+    this.state.winnerId = winnerId;
     this.state.phase = "finished";
     this.state.activeMinigame = null;
     this.state.activeEvent = null;
+    this.state.reveal = null;
     this.broadcast();
+  }
+
+  private recordFinishWinner(playerIds: string[]) {
+    if (this.state.winnerId) return;
+    const finish = this.state.boardLength - 1;
+    const winner = playerIds
+      .map((id) => this.state.players.find((player) => player.id === id))
+      .find((player) => player && player.position >= finish);
+    if (winner) this.state.winnerId = winner.id;
   }
 }
 

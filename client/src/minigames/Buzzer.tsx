@@ -8,7 +8,7 @@ export default function Buzzer({ content, onFinish, onAction }: MinigameProps) {
   const startRef = useRef<number>(performance.now());
   const [answered, setAnswered] = useState(false);
   const question = content?.question ?? content?.prompt ?? "Elegí la respuesta correcta";
-  const options = Array.isArray(content?.options) && content.options.length
+  const options: string[] = Array.isArray(content?.options) && content.options.length
     ? content.options.map((option: unknown) => String(option))
     : ["Opción A", "Opción B", "Opción C"];
   const answer = typeof content?.answer === "number" ? content.answer : 0;

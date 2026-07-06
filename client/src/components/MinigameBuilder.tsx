@@ -1119,9 +1119,6 @@ function previewAction(action: EventAction, targetPlayerIds: string[], players: 
   if (action.type === "coins") {
     return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, players, action.value, "moneda"), value: action.value };
   }
-  if (action.type === "stars") {
-    return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, players, action.value, "estrella"), value: action.value };
-  }
   if (action.type === "move") {
     return { type: action.type, targetPlayerIds, text: action.text ?? moveSummary(targetPlayerIds, players, action.delta), value: action.delta };
   }
@@ -1451,7 +1448,6 @@ function toPlayer(def: GameContent["players"][number], index = 0): Player {
     connected: true,
     position: 0,
     coins: 0,
-    stars: 0,
     isHost: index === 0,
     groom: Boolean(def.groom),
     color: def.color ?? "#94a3b8",

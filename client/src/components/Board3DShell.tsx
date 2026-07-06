@@ -821,7 +821,7 @@ function SlotDecalMesh({
     <meshStandardMaterial color={color} emissive={color} emissiveIntensity={active ? 0.16 : 0.04} transparent opacity={opacity} side={DoubleSide} />
   );
 
-  if (decal === "star") {
+  if (decal === "spark") {
     return (
       <mesh position={[0, y, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 10]}>
         <circleGeometry args={[0.29, 5]} />

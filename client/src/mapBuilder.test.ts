@@ -93,7 +93,7 @@ const overrideContent = normalizeGameContentEvents({
     },
   },
 });
-const resolvedOverride = resolveEventForPlayer(overrideContent, "custom-event", { id: "p1", name: "P1" });
+const resolvedOverride = resolveEventForPlayer(overrideContent, "custom-event", { id: "p1" });
 assert.equal(resolvedOverride?.story.prompt, "P1 prompt");
 assert.equal(resolvedOverride?.activity?.type, "selfTap");
 assert.deepEqual(resolvedOverride?.activity?.content, { prompt: "P1 activity prompt" });

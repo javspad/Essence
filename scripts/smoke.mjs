@@ -1,4 +1,5 @@
 import { io } from "socket.io-client";
+import { rankPlayersForFinishedGame } from "@essence/shared/ranking";
 
 const URL = process.env.URL || "http://localhost:3055";
 const names = ["Javi", "Nico", "FranG"];
@@ -77,10 +78,10 @@ function makeClient(name, isCreator) {
       setTimeout(() => socket.emit("turn:next"), 120);
     }
     if (state.phase === "finished" && amHost) {
-      const ranked = [...state.players].sort((a, b) => b.stars - a.stars || b.coins - a.coins);
+      const ranked = rankPlayersForFinishedGame(state.players, state.winnerId);
       log("\n=== FIN ===");
       ranked.forEach((p, i) =>
-        log(`${i + 1}. ${p.name}  ⭐${p.stars} 🪙${p.coins}`)
+        log(`${i + 1}. ${p.name}  cell ${p.position} 🪙${p.coins}`)
       );
       log(`\nReveals jugados: ${reveals.length}`);
       // chequeo de rig

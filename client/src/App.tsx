@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/8bit/badge";
 
 const GameScene3D = lazy(() => import("./components/GameScene3D"));
 const MapBuilder = lazy(() => import("./components/MapBuilder"));
-const MinigameBuilder = lazy(() => import("./components/MinigameBuilder"));
+const EventBuilder = lazy(() => import("./components/MinigameBuilder"));
 const CharacterBuilder = lazy(() => import("./components/CharacterBuilder"));
 
 export default function App() {
@@ -17,8 +17,8 @@ export default function App() {
   const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const builderMode =
     path === "/map-builder" || search.has("mapBuilder");
-  const minigameBuilderMode =
-    path === "/minigame-builder" || search.has("minigameBuilder");
+  const eventBuilderMode =
+    path === "/event-builder" || path === "/minigame-builder" || search.has("eventBuilder") || search.has("minigameBuilder");
   const characterBuilderMode =
     path === "/character-builder" || search.has("characterBuilder");
 
@@ -30,10 +30,10 @@ export default function App() {
     );
   }
 
-  if (minigameBuilderMode) {
+  if (eventBuilderMode) {
     return (
-      <Suspense fallback={<SceneLoading code="MINI" />}>
-        <MinigameBuilder />
+      <Suspense fallback={<SceneLoading code="EVNT" />}>
+        <EventBuilder />
       </Suspense>
     );
   }

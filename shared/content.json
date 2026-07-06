@@ -271,7 +271,7 @@
     },
     {
       "id": 9,
-      "type": "star",
+      "type": "minigame",
       "minigameId": "whack-amigos",
       "layout": {
         "x": 2,
@@ -383,7 +383,7 @@
     },
     {
       "id": 20,
-      "type": "star",
+      "type": "minigame",
       "minigameId": "whack-amigos",
       "layout": {
         "x": 6,
@@ -731,7 +731,7 @@
         },
         {
           "id": 6,
-          "type": "star",
+          "type": "minigame",
           "minigameId": "whack-amigos",
           "layout": {
             "x": 5.7,
@@ -901,7 +901,7 @@
         },
         {
           "id": 23,
-          "type": "star",
+          "type": "minigame",
           "minigameId": "whack-amigos",
           "layout": {
             "x": 7.5,
@@ -1041,7 +1041,7 @@
         },
         {
           "id": 37,
-          "type": "star",
+          "type": "minigame",
           "minigameId": "whack-amigos",
           "layout": {
             "x": 5.7,
@@ -1141,7 +1141,7 @@
         },
         {
           "id": 47,
-          "type": "star",
+          "type": "minigame",
           "minigameId": "whack-amigos",
           "layout": {
             "x": 16.5,

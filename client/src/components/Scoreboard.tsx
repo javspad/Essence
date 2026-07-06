@@ -1,9 +1,10 @@
 import type { GameState } from "@essence/shared";
+import { rankPlayersByProgress } from "@essence/shared/ranking";
 import { Badge } from "@/components/ui/8bit/badge";
 import { cn } from "@/lib/utils";
 
 export default function Scoreboard({ state, activeId }: { state: GameState; activeId?: string }) {
-  const sorted = [...state.players].sort((a, b) => b.stars - a.stars || b.coins - a.coins);
+  const sorted = rankPlayersByProgress(state.players);
   return (
     <div className="flex w-full flex-wrap justify-center gap-3">
       {sorted.map((p) => (
@@ -19,7 +20,6 @@ export default function Scoreboard({ state, activeId }: { state: GameState; acti
           <span className="font-semibold">{p.name}</span>
           {p.groom && <span>🤵</span>}
           <span className="ml-2 font-bold">🪙{p.coins}</span>
-          {p.stars > 0 && <span className="text-yellow-300 font-bold">⭐{p.stars}</span>}
         </Badge>
       ))}
     </div>

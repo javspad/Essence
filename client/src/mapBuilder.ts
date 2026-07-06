@@ -96,7 +96,6 @@ export const TILE_TYPES: TileType[] = [
   "dare",
   "fate",
   "groom",
-  "star",
   "reaction",
   "estimate",
 ];
@@ -504,7 +503,7 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
             ],
           };
         },
-        "Artefacto agregado",
+        "Map prop agregado",
         () => ({ kind: "artifact", id: createdId })
       );
     }
@@ -519,7 +518,7 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
               : artifact
           ),
         }),
-        "Artefacto movido"
+        "Map prop movido"
       );
     case "update_artifact":
       return updateActiveMapState(
@@ -530,7 +529,7 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
             artifact.id === event.id ? { ...artifact, ...event.patch } : artifact
           ),
         }),
-        "Artefacto actualizado"
+        "Map prop actualizado"
       );
     case "add_terrace": {
       let createdId = "";
@@ -732,7 +731,7 @@ function normalizeTilePatch(tile: Tile, patch: Partial<Tile>): Tile {
 export function eventFieldForType(type: TileType, field: "minigame" | "dare" | "fate"): boolean {
   if (field === "dare") return type === "dare";
   if (field === "fate") return type === "fate";
-  return ["minigame", "trivia", "vote", "judge", "groom", "star", "reaction", "estimate"].includes(type);
+  return ["minigame", "trivia", "vote", "judge", "groom", "reaction", "estimate"].includes(type);
 }
 
 function createLinearRoutes(board: Tile[]): MapRoute[] {
@@ -1071,7 +1070,7 @@ function toolMessage(tool: BuilderTool): string {
     select: "Seleccioná o arrastrá elementos",
     cell: "Click en el mapa para crear casilleros",
     route: "Click en dos casilleros para conectarlos",
-    artifact: "Click en el mapa para colocar artefactos",
+    artifact: "Click en el mapa para colocar map props",
     terrace: "Arrastrá en el lienzo para dibujar mesetas de terreno",
     json: "Importá o exportá JSON",
   };
@@ -1083,5 +1082,5 @@ function selectionMessage(selection: BuilderSelection): string {
   if (selection.kind === "node") return `Casillero ${selection.id} seleccionado`;
   if (selection.kind === "route") return `Ruta ${selection.id} seleccionada`;
   if (selection.kind === "terrace") return `Meseta ${selection.id} seleccionada`;
-  return `Artefacto ${selection.id} seleccionado`;
+  return `Map prop ${selection.id} seleccionado`;
 }

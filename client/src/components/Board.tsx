@@ -15,7 +15,6 @@ const TILE_ICON: Record<TileType, string> = {
   dare: "🍻",
   fate: "🃏",
   groom: "🤵",
-  star: "⭐",
   reaction: "⚡",
   estimate: "🎯",
 };
@@ -30,7 +29,6 @@ const TILE_COLOR: Record<TileType, string> = {
   dare: "from-rose-300/50 to-rose-800/60",
   fate: "from-fuchsia-300/50 to-fuchsia-800/60",
   groom: "from-amber-200/60 to-yellow-700/70",
-  star: "from-yellow-200/70 to-yellow-600/70",
   reaction: "from-lime-300/60 to-emerald-700/60",
   estimate: "from-cyan-300/60 to-blue-700/60",
 };

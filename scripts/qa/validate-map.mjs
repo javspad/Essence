@@ -1,7 +1,11 @@
 // Valida invariantes del mapa farewell-loop en shared/content.json
 import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const json = JSON.parse(readFileSync("/Users/javi/Code/Essence/shared/content.json", "utf8"));
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const contentPath = resolve(__dirname, "../../shared/content.json");
+const json = JSON.parse(readFileSync(contentPath, "utf8"));
 const map = json.maps.find((m) => m.id === "farewell-loop");
 const errors = [];
 const ok = (cond, msg) => { if (!cond) errors.push(msg); };
@@ -45,13 +49,13 @@ for (let i = 0; i < board.length - 1; i++) {
   ok(map.routes.some((r) => r.from === i && r.to === i + 1), `falta ruta ${i}->${i + 1}`);
 }
 
-// --- artefactos ---
+// --- map props ---
 const assetIds = new Set(json.assetCatalog.map((a) => a.id));
 const artIds = new Set();
 for (const a of map.artifacts) {
-  ok(!artIds.has(a.id), `artefacto duplicado ${a.id}`);
+  ok(!artIds.has(a.id), `map prop duplicado ${a.id}`);
   artIds.add(a.id);
-  ok(assetIds.has(a.assetId), `artefacto ${a.id}: assetId inexistente ${a.assetId}`);
+  ok(assetIds.has(a.assetId), `map prop ${a.id}: assetId inexistente ${a.assetId}`);
 }
 
 // --- catálogo de assets: 13 nuevos + kinds válidos + sin duplicados ---
@@ -94,8 +98,8 @@ if (errors.length) {
   process.exit(1);
 }
 console.log("VALIDACIÓN OK");
-console.log("cells:", board.length, "| routes:", map.routes.length, "| artifacts:", map.artifacts.length, "| terraces:", map.terraces.length, "| assets:", json.assetCatalog.length);
+console.log("cells:", board.length, "| routes:", map.routes.length, "| map props:", map.artifacts.length, "| terraces:", map.terraces.length, "| assets:", json.assetCatalog.length);
 console.log("tipos:", JSON.stringify(typeCount));
-console.log("artefactos:", JSON.stringify(artCount));
+console.log("map props:", JSON.stringify(artCount));
 console.log("terrazas:", map.terraces.map((t) => `${t.id}@${t.elevation}${t.surface ? "/" + t.surface : ""}${t.color ? "/" + t.color : ""}`).join(", "));
 console.log("elevación por casillero:", board.map((t) => `${t.id}:${elevationAt(t.layout.x, t.layout.y)}`).join(" "));

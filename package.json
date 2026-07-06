@@ -14,7 +14,7 @@
     "dev:client": "npm run dev -w client",
     "build": "npm run build -w client",
     "start": "npm run start -w server",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "tsx scripts/smoke.mjs"
   },
   "devDependencies": {
     "@types/three": "^0.171.0",

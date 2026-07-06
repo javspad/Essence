@@ -17,7 +17,6 @@ export type TileType =
   | "dare"
   | "fate"
   | "groom"
-  | "star"
   | "reaction"
   | "estimate";
 
@@ -33,7 +32,7 @@ export interface TileLayout {
 export interface Tile {
   id: number;
   type: TileType;
-  /** id dentro del catálogo de minijuegos (para minigame/trivia/vote/judge/groom/star) */
+  /** id dentro del catálogo de minijuegos (para minigame/trivia/vote/judge/groom) */
   minigameId?: string;
   /** id dentro del catálogo de dares */
   dareId?: string;
@@ -287,7 +286,6 @@ export type EventActionTarget =
 export type EventAction =
   | { type: "text"; text: string; target?: EventActionTarget }
   | { type: "coins"; value: number; target?: EventActionTarget; text?: string }
-  | { type: "stars"; value: number; target?: EventActionTarget; text?: string }
   | { type: "move"; delta: number; target?: EventActionTarget; text?: string }
   | { type: "moveTo"; tileId: number; target?: EventActionTarget; text?: string }
   | { type: "skipTurn"; target?: EventActionTarget; text?: string }
@@ -399,7 +397,6 @@ export interface Player {
   connected: boolean;
   position: number;
   coins: number;
-  stars: number;
   isHost: boolean;
   groom: boolean;
   color: string;

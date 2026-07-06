@@ -1,11 +1,11 @@
 import type { GameState } from "@essence/shared";
+import { rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
-import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 
 export default function Victory({ state, onLeave }: { state: GameState; onLeave: () => void }) {
-  const ranked = [...state.players].sort((a, b) => b.stars - a.stars || b.coins - a.coins);
+  const ranked = rankPlayersForFinishedGame(state.players, state.winnerId);
   const winner = state.players.find((p) => p.id === state.winnerId) ?? ranked[0];
 
   return (
@@ -17,9 +17,7 @@ export default function Victory({ state, onLeave }: { state: GameState; onLeave:
           <CardTitle font="normal" className="text-4xl font-black" style={{ color: winner?.color }}>
             {winner?.name}
           </CardTitle>
-          <p className="font-bold text-[#f5d547]">
-            ⭐{winner?.stars} · 🪙{winner?.coins}
-          </p>
+          <p className="font-bold text-[#f5d547]">Llegó al final · 🪙{winner?.coins}</p>
         </CardHeader>
 
         <CardContent font="normal" className="flex flex-col gap-5">
@@ -33,7 +31,7 @@ export default function Victory({ state, onLeave }: { state: GameState; onLeave:
                 <span className="size-3 rounded-[2px] border border-black/35" style={{ background: p.color }} />
                 <span className="min-w-0 truncate font-semibold">{p.name}</span>
                 <span className="flex items-center gap-2 text-xs font-black text-[#fff4bf]">
-                  <Badge className="border-[#fde68a] bg-[#f5d547] px-2 py-1 text-[9px] text-[#201507]">⭐{p.stars}</Badge>
+                  <span>Casillero {p.position}</span>
                   <span>🪙{p.coins}</span>
                 </span>
               </div>

@@ -61,7 +61,6 @@ const TILE_LABEL: Record<TileType, string> = {
   dare: "Prenda",
   fate: "Destino",
   groom: "Novio",
-  star: "Estrella",
   reaction: "Reacción",
   estimate: "Estimación",
 };
@@ -76,7 +75,6 @@ const TILE_COLOR: Record<TileType, string> = {
   dare: "#f43f5e",
   fate: "#d946ef",
   groom: "#facc15",
-  star: "#fde047",
   reaction: "#22c55e",
   estimate: "#06b6d4",
 };
@@ -150,7 +148,7 @@ const TOOL_CONFIG: { tool: BuilderTool; icon: string; label: string; title: stri
   { tool: "select", icon: "⌖", label: "Select", title: "Seleccionar y arrastrar" },
   { tool: "cell", icon: "●", label: "Cells", title: "Crear casilleros" },
   { tool: "route", icon: "⇄", label: "Routes", title: "Conectar casilleros" },
-  { tool: "artifact", icon: "◆", label: "Props", title: "Colocar artefactos" },
+  { tool: "artifact", icon: "◆", label: "Props", title: "Colocar map props" },
   { tool: "terrace", icon: "⛰", label: "Terreno", title: "Dibujar mesetas de terreno" },
 ];
 
@@ -185,7 +183,6 @@ export default function MapBuilder() {
         connected: true,
         position: previewPosition,
         coins: 0,
-        stars: 0,
         isHost: false,
         groom: false,
         color: testMode ? "#34d399" : "#fef3c7",
@@ -862,7 +859,8 @@ function MapCanvas({
     if (drag.current.kind === "node") dispatch({ type: "move_node", id: drag.current.id, point });
     if (drag.current.kind === "artifact") dispatch({ type: "move_artifact", id: drag.current.id, point });
     if (drag.current.kind === "artifact-scale") {
-      const artifact = map.artifacts.find((candidate) => candidate.id === drag.current?.id);
+      const target = drag.current;
+      const artifact = map.artifacts.find((candidate) => candidate.id === target.id);
       const asset = state.content.assetCatalog.find((candidate) => candidate.id === artifact?.assetId);
       if (artifact) {
         const dx = point.x - artifact.position.x;
@@ -873,7 +871,8 @@ function MapCanvas({
       }
     }
     if (drag.current.kind === "artifact-rotate") {
-      const artifact = map.artifacts.find((candidate) => candidate.id === drag.current?.id);
+      const target = drag.current;
+      const artifact = map.artifacts.find((candidate) => candidate.id === target.id);
       if (artifact) {
         const dx = point.x - artifact.position.x;
         const dy = point.y - artifact.position.y;
@@ -1788,7 +1787,7 @@ function RouteInspector({ route, board, dispatch }: { route: MapRoute; board: Ti
 function ArtifactInspector({ artifact, assetCatalog, dispatch }: { artifact: MapArtifact; assetCatalog: MapAssetDef[]; dispatch: Dispatch<any> }) {
   return (
     <section>
-      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Artifact</h2>
+      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Map prop</h2>
       <SelectInput
         label="Asset"
         value={artifact.assetId}
@@ -2073,7 +2072,6 @@ function shortType(type: TileType): string {
     dare: "DR",
     fate: "FT",
     groom: "GR",
-    star: "★",
     reaction: "RX",
     estimate: "ES",
   };

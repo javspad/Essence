@@ -96,7 +96,7 @@ assert.equal(frameLerp(0.1, 3), 0.3);
 assert.equal(frameLerp(0.1, 0), 1);
 assert.deepEqual(orbitLightPosition(0, false), [5.5, 4.8, 0]);
 assert.deepEqual(orbitLightPosition(10, true), [-4.5, 5.2, -3.5]);
-assert.equal(slotMaterialStyle("star").decal, "star");
+assert.equal(slotMaterialStyle("finish").decal, "spark");
 assert.equal(slotMaterialStyle("reaction").decal, "bolt");
 assert.equal(supportsWebGL({ getContext: (name) => (name === "webgl" ? {} : null) }), true);
 assert.equal(supportsWebGL({ getContext: () => null }), false);

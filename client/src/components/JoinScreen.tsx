@@ -84,11 +84,11 @@ function MenuView({ name, setMode }: { name: string; setMode: (m: Mode) => void 
         </Button>
         <Button
           type="button"
-          onClick={() => { window.location.href = "/minigame-builder"; }}
+          onClick={() => { window.location.href = "/event-builder"; }}
           className="h-11 w-full bg-[#f472b6] text-[11px] uppercase text-[#2a0718]"
         >
           <Gamepad2 data-icon="inline-start" />
-          Minigames
+          Event builder
         </Button>
         <Button
           type="button"

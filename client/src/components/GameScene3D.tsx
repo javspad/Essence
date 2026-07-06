@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import type { GameState, Player } from "@essence/shared";
+import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import { Dice5, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -143,7 +144,7 @@ function SceneChrome({
   onLeave: () => void;
 }) {
   const active = state.players.find((player) => player.id === activeId);
-  const sorted = [...state.players].sort((a, b) => b.stars - a.stars || b.coins - a.coins);
+  const sorted = rankPlayersByProgress(state.players);
   const showTurnPanel =
     state.phase !== "reveal" &&
     state.phase !== "finished" &&
@@ -258,8 +259,8 @@ function ScorePanel({
                     {player.groom ? " 🤵" : ""}
                   </span>
                   <span className="flex shrink-0 items-center gap-1.5 text-[10px]">
+                    <span className="text-[#d4cfea]">#{player.position}</span>
                     <span className="text-[#fbbf24]">🪙{player.coins}</span>
-                    {player.stars > 0 && <span className="text-[#fde68a]">⭐{player.stars}</span>}
                   </span>
                 </li>
               );
@@ -439,7 +440,7 @@ function AppliedActions({ actions }: { actions?: { text: string; targetPlayerIds
 }
 
 function VictoryOverlay({ state, onLeave }: { state: GameState; onLeave: () => void }) {
-  const ranked = [...state.players].sort((a, b) => b.stars - a.stars || b.coins - a.coins);
+  const ranked = rankPlayersForFinishedGame(state.players, state.winnerId);
   const winner = state.players.find((p) => p.id === state.winnerId) ?? ranked[0];
 
   return (
@@ -463,7 +464,7 @@ function VictoryOverlay({ state, onLeave }: { state: GameState; onLeave: () => v
             >
               <span>{index + 1}. {player.name}</span>
               <span className="shrink-0 text-sm">
-                <span className="text-yellow-200">⭐{player.stars}</span>
+                <span className="text-yellow-200">Casillero {player.position}</span>
                 {" "}
                 <span className="text-amber-200">🪙{player.coins}</span>
               </span>
@@ -514,7 +515,7 @@ function SceneEditHint({ active }: { active?: Player }) {
   return (
     <aside className="hidden max-w-xs rounded-3xl border border-sky-200/30 bg-sky-950/65 p-4 text-sm font-bold text-sky-100 shadow-2xl shadow-black/30 backdrop-blur-md md:block">
       <p className="font-black text-sky-200">Map builder</p>
-      <p className="mt-1">Abrí /map-builder para editar casilleros, rutas, terrenos y artefactos.</p>
+      <p className="mt-1">Abrí /map-builder para editar casilleros, rutas, terrenos y map props.</p>
       <p className="mt-1 text-sky-200/80">{active ? `Cámara siguiendo a ${active.name}` : "Mapa tipo Game of Life"}</p>
     </aside>
   );
