@@ -378,11 +378,12 @@ function ShopOverlay({
 
         <div className="mt-5 grid gap-2 text-left sm:grid-cols-2">
           {shop.items.map((item) => {
-            const isUnlocked = unlocked.has(item.id) || item.defaultUnlocked;
-            const isEquipped = equipped[item.slot] === item.id;
+            const cosmeticId = item.effect.type === "unlockCosmetic" ? item.effect.cosmeticId : null;
+            const isUnlocked = Boolean(cosmeticId && unlocked.has(cosmeticId));
+            const isEquipped = Boolean(cosmeticId && Object.values(equipped).includes(cosmeticId));
             const affordable = Boolean(player && player.coins >= item.cost);
             const disabled = !canBuy || isEquipped || (!isUnlocked && !affordable);
-            const cta = isEquipped ? "Equipado" : isUnlocked ? "Equipar" : `Comprar · ${item.cost}`;
+            const cta = isEquipped ? "Equipado" : isUnlocked ? "Equipar" : `${categoryAction(item.category)} · ${item.cost}`;
             return (
               <button
                 key={item.id}
@@ -394,7 +395,7 @@ function ShopOverlay({
                 <span className="flex items-center justify-between gap-3">
                   <span className="text-sm font-black text-white">{item.name}</span>
                   <span className="rounded bg-[#facc15] px-1.5 py-0.5 text-[10px] font-black text-[#2a1a02]">
-                    {slotLabel(item.slot)}
+                    {categoryLabel(item.category)}
                   </span>
                 </span>
                 {item.description && <span className="mt-1 block text-xs font-bold text-cyan-100/70">{item.description}</span>}
@@ -471,14 +472,18 @@ function EventOverlay({
   );
 }
 
-function slotLabel(slot: string): string {
-  if (slot === "shirt") return "Camiseta";
-  if (slot === "shoes") return "Zapatillas";
-  if (slot === "hat") return "Sombrero";
-  if (slot === "mustache") return "Bigote";
-  if (slot === "nipplePiercing") return "Piercing";
-  if (slot === "tattoo") return "Tatuaje";
-  return slot;
+function categoryLabel(category: string): string {
+  if (category === "cosmetic") return "Cosmético";
+  if (category === "steroid") return "Esteroide";
+  if (category === "weapon") return "Arma";
+  return category;
+}
+
+function categoryAction(category: string): string {
+  if (category === "cosmetic") return "Comprar";
+  if (category === "steroid") return "Tomar";
+  if (category === "weapon") return "Guardar";
+  return "Comprar";
 }
 
 function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdvance: boolean; onNext: () => void }) {

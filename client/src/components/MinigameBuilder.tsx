@@ -1456,6 +1456,7 @@ function toPlayer(def: GameContent["players"][number], index = 0): Player {
     groom: Boolean(def.groom),
     color: def.color ?? "#94a3b8",
     character: characterForPlayerDef(def),
+    inventory: [],
   };
 }
 

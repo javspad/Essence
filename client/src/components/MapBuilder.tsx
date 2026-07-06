@@ -7,10 +7,12 @@ import type {
   MapDefinition,
   MapGridPoint,
   MapRoute,
+  MapShopDef,
   MapTerrace,
   MapTerraceSurface,
   MapTerrain,
   Player,
+  ShopItemDef,
   Tile,
   TileLayout,
   TileType,
@@ -35,6 +37,7 @@ import {
   getSelectedTerrace,
   mapBuilderReducer,
   normalizeBuilderContent,
+  normalizeBuilderDraft,
   TERRACE_ELEVATION_PRESETS,
   TERRACE_SURFACES,
   TERRAIN_TYPES,
@@ -192,6 +195,7 @@ export default function MapBuilder() {
         groom: false,
         color: testMode ? "#34d399" : "#fef3c7",
         character: normalizePlayerCharacter(undefined, testMode ? "#34d399" : "#fef3c7"),
+        inventory: [],
       },
     ],
     [previewPosition, testMode]
@@ -328,6 +332,8 @@ export default function MapBuilder() {
             selectedTerrace={selectedTerrace}
             dispatch={dispatch}
             assetCatalog={state.content.assetCatalog}
+            shops={state.content.shops}
+            shopItems={state.content.shopItems}
             validation={validation}
           />
         </aside>
@@ -1548,6 +1554,8 @@ function Inspector({
   selectedTerrace,
   dispatch,
   assetCatalog,
+  shops,
+  shopItems,
   validation,
 }: {
   state: MapBuilderState;
@@ -1558,13 +1566,24 @@ function Inspector({
   selectedTerrace: MapTerrace | null;
   dispatch: Dispatch<any>;
   assetCatalog: MapAssetDef[];
+  shops: MapShopDef[];
+  shopItems: ShopItemDef[];
   validation: string[];
 }) {
   return (
     <div className="grid gap-4">
       {selectedNode && <NodeInspector tile={selectedNode} dispatch={dispatch} />}
       {selectedRoute && <RouteInspector route={selectedRoute} board={map.board} dispatch={dispatch} />}
-      {selectedArtifact && <ArtifactInspector artifact={selectedArtifact} assetCatalog={assetCatalog} dispatch={dispatch} />}
+      {selectedArtifact && (
+        <ArtifactInspector
+          artifact={selectedArtifact}
+          map={map}
+          assetCatalog={assetCatalog}
+          shops={shops}
+          shopItems={shopItems}
+          dispatch={dispatch}
+        />
+      )}
       {selectedTerrace && <TerraceInspector terrace={selectedTerrace} dispatch={dispatch} />}
       {!selectedNode && !selectedRoute && !selectedArtifact && !selectedTerrace && (
         <section className="rounded-lg border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">
@@ -1787,7 +1806,24 @@ function RouteInspector({ route, board, dispatch }: { route: MapRoute; board: Ti
   );
 }
 
-function ArtifactInspector({ artifact, assetCatalog, dispatch }: { artifact: MapArtifact; assetCatalog: MapAssetDef[]; dispatch: Dispatch<any> }) {
+function ArtifactInspector({
+  artifact,
+  map,
+  assetCatalog,
+  shops,
+  shopItems,
+  dispatch,
+}: {
+  artifact: MapArtifact;
+  map: MapDefinition;
+  assetCatalog: MapAssetDef[];
+  shops: MapShopDef[];
+  shopItems: ShopItemDef[];
+  dispatch: Dispatch<any>;
+}) {
+  const linkedShopId = typeof artifact.data?.shopId === "string" ? artifact.data.shopId : "";
+  const linkedShop = shops.find((shop) => shop.id === linkedShopId);
+  const isKiosco = artifact.assetId === "kiosco-24hs";
   return (
     <section>
       <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Artifact</h2>
@@ -1812,7 +1848,116 @@ function ArtifactInspector({ artifact, assetCatalog, dispatch }: { artifact: Map
         />
         Visible
       </label>
+      {isKiosco && (
+        <ShopArtifactInspector
+          artifact={artifact}
+          map={map}
+          shops={shops}
+          shop={linkedShop}
+          linkedShopId={linkedShopId}
+          shopItems={shopItems}
+          dispatch={dispatch}
+        />
+      )}
     </section>
+  );
+}
+
+function ShopArtifactInspector({
+  artifact,
+  map,
+  shops,
+  shop,
+  linkedShopId,
+  shopItems,
+  dispatch,
+}: {
+  artifact: MapArtifact;
+  map: MapDefinition;
+  shops: MapShopDef[];
+  shop?: MapShopDef;
+  linkedShopId: string;
+  shopItems: ShopItemDef[];
+  dispatch: Dispatch<any>;
+}) {
+  const nearestTileId = nearestBoardTileId(map.board, artifact.position);
+  const groupedItems = groupShopItems(shopItems);
+  const updateLinkedShop = (shopId: string) =>
+    dispatch({
+      type: "update_artifact",
+      id: artifact.id,
+      patch: { data: { ...(artifact.data ?? {}), shopId: shopId || undefined } },
+    });
+  const toggleItem = (itemId: string) => {
+    if (!shop) return;
+    const exists = shop.itemIds.includes(itemId);
+    dispatch({
+      type: "update_shop",
+      id: shop.id,
+      patch: { itemIds: exists ? shop.itemIds.filter((id) => id !== itemId) : [...shop.itemIds, itemId] },
+    });
+  };
+
+  return (
+    <div className="mt-4 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.07] p-3">
+      <h3 className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Tienda del kiosco</h3>
+      <SelectInput
+        label="Tienda vinculada"
+        value={linkedShopId}
+        options={[{ value: "", label: "Sin tienda" }, ...shops.map((candidate) => ({ value: candidate.id, label: candidate.name }))]}
+        onChange={updateLinkedShop}
+      />
+      {!shop && (
+        <button
+          type="button"
+          onClick={() =>
+            dispatch({
+              type: "create_shop_for_artifact",
+              artifactId: artifact.id,
+              mapId: map.id,
+              tileId: nearestTileId,
+            })
+          }
+          className="builder-button preview mt-1 w-full"
+        >
+          Crear tienda 24hs acá
+        </button>
+      )}
+      {shop && (
+        <>
+          <TextInput label="Nombre" value={shop.name} onChange={(name) => dispatch({ type: "update_shop", id: shop.id, patch: { name } })} />
+          <SelectInput
+            label="Casillero donde frena"
+            value={String(shop.tileId)}
+            options={map.board.map((tile) => ({ value: String(tile.id), label: `${tile.id} · ${tile.label ?? TILE_LABEL[tile.type]}` }))}
+            onChange={(tileId) => dispatch({ type: "update_shop", id: shop.id, patch: { tileId: Number(tileId), mapId: map.id } })}
+          />
+          <div className="mt-3 grid gap-3">
+            {(["cosmetic", "steroid", "weapon"] as const).map((category) => (
+              <div key={category} className="rounded-md border border-white/10 bg-black/12 p-2">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{shopCategoryLabel(category)}</p>
+                <div className="grid gap-1">
+                  {(groupedItems[category] ?? []).map((item) => (
+                    <label key={item.id} className="flex items-start gap-2 rounded border border-white/8 bg-white/[0.03] px-2 py-1.5 text-xs font-bold text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={shop.itemIds.includes(item.id)}
+                        onChange={() => toggleItem(item.id)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="block text-white">{item.name} · {item.cost} monedas</span>
+                        {item.description && <span className="block text-[10px] leading-4 text-slate-400">{item.description}</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1865,6 +2010,36 @@ function TerraceInspector({ terrace, dispatch }: { terrace: MapTerrace; dispatch
       </button>
     </section>
   );
+}
+
+function groupShopItems(items: ShopItemDef[]): Record<ShopItemDef["category"], ShopItemDef[]> {
+  return items.reduce(
+    (groups, item) => {
+      groups[item.category].push(item);
+      return groups;
+    },
+    { cosmetic: [], steroid: [], weapon: [] } as Record<ShopItemDef["category"], ShopItemDef[]>
+  );
+}
+
+function shopCategoryLabel(category: ShopItemDef["category"]): string {
+  if (category === "cosmetic") return "Cosméticos";
+  if (category === "steroid") return "Esteroides / mejoras";
+  return "Armas contra otros";
+}
+
+function nearestBoardTileId(board: Tile[], point: TileLayout): number {
+  let best = board[0]?.id ?? 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const tile of board) {
+    const layout = tile.layout ?? { x: 0, y: 0 };
+    const distance = (layout.x - point.x) ** 2 + (layout.y - point.y) ** 2;
+    if (distance < bestDistance) {
+      best = tile.id;
+      bestDistance = distance;
+    }
+  }
+  return best;
 }
 
 function CoordinateInputs({ layout, onChange }: { layout: TileLayout; onChange: (layout: TileLayout) => void }) {
@@ -1948,11 +2123,12 @@ function loadInitialState(): MapBuilderState {
       const content = JSON.parse(raw);
       if (content?.maps?.length) {
         const base = createInitialMapBuilderState(BASE_CONTENT);
+        const normalizedContent = normalizeBuilderDraft(content, base.content);
         return {
           ...base,
-          content,
-          activeMapId: content.activeMapId,
-          selection: content.maps[0]?.board[0] ? { kind: "node", id: content.maps[0].board[0].id } : null,
+          content: normalizedContent,
+          activeMapId: normalizedContent.activeMapId,
+          selection: normalizedContent.maps[0]?.board[0] ? { kind: "node", id: normalizedContent.maps[0].board[0].id } : null,
           message: "Borrador local cargado",
         };
       }

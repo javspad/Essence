@@ -1,5 +1,6 @@
 import type {
   GameContent,
+  CharacterCosmeticDef,
   MapArtifact,
   MapAssetDef,
   MapAssetProjection,
@@ -11,11 +12,14 @@ import type {
   MapTerrace,
   MapTerraceSurface,
   MapTerrain,
+  MapShopDef,
+  ShopItemDef,
   Tile,
   TileLayout,
   TileType,
 } from "@essence/shared";
 import { normalizeGameContentEvents } from "@essence/shared/events";
+import { shopItemsForContent } from "@essence/shared/shop";
 import { defaultAssetFootprint } from "./artifactProjection";
 
 export type BuilderTool = "select" | "cell" | "route" | "artifact" | "terrace" | "json";
@@ -40,6 +44,9 @@ export interface BuilderContent {
   activeMapId: string;
   maps: MapDefinition[];
   assetCatalog: MapAssetDef[];
+  characterCosmetics: CharacterCosmeticDef[];
+  shopItems: ShopItemDef[];
+  shops: MapShopDef[];
 }
 
 export interface MapBuilderState {
@@ -79,6 +86,8 @@ export type MapBuilderEvent =
   | { type: "add_artifact"; assetId: string; point: TileLayout }
   | { type: "move_artifact"; id: string; point: TileLayout }
   | { type: "update_artifact"; id: string; patch: Partial<MapArtifact> }
+  | { type: "create_shop_for_artifact"; artifactId: string; mapId: string; tileId: number }
+  | { type: "update_shop"; id: string; patch: Partial<MapShopDef> }
   | { type: "add_terrace"; rect: TerraceRect; elevation?: number; surface?: MapTerraceSurface }
   | { type: "update_terrace"; id: string; patch: Partial<Omit<MapTerrace, "id">> }
   | { type: "move_terrace"; id: string; minX: number; minY: number }
@@ -174,6 +183,20 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
     activeMapId,
     maps,
     assetCatalog: normalizeAssetCatalog(content.assetCatalog?.length ? content.assetCatalog : DEFAULT_ASSETS),
+    characterCosmetics: cloneCharacterCosmetics(normalizedContent.characterCosmetics ?? []),
+    shopItems: cloneShopItems(shopItemsForContent(normalizedContent)),
+    shops: cloneShops(normalizedContent.shops ?? []),
+  };
+}
+
+export function normalizeBuilderDraft(content: Partial<BuilderContent>, fallback: BuilderContent): BuilderContent {
+  return {
+    activeMapId: content.activeMapId ?? fallback.activeMapId,
+    maps: content.maps?.length ? content.maps.map(cloneMap) : fallback.maps.map(cloneMap),
+    assetCatalog: normalizeAssetCatalog(content.assetCatalog?.length ? content.assetCatalog : fallback.assetCatalog),
+    characterCosmetics: cloneCharacterCosmetics(content.characterCosmetics ?? fallback.characterCosmetics),
+    shopItems: cloneShopItems(content.shopItems ?? fallback.shopItems),
+    shops: cloneShops(content.shops ?? fallback.shops),
   };
 }
 
@@ -185,6 +208,9 @@ export function builderContentToGameContent(base: GameContent, builder: BuilderC
     board: activeMap ? cloneTiles(activeMap.board) : base.board,
     maps: builder.maps.map(cloneMap),
     assetCatalog: builder.assetCatalog.map((asset) => ({ ...asset })),
+    characterCosmetics: cloneCharacterCosmetics(builder.characterCosmetics),
+    shopItems: cloneShopItems(builder.shopItems.filter((item) => item.category !== "cosmetic")),
+    shops: cloneShops(builder.shops),
   });
 }
 
@@ -532,6 +558,55 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
         }),
         "Artefacto actualizado"
       );
+    case "create_shop_for_artifact": {
+      let createdId = "";
+      const nextContent = {
+        ...state.content,
+        maps: state.content.maps.map((map) =>
+          map.id === state.activeMapId
+            ? {
+                ...map,
+                artifacts: map.artifacts.map((artifact) => {
+                  if (artifact.id !== event.artifactId) return artifact;
+                  createdId = nextShopId(state.content.shops, artifact.label);
+                  return {
+                    ...artifact,
+                    data: { ...(artifact.data ?? {}), shopId: createdId },
+                    label: artifact.label ?? "24HS",
+                  };
+                }),
+              }
+            : map
+        ),
+      };
+      if (!createdId) return state;
+      return {
+        ...state,
+        content: {
+          ...nextContent,
+          shops: [
+            ...state.content.shops,
+            {
+              id: createdId,
+              name: "Kiosco 24hs",
+              mapId: event.mapId,
+              tileId: event.tileId,
+              itemIds: state.content.shopItems.slice(0, 4).map((item) => item.id),
+            },
+          ],
+        },
+        message: "Tienda creada para el kiosco",
+      };
+    }
+    case "update_shop":
+      return {
+        ...state,
+        content: {
+          ...state.content,
+          shops: state.content.shops.map((shop) => (shop.id === event.id ? { ...shop, ...event.patch } : shop)),
+        },
+        message: "Tienda actualizada",
+      };
     case "add_terrace": {
       let createdId = "";
       return updateActiveMapState(
@@ -802,6 +877,16 @@ function nextArtifactId(artifacts: MapArtifact[], assetId: string): string {
   return id;
 }
 
+function nextShopId(shops: MapShopDef[], label?: string): string {
+  const source = label?.trim() || "kiosco-24hs";
+  const base = source.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "kiosco-24hs";
+  const used = new Set(shops.map((shop) => shop.id));
+  if (!used.has(base)) return base;
+  let index = 2;
+  while (used.has(`${base}-${index}`)) index += 1;
+  return `${base}-${index}`;
+}
+
 function midpointForRoute(board: Tile[], route: MapRoute): TileLayout {
   const from = board.find((tile) => tile.id === route.from)?.layout ?? { x: 0, y: 0 };
   const to = board.find((tile) => tile.id === route.to)?.layout ?? from;
@@ -881,6 +966,21 @@ function cloneArtifacts(artifacts: MapArtifact[]): MapArtifact[] {
     ...artifact,
     position: { ...artifact.position },
     data: artifact.data ? { ...artifact.data } : undefined,
+  }));
+}
+
+function cloneCharacterCosmetics(cosmetics: CharacterCosmeticDef[]): CharacterCosmeticDef[] {
+  return cosmetics.map((cosmetic) => ({ ...cosmetic }));
+}
+
+function cloneShopItems(items: ShopItemDef[]): ShopItemDef[] {
+  return items.map((item) => ({ ...item, effect: { ...item.effect } }));
+}
+
+function cloneShops(shops: MapShopDef[]): MapShopDef[] {
+  return shops.map((shop) => ({
+    ...shop,
+    itemIds: [...shop.itemIds],
   }));
 }
 

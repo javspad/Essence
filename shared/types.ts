@@ -356,6 +356,23 @@ export interface CharacterCosmeticDef {
   description?: string;
 }
 
+export type ShopItemCategory = "cosmetic" | "steroid" | "weapon";
+
+export type ShopItemEffect =
+  | { type: "unlockCosmetic"; cosmeticId: string }
+  | { type: "characterScale"; heightDelta?: number; weightDelta?: number }
+  | { type: "weaponMove"; delta: number; target: "chosenOpponent" | "nextOpponent" };
+
+export interface ShopItemDef {
+  id: string;
+  name: string;
+  category: ShopItemCategory;
+  cost: number;
+  effect: ShopItemEffect;
+  color?: string;
+  description?: string;
+}
+
 export interface MapShopDef {
   id: string;
   name: string;
@@ -370,7 +387,13 @@ export interface ActiveShop {
   playerId: string;
   tileId: number;
   remainingSteps: number;
-  items: CharacterCosmeticDef[];
+  items: ShopItemDef[];
+}
+
+export interface PlayerInventoryItem {
+  itemId: string;
+  category: ShopItemCategory;
+  quantity: number;
 }
 
 export interface PlayerCharacter {
@@ -402,6 +425,7 @@ export interface GameContent {
   fates: Record<string, FateDef>;
   players: PlayerDef[];
   characterCosmetics?: CharacterCosmeticDef[];
+  shopItems?: ShopItemDef[];
   shops?: MapShopDef[];
   /** monedas por puesto del ranking, de 1ro a último (se reparte por defecto) */
   coinPayout?: number[];
@@ -423,6 +447,7 @@ export interface Player {
   groom: boolean;
   color: string;
   character: PlayerCharacter;
+  inventory: PlayerInventoryItem[];
 }
 
 export type Phase =

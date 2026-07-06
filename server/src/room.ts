@@ -3,7 +3,6 @@ import type {
   ActiveMinigame,
   ActiveShop,
   AppliedEventAction,
-  CharacterCosmeticDef,
   ClientToServerEvents,
   EventAction,
   EventActionTarget,
@@ -14,10 +13,12 @@ import type {
   MinigameResult,
   Player,
   ServerToClientEvents,
+  ShopItemDef,
   Tile,
 } from "@essence/shared";
 import { characterForPlayerDef } from "@essence/shared/character";
 import { eventTitle, resolveEventActionTargetIds, resolveTileEventForPlayer, type ResolvedGameEvent } from "@essence/shared/events";
+import { shopItemsForContent } from "@essence/shared/shop";
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -134,6 +135,7 @@ export class GameRoom {
       groom: !!def.groom,
       color: def.color ?? "#888888",
       character: characterForPlayerDef(def),
+      inventory: [],
     };
     this.state.players.push(player);
     this.broadcast();
@@ -270,7 +272,7 @@ export class GameRoom {
   }
 
   private activeShopFor(shop: NonNullable<GameContent["shops"]>[number], active: Player, remainingSteps: number): ActiveShop {
-    const catalog = new Map((this.content.characterCosmetics ?? []).map((item) => [item.id, item] as const));
+    const catalog = new Map(shopItemsForContent(this.content).map((item) => [item.id, item] as const));
     const items = shop.itemIds.flatMap((itemId) => {
       const item = catalog.get(itemId);
       return item ? [item] : [];
@@ -285,22 +287,48 @@ export class GameRoom {
     };
   }
 
-  private applyCosmeticPurchase(player: Player, item: CharacterCosmeticDef): boolean {
-    const unlocked = new Set(player.character.unlockedCosmeticIds ?? []);
-    const alreadyUnlocked = unlocked.has(item.id) || item.defaultUnlocked;
-    if (!alreadyUnlocked) {
-      if (player.coins < item.cost) return false;
-      player.coins = Math.max(0, player.coins - item.cost);
-      unlocked.add(item.id);
+  private applyCosmeticPurchase(player: Player, item: ShopItemDef): boolean {
+    const effect = item.effect;
+    if (effect.type === "unlockCosmetic") {
+      const cosmetic = this.content.characterCosmetics?.find((candidate) => candidate.id === effect.cosmeticId);
+      if (!cosmetic) return false;
+      const unlocked = new Set(player.character.unlockedCosmeticIds ?? []);
+      const alreadyUnlocked = unlocked.has(cosmetic.id) || cosmetic.defaultUnlocked;
+      if (!alreadyUnlocked) {
+        if (player.coins < item.cost) return false;
+        player.coins = Math.max(0, player.coins - item.cost);
+        unlocked.add(cosmetic.id);
+      }
+      player.character = {
+        ...player.character,
+        unlockedCosmeticIds: [...unlocked],
+        equippedCosmeticIds: {
+          ...(player.character.equippedCosmeticIds ?? {}),
+          [cosmetic.slot]: cosmetic.id,
+        },
+      };
+      return true;
     }
-    player.character = {
-      ...player.character,
-      unlockedCosmeticIds: [...unlocked],
-      equippedCosmeticIds: {
-        ...(player.character.equippedCosmeticIds ?? {}),
-        [item.slot]: item.id,
-      },
-    };
+
+    if (player.coins < item.cost) return false;
+    player.coins = Math.max(0, player.coins - item.cost);
+
+    if (effect.type === "characterScale") {
+      const base = player.character.base;
+      player.character = {
+        ...player.character,
+        base: {
+          ...base,
+          height: clamp(base.height + (effect.heightDelta ?? 0), 0.75, 1.45),
+          weight: clamp(base.weight + (effect.weightDelta ?? 0), 0.75, 1.55),
+        },
+      };
+      return true;
+    }
+
+    const current = player.inventory.find((entry) => entry.itemId === item.id);
+    if (current) current.quantity += 1;
+    else player.inventory.push({ itemId: item.id, category: item.category, quantity: 1 });
     return true;
   }
 
@@ -653,6 +681,10 @@ function activityContent(activity: EventActivity, event: ResolvedGameEvent): unk
   };
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 function defaultParticipantMode(type: EventActivity["type"]): "everyone" | "landing" | "host" {
   if (type === "hostPick") return "host";
   if (type === "prompt") return "landing";
@@ -675,10 +707,6 @@ function valueText(ids: string[], players: Player[], value: number, noun: string
 function moveSummary(ids: string[], players: Player[], delta: number): string {
   const verb = delta >= 0 ? "avanza" : "retrocede";
   return `${namesFor(ids, players)} ${verb} ${Math.abs(delta)} casillero(s)`;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
