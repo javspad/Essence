@@ -251,6 +251,7 @@ export type EventKind = "story" | "activity";
 /** @deprecated Legacy prompt resolver; normalized into first-class activity types. */
 export type EventResolutionMode = "none" | "hostPick" | "selfTap" | "vote";
 export type EventParticipantMode = "everyone" | "landing" | "host";
+export type EventConfirmationMode = "self" | "rest" | "everyone" | "host";
 
 export type EventTriggerScope =
   | { type: "anyPlayer" }
@@ -271,6 +272,13 @@ export interface EventActivity {
   /** @deprecated Use activity.type: "hostPick" | "selfTap" | "vote" instead. */
   resolutionMode?: EventResolutionMode;
   participants?: EventParticipantMode;
+  /** Optional subject set to rank independently from the players who submit input. */
+  subjects?: EventParticipantMode;
+  /** Confirmation rules for prompt/offline activities. Defaults to the rest of the group. */
+  confirmation?: {
+    mode?: EventConfirmationMode;
+    playerIds?: string[];
+  };
   rigged?: RiggedConfig;
 }
 
@@ -493,6 +501,10 @@ export interface RevealEntry {
   score: number;
   coins: number;
   payload: unknown;
+  /** Primary standardized result shown beside the player name. */
+  resultLabel?: string;
+  /** Secondary standardized detail derived from payload/content. */
+  detailLabel?: string;
   /** texto extra para la pantalla de reveal (ej. respuesta de Luján) */
   flavor?: string;
 }

@@ -30,6 +30,13 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
   const Engine = ENGINES[mg.type];
   const amParticipant = mg.participants.includes(me.id);
   const alreadyIn = mg.submitted.includes(me.id) || finished;
+  const connectedPlayers = state.players.filter((p) => p.connected);
+  const subjectPlayers = (mg.subjects?.length ? mg.subjects : mg.participants)
+    .map((id) => connectedPlayers.find((player) => player.id === id))
+    .filter((player): player is Player => Boolean(player));
+  const participantPlayers = mg.participants
+    .map((id) => connectedPlayers.find((player) => player.id === id))
+    .filter((player): player is Player => Boolean(player));
 
   const submittedCount = mg.submitted.length;
   const total = mg.participants.length;
@@ -43,6 +50,34 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
   }
 
   const force = isHost && submittedCount < total ? onForce : undefined;
+
+  if (!amParticipant && mg.type === "prompt") {
+    return (
+      <div className="relative flex min-h-full w-full flex-col justify-center py-6">
+        <ActivityStory story={mg.story} />
+        <Engine
+          key={`${mg.id}-${state.round}-${state.activeIndex}-spectator`}
+          content={mg.content}
+          players={connectedPlayers}
+          participants={participantPlayers}
+          subjects={subjectPlayers}
+          me={me}
+          onFinish={() => undefined}
+          onAction={onAction}
+          spectator
+        />
+        {force && (
+          <Button
+            type="button"
+            onClick={force}
+            className="mx-auto mt-4 h-11 w-full max-w-xs bg-[#fb7185] text-xs uppercase text-[#2a070b]"
+          >
+            Cerrar igual (host)
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   if (!amParticipant) {
     return <Waiting count={submittedCount} total={total} text="No participás en esta ronda." onForce={force} />;
@@ -74,7 +109,9 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
       <Engine
         key={`${mg.id}-${state.round}-${state.activeIndex}`}
         content={mg.content}
-        players={state.players.filter((p) => p.connected)}
+        players={mg.type === "vote" ? subjectPlayers : connectedPlayers}
+        participants={participantPlayers}
+        subjects={subjectPlayers}
         me={me}
         onFinish={handleFinish}
         onAction={onAction}

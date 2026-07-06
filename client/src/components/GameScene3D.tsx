@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/c
 import { cn } from "@/lib/utils";
 import { supportsWebGL } from "../board3d";
 import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
+import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import Board3DShell from "./Board3DShell";
 import EventCard from "./EventCard";
 import Reveal from "./Reveal";
@@ -391,7 +392,6 @@ function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdv
   if (!reveal) return null;
   const medals = ["🥇", "🥈", "🥉"];
   const isPrompt = reveal.type === "prompt";
-  const confirmer = reveal.entries[0]?.name;
 
   return (
     <CenterOverlay>
@@ -402,23 +402,26 @@ function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdv
         <h2 className="mt-4 text-center text-3xl font-black text-amber-100 sm:text-5xl">{reveal.title}</h2>
         {reveal.story?.reveal && <p className="mx-auto mt-3 max-w-2xl text-center text-base font-black text-violet-100">{reveal.story.reveal}</p>}
         <div className="mx-auto my-5 h-px w-24 rounded-full bg-white/20" />
-        {isPrompt ? (
-          <div className="mx-auto max-w-2xl rounded-sm border border-white/10 bg-white/8 px-4 py-4 text-center text-lg font-black text-white sm:text-2xl">
-            {confirmer ? `${confirmer} confirmó la acción.` : "Acción confirmada."}
-          </div>
-        ) : (
-          <ol className="mx-auto grid max-w-2xl gap-2 text-left">
-            {reveal.entries.map((entry, index) => (
+        <ol className="mx-auto grid max-w-2xl gap-2 text-left">
+          {reveal.entries.map((entry, index) => {
+            const detail = revealEntryDetail(entry);
+            return (
               <li
                 key={entry.playerId}
-                className="flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-white/8 px-4 py-3 text-lg font-black text-white sm:text-2xl"
+                className="rounded-sm border border-white/10 bg-white/8 px-4 py-3 text-white"
               >
-                <span>{medals[index] ?? `${entry.rank}.`} {entry.name}</span>
-                {entry.coins > 0 && <span className="shrink-0 text-amber-200">+🪙{entry.coins}</span>}
+                <div className="flex items-center justify-between gap-3 text-lg font-black sm:text-2xl">
+                  <span className="min-w-0 truncate">{medals[index] ?? `${entry.rank}.`} {entry.name}</span>
+                  <span className="shrink-0 text-right text-base text-sky-100 sm:text-xl">{revealEntryResult(entry)}</span>
+                </div>
+                <div className="mt-1 flex items-start justify-between gap-3">
+                  {detail && <p className="min-w-0 text-sm font-black leading-5 text-violet-100 sm:text-base">{detail}</p>}
+                  {entry.coins > 0 && <span className="shrink-0 text-sm font-black text-amber-200 sm:text-base">+🪙{entry.coins}</span>}
+                </div>
               </li>
-            ))}
-          </ol>
-        )}
+            );
+          })}
+        </ol>
         <AppliedActions actions={reveal.actions} />
         <ActionButton disabled={!canAdvance} onClick={onNext}>{canAdvance ? "Siguiente turno →" : "Esperando..."}</ActionButton>
       </div>

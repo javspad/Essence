@@ -4,6 +4,8 @@ import type {
   EventAction,
   EventActionTarget,
   EventActivity,
+  EventConfirmationMode,
+  EventParticipantMode,
   EventActivityType,
   EventOutcomeBranch,
   EventTriggerScope,
@@ -11,6 +13,7 @@ import type {
   GameEventDef,
   GameState,
   Player,
+  RevealEntry,
 } from "@essence/shared";
 import { characterForPlayerDef } from "@essence/shared/character";
 import seedContent from "@shared/content.json";
@@ -18,12 +21,15 @@ import {
   EVENT_ACTIVITY_TYPES,
   eventTitle,
   normalizeGameContentEvents,
+  resolveActivityParticipantIds,
+  resolveActivitySubjectIds,
   resolveEventActionTargetIds,
   resolveEventForPlayer,
   type ResolvedGameEvent,
 } from "@essence/shared/events";
 import { applyRig } from "@essence/shared/rig";
 import { ENGINES } from "../minigames";
+import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import MinigameHost from "./MinigameHost";
 
 const BASE_CONTENT = normalizeGameContentEvents(seedContent as GameContent);
@@ -32,6 +38,12 @@ const INITIAL_PLAYERS = PLAYER_POOL.slice(0, Math.min(4, PLAYER_POOL.length)).ma
 const STORAGE_KEY = "essence:event-builder:draft:v1";
 
 type TargetKind = "landing" | "winner" | "loser" | "everyone" | "player" | "rank" | "rankRange";
+
+const participantModeOptions: { value: EventParticipantMode; label: string }[] = [
+  { value: "everyone", label: "Everyone" },
+  { value: "landing", label: "Acting player" },
+  { value: "host", label: "Host" },
+];
 
 interface RunResult {
   id: number;
@@ -45,6 +57,7 @@ interface PlaytestResolution {
   submittedCount: number;
   requiredCount: number;
   ranking: string[];
+  entries: RevealEntry[];
   actions: AppliedEventAction[];
 }
 
@@ -54,6 +67,7 @@ export default function MinigameBuilder() {
   const [selectedId, setSelectedId] = useState(eventIds[0] ?? "");
   const [activityFilter, setActivityFilter] = useState<EventActivityType | "all">("all");
   const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
+  const [protagonistId, setProtagonistId] = useState(INITIAL_PLAYERS[0]?.id ?? "");
   const [actorId, setActorId] = useState(INITIAL_PLAYERS[0]?.id ?? "");
   const [submitted, setSubmitted] = useState<string[]>([]);
   const [results, setResults] = useState<RunResult[]>([]);
@@ -66,8 +80,9 @@ export default function MinigameBuilder() {
   const [saveStatus, setSaveStatus] = useState("");
 
   const selected = selectedId ? content.events?.[selectedId] : undefined;
+  const protagonist = players.find((player) => player.id === protagonistId) ?? players[0];
   const actor = players.find((player) => player.id === actorId) ?? players[0];
-  const resolved = selected && actor ? resolveEventForPlayer(content, selectedId, actor) : null;
+  const resolved = selected && protagonist ? resolveEventForPlayer(content, selectedId, protagonist) : null;
   const activity = resolved?.activity;
   const hasEngine = activity ? Boolean(ENGINES[activity.type]) : false;
   const exportJson = useMemo(() => JSON.stringify(normalizeGameContentEvents(content), null, 2), [content]);
@@ -97,15 +112,20 @@ export default function MinigameBuilder() {
   }, [actorId, players]);
 
   useEffect(() => {
+    if (players.some((player) => player.id === protagonistId)) return;
+    setProtagonistId(players[0]?.id ?? "");
+  }, [players, protagonistId]);
+
+  useEffect(() => {
     if (!saveStatus) return;
     const timeout = window.setTimeout(() => setSaveStatus(""), 1800);
     return () => window.clearTimeout(timeout);
   }, [saveStatus]);
 
   const state = useMemo<GameState | null>(() => {
-    if (!resolved || !activity || !actor || players.length === 0) return null;
-    return createTestState(selectedId, resolved, players, submitted, runKey, actor.id);
-  }, [activity, actor, players, resolved, runKey, selectedId, submitted]);
+    if (!resolved || !activity || !protagonist || players.length === 0) return null;
+    return createTestState(selectedId, resolved, players, submitted, runKey, protagonist.id);
+  }, [activity, players, protagonist, resolved, runKey, selectedId, submitted]);
   const playtestResolution = useMemo(
     () => createPlaytestResolution(resolved, state, players, results),
     [players, resolved, results, state]
@@ -302,6 +322,7 @@ export default function MinigameBuilder() {
     const next = PLAYER_POOL.slice(0, Math.min(4, PLAYER_POOL.length)).map(toPlayer);
     setPlayers(next);
     setActorId(next[0]?.id ?? "");
+    setProtagonistId(next[0]?.id ?? "");
     resetRun();
   };
 
@@ -436,7 +457,7 @@ export default function MinigameBuilder() {
               ) : (
                 <StoryPreview resolved={resolved} />
               )}
-              {playtestResolution?.complete && <ResolutionOverlay resolution={playtestResolution} players={players} />}
+              {playtestResolution?.complete && <ResolutionOverlay resolution={playtestResolution} />}
             </div>
 
             <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
@@ -474,6 +495,37 @@ export default function MinigameBuilder() {
               </Panel>
 
               <Panel title="Activity" eyebrow={activity ? activityLabel(activity.type) : "none"}>
+                {activity && activity.type === "prompt" && (
+                  <SelectInput
+                    label="Prompt confirmation"
+                    value={activity.confirmation?.mode ?? "rest"}
+                    options={[
+                      { value: "rest", label: "Rest of group" },
+                      { value: "everyone", label: "Everyone" },
+                      { value: "host", label: "Host" },
+                      { value: "self", label: "Acting player" },
+                    ]}
+                    onChange={(mode) =>
+                      updateActivity({ confirmation: { ...(activity.confirmation ?? {}), mode: mode as EventConfirmationMode } })
+                    }
+                  />
+                )}
+                {activity && activity.type !== "prompt" && (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <SelectInput
+                      label="Participants"
+                      value={activity.participants ?? defaultParticipantMode(activity.type)}
+                      options={participantModeOptions}
+                      onChange={(mode) => updateActivity({ participants: mode as EventParticipantMode })}
+                    />
+                    <SelectInput
+                      label="Ranked subjects"
+                      value={activity.subjects ?? "default"}
+                      options={[{ value: "default", label: "Default" }, ...participantModeOptions]}
+                      onChange={(mode) => updateActivity({ subjects: mode === "default" ? undefined : (mode as EventParticipantMode) })}
+                    />
+                  </div>
+                )}
                 <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
                   Content JSON
                   <textarea
@@ -491,6 +543,12 @@ export default function MinigameBuilder() {
 
         <aside className="min-h-0 overflow-y-auto border-t border-white/10 bg-[#111722] p-3 lg:border-l lg:border-t-0">
           <Panel title="Playtest" eyebrow={`${players.length} players`}>
+            <SelectInput
+              label="Acting player"
+              value={protagonistId}
+              options={players.map((player) => ({ value: player.id, label: player.name }))}
+              onChange={setProtagonistId}
+            />
             <SelectInput
               label="Preview as"
               value={actorId}
@@ -627,14 +685,14 @@ function StoryPreview({ resolved }: { resolved: ResolvedGameEvent | null }) {
   );
 }
 
-function ResolutionOverlay({ resolution, players }: { resolution: PlaytestResolution; players: Player[] }) {
+function ResolutionOverlay({ resolution }: { resolution: PlaytestResolution }) {
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 rounded-md border border-emerald-200/30 bg-[#10131a]/94 p-3 shadow-2xl shadow-black/45 backdrop-blur">
       <p className="text-[0.58rem] font-black uppercase tracking-[0.16em] text-emerald-200">Playtest resolved</p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {resolution.ranking.slice(0, 3).map((playerId, index) => (
-          <span key={playerId} className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-xs font-black text-white">
-            #{index + 1} {nameFor(players, playerId)}
+        {resolution.entries.slice(0, 3).map((entry) => (
+          <span key={entry.playerId} className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-xs font-black text-white">
+            #{entry.rank} {entry.name}: {revealEntryResult(entry)}
           </span>
         ))}
       </div>
@@ -670,14 +728,20 @@ function ResolutionPanel({ resolution, players }: { resolution: PlaytestResoluti
   return (
     <div className="space-y-2">
       <div className="rounded-md border border-emerald-200/20 bg-emerald-300/10 p-2">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-200">Ranking</p>
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-200">Reveal entries</p>
         <div className="mt-2 space-y-1">
-          {resolution.ranking.map((playerId, index) => (
-            <div key={playerId} className="flex items-center justify-between gap-2 text-sm">
-              <span className="font-black text-white">{nameFor(players, playerId)}</span>
-              <span className="font-mono text-xs text-emerald-100">#{index + 1}</span>
-            </div>
-          ))}
+          {resolution.entries.map((entry) => {
+            const detail = revealEntryDetail(entry);
+            return (
+              <div key={entry.playerId} className="rounded-md border border-white/10 bg-black/15 p-2">
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="font-black text-white">#{entry.rank} {entry.name}</span>
+                  <span className="font-mono text-xs text-emerald-100">{revealEntryResult(entry)}</span>
+                </div>
+                {detail && <p className="mt-1 text-xs font-bold leading-4 text-slate-300">{detail}</p>}
+              </div>
+            );
+          })}
         </div>
       </div>
       <div className="space-y-2">
@@ -1049,6 +1113,7 @@ function createPlaytestResolution(
       submittedCount: 0,
       requiredCount: 0,
       ranking: landingPlayerId ? [landingPlayerId] : [],
+      entries: landingPlayerId ? [playtestEntry(players, landingPlayerId, 1, 0, null, "Story event")] : [],
       actions: previewActions(event.actions ?? [], players, { landingPlayerId, ranking: landingPlayerId ? [landingPlayerId] : [] }),
     };
   }
@@ -1058,7 +1123,8 @@ function createPlaytestResolution(
   const submittedCount = participants.filter((id) => minigame.submitted.includes(id)).length;
   const complete = requiredCount > 0 && participants.every((id) => minigame.submitted.includes(id));
   const subjects = minigame.subjects?.length ? minigame.subjects : participants;
-  const ranking = playtestRanking(subjects, results, event.activity?.rigged);
+  const ranking = playtestRanking(minigame.type, subjects, participants, results, event.activity?.rigged);
+  const entries = playtestRevealEntries(minigame.type, event.activity?.content, ranking, subjects, participants, players, results);
   const landingPlayerId = minigame.protagonistId ?? ranking[0];
   const actions = complete
     ? [
@@ -1071,22 +1137,143 @@ function createPlaytestResolution(
         ...previewOutcomeActions(event.outcomes ?? [], players, ranking, landingPlayerId),
       ]
     : [];
-  return { complete, submittedCount, requiredCount, ranking, actions };
+  return { complete, submittedCount, requiredCount, ranking, entries, actions };
 }
 
-function playtestRanking(subjects: string[], results: RunResult[], rigged: EventActivity["rigged"]): string[] {
+function playtestRanking(
+  type: EventActivityType,
+  subjects: string[],
+  participants: string[],
+  results: RunResult[],
+  rigged: EventActivity["rigged"]
+): string[] {
   const resultByPlayer = new Map<string, RunResult>();
   for (const result of results) {
     if (!resultByPlayer.has(result.playerId)) resultByPlayer.set(result.playerId, result);
   }
+  const voteScores = type === "vote" ? voteScoresFor(subjects, participants, resultByPlayer) : null;
+  const promptScore = type === "prompt" ? participants.filter((id) => resultByPlayer.has(id)).length : null;
   const order = new Map(subjects.map((id, index) => [id, index]));
   const ranked = [...subjects]
     .sort((a, b) => {
-      const aScore = resultByPlayer.get(a)?.score ?? Number.NEGATIVE_INFINITY;
-      const bScore = resultByPlayer.get(b)?.score ?? Number.NEGATIVE_INFINITY;
+      const aScore = voteScores?.get(a) ?? promptScore ?? resultByPlayer.get(a)?.score ?? Number.NEGATIVE_INFINITY;
+      const bScore = voteScores?.get(b) ?? promptScore ?? resultByPlayer.get(b)?.score ?? Number.NEGATIVE_INFINITY;
       return bScore - aScore || (order.get(a) ?? 0) - (order.get(b) ?? 0);
     });
   return applyRig(ranked, rigged);
+}
+
+function voteScoresFor(subjects: string[], participants: string[], resultByPlayer: Map<string, RunResult>): Map<string, number> {
+  const scores = new Map<string, number>(subjects.map((id) => [id, 0]));
+  for (const participantId of participants) {
+    const votedFor = (resultByPlayer.get(participantId)?.payload as { votedFor?: string } | undefined)?.votedFor;
+    if (votedFor && scores.has(votedFor)) scores.set(votedFor, (scores.get(votedFor) ?? 0) + 1);
+  }
+  return scores;
+}
+
+function playtestRevealEntries(
+  type: EventActivityType,
+  content: unknown,
+  ranking: string[],
+  subjects: string[],
+  participants: string[],
+  players: Player[],
+  results: RunResult[]
+): RevealEntry[] {
+  const resultByPlayer = new Map<string, RunResult>();
+  for (const result of results) {
+    if (!resultByPlayer.has(result.playerId)) resultByPlayer.set(result.playerId, result);
+  }
+  const votersBySubject = type === "vote" ? votersBySubjectFor(subjects, participants, resultByPlayer) : null;
+  const confirmedBy = type === "prompt" ? participants.filter((id) => resultByPlayer.has(id)) : [];
+  const missingConfirmers = type === "prompt" ? participants.filter((id) => !resultByPlayer.has(id)) : [];
+
+  return ranking.map((playerId, index) => {
+    const result = resultByPlayer.get(playerId);
+    if (type === "prompt") {
+      return playtestEntry(
+        players,
+        playerId,
+        index + 1,
+        confirmedBy.length,
+        { confirmed: missingConfirmers.length === 0, confirmedBy, missingConfirmers, requiredConfirmers: participants },
+        `${confirmedBy.length}/${participants.length} confirmaciones`,
+        missingConfirmers.length
+          ? `Confirmaron ${namesFor(confirmedBy, players) || "nadie"} - Faltan ${namesFor(missingConfirmers, players)}`
+          : `Confirmaron ${namesFor(confirmedBy, players) || "nadie"}`
+      );
+    }
+    if (type === "vote") {
+      const voters = votersBySubject?.get(playerId) ?? [];
+      return playtestEntry(
+        players,
+        playerId,
+        index + 1,
+        voters.length,
+        { votes: voters.length, voters, votedFor: (resultByPlayer.get(playerId)?.payload as { votedFor?: string } | undefined)?.votedFor },
+        `${voters.length} ${voters.length === 1 ? "voto" : "votos"}`,
+        voters.length ? `Votos de ${namesFor(voters, players)}` : "Sin votos"
+      );
+    }
+    const score = result?.score ?? Number.NEGATIVE_INFINITY;
+    const payload = result?.payload ?? null;
+    const display = playtestResultDisplay(type, content, score, payload);
+    return playtestEntry(players, playerId, index + 1, Number.isFinite(score) ? score : 0, payload, display.resultLabel, display.detailLabel);
+  });
+}
+
+function votersBySubjectFor(subjects: string[], participants: string[], resultByPlayer: Map<string, RunResult>): Map<string, string[]> {
+  const voters = new Map(subjects.map((id) => [id, [] as string[]]));
+  for (const participantId of participants) {
+    const votedFor = (resultByPlayer.get(participantId)?.payload as { votedFor?: string } | undefined)?.votedFor;
+    if (votedFor && voters.has(votedFor)) voters.get(votedFor)!.push(participantId);
+  }
+  return voters;
+}
+
+function playtestEntry(
+  players: Player[],
+  playerId: string,
+  rank: number,
+  score: number,
+  payload: unknown,
+  resultLabel?: string,
+  detailLabel?: string
+): RevealEntry {
+  return {
+    playerId,
+    name: nameFor(players, playerId),
+    rank,
+    score,
+    coins: 0,
+    payload,
+    resultLabel,
+    detailLabel,
+  };
+}
+
+function playtestResultDisplay(
+  type: EventActivityType,
+  content: unknown,
+  score: number,
+  payload: unknown
+): Pick<RevealEntry, "resultLabel" | "detailLabel"> {
+  if (!Number.isFinite(score)) return { resultLabel: "Sin resultado" };
+  const data = (payload ?? {}) as Record<string, unknown>;
+  if (type === "buzzer") {
+    const body = isRecord(content) ? content : {};
+    const options = Array.isArray(body.options) ? body.options.map((option) => String(option)) : [];
+    const answerIndex = typeof body.answer === "number" ? body.answer : 0;
+    const pickedIndex = typeof data.answerIndex === "number" ? data.answerIndex : -1;
+    const time = typeof data.timeMs === "number" ? `${Math.round(data.timeMs)}ms` : undefined;
+    return {
+      resultLabel: data.correct ? "Correcto" : "Incorrecto",
+      detailLabel: [`Eligió ${optionLabel(options, pickedIndex)}`, `Correcta: ${optionLabel(options, answerIndex)}`, time].filter(Boolean).join(" - "),
+    };
+  }
+  if (type === "whack" && typeof data.hits === "number") return { resultLabel: `${data.hits} aciertos` };
+  return { resultLabel: `Puntaje ${formatScore(score)}`, detailLabel: payloadSummary(payload) };
 }
 
 function previewOutcomeActions(
@@ -1372,7 +1559,16 @@ function createTestState(
       protagonistId,
       type: activity.type,
       skin: activity.skin,
-      content: { ...(isRecord(activity.content) ? activity.content : {}), story: event.story, title: eventTitle(event), prompt: event.story.prompt },
+      content: {
+        ...(isRecord(activity.content) ? activity.content : {}),
+        story: event.story,
+        title: eventTitle(event),
+        prompt: event.story.prompt,
+        protagonistId,
+        protagonistName: nameFor(players, protagonistId),
+        subjectPlayerIds: subjects,
+        subjectPlayerNames: subjects.map((id) => nameFor(players, id)),
+      },
       story: event.story,
       participants,
       subjects,
@@ -1385,22 +1581,25 @@ function createTestState(
 }
 
 function activityParticipants(activity: EventActivity, players: Player[], protagonistId: string): string[] {
-  const mode = activity.participants ?? defaultParticipantMode(activity.type);
-  if (mode === "landing") return players.some((player) => player.id === protagonistId) ? [protagonistId] : [];
-  if (mode === "host") return players.filter((player) => player.isHost).map((player) => player.id);
-  return players.map((player) => player.id);
+  const active = playerFor(protagonistId, players);
+  if (!active) return [];
+  return resolveActivityParticipantIds(activity, players, active);
 }
 
 function activitySubjects(activity: EventActivity, players: Player[], protagonistId: string, participants: string[]): string[] {
-  if (activity.type === "hostPick" || activity.type === "vote") return players.map((player) => player.id);
-  if (activity.type === "prompt") return players.some((player) => player.id === protagonistId) ? [protagonistId] : [];
-  return participants;
+  const active = playerFor(protagonistId, players);
+  if (!active) return [];
+  return resolveActivitySubjectIds(activity, players, active, participants);
 }
 
-function defaultParticipantMode(type: EventActivityType): "everyone" | "landing" | "host" {
+function defaultParticipantMode(type: EventActivityType): EventParticipantMode {
   if (type === "hostPick") return "host";
-  if (type === "prompt") return "landing";
+  if (type === "prompt") return "everyone";
   return "everyone";
+}
+
+function playerFor(playerId: string, players: Player[]): Player | undefined {
+  return players.find((player) => player.id === playerId);
 }
 
 function defaultContentForActivity(type: EventActivityType, story?: GameEventDef["story"]): Record<string, unknown> {
@@ -1481,6 +1680,24 @@ function formatScore(score: number): string {
   if (!Number.isFinite(score)) return String(score);
   if (Math.abs(score) >= 1000) return Math.round(score).toLocaleString();
   return score.toFixed(3).replace(/\.?0+$/, "");
+}
+
+function optionLabel(options: string[], index: number): string {
+  if (index >= 0 && index < options.length) return options[index];
+  return index >= 0 ? `option ${index + 1}` : "no answer";
+}
+
+function payloadSummary(payload: unknown): string | undefined {
+  if (payload == null) return undefined;
+  if (typeof payload === "string" || typeof payload === "number" || typeof payload === "boolean") return String(payload);
+  if (!Array.isArray(payload) && typeof payload === "object") {
+    const entries = Object.entries(payload as Record<string, unknown>)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .slice(0, 3)
+      .map(([key, value]) => `${key}: ${String(value)}`);
+    return entries.length ? entries.join(" - ") : undefined;
+  }
+  return undefined;
 }
 
 function targetLabel(target: EventOutcomeBranch["when"], players: GameContent["players"] = PLAYER_POOL): string {

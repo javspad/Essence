@@ -3,6 +3,8 @@ import type { Player } from "@essence/shared";
 export interface MinigameProps {
   content: any;
   players: Player[];
+  participants?: Player[];
+  subjects?: Player[];
   me: Player;
   /** termina el minijuego local y reporta el resultado al server */
   onFinish: (score: number, payload: unknown, outcome?: "win" | "loss") => void;

@@ -11,11 +11,19 @@ import type {
   GameState,
   MinigameResult,
   Player,
+  RevealPayload,
   ServerToClientEvents,
   Tile,
 } from "@essence/shared";
 import { characterForPlayerDef } from "@essence/shared/character";
-import { eventTitle, resolveEventActionTargetIds, resolveTileEventForPlayer, type ResolvedGameEvent } from "@essence/shared/events";
+import {
+  eventTitle,
+  resolveActivityParticipantIds,
+  resolveActivitySubjectIds,
+  resolveEventActionTargetIds,
+  resolveTileEventForPlayer,
+  type ResolvedGameEvent,
+} from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -246,7 +254,7 @@ export class GameRoom {
       protagonistId: activePlayer.id,
       type: activity.type,
       skin: activity.skin,
-      content: activityContent(activity, event),
+      content: activityContent(activity, event, activePlayer, subjects, this.state.players),
       story: event.story,
       participants,
       subjects,
@@ -265,17 +273,11 @@ export class GameRoom {
   }
 
   private activityParticipants(activity: EventActivity, active: Player): string[] {
-    const connected = this.connectedPlayers();
-    const mode = activity.participants ?? defaultParticipantMode(activity.type);
-    if (mode === "landing") return connected.some((p) => p.id === active.id) ? [active.id] : [];
-    if (mode === "host") return connected.filter((p) => p.isHost).map((p) => p.id);
-    return connected.map((p) => p.id);
+    return resolveActivityParticipantIds(activity, this.connectedPlayers(), active);
   }
 
   private activitySubjects(activity: EventActivity, active: Player, participants: string[]): string[] {
-    if (activity.type === "hostPick" || activity.type === "vote") return this.connectedPlayers().map((p) => p.id);
-    if (activity.type === "prompt") return [active.id];
-    return participants;
+    return resolveActivitySubjectIds(activity, this.connectedPlayers(), active, participants);
   }
 
   minigameAction(socketId: string, data: unknown) {
@@ -336,15 +338,16 @@ export class GameRoom {
         if (pl) pl.coins = Math.max(0, pl.coins + c);
       }
       const landingPlayerId = mg.protagonistId ?? reveal.ranking[0];
+      const promptConfirmed = mg.type !== "prompt" || promptConfirmationComplete(reveal);
       const actions = event
         ? [
-            ...(mg.type === "prompt"
+            ...(mg.type === "prompt" && promptConfirmed
               ? this.applyActions(event.actions ?? [], {
                   landingPlayerId,
                   ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
                 })
               : []),
-            ...this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId),
+            ...(promptConfirmed ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId) : []),
           ]
         : [];
       this.state.reveal = { ...reveal, actions };
@@ -521,22 +524,31 @@ export class GameRoom {
   }
 }
 
-function activityContent(activity: EventActivity, event: ResolvedGameEvent): unknown {
+function activityContent(activity: EventActivity, event: ResolvedGameEvent, active: Player, subjects: string[], players: Player[]): unknown {
   const base = isRecord(activity.content) ? activity.content : {};
   return {
     ...base,
     story: event.story,
     title: event.story.title ?? eventTitle(event),
     prompt: event.story.prompt ?? base.prompt ?? base.question ?? event.name,
+    protagonistId: active.id,
+    protagonistName: active.name,
+    subjectPlayerIds: subjects,
+    subjectPlayerNames: subjects.map((id) => playerNameFor(id, players)),
     // Semilla compartida: todos los clientes generan el mismo escenario (laberinto, caños, semáforo).
     seed: typeof base.seed === "number" ? base.seed : Math.floor(Math.random() * 0x7fffffff),
   };
 }
 
-function defaultParticipantMode(type: EventActivity["type"]): "everyone" | "landing" | "host" {
-  if (type === "hostPick") return "host";
-  if (type === "prompt") return "landing";
-  return "everyone";
+function playerNameFor(playerId: string, players: Player[]): string {
+  return players.find((player) => player.id === playerId)?.name ?? playerId;
+}
+
+function promptConfirmationComplete(reveal: RevealPayload): boolean {
+  return reveal.entries.some((entry) => {
+    const payload = entry.payload as { confirmed?: unknown } | null;
+    return payload?.confirmed === true;
+  });
 }
 
 function eventText(event: ResolvedGameEvent): string {

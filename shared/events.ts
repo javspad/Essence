@@ -5,6 +5,7 @@ import type {
   EventStory,
   GameContent,
   GameEventDef,
+  Player,
   PlayerDef,
   PlayerEventOverride,
   Tile,
@@ -171,6 +172,29 @@ export function resolveEventActionTargetIds(
   return ranking.slice(from - 1, to);
 }
 
+type ActivityPlayer = Pick<Player, "id" | "isHost">;
+
+export function resolveActivityParticipantIds(
+  activity: EventActivity,
+  connectedPlayers: ActivityPlayer[],
+  activePlayer: Pick<Player, "id">
+): string[] {
+  if (activity.type === "prompt") return resolvePromptConfirmerIds(activity, connectedPlayers, activePlayer);
+  return playerIdsForMode(activity.participants ?? defaultParticipantMode(activity.type), connectedPlayers, activePlayer);
+}
+
+export function resolveActivitySubjectIds(
+  activity: EventActivity,
+  connectedPlayers: ActivityPlayer[],
+  activePlayer: Pick<Player, "id">,
+  participants: string[]
+): string[] {
+  if (activity.subjects) return playerIdsForMode(activity.subjects, connectedPlayers, activePlayer);
+  if (activity.type === "hostPick" || activity.type === "vote") return connectedPlayers.map((player) => player.id);
+  if (activity.type === "prompt") return connectedPlayers.some((player) => player.id === activePlayer.id) ? [activePlayer.id] : [];
+  return participants;
+}
+
 export function resolveEventForPlayer(content: GameContent, eventId: string, player: Pick<PlayerDef, "id">): ResolvedGameEvent | null {
   const normalized = content.events ? content : normalizeGameContentEvents(content);
   const event = normalized.events?.[eventId];
@@ -257,6 +281,42 @@ function normalizeEventDef(event: GameEventDef): GameEventDef {
     ...event,
     ...(event.activity ? { activity: normalizeActivity(event.activity) } : {}),
   };
+}
+
+function defaultParticipantMode(type: EventActivityType): "everyone" | "landing" | "host" {
+  if (type === "hostPick") return "host";
+  if (type === "prompt") return "everyone";
+  return "everyone";
+}
+
+function resolvePromptConfirmerIds(
+  activity: EventActivity,
+  connectedPlayers: ActivityPlayer[],
+  activePlayer: Pick<Player, "id">
+): string[] {
+  const configured = activity.confirmation?.playerIds?.length
+    ? connectedPlayers.filter((player) => activity.confirmation?.playerIds?.includes(player.id)).map((player) => player.id)
+    : [];
+  if (configured.length) return configured;
+
+  const mode = activity.confirmation?.mode ?? activity.participants ?? "rest";
+  const confirmers =
+    mode === "rest"
+      ? connectedPlayers.filter((player) => player.id !== activePlayer.id).map((player) => player.id)
+      : mode === "self"
+        ? playerIdsForMode("landing", connectedPlayers, activePlayer)
+        : playerIdsForMode(mode, connectedPlayers, activePlayer);
+  return confirmers.length ? confirmers : [activePlayer.id];
+}
+
+function playerIdsForMode(
+  mode: "everyone" | "landing" | "host",
+  connectedPlayers: ActivityPlayer[],
+  activePlayer: Pick<Player, "id">
+): string[] {
+  if (mode === "landing") return connectedPlayers.some((player) => player.id === activePlayer.id) ? [activePlayer.id] : [];
+  if (mode === "host") return connectedPlayers.filter((player) => player.isHost).map((player) => player.id);
+  return connectedPlayers.map((player) => player.id);
 }
 
 function normalizeActivity(activity: EventActivity): EventActivity {

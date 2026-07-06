@@ -1,6 +1,7 @@
 import type { GameState } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
+import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 
 interface Props {
   state: GameState;
@@ -14,7 +15,6 @@ export default function Reveal({ state, canAdvance, onNext }: Props) {
   const r = state.reveal;
   if (!r) return null;
   const isPrompt = r.type === "prompt";
-  const confirmer = r.entries[0]?.name;
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center p-6">
@@ -26,13 +26,10 @@ export default function Reveal({ state, canAdvance, onNext }: Props) {
         </CardHeader>
 
         <CardContent font="normal" className="flex flex-col gap-5">
-          {isPrompt ? (
-            <div className="rounded-sm border-2 border-[#fff4bf]/20 bg-[#0d1829] p-4 text-center font-black">
-              {confirmer ? `${confirmer} confirmó la acción.` : "Acción confirmada."}
-            </div>
-          ) : (
-            <div className="flex w-full flex-col gap-2">
-              {r.entries.map((e, idx) => (
+          <div className="flex w-full flex-col gap-2">
+            {r.entries.map((e, idx) => {
+              const detail = revealEntryDetail(e);
+              return (
                 <div
                   key={e.playerId}
                   className={`animate-pop border-2 p-3 ${
@@ -40,16 +37,19 @@ export default function Reveal({ state, canAdvance, onNext }: Props) {
                   }`}
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 text-center text-xl">{MEDAL[idx] ?? `${e.rank}.`}</span>
-                    <span className="flex-1 font-bold">{e.name}</span>
-                    {e.coins > 0 && <span className="font-bold text-[#f5d547]">+🪙{e.coins}</span>}
+                  <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-2">
+                    <span className="text-center text-xl">{MEDAL[idx] ?? `${e.rank}.`}</span>
+                    <span className="min-w-0 truncate font-bold">{e.name}</span>
+                    <span className="text-right text-sm font-black text-[#7dd3fc]">{revealEntryResult(e)}</span>
                   </div>
-                  {e.flavor && <p className="mt-1 pl-9 text-sm italic text-[#c7bddc]">"{e.flavor}"</p>}
+                  <div className="mt-1 flex items-start justify-between gap-3 pl-9">
+                    {detail && <p className="min-w-0 text-sm font-bold text-[#c7bddc]">{detail}</p>}
+                    {e.coins > 0 && <span className="shrink-0 font-bold text-[#f5d547]">+🪙{e.coins}</span>}
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
 
           {r.actions?.length ? (
             <div className="grid gap-2">

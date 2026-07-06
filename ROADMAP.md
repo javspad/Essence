@@ -81,7 +81,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | Slice | Status | Depends on | Verification |
 | --- | --- | --- | --- |
 | `R-REF` Pre-roadmap refactors | [x] | None | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
-| `S0` Result and confirmation fixes | [ ] | `R-REF` | Minigame/reveal regression tests and local playthrough. |
+| `S0` Result and confirmation fixes | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S1` Domain language and schema hardening | [ ] | `R-REF` | Content validation tests and builder import/export checks. |
 | `S2` Character identity and character sets | [ ] | `S1` | Character builder route and room creation with selected set. |
 | `S3` Reusable consequences and effects | [ ] | `S1` | Effect-engine tests and one configured duration effect. |
@@ -149,14 +149,24 @@ Goal: fix the bugs that block trust in the current game loop before adding new s
 
 Tasks:
 
-- [ ] `S0-01` Show reveal/results for every minigame and activity, including votes and prompts.
-- [ ] `S0-02` Show the score or meaningful payload each player produced in minigame results.
-- [ ] `S0-03` Show the correct answer in trivia/buzzer reveals.
-- [ ] `S0-04` Show how many points/hits each player made in Whack.
-- [ ] `S0-05` For prendas/prompts, require confirmation from the rest of the group or the relevant confirmer set.
-- [ ] `S0-06` Add voting support for prompt/input-style minigames where the group decides the outcome.
-- [ ] `S0-07` Standardize reveal payload formatting per activity type so UI does not need one-off branches.
-- [ ] `S0-08` Add regression tests around `resolveMinigame`, `RevealPayload.entries`, prompt confirmation, vote scoring, and buzzer/trivia flavor.
+- [x] `S0-01` Show reveal/results for every minigame and activity, including votes and prompts.
+- [x] `S0-02` Show the score or meaningful payload each player produced in minigame results.
+- [x] `S0-03` Show the correct answer in trivia/buzzer reveals.
+- [x] `S0-04` Show how many points/hits each player made in Whack.
+- [x] `S0-05` For prendas/prompts, require confirmation from the rest of the group or the relevant confirmer set.
+- [x] `S0-06` Add voting support for prompt/input-style minigames where the group decides the outcome.
+- [x] `S0-07` Standardize reveal payload formatting per activity type so UI does not need one-off branches.
+- [x] `S0-08` Add regression tests around `resolveMinigame`, `RevealPayload.entries`, prompt confirmation, vote scoring, and buzzer/trivia flavor.
+
+Verification notes:
+
+- Added server regressions for standardized `RevealPayload.entries`, buzzer correct-answer details, Whack hit labels, vote scoring/voter payloads, and group-confirmed prompt lifecycle.
+- Added `resultLabel` and `detailLabel` to reveal entries so clients render result payloads without one-off activity branches.
+- Prompt activities now default to confirmation by the rest of the connected group, with configurable `confirmation.mode`/`playerIds`; forced closure still reaches reveal without applying prompt consequences while confirmation is incomplete.
+- Activities can configure ranked `subjects` separately from submitting `participants`, enabling prompt/input-style vote flows in the Event Builder.
+- Updated the shared reveal UI, 3D reveal overlay, and Event Builder playtest resolution to show result labels, details, coins, and consequences consistently.
+- Manual QA path: in a normal room, land on a prompt/prenda and confirm from the other players; in `/event-builder`, choose an Acting player, switch Preview as to a confirmer, submit, then inspect the playtest resolution/results.
+- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client` (existing Vite large chunk warning only); `git diff --check`.
 
 Current code to reuse:
 
@@ -589,7 +599,7 @@ We should grill these one at a time before treating the roadmap as final.
 1. Should artifact purchases always be used immediately, or can some artifacts be stored for later?
 2. When a player lands on shop, should the first view be empty until reroll, or should four offers appear immediately?
 3. Should cosmetic ownership persist only within a room, inside imported character JSON, or in a future account/profile store?
-4. For prendas and offline actions, who confirms completion: everyone, host, acting player, or configurable confirmer set?
+4. For future non-prompt offline actions, should confirmation reuse the prompt confirmer set exactly, or add consequence-specific confirmation rules?
 5. Should duration count by turns of the target player, full rounds, or global turns?
 6. Should character traits be visible to everyone before the game starts, or revealed only when triggered?
 7. Should shots/offline prompts award coins automatically, only after confirmation, or never by default?
@@ -599,7 +609,8 @@ Resolved:
 
 - Win condition: first player to reach the finish cell wins; coins are the secondary ranking/tie-breaker.
 - Artifact language: **Artifact** means gameplay item; current decorative map objects are **Map Props** in product/UI language.
+- Prompt/prenda confirmation: defaults to the rest of the connected group and can be configured with `confirmation.mode` or `confirmation.playerIds`.
 
 ## Next Review Step
 
-Start with `S0` Result And Confirmation Fixes. `R-REF` is complete, and the remaining open decisions do not block `S0`.
+Start with `S1` Domain Language And Schema Hardening. `R-REF` and `S0` are complete, and the remaining open decisions do not block `S1`.
