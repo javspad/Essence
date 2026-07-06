@@ -12,6 +12,7 @@ import type {
   GameState,
   Player,
 } from "@essence/shared";
+import { characterForPlayerDef } from "@essence/shared/character";
 import seedContent from "@shared/content.json";
 import {
   EVENT_ACTIVITY_TYPES,
@@ -1454,6 +1455,7 @@ function toPlayer(def: GameContent["players"][number], index = 0): Player {
     isHost: index === 0,
     groom: Boolean(def.groom),
     color: def.color ?? "#94a3b8",
+    character: characterForPlayerDef(def),
   };
 }
 

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/8bit/badge";
 const GameScene3D = lazy(() => import("./components/GameScene3D"));
 const MapBuilder = lazy(() => import("./components/MapBuilder"));
 const MinigameBuilder = lazy(() => import("./components/MinigameBuilder"));
+const CharacterBuilder = lazy(() => import("./components/CharacterBuilder"));
 
 export default function App() {
   const path = typeof window !== "undefined" ? window.location.pathname : "/";
@@ -18,6 +19,8 @@ export default function App() {
     path === "/map-builder" || search.has("mapBuilder");
   const minigameBuilderMode =
     path === "/minigame-builder" || search.has("minigameBuilder");
+  const characterBuilderMode =
+    path === "/character-builder" || search.has("characterBuilder");
 
   if (builderMode) {
     return (
@@ -31,6 +34,14 @@ export default function App() {
     return (
       <Suspense fallback={<SceneLoading code="MINI" />}>
         <MinigameBuilder />
+      </Suspense>
+    );
+  }
+
+  if (characterBuilderMode) {
+    return (
+      <Suspense fallback={<SceneLoading code="CHAR" />}>
+        <CharacterBuilder />
       </Suspense>
     );
   }

@@ -13,37 +13,169 @@
       "id": "javi",
       "name": "Javi",
       "groom": true,
-      "color": "#f59e0b"
+      "color": "#f59e0b",
+      "character": {
+        "base": {
+          "color": "#f59e0b",
+          "height": 1,
+          "weight": 1,
+          "movement": "walk",
+          "limbs": {
+            "arms": false,
+            "legs": false
+          }
+        },
+        "unlockedCosmeticIds": [],
+        "equippedCosmeticIds": {}
+      }
     },
     {
       "id": "nico",
       "name": "Nico",
-      "color": "#ef4444"
+      "color": "#ef4444",
+      "character": {
+        "base": {
+          "color": "#ef4444",
+          "height": 1,
+          "weight": 1,
+          "movement": "walk",
+          "limbs": {
+            "arms": false,
+            "legs": false
+          }
+        },
+        "unlockedCosmeticIds": [],
+        "equippedCosmeticIds": {}
+      }
     },
     {
       "id": "frang",
       "name": "FranG",
-      "color": "#3b82f6"
+      "color": "#3b82f6",
+      "character": {
+        "base": {
+          "color": "#3b82f6",
+          "height": 1,
+          "weight": 1,
+          "movement": "walk",
+          "limbs": {
+            "arms": false,
+            "legs": false
+          }
+        },
+        "unlockedCosmeticIds": [],
+        "equippedCosmeticIds": {}
+      }
     },
     {
       "id": "lucho",
       "name": "Lucho",
-      "color": "#22c55e"
+      "color": "#22c55e",
+      "character": {
+        "base": {
+          "color": "#22c55e",
+          "height": 1,
+          "weight": 1,
+          "movement": "walk",
+          "limbs": {
+            "arms": false,
+            "legs": false
+          }
+        },
+        "unlockedCosmeticIds": [],
+        "equippedCosmeticIds": {}
+      }
     },
     {
       "id": "tincho",
       "name": "Tincho",
-      "color": "#a855f7"
+      "color": "#a855f7",
+      "character": {
+        "base": {
+          "color": "#a855f7",
+          "height": 1,
+          "weight": 1,
+          "movement": "walk",
+          "limbs": {
+            "arms": false,
+            "legs": false
+          }
+        },
+        "unlockedCosmeticIds": [],
+        "equippedCosmeticIds": {}
+      }
     },
     {
       "id": "mati",
       "name": "Mati",
-      "color": "#ec4899"
+      "color": "#ec4899",
+      "character": {
+        "base": {
+          "color": "#ec4899",
+          "height": 1,
+          "weight": 1,
+          "movement": "walk",
+          "limbs": {
+            "arms": false,
+            "legs": false
+          }
+        },
+        "unlockedCosmeticIds": [],
+        "equippedCosmeticIds": {}
+      }
     },
     {
       "id": "seba",
       "name": "Seba",
-      "color": "#14b8a6"
+      "color": "#14b8a6",
+      "character": {
+        "base": {
+          "color": "#14b8a6",
+          "height": 1,
+          "weight": 1,
+          "movement": "walk",
+          "limbs": {
+            "arms": false,
+            "legs": false
+          }
+        },
+        "unlockedCosmeticIds": [],
+        "equippedCosmeticIds": {}
+      }
+    }
+  ],
+  "characterCosmetics": [
+    {
+      "id": "hat-piluso",
+      "name": "Piluso de after",
+      "slot": "hat",
+      "cost": 8,
+      "color": "#facc15",
+      "description": "Sombrero comprable para cuando aparezca el shop del mapa."
+    },
+    {
+      "id": "mustache-gala",
+      "name": "Bigote de gala",
+      "slot": "mustache",
+      "cost": 6,
+      "color": "#1f1307",
+      "description": "Bigote equipado sobre la placa de la cara."
+    },
+    {
+      "id": "piercing-pezon-plata",
+      "name": "Piercing de pezones",
+      "slot": "nipplePiercing",
+      "cost": 10,
+      "color": "#dbeafe",
+      "description": "Dos aros plateados para el pecho del personaje."
+    },
+    {
+      "id": "tattoo-rayo",
+      "name": "Tatuaje rayo",
+      "slot": "tattoo",
+      "cost": 7,
+      "color": "#111827",
+      "description": "Tatuaje visible en cuerpo o brazo, según la forma elegida."
     }
   ],
   "board": [

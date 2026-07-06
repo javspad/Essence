@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Gamepad2, LogIn, Map, RefreshCw, Users } from "lucide-react";
+import { ArrowLeft, Gamepad2, LogIn, Map, Palette, RefreshCw, Users } from "lucide-react";
 import type { RoomSummary } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -73,7 +73,7 @@ function MenuView({ name, setMode }: { name: string; setMode: (m: Mode) => void 
         <LogIn data-icon="inline-start" />
         Unirme
       </Button>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Button
           type="button"
           onClick={() => { window.location.href = "/map-builder"; }}
@@ -89,6 +89,14 @@ function MenuView({ name, setMode }: { name: string; setMode: (m: Mode) => void 
         >
           <Gamepad2 data-icon="inline-start" />
           Minigames
+        </Button>
+        <Button
+          type="button"
+          onClick={() => { window.location.href = "/character-builder"; }}
+          className="h-11 w-full bg-[#38bdf8] text-[11px] uppercase text-[#061926]"
+        >
+          <Palette data-icon="inline-start" />
+          Personajes
         </Button>
       </div>
     </div>

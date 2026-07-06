@@ -14,6 +14,7 @@ import type {
   ServerToClientEvents,
   Tile,
 } from "@essence/shared";
+import { characterForPlayerDef } from "@essence/shared/character";
 import { eventTitle, resolveEventActionTargetIds, resolveTileEventForPlayer, type ResolvedGameEvent } from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index.js";
 
@@ -128,6 +129,7 @@ export class GameRoom {
       isHost: this.state.players.length === 0,
       groom: !!def.groom,
       color: def.color ?? "#888888",
+      character: characterForPlayerDef(def),
     };
     this.state.players.push(player);
     this.broadcast();
