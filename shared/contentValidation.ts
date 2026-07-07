@@ -289,6 +289,10 @@ function validateAction(
   if (action.type === "moveTo" && !Number.isInteger(action.tileId)) error(`${path}.tileId`, "must be an integer board cell id");
   if (action.type === "applyEffect" && !effectIds.has(action.effectId)) error(`${path}.effectId`, `references missing effect ${action.effectId}`);
   if (action.type === "offlineAction" && !action.action) error(`${path}.action`, "must not be empty");
+  if (action.type === "swapPositions") validateTarget(`${path}.withTarget`, action.withTarget, playerIds, error);
+  if (action.type === "moveToNearest" && action.direction !== "ahead" && action.direction !== "behind") {
+    error(`${path}.direction`, "must be ahead or behind");
+  }
 }
 
 function validateTarget(
@@ -439,6 +443,7 @@ function validateFutureCatalogReferences(
 ) {
   const cosmeticIds = new Set(Object.keys(content.cosmetics ?? {}));
   const effectIds = new Set(Object.keys(content.effects ?? {}));
+  const targetIds = new Set([...content.players.map((player) => player.id), ...Object.keys(content.characters ?? {})]);
 
   for (const [id, character] of Object.entries(content.characters ?? {}) as [string, CharacterDef][]) {
     for (const cosmeticId of [...(character.defaultLoadout?.cosmeticIds ?? []), ...(character.defaultCosmetics ?? [])]) {
@@ -450,7 +455,7 @@ function validateFutureCatalogReferences(
   }
   for (const [id, artifact] of Object.entries(content.artifacts ?? {}) as [string, ArtifactDef][]) {
     artifact.consequences?.forEach((action, index) => {
-      validateAction(`artifacts.${id}.consequences[${index}]`, action, new Set(Object.keys(content.characters ?? {})), effectIds, error);
+      validateAction(`artifacts.${id}.consequences[${index}]`, action, targetIds, effectIds, error);
     });
     for (const effectId of artifact.effects ?? []) {
       if (!effectIds.has(effectId)) error(`artifacts.${id}.effects`, `references missing effect ${effectId}`);
@@ -464,14 +469,15 @@ function validateFutureCatalogReferences(
     if ((effect.duration.mode === "turns" || effect.duration.mode === "rounds") && effect.duration.value < 1) {
       error(`effects.${id}.duration.value`, "must be at least 1");
     }
-    effect.actions?.forEach((action, index) => validateAction(`effects.${id}.actions[${index}]`, action, new Set(Object.keys(content.characters ?? {})), effectIds, error));
+    effect.consequences?.forEach((action, index) => validateAction(`effects.${id}.consequences[${index}]`, action, targetIds, effectIds, error));
+    effect.actions?.forEach((action, index) => validateAction(`effects.${id}.actions[${index}]`, action, targetIds, effectIds, error));
     effect.modifiers?.forEach((modifier, index) => {
       if (modifier.type === "conditionalConsequences") {
         modifier.consequences.forEach((action, actionIndex) => {
-          validateAction(`effects.${id}.modifiers[${index}].consequences[${actionIndex}]`, action, new Set(Object.keys(content.characters ?? {})), effectIds, error);
+          validateAction(`effects.${id}.modifiers[${index}].consequences[${actionIndex}]`, action, targetIds, effectIds, error);
         });
       }
-      if (modifier.type === "swapPositions") validateTarget(`effects.${id}.modifiers[${index}].target`, modifier.target, new Set(Object.keys(content.characters ?? {})), error);
+      if (modifier.type === "swapPositions") validateTarget(`effects.${id}.modifiers[${index}].target`, modifier.target, targetIds, error);
     });
   }
   for (const [id, cosmetic] of Object.entries(content.cosmetics ?? {}) as [string, CosmeticDef][]) {

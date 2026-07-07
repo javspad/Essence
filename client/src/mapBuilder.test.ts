@@ -25,7 +25,7 @@ import {
   resolveEventForPlayer,
   resolveTileEventForPlayer,
 } from "@essence/shared/events";
-import { durationStateFromDef, effectRemainingLabel, resolveTargetPlayerIds } from "@essence/shared/consequences";
+import { durationStateFromDef, effectConsequencesFor, effectRemainingLabel, resolveTargetPlayerIds } from "@essence/shared/consequences";
 import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";
 
 const board: Tile[] = [
@@ -261,6 +261,18 @@ assert.deepEqual(
 );
 assert.deepEqual(durationStateFromDef({ mode: "rounds", value: 2 }), { mode: "rounds", remaining: 2 });
 assert.equal(effectRemainingLabel({ mode: "untilTriggered" }), "until triggered");
+assert.deepEqual(effectConsequencesFor({ id: "half", name: "Half", duration: { mode: "rounds", value: 2 }, consequences: [{ type: "halfMovement" }] }), [
+  { type: "halfMovement" },
+]);
+assert.deepEqual(
+  effectConsequencesFor({
+    id: "legacy-half",
+    name: "Legacy half",
+    duration: { mode: "rounds", value: 2 },
+    modifiers: [{ type: "halfMovement", hook: "beforeMovement", rounding: "ceil" }],
+  }),
+  [{ type: "halfMovement", hook: "beforeMovement", rounding: "ceil" }]
+);
 
 const invalidEffectReference = validateGameContent({
   ...content,

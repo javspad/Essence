@@ -307,7 +307,13 @@ export type EventActionTarget = TargetSelector;
 
 export type OfflineActionKind = "takeShot" | "custom";
 
-export type ConsequenceDef =
+export type ConsequenceTiming = {
+  hook?: EffectLifecycleHook;
+  when?: EffectCondition;
+  expiresOnTrigger?: boolean;
+};
+
+export type ConsequenceCore =
   | { type: "text"; text: string; target?: EventActionTarget }
   | { type: "coins"; value: number; target?: EventActionTarget; text?: string }
   | { type: "move"; delta: number; target?: EventActionTarget; text?: string }
@@ -315,7 +321,12 @@ export type ConsequenceDef =
   | { type: "skipTurn"; target?: EventActionTarget; text?: string }
   | { type: "extraTurn"; target?: EventActionTarget; text?: string }
   | { type: "offlineAction"; action: OfflineActionKind; target?: EventActionTarget; text?: string; confirmation?: EventActivity["confirmation"] }
-  | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string; duration?: EffectDuration };
+  | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string; duration?: EffectDuration }
+  | { type: "halfMovement"; target?: EventActionTarget; text?: string; rounding?: "floor" | "ceil" | "round" }
+  | { type: "swapPositions"; target?: EventActionTarget; withTarget: EventActionTarget; text?: string }
+  | { type: "moveToNearest"; target?: EventActionTarget; direction: "ahead" | "behind"; text?: string };
+
+export type ConsequenceDef = ConsequenceCore & ConsequenceTiming;
 
 export type EventAction = ConsequenceDef;
 
@@ -484,7 +495,10 @@ export interface EffectDef {
   description?: string;
   duration: EffectDuration;
   hooks?: EffectLifecycleHook[];
+  consequences?: EventAction[];
+  /** @deprecated Use consequences. */
   modifiers?: EffectModifier[];
+  /** @deprecated Use consequences. */
   actions?: EventAction[];
   visualAssetId?: string;
 }
@@ -552,7 +566,7 @@ export interface EffectInstance {
   targetPlayerId: string;
   remaining: EffectDurationState;
   hooks: EffectLifecycleHook[];
-  modifiers: EffectModifier[];
+  consequences: EventAction[];
   visualAssetId?: string;
   startedRound: number;
   startedTurnId?: string;

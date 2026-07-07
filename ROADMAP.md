@@ -329,27 +329,28 @@ Tasks:
 Acceptance:
 
 - The current minigame consequence builder can express immediate rewards/punishments.
-- A duration effect like "for 2 rounds, move half of the die roll and take a shot if you roll 6" can be configured and playtested.
+- A duration effect like "for 2 rounds, move half of the die roll" can be configured and playtested.
 - Effects can be configured in JSON and previewed through a builder/test surface.
 
 Verification notes:
 
 - Added `TargetSelector`/`ConsequenceDef` as the canonical shared vocabulary while keeping `EventActionTarget`/`EventAction` as compatibility aliases for existing event content.
 - Added shared target resolution for acting player, selected target, nearest ahead/behind, everyone, ranking winner/loser/range, and fixed player selectors.
-- Added reusable effect contracts: duration state, live `EffectInstance`, lifecycle hooks, and modifiers for half movement, skip/extra turn, conditional consequences, coin/move/move-to changes, swapping positions, and moving to the nearest player.
-- Seeded `shared/content.json` with `half-roll-shot-on-six`, a 2-round effect that halves movement and prompts a take-shot offline action when the target rolls 6.
+- Added reusable effect contracts: duration state, live `EffectInstance`, lifecycle hooks, and composed consequences for half movement, skip/extra turn, coin/move/move-to changes, swapping positions, and moving to the nearest player.
+- Seeded `shared/content.json` with `half-roll-2-rounds`, a 2-round effect that halves movement without bundling shot/offline-event behavior into the effect.
 - Server now applies `applyEffect` consequences, runs effect lifecycle hooks during roll/movement/cell/activity/turn flow, expires turn/round/until-triggered effects, and emits `effect:ended`.
 - Active effects appear in the legacy score list and the 3D HUD score panel with names, remaining duration, and hover/tap detail text.
-- Event Builder now exposes common target selectors, common consequence controls, `applyEffect`, offline shot actions, an Effects panel, and the existing Content JSON import/export escape hatch.
-- Regression coverage: server tests for effect application, half movement, conditional offline action, duration ticking, and end notification; shared/client tests for target selectors, duration labels, and invalid effect references.
-- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright Event Builder QA with screenshot at `/tmp/essence-s3-event-builder.png`; `git diff --check`.
+- Event Builder now exposes common target selectors, common consequence controls, `applyEffect`, inline effect composition, and the existing Content JSON import/export escape hatch.
+- Regression coverage: server tests for effect application, composed half movement, duration ticking, and end notification; shared/client tests for target selectors, duration labels, invalid effect references, and legacy modifier-to-consequence migration.
+- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright Event Builder QA with screenshot at `/tmp/essence-s3-effect-composer.png`; `git diff --check`.
 
 Manual validation checklist:
 
-- [ ] Open `/event-builder`, add the half-roll shot effect, add a consequence, and verify `Apply effect` plus `Take shot` are available in the consequence type controls.
+- [ ] Open `/event-builder`, add a consequence, select `Apply effect`, and verify the inline timed-consequence composer appears.
 - [ ] In `/event-builder`, choose target selectors for acting player, selected target, nearest ahead/behind, fixed player, winner/loser, and rank/range; verify the summary text stays readable.
-- [ ] In a room with content that applies `half-roll-shot-on-six`, trigger the effect and verify the target's score row shows the active effect with remaining duration.
-- [ ] While the effect is active, roll a 6 and verify movement is halved and a take-shot action is displayed instead of silently changing hidden state.
+- [ ] In `/event-builder`, compose an effect from half movement plus another timed consequence such as skip turn or coins, then export/re-import Content JSON and verify it persists.
+- [ ] In a room with content that applies `half-roll-2-rounds`, trigger the effect and verify the target's score row shows the active effect with remaining duration.
+- [ ] While the effect is active, roll and verify movement is halved without any take-shot prompt appearing from the effect itself.
 - [ ] Advance turns/rounds until expiration and verify the active effect disappears from the score UI.
 - [ ] Use the board focus controls and full-map overview only; verify no manual/free camera movement controls appear.
 
@@ -716,6 +717,7 @@ Resolved:
 - Prompt/prenda confirmation: defaults to the rest of the connected group and can be configured with `confirmation.mode` or `confirmation.playerIds`.
 - Manual camera movement is intentionally out of scope; map inspection uses player focus plus full-map overview.
 - Effect durations: `turns` tick when the target player's turn ends, `rounds` tick when the room round advances, `untilTriggered` expires on a matching trigger, and `game` lasts until the game ends.
+- Effect authoring: effects are duration-wrapped compositions of consequences; shot/offline prompts should be modeled as events or immediate consequences, not bundled into the seeded movement effect.
 
 ## Next Review Step
 

@@ -331,24 +331,16 @@ const effectContent: GameContent = normalizeGameContentEvents({
       name: "Apply half roll",
       kind: "story",
       story: { title: "Apply half roll", prompt: "Alice is slowed down." },
-      actions: [{ type: "applyEffect", effectId: "half-roll-shot-on-six", target: "landing" }],
+      actions: [{ type: "applyEffect", effectId: "half-roll-2-rounds", target: "landing" }],
     },
   },
   effects: {
-    "half-roll-shot-on-six": {
-      id: "half-roll-shot-on-six",
-      name: "Half Roll Dare",
-      description: "For 2 rounds, move half of the die roll and take a shot if you roll 6.",
+    "half-roll-2-rounds": {
+      id: "half-roll-2-rounds",
+      name: "Half movement",
+      description: "For 2 rounds, move half of the die roll.",
       duration: { mode: "rounds", value: 2 },
-      modifiers: [
-        { type: "halfMovement", hook: "beforeMovement", rounding: "ceil" },
-        {
-          type: "conditionalConsequences",
-          hook: "afterRoll",
-          when: { rollEquals: 6 },
-          consequences: [{ type: "offlineAction", action: "takeShot", target: "target", text: "Take a shot for rolling 6." }],
-        },
-      ],
+      consequences: [{ type: "halfMovement", hook: "beforeMovement", rounding: "ceil", text: "Move half of the die roll." }],
     },
   },
   minigames: {},
@@ -368,7 +360,8 @@ await withRolls([1, 6], async () => {
   assert.equal(room.getState().phase, "event");
   assert.equal(room.getState().players[0].position, 1);
   assert.equal(room.getState().activeEffects.length, 1);
-  assert.equal(room.getState().activeEffects[0].name, "Half Roll Dare");
+  assert.equal(room.getState().activeEffects[0].name, "Half movement");
+  assert.equal(room.getState().activeEffects[0].consequences[0].type, "halfMovement");
   assert.deepEqual(room.getState().activeEvent?.actions?.[0].effectInstanceIds, [room.getState().activeEffects[0].id]);
 
   room.next("socket-alice");
@@ -380,7 +373,8 @@ await withRolls([1, 6], async () => {
   assert.equal(room.getState().lastRoll, 6);
   assert.equal(room.getState().players[0].position, 4, "half movement rounds a roll of 6 down to three cells of movement");
   assert.equal(room.getState().phase, "event");
-  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction" && action.offlineAction === "takeShot"), true);
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "halfMovement"), true);
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction"), false);
 
   room.next("socket-alice");
   assert.equal(room.getState().activeEffects.length, 0);

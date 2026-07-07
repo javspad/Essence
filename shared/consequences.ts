@@ -56,16 +56,32 @@ export function durationStateFromDef(duration: EffectDuration): EffectDurationSt
 
 export function effectHooksFor(effect: EffectDef): EffectLifecycleHook[] {
   const hooks = new Set<EffectLifecycleHook>(effect.hooks ?? []);
-  for (const modifier of effect.modifiers ?? []) {
-    hooks.add(modifier.hook ?? defaultHookForModifier(modifier.type));
+  for (const action of effectConsequencesFor(effect)) {
+    hooks.add(action.hook ?? defaultHookForConsequence(action.type));
   }
-  if (effect.actions?.length) hooks.add("onActivityResult");
   return [...hooks];
 }
 
+export function effectConsequencesFor(effect: EffectDef): EventAction[] {
+  if (effect.consequences?.length) return effect.consequences;
+  return [...(effect.actions ?? []), ...(effect.modifiers ?? []).flatMap(effectModifierToConsequences)];
+}
+
+export function consequenceMatchesHook(action: EventAction, context: EffectHookContext): boolean {
+  const hook = action.hook ?? defaultHookForConsequence(action.type);
+  if (hook !== context.hook) return false;
+  return effectConditionMatches(action.when, context);
+}
+
 export function defaultHookForModifier(type: EffectModifier["type"]): EffectLifecycleHook {
-  if (type === "halfMovement") return "beforeMovement";
   if (type === "conditionalConsequences") return "afterRoll";
+  return defaultHookForConsequence(type);
+}
+
+export function defaultHookForConsequence(type: EventAction["type"]): EffectLifecycleHook {
+  if (type === "halfMovement") return "beforeMovement";
+  if (type === "applyEffect") return "onActivityResult";
+  if (type === "offlineAction") return "onActivityResult";
   return "onTurnEnd";
 }
 
@@ -84,7 +100,10 @@ export function consequenceLabel(action: EventAction, effectNameForId?: (effectI
   if (action.type === "skipTurn") return action.text ?? "Skip next turn";
   if (action.type === "extraTurn") return action.text ?? "Play an extra turn";
   if (action.type === "offlineAction") return action.text ?? offlineActionLabel(action.action);
-  return action.text ?? `Apply ${effectNameForId?.(action.effectId) ?? action.effectId}`;
+  if (action.type === "applyEffect") return action.text ?? `Apply ${effectNameForId?.(action.effectId) ?? action.effectId}`;
+  if (action.type === "halfMovement") return action.text ?? "Move half of the die roll";
+  if (action.type === "swapPositions") return action.text ?? "Swap positions";
+  return action.text ?? `Move to nearest player ${action.direction}`;
 }
 
 export function offlineActionLabel(action: OfflineActionKind): string {
@@ -121,4 +140,27 @@ function sourcePlayerId(
   if (from === "acting") return context.actingPlayerId ?? context.landingPlayerId;
   if (from === "target") return context.targetPlayerId;
   return from.playerId;
+}
+
+function effectModifierToConsequences(modifier: EffectModifier): EventAction[] {
+  if (modifier.type === "conditionalConsequences") {
+    return modifier.consequences.map((action) => ({
+      ...action,
+      hook: modifier.hook ?? defaultHookForModifier(modifier.type),
+      when: modifier.when,
+      expiresOnTrigger: modifier.expiresOnTrigger,
+    }));
+  }
+  if (modifier.type === "halfMovement") {
+    return [{ type: "halfMovement", hook: modifier.hook, rounding: modifier.rounding }];
+  }
+  if (modifier.type === "skipTurn") return [{ type: "skipTurn", hook: modifier.hook, text: modifier.text }];
+  if (modifier.type === "extraTurn") return [{ type: "extraTurn", hook: modifier.hook, text: modifier.text }];
+  if (modifier.type === "coins") return [{ type: "coins", hook: modifier.hook, value: modifier.value, text: modifier.text }];
+  if (modifier.type === "move") return [{ type: "move", hook: modifier.hook, delta: modifier.delta, text: modifier.text }];
+  if (modifier.type === "moveTo") return [{ type: "moveTo", hook: modifier.hook, tileId: modifier.tileId, text: modifier.text }];
+  if (modifier.type === "swapPositions") {
+    return [{ type: "swapPositions", hook: modifier.hook, target: "target", withTarget: modifier.target, text: modifier.text }];
+  }
+  return [{ type: "moveToNearest", hook: modifier.hook, target: "target", direction: modifier.direction, text: modifier.text }];
 }

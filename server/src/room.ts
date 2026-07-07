@@ -7,7 +7,6 @@ import type {
   EffectDuration,
   EffectInstance,
   EffectLifecycleHook,
-  EffectModifier,
   EventAction,
   EventActionTarget,
   EventActivity,
@@ -22,10 +21,10 @@ import type {
 } from "@essence/shared";
 import { characterDisplayName, characterSlotsForContent, resolveCharacterSet } from "@essence/shared/characters";
 import {
+  consequenceMatchesHook,
   consequenceLabel,
-  defaultHookForModifier,
   durationStateFromDef,
-  effectConditionMatches,
+  effectConsequencesFor,
   effectHooksFor,
 } from "@essence/shared/consequences";
 import {
@@ -766,6 +765,19 @@ export class GameRoom {
         requiresConfirmation: true,
       };
     }
+    if (action.type === "halfMovement") {
+      return {
+        type: action.type,
+        targetPlayerIds,
+        text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} moves half of the die roll`,
+      };
+    }
+    if (action.type === "swapPositions") {
+      return this.applySwapPositions(action, targetPlayerIds, context);
+    }
+    if (action.type === "moveToNearest") {
+      return this.applyMoveToNearest(action, targetPlayerIds, context);
+    }
     const effectInstanceIds = this.applyEffectToTargets(action.effectId, targetPlayerIds, {
       sourcePlayerId: context.actingPlayerId ?? context.landingPlayerId,
       duration: action.duration,
@@ -794,6 +806,55 @@ export class GameRoom {
     });
   }
 
+  private applySwapPositions(
+    action: Extract<EventAction, { type: "swapPositions" }>,
+    targetPlayerIds: string[],
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string; ranking?: string[] }
+  ): AppliedEventAction {
+    const swapped: string[] = [];
+    for (const id of targetPlayerIds) {
+      const target = this.state.players.find((player) => player.id === id);
+      const otherId = this.targetPlayerIds(action.withTarget, { ...context, targetPlayerId: id }).find((candidate) => candidate !== id);
+      const other = otherId ? this.state.players.find((player) => player.id === otherId) : undefined;
+      if (!target || !other) continue;
+      const targetPosition = target.position;
+      target.position = other.position;
+      other.position = targetPosition;
+      swapped.push(target.id, other.id);
+    }
+    this.recordFinishWinner(swapped);
+    return {
+      type: action.type,
+      targetPlayerIds: swapped,
+      text: action.text ?? `${namesFor(swapped, this.state.players)} intercambian posiciones`,
+    };
+  }
+
+  private applyMoveToNearest(
+    action: Extract<EventAction, { type: "moveToNearest" }>,
+    targetPlayerIds: string[],
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string; ranking?: string[] }
+  ): AppliedEventAction {
+    const moved: string[] = [];
+    let tileId: number | undefined;
+    for (const id of targetPlayerIds) {
+      const player = this.state.players.find((candidate) => candidate.id === id);
+      const nearestId = this.targetPlayerIds({ nearest: action.direction, from: "target" }, { ...context, targetPlayerId: id })[0];
+      const nearest = nearestId ? this.state.players.find((candidate) => candidate.id === nearestId) : undefined;
+      if (!player || !nearest) continue;
+      player.position = nearest.position;
+      tileId = player.position;
+      moved.push(player.id);
+    }
+    this.recordFinishWinner(moved);
+    return {
+      type: action.type,
+      targetPlayerIds: moved,
+      text: action.text ?? `${namesFor(moved, this.state.players)} se mueve al jugador más cercano ${action.direction === "ahead" ? "adelante" : "atrás"}`,
+      ...(tileId !== undefined ? { tileId } : {}),
+    };
+  }
+
   private applyEffectToTargets(
     effectId: string,
     targetPlayerIds: string[],
@@ -812,7 +873,7 @@ export class GameRoom {
         targetPlayerId,
         remaining: durationStateFromDef(options.duration ?? effect.duration),
         hooks: effectHooksFor(effect),
-        modifiers: effect.modifiers ?? [],
+        consequences: effectConsequencesFor(effect),
         visualAssetId: effect.visualAssetId,
         startedRound: this.state.round,
         startedTurnId: this.activePlayer()?.id,
@@ -827,10 +888,10 @@ export class GameRoom {
     let movement = roll;
     for (const instance of this.state.activeEffects) {
       if (instance.targetPlayerId !== active.id) continue;
-      for (const modifier of instance.modifiers) {
-        const hook = modifier.hook ?? defaultHookForModifier(modifier.type);
-        if (modifier.type !== "halfMovement" || hook !== "beforeMovement") continue;
-        movement = halfMovement(movement, modifier.rounding);
+      for (const action of instance.consequences) {
+        if (action.type !== "halfMovement") continue;
+        if (!consequenceMatchesHook(action, { hook: "beforeMovement", roll, phase: this.state.phase })) continue;
+        movement = halfMovement(movement, action.rounding);
       }
     }
     return Math.max(0, movement);
@@ -856,135 +917,19 @@ export class GameRoom {
         ...context,
         targetPlayerId: instance.targetPlayerId,
       };
-      for (const modifier of instance.modifiers) {
-        const modifierHook = modifier.hook ?? defaultHookForModifier(modifier.type);
-        if (modifierHook !== hook) continue;
-        const result = this.applyEffectModifier(instance, modifier, hook, hookContext);
-        applied.push(...result.actions);
-        if (result.expire) expired.set(instance.id, result.expire);
-      }
-      if (hook === "onActivityResult") {
-        const effect = this.content.effects?.[instance.effectId];
+      for (const action of instance.consequences) {
+        if (!consequenceMatchesHook(action, { hook, roll: context.roll, phase: this.state.phase })) continue;
         applied.push(
-          ...this.applyActions(effect?.actions ?? [], {
+          ...this.applyActions([action], {
             ...hookContext,
             defaultTarget: "target",
           })
         );
+        if (action.expiresOnTrigger || instance.remaining.mode === "untilTriggered") expired.set(instance.id, "triggered");
       }
     }
     for (const [id, reason] of expired) this.expireEffect(id, reason);
     return applied;
-  }
-
-  private applyEffectModifier(
-    instance: EffectInstance,
-    modifier: EffectModifier,
-    hook: EffectLifecycleHook,
-    context: {
-      landingPlayerId?: string;
-      actingPlayerId?: string;
-      targetPlayerId?: string;
-      ranking?: string[];
-      roll?: number;
-    }
-  ): { actions: AppliedEventAction[]; expire?: "triggered" } {
-    if (modifier.type === "halfMovement") {
-      if (hook !== "beforeMovement") return { actions: [] };
-      return {
-        actions: [
-          {
-            type: "text",
-            targetPlayerIds: [instance.targetPlayerId],
-            text: `${this.effectTargetName(instance)} moves half of the die roll because of ${instance.name}`,
-          },
-        ],
-      };
-    }
-    if (modifier.type === "conditionalConsequences") {
-      if (!effectConditionMatches(modifier.when, { hook, roll: context.roll, phase: this.state.phase })) return { actions: [] };
-      const actions = this.applyActions(modifier.consequences, {
-        ...context,
-        targetPlayerId: instance.targetPlayerId,
-        defaultTarget: "target",
-      });
-      return { actions, expire: modifier.expiresOnTrigger || instance.remaining.mode === "untilTriggered" ? "triggered" : undefined };
-    }
-    if (modifier.type === "skipTurn") {
-      return {
-        actions: this.applyActions([{ type: "skipTurn", target: "target", text: modifier.text }], {
-          ...context,
-          targetPlayerId: instance.targetPlayerId,
-        }),
-      };
-    }
-    if (modifier.type === "extraTurn") {
-      return {
-        actions: this.applyActions([{ type: "extraTurn", target: "target", text: modifier.text }], {
-          ...context,
-          targetPlayerId: instance.targetPlayerId,
-        }),
-      };
-    }
-    if (modifier.type === "coins") {
-      return {
-        actions: this.applyActions([{ type: "coins", value: modifier.value, target: "target", text: modifier.text }], {
-          ...context,
-          targetPlayerId: instance.targetPlayerId,
-        }),
-      };
-    }
-    if (modifier.type === "move") {
-      return {
-        actions: this.applyActions([{ type: "move", delta: modifier.delta, target: "target", text: modifier.text }], {
-          ...context,
-          targetPlayerId: instance.targetPlayerId,
-        }),
-      };
-    }
-    if (modifier.type === "moveTo") {
-      return {
-        actions: this.applyActions([{ type: "moveTo", tileId: modifier.tileId, target: "target", text: modifier.text }], {
-          ...context,
-          targetPlayerId: instance.targetPlayerId,
-        }),
-      };
-    }
-    if (modifier.type === "swapPositions") {
-      const otherIds = this.targetPlayerIds(modifier.target, { ...context, targetPlayerId: instance.targetPlayerId });
-      const target = this.state.players.find((player) => player.id === instance.targetPlayerId);
-      const other = this.state.players.find((player) => otherIds.includes(player.id));
-      if (!target || !other) return { actions: [] };
-      const targetPosition = target.position;
-      target.position = other.position;
-      other.position = targetPosition;
-      this.recordFinishWinner([target.id, other.id]);
-      return {
-        actions: [
-          {
-            type: "move",
-            targetPlayerIds: [target.id, other.id],
-            text: modifier.text ?? `${target.name} swaps positions with ${other.name}`,
-          },
-        ],
-      };
-    }
-    const nearest = this.targetPlayerIds({ nearest: modifier.direction, from: "target" }, { ...context, targetPlayerId: instance.targetPlayerId });
-    const target = this.state.players.find((player) => player.id === instance.targetPlayerId);
-    const nearestPlayer = this.state.players.find((player) => nearest.includes(player.id));
-    if (!target || !nearestPlayer) return { actions: [] };
-    target.position = nearestPlayer.position;
-    this.recordFinishWinner([target.id]);
-    return {
-      actions: [
-        {
-          type: "moveTo",
-          targetPlayerIds: [target.id],
-          text: modifier.text ?? `${target.name} moves to the nearest player ${modifier.direction}`,
-          tileId: target.position,
-        },
-      ],
-    };
   }
 
   private tickEffectDurations(endingPlayerId: string, advancedRound: boolean) {
