@@ -340,7 +340,7 @@ const effectContent: GameContent = normalizeGameContentEvents({
       name: "Half movement",
       description: "For 2 rounds, move half of the die roll.",
       duration: { mode: "rounds", value: 2 },
-      consequences: [{ type: "halfMovement", hook: "beforeMovement", rounding: "ceil", text: "Move half of the die roll." }],
+      consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll." }],
     },
   },
   minigames: {},
@@ -361,7 +361,7 @@ await withRolls([1, 6], async () => {
   assert.equal(room.getState().players[0].position, 1);
   assert.equal(room.getState().activeEffects.length, 1);
   assert.equal(room.getState().activeEffects[0].name, "Half movement");
-  assert.equal(room.getState().activeEffects[0].consequences[0].type, "halfMovement");
+  assert.equal(room.getState().activeEffects[0].consequences[0].type, "movementMultiplier");
   assert.deepEqual(room.getState().activeEvent?.actions?.[0].effectInstanceIds, [room.getState().activeEffects[0].id]);
 
   room.next("socket-alice");
@@ -373,12 +373,100 @@ await withRolls([1, 6], async () => {
   assert.equal(room.getState().lastRoll, 6);
   assert.equal(room.getState().players[0].position, 4, "half movement rounds a roll of 6 down to three cells of movement");
   assert.equal(room.getState().phase, "event");
-  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "halfMovement"), true);
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "movementMultiplier"), true);
   assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction"), false);
 
   room.next("socket-alice");
   assert.equal(room.getState().activeEffects.length, 0);
   assert.equal(events.some((event) => event.event === "effect:ended" && (event.payload as { reason?: string }).reason === "expired"), true);
+});
+
+const timedConsequenceContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "fate", eventId: "attach-coin" },
+    { id: 2, type: "minigame" },
+    { id: 3, type: "finish" },
+  ],
+  events: {
+    "attach-coin": {
+      name: "Attach coin",
+      kind: "story",
+      story: { title: "Attach coin", prompt: "Alice will gain coins when the turn ends." },
+      actions: [{ type: "coins", value: 3, target: "landing", hook: "onTurnEnd", duration: { mode: "uses", value: 1 }, text: "End-turn coin" }],
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+});
+
+await withRolls([1], async () => {
+  const { io, events } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "EFF2", "Timed consequences", timedConsequenceContent);
+
+  room.join("socket-alice", "Alice");
+  room.startGame("socket-alice");
+  room.roll("socket-alice");
+
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().players[0].coins, 0, "duration-based consequences attach before they resolve");
+  assert.equal(room.getState().activeEffects.length, 1);
+  assert.equal(room.getState().activeEffects[0].targetPlayerId, "alice");
+  assert.equal(room.getState().activeEffects[0].consequences[0].type, "coins");
+  assert.deepEqual(room.getState().activeEffects[0].remaining, { mode: "uses", remaining: 1 });
+
+  room.next("socket-alice");
+
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().players[0].coins, 3);
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "coins"), true);
+  assert.equal(room.getState().activeEffects.length, 0);
+  assert.equal(events.some((event) => event.event === "effect:ended" && (event.payload as { reason?: string }).reason === "triggered"), true);
+});
+
+const diceBiasContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "fate", eventId: "attach-dice-bias" },
+    { id: 2, type: "minigame" },
+    { id: 3, type: "minigame" },
+    { id: 4, type: "minigame" },
+    { id: 5, type: "minigame" },
+    { id: 6, type: "minigame" },
+    { id: 7, type: "finish" },
+  ],
+  events: {
+    "attach-dice-bias": {
+      name: "Attach dice bias",
+      kind: "story",
+      story: { title: "Attach dice bias", prompt: "Alice is much more likely to roll five." },
+      actions: [{ type: "diceBias", face: 5, chanceDeltaPercent: 100, hook: "beforeRoll", duration: { mode: "uses", value: 1 }, target: "landing" }],
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+});
+
+await withRolls([1, 1], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "EFF3", "Dice effects", diceBiasContent);
+
+  room.join("socket-alice", "Alice");
+  room.startGame("socket-alice");
+  room.roll("socket-alice");
+  assert.equal(room.getState().activeEffects.length, 1);
+  room.next("socket-alice");
+
+  room.roll("socket-alice");
+
+  assert.equal(room.getState().lastRoll, 5, "dice bias can force the configured face when its chance increase reaches 100%");
+  assert.equal(room.getState().players[0].position, 6);
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "diceBias"), true);
+  assert.equal(room.getState().activeEffects.length, 0);
 });
 
 await withRolls([1], async () => {

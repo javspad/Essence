@@ -26,6 +26,8 @@ import {
   durationStateFromDef,
   effectConsequencesFor,
   effectHooksFor,
+  shouldAttachConsequence,
+  timedConsequenceEffectDef,
 } from "@essence/shared/consequences";
 import {
   eventTitle,
@@ -291,13 +293,14 @@ export class GameRoom {
     const p = this.playerBySocket(socketId);
     if (!active || !p || p.id !== active.id) return;
 
+    const roll = this.rollForPlayer(active);
+    this.state.lastRoll = roll;
     const beforeRollActions = this.applyEffectHook("beforeRoll", {
       actingPlayerId: active.id,
       landingPlayerId: active.id,
       targetPlayerId: active.id,
+      roll,
     });
-    const roll = 1 + Math.floor(Math.random() * 6);
-    this.state.lastRoll = roll;
     const afterRollActions = this.applyEffectHook("afterRoll", {
       actingPlayerId: active.id,
       landingPlayerId: active.id,
@@ -705,14 +708,15 @@ export class GameRoom {
       targetPlayerId?: string;
       ranking?: string[];
       defaultTarget?: EventActionTarget;
-    }
+    },
+    options: { fromEffect?: boolean } = {}
   ): AppliedEventAction[] {
     const applied: AppliedEventAction[] = [];
     for (const action of actions) {
       const target = action.target ?? context.defaultTarget ?? "landing";
       const targetPlayerIds = this.targetPlayerIds(target, context);
       if (action.type !== "text" && targetPlayerIds.length === 0) continue;
-      applied.push(this.applyAction(action, targetPlayerIds, context));
+      applied.push(this.applyAction(action, targetPlayerIds, context, options));
     }
     return applied;
   }
@@ -720,8 +724,20 @@ export class GameRoom {
   private applyAction(
     action: EventAction,
     targetPlayerIds: string[],
-    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string } = {}
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string } = {},
+    options: { fromEffect?: boolean } = {}
   ): AppliedEventAction {
+    if (!options.fromEffect && shouldAttachConsequence(action)) {
+      const effectInstanceIds = this.applyTimedConsequenceToTargets(action, targetPlayerIds, {
+        sourcePlayerId: context.actingPlayerId ?? context.landingPlayerId,
+      });
+      return {
+        type: action.type,
+        targetPlayerIds,
+        text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} receives ${consequenceLabel(action)}`,
+        effectInstanceIds,
+      };
+    }
     if (action.type === "text") {
       return { type: action.type, targetPlayerIds, text: action.text };
     }
@@ -770,6 +786,20 @@ export class GameRoom {
         type: action.type,
         targetPlayerIds,
         text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} moves half of the die roll`,
+      };
+    }
+    if (action.type === "movementMultiplier") {
+      return {
+        type: action.type,
+        targetPlayerIds,
+        text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} movement x${formatNumber(action.multiplier)}`,
+      };
+    }
+    if (action.type === "diceBias") {
+      return {
+        type: action.type,
+        targetPlayerIds,
+        text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} has ${formatSigned(action.chanceDeltaPercent)}% chance for ${action.face}`,
       };
     }
     if (action.type === "swapPositions") {
@@ -862,11 +892,28 @@ export class GameRoom {
   ): string[] {
     const effect = this.content.effects?.[effectId];
     if (!effect) return [];
+    return this.attachEffectToTargets(effect, targetPlayerIds, options);
+  }
+
+  private applyTimedConsequenceToTargets(
+    action: EventAction,
+    targetPlayerIds: string[],
+    options: { sourcePlayerId?: string } = {}
+  ): string[] {
+    const effect = timedConsequenceEffectDef(action, `action-${action.type}`);
+    return this.attachEffectToTargets(effect, targetPlayerIds, options);
+  }
+
+  private attachEffectToTargets(
+    effect: NonNullable<GameContent["effects"]>[string],
+    targetPlayerIds: string[],
+    options: { sourcePlayerId?: string; duration?: EffectDuration } = {}
+  ): string[] {
     const instanceIds: string[] = [];
     for (const targetPlayerId of targetPlayerIds) {
       const instance: EffectInstance = {
-        id: `${effectId}-${this.nextEffectInstanceId++}`,
-        effectId,
+        id: `${effect.id}-${this.nextEffectInstanceId++}`,
+        effectId: effect.id,
         name: effect.name,
         description: effect.description,
         sourcePlayerId: options.sourcePlayerId,
@@ -889,12 +936,25 @@ export class GameRoom {
     for (const instance of this.state.activeEffects) {
       if (instance.targetPlayerId !== active.id) continue;
       for (const action of instance.consequences) {
-        if (action.type !== "halfMovement") continue;
         if (!consequenceMatchesHook(action, { hook: "beforeMovement", roll, phase: this.state.phase })) continue;
-        movement = halfMovement(movement, action.rounding);
+        if (action.type === "halfMovement") movement = halfMovement(movement, action.rounding);
+        if (action.type === "movementMultiplier") movement = applyMovementMultiplier(movement, action.multiplier, action.rounding);
       }
     }
     return Math.max(0, movement);
+  }
+
+  private rollForPlayer(active: Player): number {
+    const weights = [1, 1, 1, 1, 1, 1];
+    for (const instance of this.state.activeEffects) {
+      if (instance.targetPlayerId !== active.id) continue;
+      for (const action of instance.consequences) {
+        if (action.type !== "diceBias") continue;
+        if (!consequenceMatchesHook(action, { hook: "beforeRoll", phase: this.state.phase })) continue;
+        applyDiceBias(weights, action.face, action.chanceDeltaPercent);
+      }
+    }
+    return rollWeightedDie(weights);
   }
 
   private applyEffectHook(
@@ -913,19 +973,25 @@ export class GameRoom {
       if (!instance.hooks.includes(hook)) continue;
       const targetPlayer = this.state.players.find((player) => player.id === instance.targetPlayerId);
       if (!targetPlayer) continue;
+      let triggered = false;
       const hookContext = {
         ...context,
         targetPlayerId: instance.targetPlayerId,
       };
       for (const action of instance.consequences) {
         if (!consequenceMatchesHook(action, { hook, roll: context.roll, phase: this.state.phase })) continue;
+        triggered = true;
         applied.push(
           ...this.applyActions([action], {
             ...hookContext,
             defaultTarget: "target",
-          })
+          }, { fromEffect: true })
         );
         if (action.expiresOnTrigger || instance.remaining.mode === "untilTriggered") expired.set(instance.id, "triggered");
+      }
+      if (triggered && instance.remaining.mode === "uses") {
+        instance.remaining = { ...instance.remaining, remaining: instance.remaining.remaining - 1 };
+        if (instance.remaining.remaining <= 0) expired.set(instance.id, "triggered");
       }
     }
     for (const [id, reason] of expired) this.expireEffect(id, reason);
@@ -1031,6 +1097,51 @@ function halfMovement(value: number, rounding: "floor" | "ceil" | "round" = "cei
   if (rounding === "floor") return Math.floor(half);
   if (rounding === "round") return Math.round(half);
   return Math.ceil(half);
+}
+
+function applyMovementMultiplier(value: number, multiplier: number, rounding: "floor" | "ceil" | "round" = "round"): number {
+  const next = value * multiplier;
+  if (rounding === "floor") return Math.floor(next);
+  if (rounding === "ceil") return Math.ceil(next);
+  return Math.round(next);
+}
+
+function applyDiceBias(weights: number[], face: number, chanceDeltaPercent: number) {
+  const index = clamp(Math.round(face), 1, weights.length) - 1;
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  if (total <= 0) return;
+  const delta = clamp(chanceDeltaPercent / 100, -1, 1);
+  const currentProbability = weights[index] / total;
+  const nextProbability = clamp(currentProbability + delta, 0, 1);
+  const otherTotal = total - weights[index];
+  weights[index] = nextProbability;
+  if (otherTotal <= 0) return;
+  const remainingProbability = 1 - nextProbability;
+  for (let i = 0; i < weights.length; i += 1) {
+    if (i === index) continue;
+    weights[i] = (weights[i] / otherTotal) * remainingProbability;
+  }
+}
+
+function rollWeightedDie(weights: number[]): number {
+  const total = weights.reduce((sum, weight) => sum + Math.max(0, weight), 0);
+  if (total <= 0) return 1 + Math.floor(Math.random() * 6);
+  const value = Math.random() * total;
+  let cursor = 0;
+  for (let index = 0; index < weights.length; index += 1) {
+    cursor += Math.max(0, weights[index]);
+    if (value < cursor) return index + 1;
+  }
+  return weights.length;
+}
+
+function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) return String(value);
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function formatSigned(value: number): string {
+  return `${value >= 0 ? "+" : ""}${formatNumber(value)}`;
 }
 
 function clamp(value: number, min: number, max: number): number {

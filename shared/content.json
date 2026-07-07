@@ -2642,8 +2642,9 @@
       },
       "consequences": [
         {
-          "type": "halfMovement",
+          "type": "movementMultiplier",
           "hook": "beforeMovement",
+          "multiplier": 0.5,
           "rounding": "ceil",
           "text": "Move half of the die roll."
         }

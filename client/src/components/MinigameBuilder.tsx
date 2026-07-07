@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
   AppliedEventAction,
   EffectDef,
+  EffectDuration,
   EffectDurationState,
+  EffectLifecycleHook,
   EventAction,
   EventActionTarget,
   EventActivity,
@@ -17,7 +19,7 @@ import type {
   Player,
   RevealEntry,
 } from "@essence/shared";
-import { consequenceLabel, effectConsequencesFor, effectRemainingLabel } from "@essence/shared/consequences";
+import { consequenceLabel, defaultHookForConsequence, effectConsequencesFor, effectRemainingLabel } from "@essence/shared/consequences";
 import seedContent from "@shared/content.json";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import {
@@ -42,11 +44,22 @@ const INITIAL_PLAYERS = PLAYER_POOL.slice(0, Math.min(4, PLAYER_POOL.length)).ma
 const STORAGE_KEY = "essence:event-builder:draft:v1";
 
 type TargetKind = "landing" | "acting" | "target" | "winner" | "loser" | "everyone" | "player" | "rank" | "rankRange" | "nearestAhead" | "nearestBehind";
+type ConsequenceTimingMode = "now" | "attached";
 
 const participantModeOptions: { value: EventParticipantMode; label: string }[] = [
   { value: "everyone", label: "Everyone" },
   { value: "landing", label: "Acting player" },
   { value: "host", label: "Host" },
+];
+
+const hookOptions: { value: EffectLifecycleHook; label: string }[] = [
+  { value: "onTurnEnd", label: "Turn end" },
+  { value: "beforeRoll", label: "Before roll" },
+  { value: "afterRoll", label: "After roll" },
+  { value: "beforeMovement", label: "Before movement" },
+  { value: "afterMovement", label: "After movement" },
+  { value: "onCellEnter", label: "Cell enter" },
+  { value: "onActivityResult", label: "Activity result" },
 ];
 
 interface RunResult {
@@ -68,7 +81,6 @@ interface PlaytestResolution {
 export default function MinigameBuilder() {
   const [content, setContent] = useState<GameContent>(() => loadInitialContent());
   const eventIds = useMemo(() => Object.keys(content.events ?? {}), [content.events]);
-  const effectIds = useMemo(() => Object.keys(content.effects ?? {}), [content.effects]);
   const [selectedId, setSelectedId] = useState(eventIds[0] ?? "");
   const [activityFilter, setActivityFilter] = useState<EventActivityType | "all">("all");
   const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
@@ -321,13 +333,6 @@ export default function MinigameBuilder() {
         },
       };
     });
-  };
-
-  const updateOutcomeAction = (outcomeIndex: number, action: EventAction) => {
-    updateOutcome(outcomeIndex, (outcome) => ({
-      ...outcome,
-      actions: [action],
-    }));
   };
 
   const addPlayer = () => {
@@ -654,7 +659,6 @@ export default function MinigameBuilder() {
                   effects={content.effects ?? {}}
                   onChange={(updater) => updateOutcome(index, updater)}
                   onRemove={() => removeOutcome(index)}
-                  onUpdateAction={(action) => updateOutcomeAction(index, action)}
                   onEnsureEffect={ensureEffect}
                   onUpdateEffect={updateEffect}
                 />
@@ -900,7 +904,6 @@ function ConsequenceEditor({
   effects,
   onChange,
   onRemove,
-  onUpdateAction,
   onEnsureEffect,
   onUpdateEffect,
 }: {
@@ -909,12 +912,29 @@ function ConsequenceEditor({
   effects: Record<string, EffectDef>;
   onChange: (updater: (outcome: EventOutcomeBranch) => EventOutcomeBranch) => void;
   onRemove: () => void;
-  onUpdateAction: (action: EventAction) => void;
   onEnsureEffect: (effect: EffectDef) => void;
   onUpdateEffect: (effectId: string, updater: (effect: EffectDef) => EffectDef) => void;
 }) {
   const kind = targetKind(outcome.when);
-  const action = editableConsequenceAction(outcome.actions[0]);
+  const actions = outcomeActions(outcome);
+  const updateAction = (actionIndex: number, action: EventAction) => {
+    onChange((current) => ({
+      ...current,
+      actions: outcomeActions(current).map((item, index) => (index === actionIndex ? action : item)),
+    }));
+  };
+  const removeAction = (actionIndex: number) => {
+    onChange((current) => {
+      const next = outcomeActions(current).filter((_, index) => index !== actionIndex);
+      return { ...current, actions: next.length ? next : [{ type: "coins", value: 1 }] };
+    });
+  };
+  const addAction = () => {
+    onChange((current) => ({
+      ...current,
+      actions: [...outcomeActions(current), { type: "coins", value: 1 }],
+    }));
+  };
   return (
     <details className="rounded-md border border-white/10 bg-black/15 p-2" open>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
@@ -984,13 +1004,37 @@ function ConsequenceEditor({
         </div>
       )}
       <ConsequenceActionEditor
-        action={action}
+        action={actions[0]}
         effects={effects}
         players={players}
-        onChange={onUpdateAction}
+        actionIndex={0}
+        canRemove={actions.length > 1}
+        onChange={(action) => updateAction(0, action)}
+        onRemove={() => removeAction(0)}
         onEnsureEffect={onEnsureEffect}
         onUpdateEffect={onUpdateEffect}
       />
+      {actions.slice(1).map((action, index) => (
+        <ConsequenceActionEditor
+          key={`${action.type}-${index + 1}`}
+          action={action}
+          effects={effects}
+          players={players}
+          actionIndex={index + 1}
+          canRemove
+          onChange={(next) => updateAction(index + 1, next)}
+          onRemove={() => removeAction(index + 1)}
+          onEnsureEffect={onEnsureEffect}
+          onUpdateEffect={onUpdateEffect}
+        />
+      ))}
+      <button
+        type="button"
+        onClick={addAction}
+        className="mt-3 w-full rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15"
+      >
+        Add action or effect
+      </button>
     </details>
   );
 }
@@ -999,22 +1043,40 @@ function ConsequenceActionEditor({
   action,
   effects,
   players,
+  actionIndex,
+  canRemove,
   onChange,
+  onRemove,
   onEnsureEffect,
   onUpdateEffect,
 }: {
   action: EventAction;
   effects: Record<string, EffectDef>;
   players: GameContent["players"];
+  actionIndex: number;
+  canRemove: boolean;
   onChange: (action: EventAction) => void;
+  onRemove: () => void;
   onEnsureEffect: (effect: EffectDef) => void;
   onUpdateEffect: (effectId: string, updater: (effect: EffectDef) => EffectDef) => void;
 }) {
   const text = action.text ?? "";
   const effectOptions = Object.values(effects).map((effect) => ({ value: effect.id, label: effect.name }));
   const selectedEffect = action.type === "applyEffect" ? effects[action.effectId] : undefined;
+  const timingMode = consequenceTimingMode(action);
   return (
     <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-300">Action {actionIndex + 1}</p>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={!canRemove}
+          className="rounded-md border border-rose-200/20 bg-rose-500/10 px-2 py-1 text-[0.62rem] font-black text-rose-100 transition hover:bg-rose-500/15 disabled:opacity-40"
+        >
+          Remove
+        </button>
+      </div>
       <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
         <SelectInput
           label="Type"
@@ -1025,11 +1087,15 @@ function ConsequenceActionEditor({
             { value: "moveTo", label: "Move to cell" },
             { value: "skipTurn", label: "Skip turn" },
             { value: "extraTurn", label: "Extra turn" },
-            { value: "applyEffect", label: "Apply effect" },
             { value: "halfMovement", label: "Half movement" },
+            { value: "movementMultiplier", label: "Movement multiplier" },
+            { value: "diceBias", label: "Dice bias" },
+            { value: "swapPositions", label: "Swap positions" },
+            { value: "moveToNearest", label: "Move to nearest" },
+            { value: "applyEffect", label: "Saved effect" },
           ]}
           onChange={(type) => {
-            const nextType = type as Exclude<EventAction["type"], "text" | "offlineAction" | "swapPositions" | "moveToNearest">;
+            const nextType = type as Exclude<EventAction["type"], "text" | "offlineAction">;
             if (nextType === "applyEffect" && !Object.keys(effects).length) onEnsureEffect(defaultComposedEffect());
             onChange(convertActionType(action, nextType, Object.keys(effects)[0] ?? DEFAULT_EFFECT_ID));
           }}
@@ -1042,8 +1108,64 @@ function ConsequenceActionEditor({
           />
         )}
         {action.type === "moveTo" && <NumberInput label="Cell" value={action.tileId} onChange={(tileId) => onChange({ ...action, tileId })} />}
-        {action.type !== "coins" && action.type !== "move" && action.type !== "moveTo" && <div />}
+        {action.type === "movementMultiplier" && (
+          <NumberInput label="x" value={action.multiplier} onChange={(multiplier) => onChange({ ...action, multiplier: Math.max(0, multiplier) })} />
+        )}
+        {action.type === "diceBias" && (
+          <NumberInput label="Face" value={action.face} onChange={(face) => onChange({ ...action, face: clampInt(face, 1, 6) })} />
+        )}
+        {action.type !== "coins" && action.type !== "move" && action.type !== "moveTo" && action.type !== "movementMultiplier" && action.type !== "diceBias" && <div />}
       </div>
+      {action.type === "movementMultiplier" && (
+        <SelectInput
+          label="Rounding"
+          value={action.rounding ?? "round"}
+          options={[
+            { value: "round", label: "Round" },
+            { value: "ceil", label: "Ceil" },
+            { value: "floor", label: "Floor" },
+          ]}
+          onChange={(rounding) => onChange({ ...action, rounding: rounding as "floor" | "ceil" | "round" })}
+        />
+      )}
+      {action.type === "halfMovement" && (
+        <SelectInput
+          label="Rounding"
+          value={action.rounding ?? "ceil"}
+          options={[
+            { value: "ceil", label: "Ceil" },
+            { value: "round", label: "Round" },
+            { value: "floor", label: "Floor" },
+          ]}
+          onChange={(rounding) => onChange({ ...action, rounding: rounding as "floor" | "ceil" | "round" })}
+        />
+      )}
+      {action.type === "diceBias" && (
+        <NumberInput
+          label="Chance change percent"
+          value={action.chanceDeltaPercent}
+          onChange={(chanceDeltaPercent) => onChange({ ...action, chanceDeltaPercent })}
+        />
+      )}
+      {action.type === "swapPositions" && (
+        <TargetPicker
+          label="Swap with"
+          target={action.withTarget}
+          players={players}
+          onChange={(withTarget) => onChange({ ...action, withTarget })}
+        />
+      )}
+      {action.type === "moveToNearest" && (
+        <SelectInput
+          label="Direction"
+          value={action.direction}
+          options={[
+            { value: "ahead", label: "Ahead" },
+            { value: "behind", label: "Behind" },
+          ]}
+          onChange={(direction) => onChange({ ...action, direction: direction as "ahead" | "behind" })}
+        />
+      )}
       {action.type === "applyEffect" && (
         <>
           <SelectInput
@@ -1058,6 +1180,31 @@ function ConsequenceActionEditor({
             onEnsure={() => onEnsureEffect(selectedEffect ?? defaultComposedEffect(action.effectId))}
             onChange={(updater) => onUpdateEffect(action.effectId, updater)}
           />
+        </>
+      )}
+      {action.type !== "applyEffect" && (
+        <>
+          <SelectInput
+            label="Timing"
+            value={timingMode}
+            disabled={isModifierEffectAction(action)}
+            options={[
+              { value: "now", label: "Resolve now" },
+              { value: "attached", label: "Attach to user" },
+            ]}
+            onChange={(mode) => onChange(setConsequenceTimingMode(action, mode as ConsequenceTimingMode))}
+          />
+          {timingMode === "attached" && (
+            <div className="rounded-md border border-cyan-200/15 bg-cyan-300/10 p-2">
+              <SelectInput
+                label="Runs"
+                value={action.hook ?? defaultHookForConsequence(action.type)}
+                options={hookOptions}
+                onChange={(hook) => onChange({ ...action, hook: hook as EffectLifecycleHook })}
+              />
+              <DurationEditor duration={action.duration ?? defaultInlineDuration(action)} onChange={(duration) => onChange({ ...action, duration })} />
+            </div>
+          )}
         </>
       )}
       <TextInput label="Display text" value={text} onChange={(value) => onChange(updateActionText(action, value))} />
@@ -1092,36 +1239,13 @@ function EffectCompositionEditor({
           {effectRemainingLabel(durationPreview(effect.duration))}
         </span>
       </div>
-      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
-        <SelectInput
-          label="Duration"
-          value={effect.duration.mode}
-          options={[
-            { value: "rounds", label: "Rounds" },
-            { value: "turns", label: "Turns" },
-            { value: "untilTriggered", label: "Until triggered" },
-            { value: "game", label: "Whole game" },
-          ]}
-          onChange={(mode) =>
-            onChange((current) => ({
-              ...current,
-              duration: mode === "rounds" || mode === "turns" ? { mode, value: durationValue(current.duration) } : { mode: mode as "untilTriggered" | "game" },
-            }))
-          }
-        />
-        {(effect.duration.mode === "rounds" || effect.duration.mode === "turns") && (
-          <NumberInput
-            label="Count"
-            value={effect.duration.value}
-            onChange={(value) =>
-              onChange((current) => ({
-                ...current,
-                duration: { mode: effect.duration.mode as "rounds" | "turns", value: Math.max(1, value) },
-              }))
-            }
-          />
-        )}
-      </div>
+      <TextInput label="Effect name" value={effect.name} onChange={(name) => onChange((current) => ({ ...current, name: name || current.name }))} />
+      <TextInput
+        label="Description"
+        value={effect.description ?? ""}
+        onChange={(description) => onChange((current) => ({ ...current, description: description || undefined }))}
+      />
+      <DurationEditor duration={effect.duration} onChange={(duration) => onChange((current) => ({ ...current, duration }))} />
       <div className="mt-3 space-y-2">
         {consequences.map((consequence, index) => (
           <EffectConsequenceRow
@@ -1153,7 +1277,7 @@ function EffectCompositionEditor({
           onEnsure();
           onChange((current) => ({
             ...current,
-            consequences: [...(current.consequences ?? current.actions ?? []), { type: "halfMovement", hook: "beforeMovement", rounding: "ceil" }],
+            consequences: [...(current.consequences ?? current.actions ?? []), { type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil" }],
             actions: undefined,
             modifiers: undefined,
           }));
@@ -1191,14 +1315,18 @@ function EffectConsequenceRow({
           label="Type"
           value={editable.type}
           options={[
+            { value: "movementMultiplier", label: "Movement multiplier" },
             { value: "halfMovement", label: "Half movement" },
+            { value: "diceBias", label: "Dice bias" },
             { value: "skipTurn", label: "Skip turn" },
             { value: "extraTurn", label: "Extra turn" },
             { value: "coins", label: "Coins" },
             { value: "move", label: "Move" },
             { value: "moveTo", label: "Move to cell" },
+            { value: "swapPositions", label: "Swap positions" },
+            { value: "moveToNearest", label: "Move to nearest" },
           ]}
-          onChange={(type) => onChange(convertActionType(editable, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect" | "swapPositions" | "moveToNearest">))}
+          onChange={(type) => onChange(convertActionType(editable, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">))}
         />
         {(editable.type === "coins" || editable.type === "move") && (
           <NumberInput
@@ -1208,18 +1336,56 @@ function EffectConsequenceRow({
           />
         )}
         {editable.type === "moveTo" && <NumberInput label="Cell" value={editable.tileId} onChange={(tileId) => onChange({ ...editable, tileId })} />}
-        {editable.type !== "coins" && editable.type !== "move" && editable.type !== "moveTo" && <div />}
+        {editable.type === "movementMultiplier" && (
+          <NumberInput label="x" value={editable.multiplier} onChange={(multiplier) => onChange({ ...editable, multiplier: Math.max(0, multiplier) })} />
+        )}
+        {editable.type === "diceBias" && (
+          <NumberInput label="Face" value={editable.face} onChange={(face) => onChange({ ...editable, face: clampInt(face, 1, 6) })} />
+        )}
+        {editable.type !== "coins" && editable.type !== "move" && editable.type !== "moveTo" && editable.type !== "movementMultiplier" && editable.type !== "diceBias" && <div />}
       </div>
+      {editable.type === "movementMultiplier" && (
+        <SelectInput
+          label="Rounding"
+          value={editable.rounding ?? "round"}
+          options={[
+            { value: "round", label: "Round" },
+            { value: "ceil", label: "Ceil" },
+            { value: "floor", label: "Floor" },
+          ]}
+          onChange={(rounding) => onChange({ ...editable, rounding: rounding as "floor" | "ceil" | "round" })}
+        />
+      )}
+      {editable.type === "diceBias" && (
+        <NumberInput
+          label="Chance change percent"
+          value={editable.chanceDeltaPercent}
+          onChange={(chanceDeltaPercent) => onChange({ ...editable, chanceDeltaPercent })}
+        />
+      )}
+      {editable.type === "swapPositions" && (
+        <TargetPicker
+          label="Swap with"
+          target={editable.withTarget}
+          players={players}
+          onChange={(withTarget) => onChange({ ...editable, withTarget })}
+        />
+      )}
+      {editable.type === "moveToNearest" && (
+        <SelectInput
+          label="Direction"
+          value={editable.direction}
+          options={[
+            { value: "ahead", label: "Ahead" },
+            { value: "behind", label: "Behind" },
+          ]}
+          onChange={(direction) => onChange({ ...editable, direction: direction as "ahead" | "behind" })}
+        />
+      )}
       <SelectInput
         label="Runs"
         value={editable.hook ?? defaultHookForEffectAction(editable)}
-        options={[
-          { value: "beforeMovement", label: "Before movement" },
-          { value: "onTurnEnd", label: "Turn end" },
-          { value: "afterRoll", label: "After roll" },
-          { value: "onCellEnter", label: "Cell enter" },
-          { value: "onActivityResult", label: "Activity result" },
-        ]}
+        options={hookOptions}
         onChange={(hook) => onChange({ ...editable, hook: hook as EventAction["hook"] })}
       />
       {"target" in editable && editable.target && typeof editable.target !== "string" && "playerId" in editable.target && (
@@ -1602,6 +1768,13 @@ function previewActions(
 
 function previewAction(action: EventAction, targetPlayerIds: string[], players: Player[]): AppliedEventAction {
   if (action.type === "text") return { type: action.type, targetPlayerIds, text: action.text };
+  if (action.type !== "applyEffect" && (action.duration || isModifierEffectAction(action))) {
+    return {
+      type: action.type,
+      targetPlayerIds,
+      text: action.text ?? `${namesFor(targetPlayerIds, players)} receives ${consequenceLabel(action)}`,
+    };
+  }
   if (action.type === "coins") {
     return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, players, action.value, "moneda"), value: action.value };
   }
@@ -1626,7 +1799,7 @@ function previewAction(action: EventAction, targetPlayerIds: string[], players: 
       requiresConfirmation: true,
     };
   }
-  if (action.type === "halfMovement" || action.type === "swapPositions" || action.type === "moveToNearest") {
+  if (action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias" || action.type === "swapPositions" || action.type === "moveToNearest") {
     return {
       type: action.type,
       targetPlayerIds,
@@ -1806,15 +1979,18 @@ function convertActionType(action: EventAction, type: Exclude<EventAction["type"
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
   const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : 1;
-  if (type === "coins") return { type, value: amount, ...(target ? { target } : {}), ...(text ? { text } : {}) };
-  if (type === "move") return { type, delta: amount, ...(target ? { target } : {}), ...(text ? { text } : {}) };
-  if (type === "moveTo") return { type, tileId: 1, ...(target ? { target } : {}), ...(text ? { text } : {}) };
-  if (type === "skipTurn") return { type, ...(target ? { target } : {}), ...(text ? { text } : {}) };
-  if (type === "extraTurn") return { type, ...(target ? { target } : {}), ...(text ? { text } : {}) };
-  if (type === "offlineAction") return { type, action: "takeShot", ...(target ? { target } : {}), ...(text ? { text } : {}) };
-  if (type === "halfMovement") return { type, hook: "beforeMovement", rounding: "ceil", ...(target ? { target } : {}), ...(text ? { text } : {}) };
-  if (type === "swapPositions") return { type, withTarget: "winner", ...(target ? { target } : {}), ...(text ? { text } : {}) };
-  if (type === "moveToNearest") return { type, direction: "ahead", ...(target ? { target } : {}), ...(text ? { text } : {}) };
+  const base = { ...(target ? { target } : {}), ...(text ? { text } : {}) };
+  if (type === "coins") return withPreservedTiming({ type, value: amount, ...base }, action);
+  if (type === "move") return withPreservedTiming({ type, delta: amount, ...base }, action);
+  if (type === "moveTo") return withPreservedTiming({ type, tileId: 1, ...base }, action);
+  if (type === "skipTurn") return withPreservedTiming({ type, ...base }, action);
+  if (type === "extraTurn") return withPreservedTiming({ type, ...base }, action);
+  if (type === "offlineAction") return withPreservedTiming({ type, action: "custom", ...base }, action);
+  if (type === "halfMovement") return ensureModifierTiming({ type, hook: "beforeMovement", rounding: "ceil", ...base });
+  if (type === "movementMultiplier") return ensureModifierTiming({ type, hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", ...base });
+  if (type === "diceBias") return ensureModifierTiming({ type, hook: "beforeRoll", face: 5, chanceDeltaPercent: 10, ...base });
+  if (type === "swapPositions") return withPreservedTiming({ type, withTarget: "winner", ...base }, action);
+  if (type === "moveToNearest") return withPreservedTiming({ type, direction: "ahead", ...base }, action);
   return { type, effectId: fallbackEffectId ?? DEFAULT_EFFECT_ID, ...(target ? { target } : {}), ...(text ? { text } : {}) };
 }
 
@@ -1824,7 +2000,9 @@ function editableConsequenceAction(action: EventAction | undefined): EventAction
 }
 
 function consequenceSummary(outcome: EventOutcomeBranch, players: GameContent["players"]): string {
-  return `${targetLabel(outcome.when, players)} - ${actionSummary(editableConsequenceAction(outcome.actions[0]))}`;
+  const actions = outcomeActions(outcome);
+  const suffix = actions.length > 1 ? ` + ${actions.length - 1} more` : "";
+  return `${targetLabel(outcome.when, players)} - ${actionSummary(editableConsequenceAction(actions[0]))}${suffix}`;
 }
 
 function actionSummary(action: EventAction): string {
@@ -1835,12 +2013,12 @@ function actionSummary(action: EventAction): string {
 }
 
 function durationPreview(duration: EffectDef["duration"]): EffectDurationState {
-  if (duration.mode === "turns" || duration.mode === "rounds") return { mode: duration.mode, remaining: duration.value };
+  if (duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses") return { mode: duration.mode, remaining: duration.value };
   return { mode: duration.mode };
 }
 
 function durationValue(duration: EffectDef["duration"]): number {
-  return duration.mode === "turns" || duration.mode === "rounds" ? duration.value : 1;
+  return duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses" ? duration.value : 1;
 }
 
 function defaultComposedEffect(id = DEFAULT_EFFECT_ID): EffectDef {
@@ -1849,21 +2027,19 @@ function defaultComposedEffect(id = DEFAULT_EFFECT_ID): EffectDef {
     name: "Half movement",
     description: "For 2 rounds, move half of the die roll.",
     duration: { mode: "rounds", value: 2 },
-    consequences: [{ type: "halfMovement", hook: "beforeMovement", rounding: "ceil", text: "Move half of the die roll." }],
+    consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll." }],
   };
 }
 
 function effectEditableAction(action: EventAction): EventAction {
-  if (action.type === "applyEffect" || action.type === "offlineAction" || action.type === "text" || action.type === "swapPositions" || action.type === "moveToNearest") {
-    return { type: "halfMovement", hook: "beforeMovement", rounding: "ceil" };
+  if (action.type === "applyEffect" || action.type === "offlineAction" || action.type === "text") {
+    return { type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil" };
   }
   return action;
 }
 
 function defaultHookForEffectAction(action: EventAction): NonNullable<EventAction["hook"]> {
-  if (action.type === "halfMovement") return "beforeMovement";
-  if (action.type === "applyEffect" || action.type === "offlineAction") return "onActivityResult";
-  return "onTurnEnd";
+  return defaultHookForConsequence(action.type);
 }
 
 function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" }>, amount: number): EventAction {
@@ -1874,6 +2050,144 @@ function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move
 function updateActionText(action: EventAction, text: string): EventAction {
   if (action.type === "text") return { ...action, text };
   return { ...action, text: text || undefined };
+}
+
+function outcomeActions(outcome: EventOutcomeBranch): EventAction[] {
+  return outcome.actions.length ? outcome.actions : [{ type: "coins", value: 1 }];
+}
+
+function consequenceTimingMode(action: EventAction): ConsequenceTimingMode {
+  if (action.duration || isModifierEffectAction(action)) return "attached";
+  return "now";
+}
+
+function setConsequenceTimingMode(action: EventAction, mode: ConsequenceTimingMode): EventAction {
+  if (mode === "attached") {
+    return {
+      ...action,
+      hook: action.hook ?? defaultHookForConsequence(action.type),
+      duration: action.duration ?? defaultInlineDuration(action),
+    } as EventAction;
+  }
+  if (isModifierEffectAction(action)) return ensureModifierTiming(action);
+  const { duration: _duration, hook: _hook, ...rest } = action;
+  return rest as EventAction;
+}
+
+function defaultInlineDuration(_action: EventAction): EffectDuration {
+  return { mode: "uses", value: 1 };
+}
+
+function isModifierEffectAction(action: EventAction): boolean {
+  return action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias";
+}
+
+function withPreservedTiming(next: EventAction, previous: EventAction): EventAction {
+  const merged = {
+    ...next,
+    ...timingPatch(previous),
+  } as EventAction;
+  return isModifierEffectAction(merged) ? ensureModifierTiming(merged) : merged;
+}
+
+function ensureModifierTiming(action: EventAction): EventAction {
+  if (!isModifierEffectAction(action)) return action;
+  return {
+    ...action,
+    hook: action.hook ?? defaultHookForConsequence(action.type),
+    duration: action.duration ?? defaultInlineDuration(action),
+  } as EventAction;
+}
+
+function timingPatch(action: EventAction): {
+  hook?: EventAction["hook"];
+  when?: EventAction["when"];
+  duration?: EffectDuration;
+  expiresOnTrigger?: boolean;
+} {
+  return {
+    ...(action.hook ? { hook: action.hook } : {}),
+    ...(action.when ? { when: action.when } : {}),
+    ...(action.duration ? { duration: action.duration } : {}),
+    ...(action.expiresOnTrigger !== undefined ? { expiresOnTrigger: action.expiresOnTrigger } : {}),
+  };
+}
+
+function DurationEditor({ duration, onChange }: { duration: EffectDuration; onChange: (duration: EffectDuration) => void }) {
+  const needsCount = duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses";
+  return (
+    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
+      <SelectInput
+        label="Duration"
+        value={duration.mode}
+        options={[
+          { value: "uses", label: "Uses" },
+          { value: "rounds", label: "Rounds" },
+          { value: "turns", label: "Turns" },
+          { value: "untilTriggered", label: "Until triggered" },
+          { value: "game", label: "Whole game" },
+        ]}
+        onChange={(mode) => onChange(durationForMode(mode as EffectDuration["mode"], duration))}
+      />
+      {needsCount ? <NumberInput label="Count" value={duration.value} onChange={(value) => onChange({ ...duration, value: Math.max(1, Math.round(value)) } as EffectDuration)} /> : <div />}
+    </div>
+  );
+}
+
+function durationForMode(mode: EffectDuration["mode"], previous: EffectDuration): EffectDuration {
+  if (mode === "turns" || mode === "rounds" || mode === "uses") return { mode, value: durationValue(previous) };
+  return { mode };
+}
+
+function TargetPicker({
+  label,
+  target,
+  players,
+  onChange,
+}: {
+  label: string;
+  target: EventActionTarget;
+  players: GameContent["players"];
+  onChange: (target: EventActionTarget) => void;
+}) {
+  const kind = targetKind(target);
+  return (
+    <div className="rounded-md border border-white/10 bg-black/15 p-2">
+      <SelectInput
+        label={label}
+        value={kind}
+        options={[
+          { value: "winner", label: "Winner" },
+          { value: "loser", label: "Loser" },
+          { value: "landing", label: "Triggering player" },
+          { value: "acting", label: "Acting player" },
+          { value: "target", label: "Selected target" },
+          { value: "nearestAhead", label: "Nearest ahead" },
+          { value: "nearestBehind", label: "Nearest behind" },
+          { value: "everyone", label: "Everyone" },
+          { value: "player", label: "Specific player" },
+          { value: "rank", label: "Rank" },
+          { value: "rankRange", label: "Rank range" },
+        ]}
+        onChange={(value) => onChange(targetForKind(value as TargetKind, players, target))}
+      />
+      {kind === "player" && (
+        <SelectInput
+          label="Player"
+          value={playerIdForTarget(target, players)}
+          options={players.map((player) => ({ value: player.id, label: player.name }))}
+          onChange={(playerId) => onChange({ playerId })}
+        />
+      )}
+      {kind === "rank" && <NumberInput label="Rank" value={rankFromFor(target)} onChange={(rank) => onChange({ rank: Math.max(1, Math.round(rank)) })} />}
+      {kind === "rankRange" && (
+        <div className="grid grid-cols-2 gap-2">
+          <NumberInput label="From rank" value={rankFromFor(target)} onChange={(rankFrom) => onChange({ rankFrom: Math.max(1, Math.round(rankFrom)), rankTo: rankToFor(target) })} />
+          <NumberInput label="To rank" value={rankToFor(target)} onChange={(rankTo) => onChange({ rankFrom: rankFromFor(target), rankTo: Math.max(1, Math.round(rankTo)) })} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TextInput({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (value: string) => void }) {
@@ -2166,6 +2480,10 @@ function targetLabel(target: EventOutcomeBranch["when"], players: GameContent["p
   if ("rank" in target) return `Rank ${target.rank}`;
   if ("nearest" in target) return target.nearest === "ahead" ? "Nearest ahead" : "Nearest behind";
   return `Ranks ${target.rankFrom}-${target.rankTo}`;
+}
+
+function clampInt(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(Number.isFinite(value) ? value : min)));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

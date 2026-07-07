@@ -310,6 +310,8 @@ export type OfflineActionKind = "takeShot" | "custom";
 export type ConsequenceTiming = {
   hook?: EffectLifecycleHook;
   when?: EffectCondition;
+  /** Attach this action to the selected user as a live effect instead of resolving it immediately. */
+  duration?: EffectDuration;
   expiresOnTrigger?: boolean;
 };
 
@@ -323,6 +325,8 @@ export type ConsequenceCore =
   | { type: "offlineAction"; action: OfflineActionKind; target?: EventActionTarget; text?: string; confirmation?: EventActivity["confirmation"] }
   | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string; duration?: EffectDuration }
   | { type: "halfMovement"; target?: EventActionTarget; text?: string; rounding?: "floor" | "ceil" | "round" }
+  | { type: "movementMultiplier"; target?: EventActionTarget; text?: string; multiplier: number; rounding?: "floor" | "ceil" | "round" }
+  | { type: "diceBias"; target?: EventActionTarget; text?: string; face: number; chanceDeltaPercent: number }
   | { type: "swapPositions"; target?: EventActionTarget; withTarget: EventActionTarget; text?: string }
   | { type: "moveToNearest"; target?: EventActionTarget; direction: "ahead" | "behind"; text?: string };
 
@@ -379,12 +383,14 @@ export type CatalogRarity = "common" | "uncommon" | "rare" | "epic" | "legendary
 export type EffectDuration =
   | { mode: "turns"; value: number }
   | { mode: "rounds"; value: number }
+  | { mode: "uses"; value: number }
   | { mode: "untilTriggered" }
   | { mode: "game" };
 
 export type EffectDurationState =
   | { mode: "turns"; remaining: number }
   | { mode: "rounds"; remaining: number }
+  | { mode: "uses"; remaining: number }
   | { mode: "untilTriggered" }
   | { mode: "game" };
 
@@ -404,6 +410,8 @@ export type EffectCondition = {
 
 export type EffectModifier =
   | { type: "halfMovement"; hook?: Extract<EffectLifecycleHook, "beforeMovement">; rounding?: "floor" | "ceil" | "round" }
+  | { type: "movementMultiplier"; hook?: Extract<EffectLifecycleHook, "beforeMovement">; multiplier: number; rounding?: "floor" | "ceil" | "round" }
+  | { type: "diceBias"; hook?: Extract<EffectLifecycleHook, "beforeRoll">; face: number; chanceDeltaPercent: number }
   | { type: "skipTurn"; hook?: EffectLifecycleHook; text?: string }
   | { type: "extraTurn"; hook?: EffectLifecycleHook; text?: string }
   | { type: "coins"; hook?: EffectLifecycleHook; value: number; text?: string }

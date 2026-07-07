@@ -50,7 +50,7 @@ export function resolveTargetPlayerIds(target: EventActionTarget, context: Targe
 }
 
 export function durationStateFromDef(duration: EffectDuration): EffectDurationState {
-  if (duration.mode === "turns" || duration.mode === "rounds") return { mode: duration.mode, remaining: duration.value };
+  if (duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses") return { mode: duration.mode, remaining: duration.value };
   return { mode: duration.mode };
 }
 
@@ -63,8 +63,36 @@ export function effectHooksFor(effect: EffectDef): EffectLifecycleHook[] {
 }
 
 export function effectConsequencesFor(effect: EffectDef): EventAction[] {
-  if (effect.consequences?.length) return effect.consequences;
+  if (effect.consequences?.length) return effect.consequences.map(effectBodyAction);
   return [...(effect.actions ?? []), ...(effect.modifiers ?? []).flatMap(effectModifierToConsequences)];
+}
+
+export function timedConsequenceEffectDef(action: EventAction, id: string): EffectDef {
+  const body = effectBodyAction(action);
+  return {
+    id,
+    name: action.text || consequenceLabel(body),
+    description: action.text || consequenceLabel(body),
+    duration: action.duration ?? defaultDurationForConsequence(action),
+    consequences: [body],
+  };
+}
+
+export function shouldAttachConsequence(action: EventAction): boolean {
+  return action.type !== "applyEffect" && (Boolean(action.duration) || isPersistentModifier(action));
+}
+
+export function defaultDurationForConsequence(_action: EventAction): EffectDuration {
+  return { mode: "uses", value: 1 };
+}
+
+export function effectBodyAction(action: EventAction): EventAction {
+  const { duration: _duration, ...body } = action;
+  return body as EventAction;
+}
+
+export function isPersistentModifier(action: EventAction): boolean {
+  return action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias";
 }
 
 export function consequenceMatchesHook(action: EventAction, context: EffectHookContext): boolean {
@@ -79,7 +107,8 @@ export function defaultHookForModifier(type: EffectModifier["type"]): EffectLife
 }
 
 export function defaultHookForConsequence(type: EventAction["type"]): EffectLifecycleHook {
-  if (type === "halfMovement") return "beforeMovement";
+  if (type === "halfMovement" || type === "movementMultiplier") return "beforeMovement";
+  if (type === "diceBias") return "beforeRoll";
   if (type === "applyEffect") return "onActivityResult";
   if (type === "offlineAction") return "onActivityResult";
   return "onTurnEnd";
@@ -88,6 +117,7 @@ export function defaultHookForConsequence(type: EventAction["type"]): EffectLife
 export function effectRemainingLabel(remaining: EffectDurationState): string {
   if (remaining.mode === "turns") return `${remaining.remaining} turn${remaining.remaining === 1 ? "" : "s"}`;
   if (remaining.mode === "rounds") return `${remaining.remaining} round${remaining.remaining === 1 ? "" : "s"}`;
+  if (remaining.mode === "uses") return `${remaining.remaining} use${remaining.remaining === 1 ? "" : "s"}`;
   if (remaining.mode === "untilTriggered") return "until triggered";
   return "whole game";
 }
@@ -102,6 +132,8 @@ export function consequenceLabel(action: EventAction, effectNameForId?: (effectI
   if (action.type === "offlineAction") return action.text ?? offlineActionLabel(action.action);
   if (action.type === "applyEffect") return action.text ?? `Apply ${effectNameForId?.(action.effectId) ?? action.effectId}`;
   if (action.type === "halfMovement") return action.text ?? "Move half of the die roll";
+  if (action.type === "movementMultiplier") return action.text ?? `Movement x${formatNumber(action.multiplier)}`;
+  if (action.type === "diceBias") return action.text ?? `${action.chanceDeltaPercent >= 0 ? "+" : ""}${formatNumber(action.chanceDeltaPercent)}% chance for ${action.face}`;
   if (action.type === "swapPositions") return action.text ?? "Swap positions";
   return action.text ?? `Move to nearest player ${action.direction}`;
 }
@@ -154,6 +186,12 @@ function effectModifierToConsequences(modifier: EffectModifier): EventAction[] {
   if (modifier.type === "halfMovement") {
     return [{ type: "halfMovement", hook: modifier.hook, rounding: modifier.rounding }];
   }
+  if (modifier.type === "movementMultiplier") {
+    return [{ type: "movementMultiplier", hook: modifier.hook, multiplier: modifier.multiplier, rounding: modifier.rounding }];
+  }
+  if (modifier.type === "diceBias") {
+    return [{ type: "diceBias", hook: modifier.hook, face: modifier.face, chanceDeltaPercent: modifier.chanceDeltaPercent }];
+  }
   if (modifier.type === "skipTurn") return [{ type: "skipTurn", hook: modifier.hook, text: modifier.text }];
   if (modifier.type === "extraTurn") return [{ type: "extraTurn", hook: modifier.hook, text: modifier.text }];
   if (modifier.type === "coins") return [{ type: "coins", hook: modifier.hook, value: modifier.value, text: modifier.text }];
@@ -163,4 +201,9 @@ function effectModifierToConsequences(modifier: EffectModifier): EventAction[] {
     return [{ type: "swapPositions", hook: modifier.hook, target: "target", withTarget: modifier.target, text: modifier.text }];
   }
   return [{ type: "moveToNearest", hook: modifier.hook, target: "target", direction: modifier.direction, text: modifier.text }];
+}
+
+function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) return String(value);
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
 }
