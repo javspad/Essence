@@ -1325,6 +1325,11 @@ function EffectCompositionEditor({
       </div>
       <TextInput label="Effect name" value={effect.name} onChange={(name) => onChange((current) => ({ ...current, name: name || current.name }))} />
       <TextInput
+        label="Icon"
+        value={effect.icon ?? ""}
+        onChange={(icon) => onChange((current) => ({ ...current, icon: icon || undefined }))}
+      />
+      <TextInput
         label="Description"
         value={effect.description ?? ""}
         onChange={(description) => onChange((current) => ({ ...current, description: description || undefined }))}
@@ -1393,6 +1398,7 @@ function EffectConsequenceRow({
           Remove
         </button>
       </div>
+      <TextInput label="Icon" value={editable.icon ?? ""} onChange={(icon) => onChange({ ...editable, icon: icon || undefined })} />
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
         <SelectInput
           label="Type"
@@ -2133,19 +2139,22 @@ function effectIdFromTypeOption(value: string): string {
 function convertActionToEffect(action: EventAction, effectId: string): EventAction {
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
+  const icon = action.icon;
   return {
     type: "applyEffect",
     effectId,
     ...(target ? { target } : {}),
     ...(text ? { text } : {}),
+    ...(icon ? { icon } : {}),
   };
 }
 
 function convertActionType(action: EventAction, type: Exclude<EventAction["type"], "text">, fallbackEffectId?: string): EventAction {
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
+  const icon = action.icon;
   const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : 1;
-  const base = { ...(target ? { target } : {}), ...(text ? { text } : {}) };
+  const base = { ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
   if (type === "coins") return withPreservedTiming({ type, value: amount, ...base }, action);
   if (type === "move") return withPreservedTiming({ type, delta: amount, ...base }, action);
   if (type === "moveTo") return withPreservedTiming({ type, tileId: 1, ...base }, action);
@@ -2157,7 +2166,7 @@ function convertActionType(action: EventAction, type: Exclude<EventAction["type"
   if (type === "diceBias") return ensureModifierTiming({ type, hook: "beforeRoll", face: 5, chanceDeltaPercent: 10, ...base });
   if (type === "swapPositions") return withPreservedTiming({ type, withTarget: "winner", ...base }, action);
   if (type === "moveToNearest") return withPreservedTiming({ type, direction: "ahead", ...base }, action);
-  return { type, effectId: fallbackEffectId ?? DEFAULT_EFFECT_ID, ...(target ? { target } : {}), ...(text ? { text } : {}) };
+  return { type, effectId: fallbackEffectId ?? DEFAULT_EFFECT_ID, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
 }
 
 function editableConsequenceAction(action: EventAction | undefined): EventAction {
@@ -2192,8 +2201,9 @@ function defaultComposedEffect(id = DEFAULT_EFFECT_ID): EffectDef {
     id,
     name: "Half movement",
     description: "For 2 rounds, move half of the die roll.",
+    icon: "½",
     duration: { mode: "rounds", value: 2 },
-    consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll." }],
+    consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll.", icon: "½" }],
   };
 }
 
@@ -2202,8 +2212,9 @@ function defaultCustomEffect(id: string): EffectDef {
     id,
     name: "New effect",
     description: "Custom reusable effect.",
+    icon: "✦",
     duration: { mode: "uses", value: 1 },
-    consequences: [{ type: "coins", hook: "onTurnEnd", value: 1, text: "Gain 1 coin." }],
+    consequences: [{ type: "coins", hook: "onTurnEnd", value: 1, text: "Gain 1 coin.", icon: "🪙" }],
   };
 }
 

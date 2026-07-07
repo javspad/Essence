@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { EffectDef, EffectInstance, GameState, Player } from "@essence/shared";
-import { durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
+import type { EffectDef, EffectInstance, EventAction, GameContent, GameState, Player } from "@essence/shared";
+import { consequenceLabel, durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
+import seedContent from "@shared/content.json";
 import {
   Bug,
   Dice5,
@@ -44,6 +45,81 @@ interface GameScene3DProps {
 const DICE = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
 const DEFAULT_CAMERA_STATE: BoardCameraState = { mode: "followActivePlayer", focusedPlayerId: null };
 const EVENT_BUILDER_STORAGE_KEY = "essence:event-builder:draft:v1";
+const SEED_EFFECTS = (seedContent as unknown as GameContent).effects ?? {};
+const BUILT_IN_DEBUG_EFFECTS: EffectDef[] = [
+  {
+    id: "debug-consequence-coins-plus",
+    name: "Gain 1 coin",
+    description: "At turn end, add 1 coin to this player.",
+    icon: "🪙",
+    duration: { mode: "uses", value: 1 },
+    consequences: [{ type: "coins", hook: "onTurnEnd", value: 1, text: "Gain 1 coin.", icon: "🪙" }],
+  },
+  {
+    id: "debug-consequence-coins-minus",
+    name: "Lose 1 coin",
+    description: "At turn end, remove 1 coin from this player.",
+    icon: "🪙",
+    duration: { mode: "uses", value: 1 },
+    consequences: [{ type: "coins", hook: "onTurnEnd", value: -1, text: "Lose 1 coin.", icon: "🪙" }],
+  },
+  {
+    id: "debug-consequence-move-plus",
+    name: "Move +1 cell",
+    description: "At turn end, move this player one cell forward.",
+    icon: "➜",
+    duration: { mode: "uses", value: 1 },
+    consequences: [{ type: "move", hook: "onTurnEnd", delta: 1, text: "Move 1 cell forward.", icon: "➜" }],
+  },
+  {
+    id: "debug-consequence-move-minus",
+    name: "Move -1 cell",
+    description: "At turn end, move this player one cell backward.",
+    icon: "↩",
+    duration: { mode: "uses", value: 1 },
+    consequences: [{ type: "move", hook: "onTurnEnd", delta: -1, text: "Move 1 cell backward.", icon: "↩" }],
+  },
+  {
+    id: "debug-consequence-skip-turn",
+    name: "Skip turn",
+    description: "At turn end, queue a skipped turn for this player.",
+    icon: "⏭",
+    duration: { mode: "uses", value: 1 },
+    consequences: [{ type: "skipTurn", hook: "onTurnEnd", text: "Skip next turn.", icon: "⏭" }],
+  },
+  {
+    id: "debug-consequence-extra-turn",
+    name: "Extra turn",
+    description: "At turn end, queue an extra turn for this player.",
+    icon: "🔁",
+    duration: { mode: "uses", value: 1 },
+    consequences: [{ type: "extraTurn", hook: "onTurnEnd", text: "Play an extra turn.", icon: "🔁" }],
+  },
+  {
+    id: "debug-consequence-half-movement",
+    name: "Half movement",
+    description: "For 2 rounds, move half of the die roll.",
+    icon: "½",
+    duration: { mode: "rounds", value: 2 },
+    consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll.", icon: "½" }],
+  },
+  {
+    id: "debug-consequence-double-movement",
+    name: "Double movement",
+    description: "For 2 rounds, double movement from the die roll.",
+    icon: "×2",
+    duration: { mode: "rounds", value: 2 },
+    consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 2, rounding: "round", text: "Double movement.", icon: "×2" }],
+  },
+  {
+    id: "debug-consequence-dice-bias-five",
+    name: "Dice bias: five",
+    description: "For 1 use, increase the chance of rolling five by 25%.",
+    icon: "⚄",
+    duration: { mode: "uses", value: 1 },
+    consequences: [{ type: "diceBias", hook: "beforeRoll", face: 5, chanceDeltaPercent: 25, text: "+25% chance to roll five.", icon: "⚄" }],
+  },
+];
 
 export default function GameScene3D({
   connected,
@@ -297,6 +373,8 @@ function ScorePanel({
   activeEffects: EffectInstance[];
   onFocusPlayer: (playerId: string) => void;
 }) {
+  const [showStackDetails, setShowStackDetails] = useState(false);
+  const hasAnyEffects = activeEffects.length > 0;
   return (
     <Card
       font="normal"
@@ -317,6 +395,15 @@ function ScorePanel({
               Turno {active?.name ?? "..."}
             </Badge>
           </div>
+          <button
+            type="button"
+            aria-pressed={showStackDetails}
+            disabled={!hasAnyEffects}
+            onClick={() => setShowStackDetails((current) => !current)}
+            className="w-fit rounded-sm border border-cyan-200/25 bg-cyan-300/10 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-cyan-100 transition hover:bg-cyan-300/15 disabled:opacity-35"
+          >
+            {showStackDetails ? "Hide stack" : "Show stack"}
+          </button>
           {!connected && (
             <Badge className="w-fit border-[#fecaca]/50 bg-[#ef4444]/20 px-2 py-1 text-[8px] uppercase text-[#fca5a5]">
               Reconectando
@@ -360,25 +447,14 @@ function ScorePanel({
                         {player.name}
                         {player.groom ? " 🤵" : ""}
                       </span>
-                      {effects.length > 0 && (
-                        <span className="mt-1 flex max-w-full flex-wrap gap-1">
-                          {effects.map((effect) => (
-                            <span
-                              key={effect.id}
-                              title={`${effect.name}: ${effect.description ?? "Active effect"} (${effectRemainingLabel(effect.remaining)})`}
-                              className="max-w-[9rem] truncate rounded-sm border border-cyan-200/30 bg-cyan-300/12 px-1.5 py-0.5 text-[8px] uppercase tracking-wide text-cyan-100"
-                            >
-                              {effect.name} · {effectRemainingLabel(effect.remaining)}
-                            </span>
-                          ))}
-                        </span>
-                      )}
+                      {effects.length > 0 && <EffectBadges effects={effects} />}
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5 text-[10px]">
                       <span className="text-[#d4cfea]">#{player.position}</span>
                       <span className="text-[#fbbf24]">🪙{player.coins}</span>
                     </span>
                   </button>
+                  {showStackDetails && effects.length > 0 && <EffectStackDetails effects={effects} />}
                 </li>
               );
             })}
@@ -386,6 +462,54 @@ function ScorePanel({
         </CardContent>
       </aside>
     </Card>
+  );
+}
+
+function EffectBadges({ effects }: { effects: EffectInstance[] }) {
+  return (
+    <span className="mt-1 flex max-w-full flex-wrap gap-1">
+      {effects.map((effect) => (
+        <span
+          key={effect.id}
+          title={effectTooltip(effect)}
+          className="max-w-[10rem] truncate rounded-sm border border-cyan-200/30 bg-cyan-300/12 px-1.5 py-0.5 text-[8px] uppercase tracking-wide text-cyan-100"
+        >
+          <span className="mr-1">{effectIcon(effect)}</span>
+          {effect.name} · {effectRemainingLabel(effect.remaining)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function EffectStackDetails({ effects }: { effects: EffectInstance[] }) {
+  return (
+    <div className="mx-2 mb-2 grid gap-1 rounded-sm border border-cyan-200/15 bg-cyan-300/8 p-2">
+      {effects.map((effect) => (
+        <section key={effect.id} title={effectTooltip(effect)} className="rounded-sm border border-white/10 bg-black/20 p-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 truncate text-[10px] font-black uppercase tracking-wide text-cyan-100">
+              <span className="mr-1">{effectIcon(effect)}</span>
+              {effect.name}
+            </p>
+            <span className="shrink-0 text-[8px] font-black uppercase text-cyan-100/80">{effectRemainingLabel(effect.remaining)}</span>
+          </div>
+          {effect.description && <p className="mt-1 line-clamp-2 text-[9px] font-bold leading-4 text-[#d4cfea]/80">{effect.description}</p>}
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {effect.consequences.map((consequence, index) => (
+              <span
+                key={`${effect.id}-${consequence.type}-${index}`}
+                title={consequenceLabel(consequence)}
+                className="max-w-full truncate rounded-sm border border-white/10 bg-white/8 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-[#fff8d6]/90"
+              >
+                <span className="mr-1">{actionIcon(consequence)}</span>
+                {consequenceLabel(consequence)}
+              </span>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -401,7 +525,7 @@ function DebugEffectTool({
   const [open, setOpen] = useState(false);
   const [draftVersion, setDraftVersion] = useState(0);
   const effectOptions = useMemo(
-    () => mergedEffectCatalog(effects, loadEventBuilderDraftEffects()),
+    () => mergedEffectCatalog(SEED_EFFECTS, effects, loadEventBuilderDraftEffects(), keyedEffects(BUILT_IN_DEBUG_EFFECTS)),
     [effects, draftVersion]
   );
   const [selectedPlayerId, setSelectedPlayerId] = useState(players[0]?.id ?? "");
@@ -480,7 +604,7 @@ function DebugEffectTool({
               label="Effect type"
               value={selectedEffectId}
               disabled={!effectOptions.length}
-              options={effectOptions.length ? effectOptions.map((effect) => ({ value: effect.id, label: effect.name })) : [{ value: "", label: "No effects" }]}
+              options={effectOptions.length ? effectOptions.map((effect) => ({ value: effect.id, label: `${effectIcon(effect)} ${effect.name}` })) : [{ value: "", label: "No effects" }]}
               testId="debug-effect-effect"
               onChange={setSelectedEffectId}
             />
@@ -488,7 +612,10 @@ function DebugEffectTool({
 
           {selectedEffect ? (
             <div className="mt-3 rounded-sm border border-white/10 bg-black/25 p-2">
-              <p className="truncate text-xs font-black text-[#f0fdf4]">{selectedEffect.name}</p>
+              <p className="truncate text-xs font-black text-[#f0fdf4]">
+                <span className="mr-1">{effectIcon(selectedEffect)}</span>
+                {selectedEffect.name}
+              </p>
               <p className="mt-1 line-clamp-2 text-[10px] font-bold leading-4 text-[#bbf7d0]/75">
                 {selectedEffect.description ?? "Custom effect from the active catalog."}
               </p>
@@ -878,11 +1005,43 @@ function SceneEditHint({ active }: { active?: Player }) {
   );
 }
 
-function mergedEffectCatalog(serverEffects: Record<string, EffectDef> | undefined, draftEffects: Record<string, EffectDef>): EffectDef[] {
+function keyedEffects(effects: EffectDef[]): Record<string, EffectDef> {
+  return Object.fromEntries(effects.map((effect) => [effect.id, effect]));
+}
+
+function mergedEffectCatalog(...catalogs: (Record<string, EffectDef> | undefined)[]): EffectDef[] {
   const merged = new Map<string, EffectDef>();
-  for (const effect of Object.values(serverEffects ?? {})) merged.set(effect.id, effect);
-  for (const effect of Object.values(draftEffects)) merged.set(effect.id, effect);
+  for (const catalog of catalogs) {
+    for (const effect of Object.values(catalog ?? {})) merged.set(effect.id, effect);
+  }
   return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function effectIcon(effect: { icon?: string; consequences?: EventAction[] }): string {
+  if (effect.icon) return effect.icon;
+  const firstAction = effect.consequences?.[0];
+  if (firstAction) return actionIcon(firstAction);
+  return "✦";
+}
+
+function actionIcon(action: EventAction): string {
+  if (action.icon) return action.icon;
+  if (action.type === "coins") return "🪙";
+  if (action.type === "move" || action.type === "moveTo" || action.type === "moveToNearest") return "➜";
+  if (action.type === "skipTurn") return "⏭";
+  if (action.type === "extraTurn") return "🔁";
+  if (action.type === "halfMovement") return "½";
+  if (action.type === "movementMultiplier") return action.multiplier > 1 ? "×2" : "½";
+  if (action.type === "diceBias") return "⚄";
+  if (action.type === "swapPositions") return "⇄";
+  if (action.type === "offlineAction") return "!";
+  return "✦";
+}
+
+function effectTooltip(effect: EffectInstance): string {
+  const description = effect.description ?? "Active effect";
+  const consequences = effect.consequences.map((action) => consequenceLabel(action)).join(", ");
+  return `${effect.name}: ${description} (${effectRemainingLabel(effect.remaining)})${consequences ? ` - ${consequences}` : ""}`;
 }
 
 function loadEventBuilderDraftEffects(): Record<string, EffectDef> {

@@ -935,6 +935,7 @@ export class GameRoom {
         remaining: durationStateFromDef(options.duration ?? effect.duration),
         hooks: effectHooksFor(effect),
         consequences: effectConsequencesFor(effect),
+        icon: effect.icon,
         visualAssetId: effect.visualAssetId,
         startedRound: this.state.round,
         startedTurnId: this.activePlayer()?.id,
@@ -1175,6 +1176,7 @@ function debugEffectFromPayload(value: unknown, effectId: string): EffectDef | n
     duration,
   };
   if (typeof value.description === "string" && value.description.trim()) effect.description = value.description.trim();
+  if (typeof value.icon === "string" && value.icon.trim()) effect.icon = value.icon.trim();
   if (typeof value.visualAssetId === "string" && value.visualAssetId.trim()) effect.visualAssetId = value.visualAssetId.trim();
   if (Array.isArray(value.consequences)) effect.consequences = value.consequences.filter(isRecord) as EventAction[];
   if (Array.isArray(value.actions)) effect.actions = value.actions.filter(isRecord) as EventAction[];

@@ -315,6 +315,10 @@ export type ConsequenceTiming = {
   expiresOnTrigger?: boolean;
 };
 
+export type ConsequencePresentation = {
+  icon?: string;
+};
+
 export type ConsequenceCore =
   | { type: "text"; text: string; target?: EventActionTarget }
   | { type: "coins"; value: number; target?: EventActionTarget; text?: string }
@@ -330,7 +334,7 @@ export type ConsequenceCore =
   | { type: "swapPositions"; target?: EventActionTarget; withTarget: EventActionTarget; text?: string }
   | { type: "moveToNearest"; target?: EventActionTarget; direction: "ahead" | "behind"; text?: string };
 
-export type ConsequenceDef = ConsequenceCore & ConsequenceTiming;
+export type ConsequenceDef = ConsequenceCore & ConsequenceTiming & ConsequencePresentation;
 
 export type EventAction = ConsequenceDef;
 
@@ -501,6 +505,7 @@ export interface EffectDef {
   id: string;
   name: string;
   description?: string;
+  icon?: string;
   duration: EffectDuration;
   hooks?: EffectLifecycleHook[];
   consequences?: EventAction[];
@@ -575,6 +580,7 @@ export interface EffectInstance {
   remaining: EffectDurationState;
   hooks: EffectLifecycleHook[];
   consequences: EventAction[];
+  icon?: string;
   visualAssetId?: string;
   startedRound: number;
   startedTurnId?: string;
