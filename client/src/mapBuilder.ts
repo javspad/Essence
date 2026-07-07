@@ -182,6 +182,8 @@ const DEFAULT_ASSETS: MapAssetDef[] = [
   { id: "giant-pencil", name: "Lápiz gigante", kind: "decor", defaultScale: 1 },
   { id: "sticker-suitcase", name: "Valija con stickers", kind: "decor", defaultScale: 1 },
   { id: "banana-peel-trap", name: "Cáscara de banana", kind: "decor", defaultScale: 1 },
+  { id: "world-cup-trophy", name: "Copa del Mundo", kind: "custom", defaultScale: 1 },
+  { id: "rain-tent", name: "Carpa que llueve adentro", kind: "custom", defaultScale: 1 },
 ];
 
 export function createInitialMapBuilderState(content: GameContent): MapBuilderState {
@@ -234,10 +236,20 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
   };
 }
 
-/** Une el catálogo guardado con los assets por defecto que falten (por id). */
+/**
+ * Une el catálogo guardado con los assets por defecto: refresca nombre/kind/escala
+ * de los assets conocidos desde el catálogo por defecto (para que renombres se vean
+ * aunque haya un borrador viejo), conserva footprints/tags guardados, y suma los
+ * assets nuevos que falten.
+ */
 function mergeAssetCatalog(stored: MapAssetDef[], defaults: MapAssetDef[]): MapAssetDef[] {
-  const ids = new Set(stored.map((asset) => asset.id));
-  return [...stored, ...defaults.filter((asset) => !ids.has(asset.id))];
+  const defById = new Map(defaults.map((asset) => [asset.id, asset]));
+  const storedIds = new Set(stored.map((asset) => asset.id));
+  const refreshed = stored.map((asset) => {
+    const def = defById.get(asset.id);
+    return def ? { ...asset, name: def.name, kind: def.kind, defaultScale: def.defaultScale } : asset;
+  });
+  return [...refreshed, ...defaults.filter((asset) => !storedIds.has(asset.id))];
 }
 
 export function builderContentToGameContent(base: GameContent, builder: BuilderContent): GameContent {

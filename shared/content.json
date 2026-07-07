@@ -1181,6 +1181,18 @@
       "name": "Cáscara de banana",
       "kind": "decor",
       "defaultScale": 1
+    },
+    {
+      "id": "world-cup-trophy",
+      "name": "Copa del Mundo",
+      "kind": "custom",
+      "defaultScale": 1
+    },
+    {
+      "id": "rain-tent",
+      "name": "Carpa que llueve adentro",
+      "kind": "custom",
+      "defaultScale": 1
     }
   ],
   "maps": [

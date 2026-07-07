@@ -182,6 +182,8 @@ const ASSET_EMOJI: Record<string, string> = {
   "giant-pencil": "✏️",
   "sticker-suitcase": "🧳",
   "banana-peel-trap": "🍌",
+  "world-cup-trophy": "🏆",
+  "rain-tent": "⛺",
 };
 
 const KIND_EMOJI: Record<MapAssetDef["kind"], string> = {

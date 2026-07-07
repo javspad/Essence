@@ -635,6 +635,10 @@ function MapArtifactMesh({
       return <StickerSuitcase position={position} rotationY={rotationY} scale={scale} />;
     case "banana-peel-trap":
       return <BananaPeelTrap position={position} rotationY={rotationY} scale={scale} />;
+    case "world-cup-trophy":
+      return <WorldCupTrophy position={position} rotationY={rotationY} scale={scale} />;
+    case "rain-tent":
+      return <RainTent position={position} rotationY={rotationY} scale={scale} />;
     default:
       return <ProjectedAssetBlock artifact={artifact} asset={asset} position={position} rotationY={rotationY} scale={scale} />;
   }
@@ -1539,41 +1543,52 @@ function MiniPlane({ color, width, height }: { color: string; width: number; hei
 }
 
 function FallenFernet({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // Vaso improvisado clásico: botella de Coca-Cola de plástico cortada al medio,
+  // llena de fernet con coca (líquido casi negro) y una corona de espuma beige.
+  const plastic = "#cfe8dc";
+  const liquid = "#160d09";
+  const foam = "#e9d9b8";
   return (
-    <group position={position} rotation={[0, rotationY, -Math.PI / 2]} scale={[scale, scale, scale]}>
-      <mesh position={[-0.54, 0.014, 0.02]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.23, 0.1, 0.018, 20]} />
-        <meshStandardMaterial color="#4a2513" roughness={0.72} transparent opacity={0.78} />
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      {/* base petaloide (5 lóbulos) de la botella */}
+      {[0, 1, 2, 3, 4].map((i) => {
+        const a = (i / 5) * Math.PI * 2;
+        return (
+          <mesh key={`lobe-${i}`} castShadow position={[Math.cos(a) * 0.09, 0.05, Math.sin(a) * 0.09]}>
+            <sphereGeometry args={[0.06, 10, 8]} />
+            <meshStandardMaterial color={plastic} roughness={0.22} metalness={0.05} transparent opacity={0.5} />
+          </mesh>
+        );
+      })}
+      {/* cuerpo cortado (cilindro transparente, abierto arriba) */}
+      <mesh castShadow position={[0, 0.24, 0]}>
+        <cylinderGeometry args={[0.155, 0.135, 0.34, 24, 1, true]} />
+        <meshStandardMaterial color={plastic} roughness={0.16} metalness={0.06} transparent opacity={0.4} side={DoubleSide} />
       </mesh>
-      <mesh position={[-0.34, 0.016, -0.13]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.12, 0.05, 0.014, 16]} />
-        <meshStandardMaterial color="#7c3f1d" roughness={0.68} transparent opacity={0.62} />
+      {/* borde del corte */}
+      <mesh position={[0, 0.41, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.153, 0.007, 8, 24]} />
+        <meshStandardMaterial color={plastic} roughness={0.2} transparent opacity={0.6} />
       </mesh>
-      <mesh castShadow position={[0, 0.095, 0]}>
-        <cylinderGeometry args={[0.085, 0.1, 0.7, 16]} />
-        <meshStandardMaterial color="#1a120d" roughness={0.32} metalness={0.05} transparent opacity={0.88} />
+      {/* líquido fernet-cola */}
+      <mesh position={[0, 0.25, 0]}>
+        <cylinderGeometry args={[0.148, 0.13, 0.3, 24]} />
+        <meshStandardMaterial color={liquid} roughness={0.28} metalness={0.05} transparent opacity={0.94} />
       </mesh>
-      <mesh position={[-0.1, 0.18, 0.035]} rotation={[0, 0, Math.PI / 2]}>
-        <boxGeometry args={[0.025, 0.42, 0.012]} />
-        <meshStandardMaterial color="#fef3c7" roughness={0.18} transparent opacity={0.52} />
+      {/* corona de espuma */}
+      <mesh position={[0, 0.42, 0]}>
+        <cylinderGeometry args={[0.152, 0.148, 0.05, 24]} />
+        <meshStandardMaterial color={foam} roughness={0.85} />
       </mesh>
-      <mesh position={[0, 0.08, 0.083]} rotation={[0, 0, Math.PI / 2]}>
-        <MiniLabel text="FERNET" background="#f5c542" color="#111827" width={0.34} height={0.18} />
-      </mesh>
-      <mesh position={[0.05, 0.08, -0.088]} rotation={[0, 0, Math.PI / 2]}>
-        <MiniLabel text="BRANCA" background="#f8fafc" color="#991b1b" width={0.24} height={0.08} />
-      </mesh>
-      <mesh castShadow position={[0.43, 0.095, 0]}>
-        <cylinderGeometry args={[0.045, 0.055, 0.22, 14]} />
-        <meshStandardMaterial color="#2d1a12" roughness={0.34} />
-      </mesh>
-      <mesh castShadow position={[0.58, 0.095, 0]}>
-        <cylinderGeometry args={[0.048, 0.048, 0.07, 14]} />
-        <meshStandardMaterial color="#b91c1c" roughness={0.38} metalness={0.12} />
-      </mesh>
-      <mesh position={[0.67, 0.03, -0.12]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.055, 0.055, 0.025, 14]} />
-        <meshStandardMaterial color="#b91c1c" roughness={0.5} metalness={0.18} />
+      {[[-0.06, 0.05], [0.05, -0.04], [0.02, 0.07], [-0.04, -0.06], [0.07, 0.03]].map(([x, z], i) => (
+        <mesh key={`bub-${i}`} position={[x, 0.46, z]}>
+          <sphereGeometry args={[0.028, 8, 6]} />
+          <meshStandardMaterial color="#f3ead2" roughness={0.8} />
+        </mesh>
+      ))}
+      {/* etiqueta Coca-Cola */}
+      <mesh position={[0, 0.2, 0.156]}>
+        <MiniLabel text="COCA-COLA" background="#e01c22" color="#ffffff" width={0.2} height={0.07} />
       </mesh>
     </group>
   );
@@ -1657,97 +1672,99 @@ function VomitingPerson({ position, rotationY = 0, scale = 1 }: AssetProps) {
 }
 
 function BlueMarketBag({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // Bolso IKEA Frakta con cierre: cuerpo azul ancho, "IKEA" amarillo al frente,
+  // asas azules y un cierre amarillo cruzando la tapa.
+  const blue = "#1596d8";
+  const blueDark = "#0a6aa3";
+  const yellow = "#ffd400";
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      <mesh castShadow receiveShadow position={[0, 0.23, 0]}>
-        <boxGeometry args={[0.68, 0.42, 0.36]} />
-        <meshStandardMaterial color="#0058a3" roughness={0.7} />
+      {/* cuerpo ancho y bajo */}
+      <mesh castShadow receiveShadow position={[0, 0.24, 0]}>
+        <boxGeometry args={[0.86, 0.44, 0.42]} />
+        <meshStandardMaterial color={blue} roughness={0.72} />
       </mesh>
-      {[-0.34, 0.34].map((x) => (
-        <mesh key={x} position={[x, 0.25, 0]} rotation={[0, 0, x > 0 ? -0.08 : 0.08]}>
-          <boxGeometry args={[0.035, 0.38, 0.38]} />
-          <meshStandardMaterial color="#004982" roughness={0.78} />
+      {/* costuras verticales más oscuras */}
+      {[-0.43, 0.43].map((x) => (
+        <mesh key={`seam-${x}`} position={[x, 0.24, 0]}>
+          <boxGeometry args={[0.022, 0.44, 0.42]} />
+          <meshStandardMaterial color={blueDark} roughness={0.78} />
         </mesh>
       ))}
-      <mesh position={[0, 0.45, 0]}>
-        <boxGeometry args={[0.58, 0.035, 0.28]} />
-        <meshStandardMaterial color="#0b4f8a" roughness={0.8} />
+      {/* tapa abombada */}
+      <mesh castShadow position={[0, 0.47, 0]}>
+        <boxGeometry args={[0.84, 0.06, 0.4]} />
+        <meshStandardMaterial color={shade(blue, 1.05)} roughness={0.7} />
       </mesh>
-      {[-0.18, 0.18].map((x) => (
-        <mesh key={`fold-${x}`} position={[x, 0.23, 0.19]}>
-          <boxGeometry args={[0.02, 0.32, 0.018]} />
-          <meshStandardMaterial color="#0b4f8a" roughness={0.78} />
-        </mesh>
-      ))}
-      {[-0.2, 0.2].map((x) => (
-        <mesh key={x} castShadow position={[x, 0.5, 0.02]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.14, 0.015, 8, 22, Math.PI]} />
-          <meshStandardMaterial color="#facc15" roughness={0.52} />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.25, 0.185]}>
-        <MiniLabel text="IKEA" background="#facc15" color="#0058a3" width={0.32} height={0.15} />
+      {/* cierre amarillo a lo largo + tirador */}
+      <mesh position={[0, 0.505, 0]}>
+        <boxGeometry args={[0.82, 0.02, 0.045]} />
+        <meshStandardMaterial color={yellow} roughness={0.45} metalness={0.25} />
       </mesh>
-      <mesh castShadow position={[0.16, 0.52, -0.02]} rotation={[0, 0.4, 0]}>
-        <boxGeometry args={[0.18, 0.14, 0.08]} />
-        <meshStandardMaterial color="#e5e7eb" roughness={0.66} />
+      <mesh position={[0.28, 0.505, 0]}>
+        <boxGeometry args={[0.05, 0.018, 0.07]} />
+        <meshStandardMaterial color="#cbd5e1" metalness={0.6} roughness={0.35} />
+      </mesh>
+      {/* dos asas azules arqueadas con "IKEA" */}
+      {[-0.24, 0.24].map((x) => (
+        <group key={`handle-${x}`}>
+          <mesh castShadow position={[x, 0.6, 0.13]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.13, 0.024, 8, 20, Math.PI]} />
+            <meshStandardMaterial color={blue} roughness={0.68} />
+          </mesh>
+          <mesh position={[x, 0.58, 0.156]} rotation={[0.2, 0, 0]}>
+            <MiniLabel text="IKEA" background={blue} color={yellow} width={0.12} height={0.045} />
+          </mesh>
+        </group>
+      ))}
+      {/* logo IKEA grande al frente */}
+      <mesh position={[0, 0.26, 0.212]}>
+        <MiniLabel text="IKEA" background={blue} color={yellow} width={0.34} height={0.16} />
       </mesh>
     </group>
   );
 }
 
 function HockeyStick({ position, rotationY = 0, scale = 1 }: AssetProps) {
-  // Palo de hockey de madera convertido en arma: esquirlas de vidrio celeste
-  // semitransparentes clavadas en la pala y subiendo por el mango; grip de
-  // cinta negra arriba. Improvisado y amenazante.
-  const wood = "#a3672f";
+  // Palo de hockey de campo (estilo STX): mango recto negro con banda menta y
+  // el gancho "J" curvado en la punta. De arma improvisada: vidrios clavados.
+  const shaft = "#1c1c22";
+  const accent = "#3fd0b8";
   const glass = "#a5e8f7";
-  const grip = "#0f172a";
-  const shaftShards: [number, number, number][] = [
-    [-0.32, 0.5, 0.9],
-    [-0.2, -0.6, 1.1],
-    [-0.08, 0.4, 0.85],
-    [0.06, -0.5, 1.0],
-    [0.18, 0.7, 0.8],
-  ];
   return (
-    <group position={position} rotation={[0, rotationY, 0.18]} scale={[scale, scale, scale]}>
-      <mesh castShadow position={[0, 0.06, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.95, 10]} />
-        <meshStandardMaterial color={wood} roughness={0.7} metalness={0.04} />
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      {/* mango recto apoyado en el piso */}
+      <mesh castShadow position={[-0.12, 0.05, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.028, 0.032, 0.86, 12]} />
+        <meshStandardMaterial color={shaft} roughness={0.55} metalness={0.06} />
       </mesh>
-      <mesh castShadow position={[0.46, 0.045, 0.02]} scale={[0.9, 0.5, 1.9]}>
-        <sphereGeometry args={[0.09, 12, 8]} />
-        <meshStandardMaterial color={shade(wood, 0.88)} roughness={0.72} />
+      {/* banda menta en la transición al gancho */}
+      <mesh position={[0.27, 0.05, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.034, 0.034, 0.1, 12]} />
+        <meshStandardMaterial color={accent} roughness={0.4} />
       </mesh>
-      <mesh castShadow position={[0.55, 0.09, 0.16]} rotation={[0.5, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.03, 0.035, 0.16, 10]} />
-        <meshStandardMaterial color={shade(wood, 0.88)} roughness={0.72} />
+      {/* gancho J curvando hacia arriba en la punta */}
+      <mesh castShadow position={[0.33, 0.11, 0]} rotation={[Math.PI / 2, 0, -0.25]}>
+        <torusGeometry args={[0.1, 0.034, 10, 16, Math.PI / 1.5]} />
+        <meshStandardMaterial color={accent} roughness={0.45} />
       </mesh>
-      {[-0.5, -0.44, -0.38].map((x) => (
-        <mesh key={x} position={[x, 0.06, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <torusGeometry args={[0.024, 0.008, 6, 12]} />
-          <meshStandardMaterial color={grip} roughness={0.62} />
+      {/* puntera del gancho */}
+      <mesh castShadow position={[0.28, 0.21, 0]}>
+        <sphereGeometry args={[0.042, 10, 8]} />
+        <meshStandardMaterial color={accent} roughness={0.45} />
+      </mesh>
+      {/* grip de cinta en el otro extremo */}
+      {[-0.42, -0.35, -0.28].map((x) => (
+        <mesh key={`grip-${x}`} position={[x, 0.05, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.035, 0.035, 0.04, 12]} />
+          <meshStandardMaterial color="#0a0a0d" roughness={0.72} />
         </mesh>
       ))}
-      <mesh position={[-0.46, 0.06, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.024, 0.024, 0.14, 10]} />
-        <meshStandardMaterial color={grip} roughness={0.62} />
-      </mesh>
-      {[[0.4, 0.09], [0.48, -0.06], [0.53, 0.12], [0.44, 0.0], [0.58, -0.02]].map(([x, z], i) => (
-        <mesh
-          key={`hs-${i}`}
-          position={[x, 0.11, z]}
-          rotation={[0.35 * (i % 2 ? 1 : -1), i * 0.6, 0.2]}
-        >
-          <coneGeometry args={[0.026, 0.11, 4]} />
+      {/* vidrios clavados a lo largo del mango */}
+      {[-0.3, -0.15, 0.0, 0.13].map((x, i) => (
+        <mesh key={`glass-${i}`} position={[x, 0.09, 0]} rotation={[0, i * 0.8, 0.18 * (i % 2 ? 1 : -1)]}>
+          <coneGeometry args={[0.02, 0.11, 4]} />
           <meshStandardMaterial color={glass} roughness={0.08} metalness={0.1} transparent opacity={0.72} />
-        </mesh>
-      ))}
-      {shaftShards.map(([x, tilt, s], i) => (
-        <mesh key={`ss-${i}`} position={[x, 0.1, 0]} rotation={[tilt, i * 0.9, 0.1]} scale={[s, s, s]}>
-          <coneGeometry args={[0.022, 0.1, 4]} />
-          <meshStandardMaterial color={glass} roughness={0.08} metalness={0.1} transparent opacity={0.7} />
         </mesh>
       ))}
     </group>
@@ -1755,58 +1772,88 @@ function HockeyStick({ position, rotationY = 0, scale = 1 }: AssetProps) {
 }
 
 function CondomBolas({ position, rotationY = 0, scale = 1 }: AssetProps) {
-  // Arma mítica de Beltrán: dos globos de látex translúcidos, panzones y llenos
-  // de caca (esfera marrón interior bien visible), unidos por un cordón con un
-  // nudo grueso. Una bola cuelga más baja, como en pleno swing.
+  // Boleadoras míticas de Beltrán (condones panzones llenos de caca) siendo
+  // revoleadas por encima de la cabeza por un gaucho, tipo vaquero por enlazar.
   const latex = "#ded0b4";
   const poop = "#5a3418";
-  const poopDark = "#3d2410";
+  const skin = "#f2c197";
+  const shirt = "#2563eb";
+  const pants = "#374151";
   const cord = "#e7d8b4";
-  const knot = "#c9b78e";
-  const balls: [number, number, number][] = [
-    [-0.34, 0.62, 0.3],
-    [0.36, 0.34, -0.4],
+  const hand: [number, number] = [0.3, 1.12];
+  const center: [number, number] = [0.0, 1.5];
+  const balls: [number, number][] = [
+    [-0.36, 1.62],
+    [0.34, 1.4],
   ];
+  const link = (a: [number, number], b: [number, number], key: string, r = 0.011) => (
+    <mesh key={key} position={[(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0]} rotation={[0, 0, Math.atan2(a[0] - b[0], b[1] - a[1])]}>
+      <cylinderGeometry args={[r, r, Math.hypot(a[0] - b[0], a[1] - b[1]), 6]} />
+      <meshStandardMaterial color={cord} roughness={0.72} />
+    </mesh>
+  );
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      <mesh castShadow position={[0, 0.5, 0]}>
-        <cylinderGeometry args={[0.02, 0.028, 1.0, 8]} />
-        <meshStandardMaterial color="#7c4524" roughness={0.85} />
+      {/* ── Gaucho ── */}
+      {[-0.1, 0.1].map((x) => (
+        <mesh key={`leg-${x}`} castShadow position={[x, 0.22, 0]}>
+          <cylinderGeometry args={[0.055, 0.05, 0.44, 10]} />
+          <meshStandardMaterial color={pants} roughness={0.74} />
+        </mesh>
+      ))}
+      {[-0.1, 0.1].map((x) => (
+        <mesh key={`foot-${x}`} castShadow position={[x, 0.03, 0.05]}>
+          <boxGeometry args={[0.1, 0.06, 0.18]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.7} />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0, 0.62, 0]}>
+        <cylinderGeometry args={[0.13, 0.16, 0.4, 14]} />
+        <meshStandardMaterial color={shirt} roughness={0.66} />
       </mesh>
-      <mesh position={[0, 1.0, 0]}>
-        <sphereGeometry args={[0.045, 10, 8]} />
-        <meshStandardMaterial color={knot} roughness={0.7} />
+      <mesh castShadow position={[0, 0.92, 0]}>
+        <sphereGeometry args={[0.12, 16, 12]} />
+        <meshStandardMaterial color={skin} roughness={0.55} />
       </mesh>
-      {balls.map(([x, y], i) => {
-        const len = 1.0 - y;
-        return (
-          <mesh key={`cord-${i}`} position={[x / 2, (1.0 + y) / 2 + 0.04, 0]} rotation={[0, 0, Math.atan2(x, len)]}>
-            <cylinderGeometry args={[0.014, 0.014, Math.hypot(len, x), 6]} />
-            <meshStandardMaterial color={cord} roughness={0.72} />
+      <mesh position={[0, 0.97, -0.01]}>
+        <sphereGeometry args={[0.126, 14, 10, 0, Math.PI * 2, 0, Math.PI / 1.7]} />
+        <meshStandardMaterial color="#2f1d13" roughness={0.8} />
+      </mesh>
+      {/* brazo izquierdo al costado */}
+      <mesh castShadow position={[-0.19, 0.6, 0]} rotation={[0, 0, 0.42]}>
+        <cylinderGeometry args={[0.035, 0.03, 0.36, 8]} />
+        <meshStandardMaterial color={shirt} roughness={0.66} />
+      </mesh>
+      {/* brazo derecho LEVANTADO */}
+      <mesh castShadow position={[0.19, 0.9, 0]} rotation={[0, 0, -0.95]}>
+        <cylinderGeometry args={[0.035, 0.03, 0.46, 8]} />
+        <meshStandardMaterial color={shirt} roughness={0.66} />
+      </mesh>
+      <mesh position={[hand[0], hand[1], 0]}>
+        <sphereGeometry args={[0.04, 10, 8]} />
+        <meshStandardMaterial color={skin} roughness={0.55} />
+      </mesh>
+      {/* ── Boleadoras revoleando arriba ── */}
+      {link(hand, center, "cord-hand")}
+      {balls.map((b, i) => link(center, b, `cord-${i}`, 0.013))}
+      <mesh position={[center[0], center[1], 0]}>
+        <sphereGeometry args={[0.04, 10, 8]} />
+        <meshStandardMaterial color="#c9b78e" roughness={0.7} />
+      </mesh>
+      {balls.map((b, i) => (
+        <group key={`ball-${i}`} position={[b[0], b[1], 0]}>
+          <mesh castShadow scale={[0.9, 1, 0.9]}>
+            <sphereGeometry args={[0.12, 16, 12]} />
+            <meshStandardMaterial color={latex} roughness={0.24} metalness={0.03} transparent opacity={0.72} />
           </mesh>
-        );
-      })}
-      <mesh position={[0.02, 0.6, 0]} rotation={[Math.PI / 2, 0, 0.2]}>
-        <torusGeometry args={[0.05, 0.026, 8, 14]} />
-        <meshStandardMaterial color={knot} roughness={0.66} />
-      </mesh>
-      {balls.map(([x, y, r], i) => (
-        <group key={`ball-${i}`} position={[x, y, 0]} rotation={[0, 0, r]}>
-          <mesh castShadow position={[0, 0.24, 0]}>
-            <coneGeometry args={[0.05, 0.11, 8]} />
-            <meshStandardMaterial color={latex} roughness={0.28} transparent opacity={0.7} />
-          </mesh>
-          <mesh castShadow scale={[0.62, 1, 0.62]}>
-            <sphereGeometry args={[0.2, 16, 12]} />
+          <mesh scale={[0.6, 0.7, 0.6]}>
+            <sphereGeometry args={[0.12, 12, 8]} />
             <meshStandardMaterial color={poop} roughness={0.9} />
           </mesh>
-          <mesh position={[0.03, -0.05, 0.06]} scale={[0.4, 0.5, 0.34]}>
-            <sphereGeometry args={[0.2, 12, 8]} />
-            <meshStandardMaterial color={poopDark} roughness={0.95} />
-          </mesh>
-          <mesh castShadow scale={[0.78, 1.28, 0.78]}>
-            <sphereGeometry args={[0.2, 20, 14]} />
-            <meshStandardMaterial color={latex} roughness={0.2} metalness={0.04} transparent opacity={0.62} />
+          {/* nudo del condón */}
+          <mesh position={[0, 0.12, 0]}>
+            <coneGeometry args={[0.03, 0.06, 8]} />
+            <meshStandardMaterial color={latex} roughness={0.3} transparent opacity={0.7} />
           </mesh>
         </group>
       ))}
@@ -1814,61 +1861,78 @@ function CondomBolas({ position, rotationY = 0, scale = 1 }: AssetProps) {
   );
 }
 
-function makeDiscTexture(): CanvasTexture {
+function makeBorderlandsCover(): CanvasTexture {
   const canvas = document.createElement("canvas");
-  canvas.width = 512;
+  canvas.width = 360;
   canvas.height = 512;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#101827";
-  ctx.beginPath();
-  ctx.arc(256, 256, 246, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#22c55e";
-  ctx.lineWidth = 22;
-  ctx.beginPath();
-  ctx.arc(256, 256, 220, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = "#64748b";
-  ctx.lineWidth = 10;
-  ctx.beginPath();
-  ctx.arc(256, 256, 154, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = "#facc15";
-  ctx.font = "900 54px Inter, ui-sans-serif, system-ui, sans-serif";
+  const g = ctx.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, "#f7a41a");
+  g.addColorStop(1, "#df5116");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 360, 512);
   ctx.textAlign = "center";
-  ctx.fillText("BOTHER", 256, 214);
-  ctx.fillText("LANDS", 256, 278);
-  ctx.fillStyle = "#e5e7eb";
-  ctx.font = "800 30px Inter, ui-sans-serif, system-ui, sans-serif";
-  ctx.fillText("XBOX 360", 256, 346);
-  ctx.fillStyle = "#111827";
+  // banda superior verde Xbox 360
+  ctx.fillStyle = "#107C10";
+  ctx.fillRect(0, 0, 360, 52);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 26px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.fillText("XBOX 360", 180, 36);
+  // careta del psycho (placa gris con correas, un ojo y dientes)
+  ctx.fillStyle = "#dfe3e8";
+  ctx.fillRect(122, 150, 116, 148);
   ctx.beginPath();
-  ctx.arc(256, 256, 54, 0, Math.PI * 2);
+  ctx.arc(180, 298, 58, 0, Math.PI);
   ctx.fill();
+  ctx.strokeStyle = "#3a2a1a";
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.moveTo(122, 185);
+  ctx.lineTo(56, 165);
+  ctx.moveTo(238, 185);
+  ctx.lineTo(304, 165);
+  ctx.stroke();
+  ctx.fillStyle = "#1f2937";
+  ctx.beginPath();
+  ctx.arc(180, 210, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#f7a41a";
+  ctx.beginPath();
+  ctx.arc(180, 210, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(150, 286, 60, 18);
+  // título
+  ctx.fillStyle = "#111827";
+  ctx.font = "900 32px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.fillText("BORDERLANDS", 180, 398);
+  ctx.font = "900 96px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.fillText("2", 180, 486);
   return finishTexture(canvas);
 }
 
 function BotherlandsDisc({ position, rotationY = 0, scale = 1 }: AssetProps) {
-  const texture = useMemo(makeDiscTexture, []);
+  const texture = useMemo(makeBorderlandsCover, []);
   useEffect(() => () => texture.dispose(), [texture]);
-
+  const xboxGreen = "#107C10";
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      <mesh castShadow receiveShadow position={[0.08, 0.025, -0.06]} rotation={[-Math.PI / 2, 0, -0.12]}>
-        <boxGeometry args={[0.74, 0.52, 0.035]} />
-        <meshStandardMaterial color="#16a34a" roughness={0.46} />
-      </mesh>
-      <mesh position={[0.08, 0.052, -0.315]} rotation={[-Math.PI / 2, 0, -0.12]}>
-        <MiniLabel text="XBOX 360" background="#f8fafc" color="#166534" width={0.68} height={0.12} />
-      </mesh>
-      <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.3, 0.3, 0.025, 40]} />
-        <meshStandardMaterial color="#d1d5db" metalness={0.32} roughness={0.26} />
-      </mesh>
-      <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.292, 40]} />
-        <meshBasicMaterial map={texture} toneMapped={false} />
-      </mesh>
+      {/* caja del juego de Xbox 360 parada, con leve inclinación */}
+      <group position={[0, 0.36, 0]} rotation={[0.04, 0, 0.03]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[0.5, 0.72, 0.06]} />
+          <meshStandardMaterial color={xboxGreen} roughness={0.5} />
+        </mesh>
+        {/* portada al frente */}
+        <mesh position={[0, 0, 0.031]}>
+          <planeGeometry args={[0.485, 0.7]} />
+          <meshBasicMaterial map={texture} toneMapped={false} />
+        </mesh>
+        {/* lomo verde */}
+        <mesh position={[-0.251, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+          <MiniLabel text="BORDERLANDS 2" background={xboxGreen} color="#ffffff" width={0.66} height={0.05} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -2288,106 +2352,127 @@ function DeskChairTower({ position, rotationY = 0, scale = 1 }: AssetProps) {
 }
 
 function Croissant({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // Medialuna dorada: media luna de segmentos redondeados, gorda en el centro
+  // y afinada en las puntas, con brillo horneado.
+  const golden = "#dc9a34";
+  const R = 0.24;
+  const arc = Math.PI * 1.2;
+  const segs = 9;
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      <mesh castShadow position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, -0.35]}>
-        <torusGeometry args={[0.22, 0.065, 12, 28, Math.PI * 1.45]} />
-        <meshStandardMaterial color="#d79538" roughness={0.66} />
-      </mesh>
-      {[-0.24, 0.24].map((x) => (
-        <mesh key={`tip-${x}`} castShadow position={[x, 0.08, 0.08]} rotation={[0, 0, x > 0 ? -0.7 : 0.7]}>
-          <coneGeometry args={[0.075, 0.17, 10]} />
-          <meshStandardMaterial color="#c47a25" roughness={0.7} />
-        </mesh>
-      ))}
-      {[-0.18, -0.06, 0.06, 0.18].map((x) => (
-        <mesh key={x} position={[x, 0.145, 0.03]} rotation={[0.2, 0, 0]}>
-          <boxGeometry args={[0.025, 0.035, 0.12]} />
-          <meshStandardMaterial color="#b86f24" roughness={0.7} />
-        </mesh>
-      ))}
-      <mesh position={[0.05, 0.165, -0.02]} rotation={[0.25, 0, 0.25]}>
-        <boxGeometry args={[0.2, 0.018, 0.05]} />
-        <meshStandardMaterial color="#f5c16c" roughness={0.38} transparent opacity={0.62} />
-      </mesh>
+      {Array.from({ length: segs }).map((_, i) => {
+        const t = i / (segs - 1);
+        const a = -arc / 2 + t * arc;
+        const fat = 0.05 + 0.1 * Math.sin(t * Math.PI);
+        return (
+          <mesh
+            key={i}
+            castShadow
+            position={[Math.cos(a) * R, 0.11 + Math.sin(t * Math.PI) * 0.03, Math.sin(a) * R]}
+            scale={[1.15, 0.82, 1.15]}
+          >
+            <sphereGeometry args={[fat, 12, 10]} />
+            <meshStandardMaterial color={i % 2 ? golden : shade(golden, 1.1)} roughness={0.5} flatShading />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
 
 function WeddingRing({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // Anillo de compromiso parado en su almohadón, con la piedra brillante arriba.
+  const gold = "#f5c542";
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      <mesh receiveShadow position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.28, 0.28, 0.05, 24]} />
-        <meshStandardMaterial color="#581c87" roughness={0.78} />
+      {/* almohadón */}
+      <mesh receiveShadow position={[0, 0.06, 0]} scale={[1, 0.55, 1]}>
+        <sphereGeometry args={[0.22, 18, 12]} />
+        <meshStandardMaterial color="#3b0764" roughness={0.86} />
       </mesh>
-      <mesh castShadow position={[0, 0.08, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.18, 0.035, 14, 30]} />
-        <meshStandardMaterial color="#facc15" metalness={0.85} roughness={0.18} />
+      {/* aro de oro parado */}
+      <mesh castShadow position={[0, 0.32, 0]}>
+        <torusGeometry args={[0.17, 0.03, 16, 34]} />
+        <meshStandardMaterial color={gold} metalness={0.85} roughness={0.16} />
       </mesh>
-      <mesh position={[0, 0.082, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.11, 0.008, 8, 24]} />
-        <meshStandardMaterial color="#fff7ad" metalness={0.7} roughness={0.2} />
+      {/* engaste arriba del aro */}
+      <mesh position={[0, 0.5, 0]}>
+        <cylinderGeometry args={[0.045, 0.062, 0.05, 8]} />
+        <meshStandardMaterial color={gold} metalness={0.85} roughness={0.18} />
       </mesh>
-      <mesh position={[0.0, 0.15, -0.18]}>
-        <octahedronGeometry args={[0.055, 0]} />
-        <meshStandardMaterial color="#e0f2fe" metalness={0.15} roughness={0.12} transparent opacity={0.86} />
+      {/* diamante */}
+      <mesh castShadow position={[0, 0.57, 0]}>
+        <octahedronGeometry args={[0.075, 0]} />
+        <meshStandardMaterial color="#d8f3ff" metalness={0.2} roughness={0.05} transparent opacity={0.85} />
       </mesh>
-      {[-0.08, 0.08].map((x) => (
-        <mesh key={x} position={[x, 0.13, -0.16]} rotation={[0, 0, x > 0 ? -0.25 : 0.25]}>
-          <boxGeometry args={[0.08, 0.02, 0.028]} />
-          <meshStandardMaterial color="#fde68a" metalness={0.78} roughness={0.18} />
-        </mesh>
-      ))}
+      {/* garras del engaste */}
+      {[0, 1, 2, 3].map((i) => {
+        const a = (i / 4) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.cos(a) * 0.045, 0.53, Math.sin(a) * 0.045]} rotation={[Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35]}>
+            <cylinderGeometry args={[0.006, 0.006, 0.08, 6]} />
+            <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
 
 function Ukulele({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // Ukelele apoyado de plano en el piso (sin inclinación que lo hunda).
+  const body = "#b5761f";
   return (
-    <group position={position} rotation={[0, rotationY, -0.35]} scale={[scale, scale, scale]}>
-      <mesh castShadow position={[-0.1, 0.08, 0]} scale={[0.8, 0.24, 1.08]}>
-        <sphereGeometry args={[0.18, 14, 8]} />
-        <meshStandardMaterial color="#a16207" roughness={0.7} />
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      {/* cuerpo (dos lóbulos, achatado) apoyado en el piso */}
+      <mesh castShadow position={[-0.1, 0.055, 0]} scale={[1.08, 0.34, 0.8]}>
+        <sphereGeometry args={[0.18, 16, 10]} />
+        <meshStandardMaterial color={body} roughness={0.66} />
       </mesh>
-      <mesh castShadow position={[0.1, 0.08, 0]} scale={[0.62, 0.2, 0.82]}>
-        <sphereGeometry args={[0.15, 14, 8]} />
-        <meshStandardMaterial color="#b7791f" roughness={0.7} />
+      <mesh castShadow position={[0.1, 0.055, 0]} scale={[0.82, 0.3, 0.62]}>
+        <sphereGeometry args={[0.15, 16, 10]} />
+        <meshStandardMaterial color={shade(body, 1.06)} roughness={0.66} />
       </mesh>
-      <mesh position={[-0.04, 0.105, 0]}>
-        <cylinderGeometry args={[0.055, 0.055, 0.012, 16]} />
+      {/* boca */}
+      <mesh position={[-0.04, 0.11, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.01, 16]} />
         <meshStandardMaterial color="#2f1d13" roughness={0.75} />
       </mesh>
-      <mesh castShadow position={[0.43, 0.08, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <boxGeometry args={[0.07, 0.54, 0.05]} />
+      {/* puente */}
+      <mesh position={[-0.19, 0.1, 0]}>
+        <boxGeometry args={[0.05, 0.02, 0.1]} />
+        <meshStandardMaterial color="#4a2b16" roughness={0.76} />
+      </mesh>
+      {/* mástil */}
+      <mesh castShadow position={[0.44, 0.06, 0]}>
+        <boxGeometry args={[0.5, 0.05, 0.07]} />
         <meshStandardMaterial color="#6b3f1d" roughness={0.74} />
       </mesh>
-      {[-0.12, -0.02, 0.08, 0.18].map((x) => (
-        <mesh key={`fret-${x}`} position={[0.36 + x, 0.116, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <boxGeometry args={[0.008, 0.075, 0.058]} />
+      {/* trastes */}
+      {[0.28, 0.38, 0.48, 0.58].map((x) => (
+        <mesh key={`fret-${x}`} position={[x, 0.088, 0]}>
+          <boxGeometry args={[0.008, 0.006, 0.07]} />
           <meshStandardMaterial color="#e5e7eb" roughness={0.38} metalness={0.45} />
         </mesh>
       ))}
-      <mesh castShadow position={[0.74, 0.08, 0]}>
-        <boxGeometry args={[0.14, 0.08, 0.12]} />
+      {/* pala + clavijas */}
+      <mesh castShadow position={[0.74, 0.06, 0]}>
+        <boxGeometry args={[0.13, 0.05, 0.11]} />
         <meshStandardMaterial color="#4a2b16" roughness={0.74} />
       </mesh>
-      {[[-0.03, -0.08], [0.03, -0.08], [-0.03, 0.08], [0.03, 0.08]].map(([x, z]) => (
-        <mesh key={`peg-${x}-${z}`} position={[0.78, 0.08 + x, z]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.018, 0.018, 0.07, 8]} />
+      {[[-0.04, -0.075], [0.04, -0.075], [-0.04, 0.075], [0.04, 0.075]].map(([x, z]) => (
+        <mesh key={`peg-${x}-${z}`} position={[0.74 + x, 0.09, z]}>
+          <cylinderGeometry args={[0.014, 0.014, 0.05, 8]} />
           <meshStandardMaterial color="#e5e7eb" metalness={0.42} roughness={0.36} />
         </mesh>
       ))}
-      {[-0.045, -0.015, 0.015, 0.045].map((z) => (
-        <mesh key={z} position={[0.38, 0.145, z]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.004, 0.004, 0.74, 5]} />
-          <meshStandardMaterial color="#f8fafc" roughness={0.35} metalness={0.35} />
+      {/* cuerdas */}
+      {[-0.03, -0.01, 0.01, 0.03].map((z) => (
+        <mesh key={z} position={[0.3, 0.11, z]}>
+          <boxGeometry args={[0.62, 0.004, 0.004]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.35} metalness={0.3} />
         </mesh>
       ))}
-      <mesh position={[-0.19, 0.13, 0]}>
-        <boxGeometry args={[0.16, 0.018, 0.12]} />
-        <meshStandardMaterial color="#4a2b16" roughness={0.76} />
-      </mesh>
     </group>
   );
 }
@@ -2417,20 +2502,20 @@ function SportsBall({ position, rotationY = 0, scale = 1, sport }: AssetProps & 
   if (sport === "basketball") {
     return (
       <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-        <mesh castShadow position={[0, 0.18, 0]}>
-          <sphereGeometry args={[0.2, 22, 14]} />
-          <meshStandardMaterial color="#f97316" roughness={0.62} />
+        <mesh castShadow position={[0, 0.2, 0]}>
+          <sphereGeometry args={[0.2, 24, 16]} />
+          <meshStandardMaterial color="#e8722a" roughness={0.62} />
         </mesh>
+        {/* costura del ecuador, pegada a la pelota */}
+        <mesh position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.2, 0.006, 8, 40]} />
+          <meshStandardMaterial color="#111827" roughness={0.7} />
+        </mesh>
+        {/* dos costuras verticales perpendiculares, sobre la superficie */}
         {[0, Math.PI / 2].map((r) => (
-          <mesh key={r} position={[0, 0.18, 0]} rotation={[Math.PI / 2, 0, r]}>
-            <torusGeometry args={[0.202, 0.006, 6, 28]} />
-            <meshStandardMaterial color="#111827" roughness={0.72} />
-          </mesh>
-        ))}
-        {[-0.1, 0.1].map((x) => (
-          <mesh key={x} position={[x, 0.18, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <torusGeometry args={[0.17, 0.005, 6, 24, Math.PI]} />
-            <meshStandardMaterial color="#111827" roughness={0.72} />
+          <mesh key={r} position={[0, 0.2, 0]} rotation={[0, r, 0]}>
+            <torusGeometry args={[0.2, 0.006, 8, 40]} />
+            <meshStandardMaterial color="#111827" roughness={0.7} />
           </mesh>
         ))}
       </group>
@@ -2439,23 +2524,30 @@ function SportsBall({ position, rotationY = 0, scale = 1, sport }: AssetProps & 
 
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      <mesh castShadow position={[0, 0.18, 0]}>
-        <sphereGeometry args={[0.2, 22, 14]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.58} />
+      <mesh castShadow position={[0, 0.2, 0]}>
+        <sphereGeometry args={[0.2, 24, 16]} />
+        <meshStandardMaterial color="#f5f5f5" roughness={0.55} />
       </mesh>
-      <mesh position={[0, 0.181, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.16, 0.006, 6, 28]} />
-        <meshStandardMaterial color="#111827" roughness={0.75} />
+      {/* pentágono negro arriba */}
+      <mesh position={[0, 0.404, 0]} rotation={[-Math.PI / 2, Math.PI / 5, 0]}>
+        <circleGeometry args={[0.058, 5]} />
+        <meshStandardMaterial color="#111827" roughness={0.6} side={DoubleSide} />
       </mesh>
-      {[0, 1, 2, 3, 4].map((index) => {
-        const angle = (index / 5) * Math.PI * 2;
+      {/* anillo de 5 pentágonos negros, pegados a la superficie */}
+      {[0, 1, 2, 3, 4].map((i) => {
+        const a = (i / 5) * Math.PI * 2;
         return (
-          <mesh key={index} position={[Math.cos(angle) * 0.13, 0.22, Math.sin(angle) * 0.13]} rotation={[-Math.PI / 2, 0, -angle]}>
-            <circleGeometry args={[0.045, 5]} />
-            <meshStandardMaterial color="#111827" roughness={0.75} side={DoubleSide} />
+          <mesh key={i} position={[Math.cos(a) * 0.202, 0.22, Math.sin(a) * 0.202]} rotation={[0, Math.atan2(Math.cos(a), Math.sin(a)), 0]}>
+            <circleGeometry args={[0.05, 5]} />
+            <meshStandardMaterial color="#111827" roughness={0.6} side={DoubleSide} />
           </mesh>
         );
       })}
+      {/* costuras tenues del ecuador */}
+      <mesh position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.2, 0.004, 6, 40]} />
+        <meshStandardMaterial color="#9ca3af" roughness={0.7} />
+      </mesh>
     </group>
   );
 }
@@ -2679,64 +2771,56 @@ function SplitOakStump({ position, rotationY = 0, scale = 1, tint }: AssetProps)
 }
 
 function ChlorineFizzBottle({ position, rotationY = 0, scale = 1, tint }: AssetProps) {
-  const plastic = tint ?? "#eaf6fb";
+  // Bomba de sonido: botella de plástico HINCHADA por la presión — panzona y
+  // tensa como un globo — con burbujas verdes adentro y la tapa por saltar.
+  const plastic = tint ?? "#dff1f8";
   const fizz = "#63d64a";
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      {/* main body */}
-      <mesh castShadow receiveShadow position={[0, 0.32, 0]}>
-        <cylinderGeometry args={[0.2, 0.22, 0.6, 18]} />
-        <meshStandardMaterial color={plastic} roughness={0.45} transparent opacity={0.82} />
+      {/* cuerpo hinchado (elipsoide tenso) */}
+      <mesh castShadow receiveShadow position={[0, 0.32, 0]} scale={[1, 1.18, 1]}>
+        <sphereGeometry args={[0.26, 24, 20]} />
+        <meshStandardMaterial color={plastic} roughness={0.26} metalness={0.05} transparent opacity={0.82} />
       </mesh>
-      {/* blue tint band low on the body */}
-      <mesh position={[0, 0.12, 0]}>
-        <cylinderGeometry args={[0.222, 0.24, 0.14, 18]} />
-        <meshStandardMaterial color="#7cc7e8" roughness={0.5} transparent opacity={0.85} />
+      {/* culo petaloide abombado */}
+      {[0, 1, 2, 3, 4].map((i) => {
+        const a = (i / 5) * Math.PI * 2;
+        return (
+          <mesh key={`foot-${i}`} position={[Math.cos(a) * 0.1, 0.04, Math.sin(a) * 0.1]}>
+            <sphereGeometry args={[0.065, 10, 8]} />
+            <meshStandardMaterial color={plastic} roughness={0.3} transparent opacity={0.8} />
+          </mesh>
+        );
+      })}
+      {/* banda de etiqueta azul */}
+      <mesh position={[0, 0.28, 0]}>
+        <cylinderGeometry args={[0.263, 0.263, 0.17, 24]} />
+        <meshStandardMaterial color="#7cc7e8" roughness={0.4} transparent opacity={0.68} />
       </mesh>
-      {/* shoulder taper up to neck */}
-      <mesh castShadow position={[0, 0.66, 0]}>
-        <cylinderGeometry args={[0.1, 0.2, 0.14, 18]} />
-        <meshStandardMaterial color={plastic} roughness={0.45} transparent opacity={0.82} />
+      {/* hombro y cuello estirados por la presión */}
+      <mesh castShadow position={[0, 0.6, 0]}>
+        <cylinderGeometry args={[0.08, 0.22, 0.14, 20]} />
+        <meshStandardMaterial color={plastic} roughness={0.26} transparent opacity={0.82} />
       </mesh>
-      {/* short neck */}
-      <mesh position={[0, 0.76, 0]}>
-        <cylinderGeometry args={[0.085, 0.1, 0.08, 16]} />
-        <meshStandardMaterial color={plastic} roughness={0.5} transparent opacity={0.88} />
+      <mesh position={[0, 0.69, 0]}>
+        <cylinderGeometry args={[0.07, 0.08, 0.08, 16]} />
+        <meshStandardMaterial color={plastic} roughness={0.4} transparent opacity={0.88} />
       </mesh>
-      {/* swollen bulging cap about to pop */}
-      <mesh castShadow position={[0, 0.87, 0]} scale={[1, 1.25, 1]}>
-        <sphereGeometry args={[0.11, 16, 14]} />
+      {/* tapa amarilla hinchada, por saltar */}
+      <mesh castShadow position={[0, 0.79, 0]} scale={[1.15, 1.3, 1.15]}>
+        <sphereGeometry args={[0.08, 16, 14]} />
         <meshStandardMaterial color="#f4d21f" roughness={0.4} metalness={0.05} />
       </mesh>
-      {/* green fizz bubbles suspended inside the body */}
-      {[
-        [0.05, 0.28, 0.04, 0.06],
-        [-0.07, 0.4, -0.03, 0.05],
-        [0.02, 0.5, 0.06, 0.045],
-        [-0.04, 0.22, 0.07, 0.04],
-        [0.09, 0.44, -0.05, 0.035],
-        [-0.02, 0.34, -0.06, 0.05],
-        [0.06, 0.58, 0.0, 0.03]
-      ].map((b, i) => (
+      {/* burbujas verdes suspendidas adentro */}
+      {[[0.06, 0.28, 0.05, 0.055], [-0.08, 0.36, -0.04, 0.05], [0.03, 0.44, 0.07, 0.045], [-0.05, 0.22, 0.08, 0.04], [0.1, 0.34, -0.05, 0.04], [-0.02, 0.3, -0.09, 0.05]].map((b, i) => (
         <mesh key={i} position={[b[0], b[1], b[2]]}>
           <sphereGeometry args={[b[3], 10, 10]} />
           <meshStandardMaterial color={fizz} roughness={0.3} transparent opacity={0.7} emissive={fizz} emissiveIntensity={0.2} />
         </mesh>
       ))}
-      {/* bubbles escaping past the strained cap */}
-      {[
-        [0.06, 1.02, 0.02, 0.03],
-        [-0.05, 1.08, -0.03, 0.025],
-        [0.01, 1.15, 0.04, 0.02]
-      ].map((b, i) => (
-        <mesh key={"e" + i} position={[b[0], b[1], b[2]]}>
-          <sphereGeometry args={[b[3], 8, 8]} />
-          <meshStandardMaterial color={fizz} roughness={0.3} transparent opacity={0.6} emissive={fizz} emissiveIntensity={0.25} />
-        </mesh>
-      ))}
-      {/* baked CLORO hazard label */}
-      <mesh position={[0, 0.36, 0.212]}>
-        <MiniLabel text="CLORO" background="#facc15" color="#7f1d1d" width={0.3} height={0.16} />
+      {/* etiqueta CLORO */}
+      <mesh position={[0, 0.3, 0.27]}>
+        <MiniLabel text="CLORO" background="#facc15" color="#7f1d1d" width={0.28} height={0.13} />
       </mesh>
     </group>
   );
@@ -2847,18 +2931,40 @@ function UpdNooseChair({ position, rotationY = 0, scale = 1, tint }: AssetProps)
         <ringGeometry args={[0.24, 0.3, 20]} />
         <meshStandardMaterial color="#3a2c1c" roughness={0.9} transparent opacity={0.35} />
       </mesh>
-      <mesh position={[0.02, 1.28, 0.02]}>
-        <cylinderGeometry args={[0.012, 0.012, 0.7, 8]} />
-        <meshStandardMaterial color={rope} roughness={0.85} />
+      {/* ── Persona atada a la silla con la soga ── */}
+      {[-0.12, 0.12].map((x) => (
+        <mesh key={`pleg-${x}`} castShadow position={[x, 0.28, 0.16]} rotation={[0.5, 0, 0]}>
+          <cylinderGeometry args={[0.05, 0.045, 0.34, 10]} />
+          <meshStandardMaterial color="#334155" roughness={0.72} />
+        </mesh>
+      ))}
+      {[-0.12, 0.12].map((x) => (
+        <mesh key={`pfoot-${x}`} castShadow position={[x, 0.11, 0.29]}>
+          <boxGeometry args={[0.1, 0.06, 0.16]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.7} />
+        </mesh>
+      ))}
+      {/* torso sentado */}
+      <mesh castShadow position={[0, 0.66, -0.02]}>
+        <cylinderGeometry args={[0.15, 0.16, 0.34, 14]} />
+        <meshStandardMaterial color="#b91c1c" roughness={0.66} />
       </mesh>
-      <mesh position={[0.02, 0.92, 0.02]}>
-        <cylinderGeometry args={[0.014, 0.014, 0.06, 8]} />
-        <meshStandardMaterial color={shade(rope, 0.8)} roughness={0.85} />
+      {/* cabeza + pelo */}
+      <mesh castShadow position={[0, 0.94, -0.03]}>
+        <sphereGeometry args={[0.12, 16, 12]} />
+        <meshStandardMaterial color="#f2c197" roughness={0.55} />
       </mesh>
-      <mesh position={[0.02, 0.83, 0.02]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.075, 0.014, 8, 18]} />
-        <meshStandardMaterial color={rope} roughness={0.85} />
+      <mesh position={[0, 0.99, -0.05]}>
+        <sphereGeometry args={[0.126, 14, 10, 0, Math.PI * 2, 0, Math.PI / 1.7]} />
+        <meshStandardMaterial color="#2f1d13" roughness={0.8} />
       </mesh>
+      {/* dos vueltas de soga atándolo al respaldo */}
+      {[0.6, 0.73].map((y) => (
+        <mesh key={`tie-${y}`} position={[0, y, -0.02]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.185, 0.016, 8, 22]} />
+          <meshStandardMaterial color={rope} roughness={0.85} />
+        </mesh>
+      ))}
       <mesh castShadow position={[0, 0.74, -0.235]}>
         <boxGeometry args={[0.2, 0.14, 0.012]} />
         <meshStandardMaterial color="#d8b877" roughness={0.9} />
@@ -2938,64 +3044,55 @@ function VinchucaJar({ position, scale = 1, tint }: AssetProps) {
 }
 
 function BrokenWindowFrame({ position, rotationY = 0, scale = 1, tint }: AssetProps) {
+  // Sólo el marco de madera alrededor y adentro el vidrio hecho pedazos:
+  // esquirlas dentadas colgando de los bordes hacia el centro (hueco) y algunos
+  // vidrios rotos en el piso.
   const wood = tint ?? "#8a4a1c";
   const glass = "#a8e0ef";
-  const crack = "#1f3a42";
-  const paneOffsets: [number, number][] = [
-    [-0.2, 0.62],
-    [0.2, 0.62],
-    [-0.2, 0.24],
-  ];
+  const W = 0.62;
+  const H = 0.9;
+  const cy = 0.55;
+  const th = 0.06;
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      <mesh castShadow receiveShadow position={[0, 0.02, 0]}>
-        <boxGeometry args={[0.62, 0.04, 0.14]} />
-        <meshStandardMaterial color={shade(wood, 0.8)} roughness={0.8} />
-      </mesh>
+      {/* apoyos para que se pare */}
       {[-0.24, 0.24].map((x) => (
-        <mesh key={x} castShadow position={[x, 0.52, 0]}>
-          <boxGeometry args={[0.06, 0.92, 0.06]} />
+        <mesh key={`base-${x}`} castShadow position={[x, 0.05, 0]}>
+          <boxGeometry args={[0.1, 0.1, 0.14]} />
+          <meshStandardMaterial color={shade(wood, 0.8)} roughness={0.82} />
+        </mesh>
+      ))}
+      {/* marco: 2 verticales + 2 horizontales */}
+      {[-W / 2, W / 2].map((x) => (
+        <mesh key={`v-${x}`} castShadow position={[x, cy, 0]}>
+          <boxGeometry args={[th, H + th, 0.08]} />
           <meshStandardMaterial color={wood} roughness={0.8} />
         </mesh>
       ))}
-      {[0.08, 0.96].map((y) => (
-        <mesh key={y} castShadow position={[0, y, 0]}>
-          <boxGeometry args={[0.54, 0.06, 0.06]} />
-          <meshStandardMaterial color={wood} roughness={0.8} />
+      {[-H / 2, H / 2].map((y) => (
+        <mesh key={`h-${y}`} castShadow position={[0, cy + y, 0]}>
+          <boxGeometry args={[W + th, th, 0.08]} />
+          <meshStandardMaterial color={shade(wood, 1.06)} roughness={0.8} />
         </mesh>
       ))}
-      <mesh castShadow position={[0, 0.52, 0]}>
-        <boxGeometry args={[0.06, 0.9, 0.05]} />
-        <meshStandardMaterial color={shade(wood, 1.08)} roughness={0.8} />
-      </mesh>
-      <mesh castShadow position={[0, 0.52, 0]}>
-        <boxGeometry args={[0.5, 0.05, 0.05]} />
-        <meshStandardMaterial color={shade(wood, 1.08)} roughness={0.8} />
-      </mesh>
-      {paneOffsets.map(([px, py]) => (
-        <mesh key={`${px},${py}`} position={[px, py, 0]}>
-          <boxGeometry args={[0.32, 0.34, 0.01]} />
-          <meshStandardMaterial color={glass} roughness={0.1} metalness={0.05} transparent opacity={0.4} side={DoubleSide} />
+      {/* esquirlas dentadas colgando de los bordes hacia el centro */}
+      {[
+        [-0.2, 0.85, -0.3], [0.05, 0.86, 0.4], [0.22, 0.83, 0.1],
+        [-0.24, 0.35, 3.4], [0.1, 0.28, 2.8], [0.24, 0.5, 3.2],
+        [-0.26, 0.62, 1.6], [0.26, 0.66, -1.6],
+      ].map(([x, y, r], i) => (
+        <mesh key={`shard-${i}`} position={[x, y, 0]} rotation={[0, 0, r]}>
+          <coneGeometry args={[0.07, 0.22, 3]} />
+          <meshStandardMaterial color={glass} roughness={0.1} metalness={0.05} transparent opacity={0.4} side={DoubleSide} flatShading />
         </mesh>
       ))}
-      {paneOffsets.map(([px, py]) =>
-        [0.6, 2.1, 4.0].map((ang, i) => (
-          <mesh key={`${px},${py},${i}`} position={[px, py, 0.008]} rotation={[0, 0, ang]}>
-            <boxGeometry args={[0.005, 0.16, 0.006]} />
-            <meshStandardMaterial color={crack} roughness={0.6} />
-          </mesh>
-        ))
-      )}
-      {[0.9, 3.9, 5.4].map((ang, i) => (
-        <mesh key={`shard-${i}`} position={[0.2, 0.24, 0.02]} rotation={[Math.PI / 2, 0, ang]}>
-          <coneGeometry args={[0.05, 0.2, 3]} />
-          <meshStandardMaterial color={shade(glass, 1.1)} roughness={0.1} transparent opacity={0.55} side={DoubleSide} flatShading />
+      {/* vidrios rotos en el piso adelante */}
+      {[[-0.12, 0.16], [0.14, 0.22], [0.0, 0.12]].map(([x, z], i) => (
+        <mesh key={`floor-${i}`} position={[x, 0.02, z]} rotation={[Math.PI / 2.2, 0, i * 1.3]}>
+          <coneGeometry args={[0.05, 0.13, 3]} />
+          <meshStandardMaterial color={glass} roughness={0.1} transparent opacity={0.45} side={DoubleSide} flatShading />
         </mesh>
       ))}
-      <mesh position={[0.2, 0.24, 0.01]}>
-        <sphereGeometry args={[0.04, 10, 8]} />
-        <meshStandardMaterial color={crack} roughness={0.7} />
-      </mesh>
     </group>
   );
 }
@@ -3319,6 +3416,21 @@ function SteamyPortenoTaxi({ position, rotationY = 0, scale = 1, tint }: AssetPr
           <meshStandardMaterial color="#cbd5e1" roughness={0.4} metalness={0.6} />
         </mesh>
       ))}
+      {/* vómito verde chorreando por la puerta del costado hasta un charco */}
+      <mesh position={[bodyW / 2 + 0.05, 0.15, 0.12]} rotation={[0, 0, -0.75]}>
+        <cylinderGeometry args={[0.03, 0.07, 0.3, 9]} />
+        <meshStandardMaterial color="#84cc16" roughness={0.45} transparent opacity={0.85} />
+      </mesh>
+      <mesh position={[bodyW / 2 + 0.18, 0.02, 0.12]} scale={[1.5, 0.2, 1.2]}>
+        <sphereGeometry args={[0.13, 14, 10]} />
+        <meshStandardMaterial color="#65a30d" roughness={0.8} transparent opacity={0.85} />
+      </mesh>
+      {[[0.02, 0.06], [-0.05, -0.04], [0.06, 0.02]].map(([dz, dx], i) => (
+        <mesh key={`vchunk-${i}`} position={[bodyW / 2 + 0.16 + dx, 0.04, 0.12 + dz]} scale={[1, 0.4, 0.9]}>
+          <sphereGeometry args={[0.035, 8, 6]} />
+          <meshStandardMaterial color={i % 2 ? "#a3e635" : "#bef264"} roughness={0.72} transparent opacity={0.8} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -3606,65 +3718,78 @@ function CrumpledBioExamAusente({ position, rotationY = 0, scale = 1, tint }: As
 }
 
 function PelotazoImpactBall({ position, rotationY = 0, scale = 1, tint }: AssetProps) {
+  // La pelota justo pegándole a una chica que venía corriendo y se cae de
+  // espaldas por el impacto. POW cómico.
   const shell = tint ?? "#f8fafc";
-  const r = 0.26;
-  const cy = r; // seat the ball so its bottom touches y=0 (nothing dips below ground)
+  const skin = "#f2c197";
+  const shirt = "#ec4899";
+  const pants = "#334155";
+  const hair = "#6b3a1a";
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      {/* speed-line puffs trailing behind (-Z) */}
-      <mesh position={[0.02, cy - 0.02, -0.34]}>
-        <sphereGeometry args={[0.09, 12, 12]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.9} transparent opacity={0.5} />
+      {/* ── Chica cayéndose de espaldas (inclinada hacia atrás) ── */}
+      <group position={[0, 0, -0.15]} rotation={[-0.7, 0, 0]}>
+        <mesh castShadow position={[-0.08, 0.2, 0]} rotation={[0.3, 0, 0]}>
+          <cylinderGeometry args={[0.05, 0.045, 0.4, 10]} />
+          <meshStandardMaterial color={pants} roughness={0.72} />
+        </mesh>
+        <mesh castShadow position={[0.1, 0.22, 0.12]} rotation={[-0.9, 0, 0]}>
+          <cylinderGeometry args={[0.05, 0.045, 0.36, 10]} />
+          <meshStandardMaterial color={pants} roughness={0.72} />
+        </mesh>
+        <mesh castShadow position={[-0.08, 0.02, 0.06]}>
+          <boxGeometry args={[0.09, 0.06, 0.16]} />
+          <meshStandardMaterial color="#e5e7eb" roughness={0.6} />
+        </mesh>
+        <mesh castShadow position={[0.13, 0.06, 0.28]}>
+          <boxGeometry args={[0.09, 0.06, 0.16]} />
+          <meshStandardMaterial color="#e5e7eb" roughness={0.6} />
+        </mesh>
+        {/* torso */}
+        <mesh castShadow position={[0, 0.5, 0]}>
+          <cylinderGeometry args={[0.13, 0.15, 0.36, 14]} />
+          <meshStandardMaterial color={shirt} roughness={0.66} />
+        </mesh>
+        {/* brazos abiertos manoteando */}
+        {[-1, 1].map((s) => (
+          <mesh key={s} castShadow position={[s * 0.2, 0.58, -0.02]} rotation={[0, 0, s * 1.1]}>
+            <cylinderGeometry args={[0.032, 0.028, 0.34, 8]} />
+            <meshStandardMaterial color={skin} roughness={0.55} />
+          </mesh>
+        ))}
+        {/* cabeza tirada hacia atrás */}
+        <mesh castShadow position={[0, 0.78, -0.06]}>
+          <sphereGeometry args={[0.12, 16, 12]} />
+          <meshStandardMaterial color={skin} roughness={0.55} />
+        </mesh>
+        <mesh position={[0, 0.83, -0.09]}>
+          <sphereGeometry args={[0.126, 14, 10, 0, Math.PI * 2, 0, Math.PI / 1.6]} />
+          <meshStandardMaterial color={hair} roughness={0.8} />
+        </mesh>
+        {/* colita volando */}
+        <mesh castShadow position={[0, 0.86, -0.2]} rotation={[0.6, 0, 0]}>
+          <cylinderGeometry args={[0.05, 0.02, 0.24, 8]} />
+          <meshStandardMaterial color={hair} roughness={0.8} />
+        </mesh>
+      </group>
+      {/* ── Pelota impactando en el pecho/cara ── */}
+      <mesh castShadow position={[0, 0.62, 0.14]} scale={[1, 1, 0.9]}>
+        <sphereGeometry args={[0.16, 20, 16]} />
+        <meshStandardMaterial color={shell} roughness={0.55} />
       </mesh>
-      <mesh position={[-0.1, cy + 0.06, -0.28]}>
-        <sphereGeometry args={[0.06, 12, 12]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.9} transparent opacity={0.45} />
-      </mesh>
-      <mesh position={[0.14, cy - 0.1, -0.3]}>
-        <sphereGeometry args={[0.055, 12, 12]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.9} transparent opacity={0.4} />
-      </mesh>
-      {/* main ball, slightly squashed on the impact (front +Z) axis */}
-      <mesh castShadow receiveShadow position={[0, cy, 0]} scale={[1, 1, 0.86]}>
-        <sphereGeometry args={[r, 22, 22]} />
-        <meshStandardMaterial color={shell} roughness={0.55} metalness={0.02} />
-      </mesh>
-      {/* pressed-in flat cap on the impact face to sell the squash */}
-      <mesh position={[0, cy, r * 0.7]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.12, 0.14, 0.03, 20]} />
-        <meshStandardMaterial color={shade(shell, 0.94)} roughness={0.6} />
-      </mesh>
-      {/* baked colored panels: inset circle decals around the shell */}
-      {[
-        { p: [0.0, cy + 0.16, -0.12] as [number, number, number], rot: [Math.PI * 0.15, 0, 0] as [number, number, number], c: "#111827" },
-        { p: [0.19, cy, -0.08] as [number, number, number], rot: [0, -0.9, 0] as [number, number, number], c: "#111827" },
-        { p: [-0.2, cy - 0.02, -0.04] as [number, number, number], rot: [0, 0.9, 0] as [number, number, number], c: "#111827" },
-        { p: [-0.08, cy - 0.16, 0.1] as [number, number, number], rot: [-Math.PI * 0.2, 0.3, 0] as [number, number, number], c: "#111827" }
-      ].map((panel, i) => (
-        <mesh key={i} position={panel.p} rotation={panel.rot}>
-          <circleGeometry args={[0.075, 5]} />
-          <meshStandardMaterial color={panel.c} roughness={0.6} side={DoubleSide} />
+      {[[0, 0.16], [0.13, -0.05], [-0.13, -0.05]].map(([dx, dy], i) => (
+        <mesh key={`panel-${i}`} position={[dx, 0.62 + dy, 0.28]} rotation={[0, 0, i]}>
+          <circleGeometry args={[0.05, 5]} />
+          <meshStandardMaterial color="#111827" roughness={0.6} side={DoubleSide} />
         </mesh>
       ))}
-      {/* radial comic motion lines fanning off the impact face */}
-      {[-0.9, -0.45, 0, 0.45, 0.9].map((a, i) => (
-        <mesh key={i} position={[Math.sin(a) * 0.34, cy + Math.cos(a) * 0.2 - 0.02, 0.34]} rotation={[0, 0, a]}>
-          <boxGeometry args={[0.02, 0.13, 0.01]} />
-          <meshStandardMaterial color="#111827" roughness={0.7} />
-        </mesh>
-      ))}
-      {/* yellow starburst backing the POW */}
-      <mesh position={[0.04, cy + 0.06, 0.42]}>
-        <octahedronGeometry args={[0.16, 0]} />
+      {/* POW cómico en el impacto */}
+      <mesh position={[0, 0.66, 0.26]}>
+        <octahedronGeometry args={[0.17, 0]} />
         <meshStandardMaterial color="#facc15" roughness={0.55} emissive="#fde047" emissiveIntensity={0.35} flatShading />
       </mesh>
-      <mesh position={[0.04, cy + 0.06, 0.44]} rotation={[0, 0, 0.6]}>
-        <octahedronGeometry args={[0.11, 0]} />
-        <meshStandardMaterial color="#f97316" roughness={0.55} emissive="#f97316" emissiveIntensity={0.3} flatShading />
-      </mesh>
-      {/* POW! comic decal */}
-      <mesh position={[0.04, cy + 0.06, 0.5]}>
-        <MiniLabel text="POW!" background="#ef4444" color="#fde047" width={0.26} height={0.14} />
+      <mesh position={[0, 0.66, 0.34]}>
+        <MiniLabel text="POW!" background="#ef4444" color="#fde047" width={0.24} height={0.13} />
       </mesh>
     </group>
   );
@@ -3862,89 +3987,93 @@ function GiantGroinCup({ position, rotationY = 0, scale = 1 }: AssetProps) {
 }
 
 function SleepingBag({ position, rotationY = 0, scale = 1 }: AssetProps) {
-  const bag = "#7c1d3a";
-  const bagShade = "#5c1129";
-  const lining = "#e9c46a";
+  // Bolsa de dormir enrollada y atada con dos correas (rollo de camping), con
+  // el espiral del enrollado visible en las puntas.
+  const bag = "#c0392b";
+  const bagDark = "#8e2a1f";
+  const strap = "#2b2f36";
+  const R = 0.24;
+  const L = 0.9;
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      {/* colchoneta base del saco: caja larga redondeada, semi-desenrollada */}
-      <mesh castShadow receiveShadow position={[0, 0.11, 0]}>
-        <boxGeometry args={[1.5, 0.2, 0.62]} />
+      {/* rollo principal acostado */}
+      <mesh castShadow receiveShadow position={[0, R, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[R, R, L, 24]} />
         <meshStandardMaterial color={bag} roughness={0.85} />
       </mesh>
-      {/* extremos redondeados (capsulas por los lados largos) */}
-      {[-0.75, 0.75].map((x) => (
-        <mesh key={x} castShadow position={[x, 0.11, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.11, 0.11, 0.62, 16]} />
-          <meshStandardMaterial color={bag} roughness={0.85} />
-        </mesh>
+      {/* espiral del enrollado en las dos puntas */}
+      {[-1, 1].map((s) => (
+        <group key={s} position={[s * (L / 2 + 0.006), R, 0]}>
+          {[R, R * 0.66, R * 0.34].map((rr, i) => (
+            <mesh key={i} rotation={[0, Math.PI / 2, 0]}>
+              <torusGeometry args={[rr, 0.02, 8, 24]} />
+              <meshStandardMaterial color={i % 2 ? bagDark : bag} roughness={0.85} />
+            </mesh>
+          ))}
+          <mesh rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.03, 0.03, 0.02, 10]} />
+            <meshStandardMaterial color={bagDark} roughness={0.85} />
+          </mesh>
+        </group>
       ))}
-      {/* interior/forro asomando (extremo de arriba abierto) */}
-      <mesh position={[0.55, 0.215, 0]}>
-        <boxGeometry args={[0.5, 0.01, 0.5]} />
-        <meshStandardMaterial color={lining} roughness={0.8} />
-      </mesh>
-      {/* SOLAPA doblada hacia atras en el extremo superior */}
-      <mesh castShadow position={[-0.5, 0.24, 0]} rotation={[0, 0, -0.35]}>
-        <boxGeometry args={[0.6, 0.06, 0.6]} />
-        <meshStandardMaterial color={bagShade} roughness={0.85} />
-      </mesh>
-      {/* cara interior del forro en la solapa */}
-      <mesh position={[-0.5, 0.208, 0]} rotation={[0, 0, -0.35]}>
-        <boxGeometry args={[0.58, 0.008, 0.58]} />
-        <meshStandardMaterial color={lining} roughness={0.8} />
-      </mesh>
-      {/* lineas de acolchado baked (costuras transversales) sobre la cara de arriba */}
-      {[-0.55, -0.3, -0.05, 0.2, 0.45, 0.68].map((x) => (
-        <mesh key={`q${x}`} position={[x, 0.212, 0]}>
-          <boxGeometry args={[0.02, 0.01, 0.58]} />
-          <meshStandardMaterial color={bagShade} roughness={0.9} />
-        </mesh>
+      {/* pliegues longitudinales del acolchado */}
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const a = (i / 6) * Math.PI * 2;
+        return (
+          <mesh key={`fold-${i}`} position={[0, R + Math.cos(a) * (R - 0.004), Math.sin(a) * (R - 0.004)]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.012, 0.012, L - 0.02, 6]} />
+            <meshStandardMaterial color={bagDark} roughness={0.9} />
+          </mesh>
+        );
+      })}
+      {/* dos correas negras con hebilla */}
+      {[-0.26, 0.26].map((x) => (
+        <group key={`strap-${x}`}>
+          <mesh position={[x, R, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <torusGeometry args={[R + 0.012, 0.018, 8, 24]} />
+            <meshStandardMaterial color={strap} roughness={0.7} />
+          </mesh>
+          <mesh position={[x, R * 2 + 0.02, 0]}>
+            <boxGeometry args={[0.05, 0.04, 0.03]} />
+            <meshStandardMaterial color="#9aa0a8" metalness={0.6} roughness={0.4} />
+          </mesh>
+        </group>
       ))}
-      {/* CIERRE: tira de cremallera baked por un costado largo, con dientecitos */}
-      <mesh position={[0, 0.13, 0.312]}>
-        <boxGeometry args={[1.5, 0.06, 0.012]} />
-        <meshStandardMaterial color="#3a3f45" roughness={0.6} metalness={0.25} />
-      </mesh>
-      {[-6, -4, -2, 0, 2, 4, 6].map((i) => (
-        <mesh key={`zt${i}`} position={[i * 0.1, 0.13, 0.32]}>
-          <boxGeometry args={[0.03, 0.02, 0.012]} />
-          <meshStandardMaterial color="#c0c6cc" roughness={0.4} metalness={0.5} />
-        </mesh>
-      ))}
-      {/* carrito del cierre */}
-      <mesh castShadow position={[0.5, 0.13, 0.325]}>
-        <boxGeometry args={[0.06, 0.05, 0.02]} />
-        <meshStandardMaterial color="#e5e7eb" roughness={0.35} metalness={0.6} />
-      </mesh>
-      <mesh position={[0.5, 0.075, 0.33]}>
-        <boxGeometry args={[0.02, 0.05, 0.01]} />
-        <meshStandardMaterial color="#9aa0a8" roughness={0.4} metalness={0.5} />
-      </mesh>
     </group>
   );
 }
 
 function CrazyTongueToy({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // Lengua larga y súper flexible (party-blower): cadena de segmentos fleshy
+  // que se enrolla y desenrolla ondulando, viva.
   const pink = "#f4517b";
-  const deepPink = shade(pink, 0.72);
   const litePink = shade(pink, 1.16);
-  // Puntos que trazan la lengua: sube del pico y se enrolla al final (party-blower).
-  const spine: [number, number, number][] = [
-    [0, 0.28, 0.0],
-    [0, 0.44, 0.05],
-    [0, 0.58, 0.14],
-    [0, 0.66, 0.28],
-    [0, 0.63, 0.42],
-    [0, 0.52, 0.5],
-    [0, 0.42, 0.46],
-    [0, 0.37, 0.36],
-    [0, 0.4, 0.28],
-    [0, 0.47, 0.26],
-  ];
+  const deepPink = shade(pink, 0.72);
+  const N = 12;
+  const SEG = 0.1;
+  const segRefs = useRef<{ position: { set: (x: number, y: number, z: number) => void }; rotation: { x: number } }[]>([]);
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    const uncurl = 0.5 + 0.5 * Math.sin(t * 1.5); // 0 enrollada … 1 estirada
+    let y = 0.24;
+    let z = 0.02;
+    let ang = 0.55;
+    for (let i = 0; i < N; i++) {
+      const wave = 0.14 * Math.sin(t * 4 - i * 0.6);
+      const curl = 0.16 + (1 - uncurl) * 0.32 + wave * 0.4;
+      const seg = segRefs.current[i];
+      if (seg) {
+        seg.position.set(0, y + Math.sin(ang) * SEG * 0.5, z + Math.cos(ang) * SEG * 0.5);
+        seg.rotation.x = ang - Math.PI / 2;
+      }
+      y += Math.sin(ang) * SEG;
+      z += Math.cos(ang) * SEG;
+      ang += curl;
+    }
+  });
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      {/* Boquilla: cilindro corto con reborde, de donde nace la lengua */}
+      {/* boquilla de donde nace la lengua */}
       <mesh castShadow receiveShadow position={[0, 0.05, 0]}>
         <cylinderGeometry args={[0.17, 0.2, 0.1, 20]} />
         <meshStandardMaterial color="#fbbf24" roughness={0.5} metalness={0.08} />
@@ -3955,48 +4084,19 @@ function CrazyTongueToy({ position, rotationY = 0, scale = 1 }: AssetProps) {
       </mesh>
       <mesh position={[0, 0.16, 0]}>
         <cylinderGeometry args={[0.11, 0.14, 0.12, 18]} />
-        <meshStandardMaterial color="#dc2626" roughness={0.4} />
+        <meshStandardMaterial color={deepPink} roughness={0.4} />
       </mesh>
-      {/* Segmentos de la lengua: cajas achatadas que van engrosando y luego se afinan */}
-      {spine.slice(0, -1).map(([, y0, z0], i) => {
-        const [, y1, z1] = spine[i + 1];
-        const midY = (y0 + y1) / 2;
-        const midZ = (z0 + z1) / 2;
-        const dy = y1 - y0;
-        const dz = z1 - z0;
-        const len = Math.sqrt(dy * dy + dz * dz) + 0.03;
-        const tilt = Math.atan2(dz, dy);
-        const t = i / (spine.length - 2);
-        const wide = 0.26 - t * 0.13; // se afina hacia la punta enrollada
+      {/* segmentos fleshy de la lengua (posicionados cada frame) */}
+      {Array.from({ length: N }).map((_, i) => {
+        const tt = i / (N - 1);
+        const w = 0.17 - tt * 0.1;
         return (
-          <mesh key={i} castShadow position={[0, midY, midZ]} rotation={[-tilt, 0, 0]}>
-            <boxGeometry args={[wide, len, 0.07]} />
-            <meshStandardMaterial color={i % 2 === 0 ? pink : litePink} roughness={0.28} metalness={0.06} />
+          <mesh key={i} ref={(el) => { if (el) segRefs.current[i] = el; }} castShadow scale={[w / 0.08, 0.5, 1]}>
+            <sphereGeometry args={[0.08, 12, 10]} />
+            <meshStandardMaterial color={i % 2 ? litePink : pink} roughness={0.3} metalness={0.05} />
           </mesh>
         );
       })}
-      {/* Surco central baked a lo largo de la lengua */}
-      {spine.slice(1, -1).map(([, y, z], i) => (
-        <mesh key={`groove-${i}`} position={[0, y, z + 0.038]}>
-          <boxGeometry args={[0.02, 0.11, 0.02]} />
-          <meshStandardMaterial color={deepPink} roughness={0.4} />
-        </mesh>
-      ))}
-      {/* Punta redondeada glossy del rollo */}
-      <mesh castShadow position={[0, 0.47, 0.26]}>
-        <sphereGeometry args={[0.075, 14, 12]} />
-        <meshStandardMaterial color={litePink} roughness={0.22} metalness={0.08} />
-      </mesh>
-      {/* Brillo baked en la parte alta del arco */}
-      <mesh position={[0.055, 0.62, 0.24]} rotation={[-0.5, 0, 0]}>
-        <sphereGeometry args={[0.03, 8, 8]} />
-        <meshStandardMaterial color="#fff1f5" roughness={0.15} />
-      </mesh>
-      {/* Sombra floja bajo la boquilla */}
-      <mesh position={[0, 0.006, 0.02]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.26, 24]} />
-        <meshStandardMaterial color="#3a1220" roughness={0.9} transparent opacity={0.24} />
-      </mesh>
     </group>
   );
 }
@@ -4425,62 +4525,47 @@ function BrokenUmbrellaProp({ position, rotationY = 0, scale = 1 }: AssetProps) 
 
 function MegaphoneProp({ position, rotationY = 0, scale = 1 }: AssetProps) {
   const red = "#ef4444";
-  const redDark = "#b91c1c";
   const white = "#f8fafc";
   const grip = "#1f2937";
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      {/* apoyado sobre la boca de la bocina, apuntando hacia arriba-adelante */}
-      <group rotation={[-0.35, 0, 0]} position={[0, 0.02, 0]}>
-        {/* bocina que se abre (cono abierto) */}
-        <mesh castShadow position={[0, 0.5, 0]}>
-          <coneGeometry args={[0.4, 0.62, 24, 1, true]} />
-          <meshStandardMaterial color={red} roughness={0.42} side={DoubleSide} metalness={0.05} />
-        </mesh>
-        {/* labio blanco del borde de la campana */}
-        <mesh position={[0, 0.8, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.39, 0.035, 10, 28]} />
-          <meshStandardMaterial color={white} roughness={0.45} />
-        </mesh>
-        {/* aro/anillo de la rejilla del parlante en la garganta */}
-        <mesh position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.12, 0.03, 8, 20]} />
-          <meshStandardMaterial color={redDark} roughness={0.5} metalness={0.15} />
-        </mesh>
-        {/* rejilla (disco perforado sugerido con color oscuro) en la garganta */}
-        <mesh position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.11, 20]} />
-          <meshStandardMaterial color={"#111827"} roughness={0.8} />
-        </mesh>
-        {/* cuerpo/caja del megáfono detrás de la garganta */}
-        <mesh castShadow position={[0, 0.02, 0]}>
-          <boxGeometry args={[0.24, 0.26, 0.24]} />
-          <meshStandardMaterial color={white} roughness={0.4} />
-        </mesh>
-        {/* banda roja del cuerpo */}
-        <mesh position={[0, 0.02, 0.121]}>
-          <boxGeometry args={[0.24, 0.1, 0.005]} />
-          <meshStandardMaterial color={red} roughness={0.4} />
-        </mesh>
-        {/* botón 'HABLA' bakeado sobre el costado del cuerpo */}
-        <mesh position={[0.121, 0.02, 0]} rotation={[0, Math.PI / 2, 0]}>
-          <MiniLabel text="HABLA" background="#facc15" color="#7f1d1d" width={0.16} height={0.09} />
-        </mesh>
-      </group>
-      {/* mango tipo pistola (cilindro corto) bajo el cuerpo */}
-      <mesh castShadow position={[0, 0.08, -0.06]} rotation={[0.32, 0, 0]}>
-        <cylinderGeometry args={[0.05, 0.055, 0.26, 12]} />
+      {/* mango tipo pistola apoyado en el piso */}
+      <mesh castShadow position={[0, 0.16, -0.14]} rotation={[0.35, 0, 0]}>
+        <cylinderGeometry args={[0.05, 0.055, 0.32, 12]} />
         <meshStandardMaterial color={grip} roughness={0.6} />
       </mesh>
-      {/* base del mango donde apoya */}
-      <mesh position={[0, 0.01, -0.14]}>
-        <cylinderGeometry args={[0.07, 0.08, 0.03, 12]} />
-        <meshStandardMaterial color={grip} roughness={0.65} />
+      {/* gatillo */}
+      <mesh position={[0, 0.2, -0.02]} rotation={[0.4, 0, 0]}>
+        <boxGeometry args={[0.04, 0.07, 0.03]} />
+        <meshStandardMaterial color="#e5e7eb" roughness={0.5} />
       </mesh>
-      {/* gatillo/nub del gatillo */}
-      <mesh position={[0, 0.13, 0.02]} rotation={[0.32, 0, 0]}>
-        <boxGeometry args={[0.035, 0.06, 0.05]} />
-        <meshStandardMaterial color={"#e5e7eb"} roughness={0.5} />
+      {/* cuerpo del parlante con botón HABLA */}
+      <mesh castShadow position={[0, 0.34, -0.02]}>
+        <boxGeometry args={[0.22, 0.2, 0.24]} />
+        <meshStandardMaterial color={white} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 0.34, 0.101]}>
+        <MiniLabel text="HABLA" background="#facc15" color="#7f1d1d" width={0.16} height={0.08} />
+      </mesh>
+      {/* garganta hacia la bocina */}
+      <mesh castShadow position={[0, 0.4, 0.18]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.09, 0.13, 0.14, 20]} />
+        <meshStandardMaterial color={red} roughness={0.42} />
+      </mesh>
+      {/* bocina que se abre hacia adelante */}
+      <mesh castShadow position={[0, 0.42, 0.42]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.32, 0.13, 0.42, 24, 1, true]} />
+        <meshStandardMaterial color={red} roughness={0.42} side={DoubleSide} />
+      </mesh>
+      {/* labio blanco del borde */}
+      <mesh position={[0, 0.42, 0.63]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.31, 0.03, 10, 28]} />
+        <meshStandardMaterial color={white} roughness={0.45} />
+      </mesh>
+      {/* interior oscuro de la bocina */}
+      <mesh position={[0, 0.42, 0.6]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.29, 24]} />
+        <meshStandardMaterial color="#7f1d1d" roughness={0.7} side={DoubleSide} />
       </mesh>
     </group>
   );
@@ -4968,6 +5053,122 @@ function BananaPeelTrap({ position, rotationY = 0, scale = 1 }: AssetProps) {
           <meshStandardMaterial color={"#f8fafc"} roughness={0.6} transparent opacity={0.85} side={DoubleSide} />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+function WorldCupTrophy({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // La Copa del Mundo: base verde malaquita con anillos dorados, cuerpo dorado
+  // torcido que sube y se abre en un globo. Cuando ganamos y festejamos juntos.
+  const gold = "#e9c04a";
+  const goldHi = "#f6dd8a";
+  const green = "#1f7a4d";
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      {/* base malaquita */}
+      <mesh castShadow receiveShadow position={[0, 0.06, 0]}>
+        <cylinderGeometry args={[0.2, 0.22, 0.12, 28]} />
+        <meshStandardMaterial color={green} roughness={0.4} metalness={0.2} />
+      </mesh>
+      {[0.03, 0.1].map((y) => (
+        <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.205, 0.012, 8, 30]} />
+          <meshStandardMaterial color={gold} metalness={0.8} roughness={0.25} />
+        </mesh>
+      ))}
+      {/* pie dorado */}
+      <mesh castShadow position={[0, 0.18, 0]}>
+        <cylinderGeometry args={[0.06, 0.14, 0.14, 24]} />
+        <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} />
+      </mesh>
+      {/* cuerpo torcido con cintura fina */}
+      <mesh castShadow position={[0, 0.36, 0]} scale={[1, 1, 0.78]}>
+        <cylinderGeometry args={[0.11, 0.05, 0.36, 20]} />
+        <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} />
+      </mesh>
+      {/* dos figuras insinuadas sosteniendo el globo */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} castShadow position={[s * 0.06, 0.42, 0.03]} rotation={[0, 0, s * 0.2]} scale={[0.5, 1.5, 0.45]}>
+          <sphereGeometry args={[0.06, 12, 10]} />
+          <meshStandardMaterial color={goldHi} metalness={0.85} roughness={0.22} />
+        </mesh>
+      ))}
+      {/* globo dorado arriba con meridianos */}
+      <mesh castShadow position={[0, 0.6, 0]}>
+        <sphereGeometry args={[0.13, 20, 16]} />
+        <meshStandardMaterial color={gold} metalness={0.85} roughness={0.22} />
+      </mesh>
+      {[0, Math.PI / 2].map((r) => (
+        <mesh key={r} position={[0, 0.6, 0]} rotation={[0, r, 0]}>
+          <torusGeometry args={[0.13, 0.004, 6, 30]} />
+          <meshStandardMaterial color={goldHi} metalness={0.7} roughness={0.3} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.6, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.13, 0.004, 6, 30]} />
+        <meshStandardMaterial color={goldHi} metalness={0.7} roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+function RainTent({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // Carpa azul tipo A... pero llueve ADENTRO: nubecita, gotas y un charco en el
+  // piso interno.
+  const blue = "#2563eb";
+  const blueDark = "#1e40af";
+  const rain = "#7dd3fc";
+  const W = 0.82;
+  const L = 1.0;
+  const H = 0.6;
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      {/* piso */}
+      <mesh receiveShadow position={[0, 0.01, 0]}>
+        <boxGeometry args={[W, 0.02, L]} />
+        <meshStandardMaterial color={blueDark} roughness={0.85} />
+      </mesh>
+      {/* dos faldones del techo */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} castShadow position={[(s * W) / 4, H / 2, 0]} rotation={[0, 0, s * 0.62]}>
+          <boxGeometry args={[0.02, Math.hypot(W / 2, H) + 0.04, L]} />
+          <meshStandardMaterial color={s > 0 ? blue : shade(blue, 0.9)} roughness={0.7} side={DoubleSide} />
+        </mesh>
+      ))}
+      {/* caballete */}
+      <mesh position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.015, 0.015, L, 8]} />
+        <meshStandardMaterial color={blueDark} roughness={0.6} />
+      </mesh>
+      {/* pared triangular de atrás */}
+      <mesh position={[0, H / 2, -L / 2 + 0.01]}>
+        <coneGeometry args={[W / 2 + 0.03, H, 3, 1]} />
+        <meshStandardMaterial color={shade(blue, 0.85)} roughness={0.72} side={DoubleSide} />
+      </mesh>
+      {/* interior oscuro (entrada al frente) */}
+      <mesh position={[0, H / 2 - 0.02, L / 2 - 0.03]}>
+        <coneGeometry args={[W / 2 - 0.08, H - 0.06, 3, 1]} />
+        <meshStandardMaterial color="#0b1220" roughness={0.9} side={DoubleSide} />
+      </mesh>
+      {/* nubecita gris adentro, arriba */}
+      {[[-0.05, 0], [0.06, 0.02], [0, -0.04]].map(([x, z], i) => (
+        <mesh key={`cloud-${i}`} position={[x, H - 0.09, z]} scale={[1.4, 0.7, 1]}>
+          <sphereGeometry args={[0.08, 10, 8]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.9} />
+        </mesh>
+      ))}
+      {/* gotas cayendo adentro */}
+      {[[-0.1, 0.34, 0.1], [0.08, 0.24, -0.05], [0.0, 0.14, 0.18], [-0.13, 0.2, -0.15], [0.12, 0.38, 0.02], [-0.02, 0.28, -0.22]].map(([x, y, z], i) => (
+        <mesh key={`drop-${i}`} position={[x, y, z]}>
+          <cylinderGeometry args={[0.012, 0.004, 0.08, 6]} />
+          <meshStandardMaterial color={rain} roughness={0.2} transparent opacity={0.8} />
+        </mesh>
+      ))}
+      {/* charco adentro */}
+      <mesh position={[0, 0.03, 0.05]} scale={[1.4, 0.2, 1.2]}>
+        <sphereGeometry args={[0.14, 14, 10]} />
+        <meshStandardMaterial color={rain} roughness={0.3} transparent opacity={0.7} />
+      </mesh>
     </group>
   );
 }
