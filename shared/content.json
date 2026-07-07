@@ -493,6 +493,408 @@
           "anchorId": "chest"
         }
       ]
+    },
+    "mustache-handlebar": {
+      "id": "mustache-handlebar",
+      "name": "Bigote manubrio",
+      "description": "Bigote con las puntas paraditas.",
+      "price": 0,
+      "asset": {
+        "kind": "mustache-handlebar",
+        "color": "#3a2416"
+      },
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "transform": {
+        "z": 0.012,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#3a2416",
+        "order": 60
+      },
+      "tags": [
+        "face",
+        "mouth",
+        "mustache"
+      ],
+      "assetId": "mustache-handlebar",
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ]
+    },
+    "mustache-pencil": {
+      "id": "mustache-pencil",
+      "name": "Bigote finito",
+      "description": "Bigote fino tipo lápiz.",
+      "price": 0,
+      "asset": {
+        "kind": "mustache-pencil",
+        "color": "#111827"
+      },
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "transform": {
+        "z": 0.012,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#111827",
+        "order": 61
+      },
+      "tags": [
+        "face",
+        "mouth",
+        "mustache"
+      ],
+      "assetId": "mustache-pencil",
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ]
+    },
+    "top-hat": {
+      "id": "top-hat",
+      "name": "Galera",
+      "description": "Galera negra elegante.",
+      "price": 0,
+      "asset": {
+        "kind": "top-hat",
+        "color": "#111827",
+        "secondaryColor": "#7f1d1d"
+      },
+      "anchorType": "body",
+      "anchorId": "head",
+      "transform": {
+        "z": -0.02,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#111827",
+        "secondaryColor": "#7f1d1d",
+        "order": 70
+      },
+      "tags": [
+        "head",
+        "hat"
+      ],
+      "assetId": "top-hat",
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ]
+    },
+    "cap": {
+      "id": "cap",
+      "name": "Gorra",
+      "description": "Gorra con visera.",
+      "price": 0,
+      "asset": {
+        "kind": "cap",
+        "color": "#2563eb",
+        "secondaryColor": "#1d4ed8"
+      },
+      "anchorType": "body",
+      "anchorId": "head",
+      "transform": {
+        "z": -0.02,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#2563eb",
+        "secondaryColor": "#1d4ed8",
+        "order": 71
+      },
+      "tags": [
+        "head",
+        "hat"
+      ],
+      "assetId": "cap",
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ]
+    },
+    "field-hat": {
+      "id": "field-hat",
+      "name": "Sombrero de campo",
+      "description": "Sombrero de ala ancha.",
+      "price": 0,
+      "asset": {
+        "kind": "field-hat",
+        "color": "#c69a5b",
+        "secondaryColor": "#7a4a24"
+      },
+      "anchorType": "body",
+      "anchorId": "head",
+      "transform": {
+        "z": -0.02,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#c69a5b",
+        "secondaryColor": "#7a4a24",
+        "order": 72
+      },
+      "tags": [
+        "head",
+        "hat"
+      ],
+      "assetId": "field-hat",
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ]
+    },
+    "coin-crown": {
+      "id": "coin-crown",
+      "name": "Corona de monedas",
+      "description": "Corona dorada de monedas.",
+      "price": 0,
+      "asset": {
+        "kind": "coin-crown",
+        "color": "#f5c542"
+      },
+      "anchorType": "body",
+      "anchorId": "head",
+      "transform": {
+        "z": -0.02,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#f5c542",
+        "order": 73
+      },
+      "tags": [
+        "head",
+        "crown"
+      ],
+      "assetId": "coin-crown",
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ]
+    },
+    "gold-chain": {
+      "id": "gold-chain",
+      "name": "Cadena de oro",
+      "description": "Cadena de oro al cuello.",
+      "price": 0,
+      "asset": {
+        "kind": "gold-chain",
+        "color": "#f5c542"
+      },
+      "anchorType": "body",
+      "anchorId": "chest",
+      "transform": {
+        "z": 0.02,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#f5c542",
+        "order": 80
+      },
+      "tags": [
+        "body",
+        "chest",
+        "jewelry"
+      ],
+      "assetId": "gold-chain",
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ]
+    },
+    "dice-necklace": {
+      "id": "dice-necklace",
+      "name": "Collar de dados",
+      "description": "Collar con un dado colgante.",
+      "price": 0,
+      "asset": {
+        "kind": "dice-necklace",
+        "color": "#cbd5e1",
+        "secondaryColor": "#f8fafc"
+      },
+      "anchorType": "body",
+      "anchorId": "chest",
+      "transform": {
+        "z": 0.02,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#cbd5e1",
+        "secondaryColor": "#f8fafc",
+        "order": 81
+      },
+      "tags": [
+        "body",
+        "chest",
+        "jewelry"
+      ],
+      "assetId": "dice-necklace",
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ]
+    },
+    "wristwatch": {
+      "id": "wristwatch",
+      "name": "Reloj de muñeca",
+      "description": "Reloj en la muñeca.",
+      "price": 0,
+      "asset": {
+        "kind": "wristwatch",
+        "color": "#3a2416",
+        "secondaryColor": "#475569"
+      },
+      "anchorType": "body",
+      "anchorId": "rightHand",
+      "transform": {
+        "z": 0.008,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#3a2416",
+        "secondaryColor": "#475569",
+        "order": 90
+      },
+      "tags": [
+        "body",
+        "hand",
+        "watch"
+      ],
+      "assetId": "wristwatch",
+      "anchor": "rightHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "rightHand"
+        }
+      ]
+    },
+    "tuxedo": {
+      "id": "tuxedo",
+      "name": "Smoking",
+      "description": "Traje de smoking negro con moño.",
+      "price": 0,
+      "asset": {
+        "kind": "tuxedo",
+        "color": "#0f1115",
+        "secondaryColor": "#f8fafc"
+      },
+      "anchorType": "body",
+      "anchorId": "chest",
+      "transform": {
+        "scale": 1
+      },
+      "preview": {
+        "color": "#0f1115",
+        "secondaryColor": "#f8fafc",
+        "order": 100
+      },
+      "tags": [
+        "body",
+        "outfit"
+      ],
+      "assetId": "tuxedo",
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ]
+    },
+    "pet-dog": {
+      "id": "pet-dog",
+      "name": "Perrito",
+      "description": "Perrito que salta al lado tuyo.",
+      "price": 0,
+      "asset": {
+        "kind": "pet-dog",
+        "color": "#a9702f",
+        "secondaryColor": "#7c4f22"
+      },
+      "anchorType": "body",
+      "anchorId": "back",
+      "transform": {
+        "scale": 1
+      },
+      "preview": {
+        "color": "#a9702f",
+        "secondaryColor": "#7c4f22",
+        "order": 110
+      },
+      "tags": [
+        "companion",
+        "pet"
+      ],
+      "assetId": "pet-dog",
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ]
+    },
+    "pet-cat": {
+      "id": "pet-cat",
+      "name": "Gatito",
+      "description": "Gatito que salta al lado tuyo.",
+      "price": 0,
+      "asset": {
+        "kind": "pet-cat",
+        "color": "#7c8794",
+        "secondaryColor": "#5b6673"
+      },
+      "anchorType": "body",
+      "anchorId": "back",
+      "transform": {
+        "scale": 1
+      },
+      "preview": {
+        "color": "#7c8794",
+        "secondaryColor": "#5b6673",
+        "order": 111
+      },
+      "tags": [
+        "companion",
+        "pet"
+      ],
+      "assetId": "pet-cat",
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ]
     }
   },
   "board": [
@@ -1042,7 +1444,7 @@
     },
     {
       "id": "hockey-stick",
-      "name": "Palo de hockey",
+      "name": "Palo con vidrios",
       "kind": "decor",
       "defaultScale": 1,
       "footprint": {
@@ -1057,7 +1459,7 @@
     },
     {
       "id": "condom-bolas",
-      "name": "Boleadoras raras",
+      "name": "Boleadora de caca",
       "kind": "decor",
       "defaultScale": 1,
       "footprint": {
@@ -1308,6 +1710,210 @@
         "fiesta",
         "decor"
       ]
+    },
+    {
+      "id": "classroom-giant-log",
+      "name": "Tronco gigante (aula)",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "split-tree-trunk",
+      "name": "Árbol roto",
+      "kind": "tree",
+      "defaultScale": 1
+    },
+    {
+      "id": "bleach-sound-bomb",
+      "name": "Frasco de cloro",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "firecracker-box",
+      "name": "Caja de petardos",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "upd-noose-chair",
+      "name": "Silla con soga UPD",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "vinchuca-jar",
+      "name": "Frasco con vinchuca",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "broken-window-frame",
+      "name": "Marco de ventana roto",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "school-locker-hiding",
+      "name": "Locker con Willy",
+      "kind": "house",
+      "defaultScale": 1
+    },
+    {
+      "id": "locker-row",
+      "name": "Lockers para esconderse",
+      "kind": "house",
+      "defaultScale": 1
+    },
+    {
+      "id": "steamy-taxi",
+      "name": "Taxi caldeado",
+      "kind": "vehicle",
+      "defaultScale": 1
+    },
+    {
+      "id": "just-dance-kinect",
+      "name": "Kinect + pista Just Dance",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "school-desk-pupitre",
+      "name": "Pupitre",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "city-barricade-peed",
+      "name": "Coso amarillo meado",
+      "kind": "sign",
+      "defaultScale": 1
+    },
+    {
+      "id": "crumpled-exam-ausente",
+      "name": "Examen AUSENTE",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "martina-impact-ball",
+      "name": "Pelota del pelotazo",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "teacher-figures",
+      "name": "Profesores",
+      "kind": "custom",
+      "defaultScale": 1
+    },
+    {
+      "id": "giant-groin-cup",
+      "name": "Protector de Javi",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "sleeping-bag",
+      "name": "Bolsa de dormir",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "tongue-toy",
+      "name": "Lengua loca",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "jony-duck-window",
+      "name": "Ventana de Jony",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "flying-chair",
+      "name": "Silla voladora",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "kiosk-bag-nofui",
+      "name": "Bolsa NO FUI YO",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "tiny-trophy",
+      "name": "Trofeo chiquito",
+      "kind": "custom",
+      "defaultScale": 1
+    },
+    {
+      "id": "silly-pool-float",
+      "name": "Flotador ridículo",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "broken-umbrella",
+      "name": "Paraguas roto",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "megaphone",
+      "name": "Megáfono",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "stopwatch",
+      "name": "Cronómetro",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "lucky-sock",
+      "name": "Media de la suerte",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "cursed-calculator",
+      "name": "Calculadora maldita",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "giant-pencil",
+      "name": "Lápiz gigante",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "sticker-suitcase",
+      "name": "Valija con stickers",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "banana-peel-trap",
+      "name": "Cáscara de banana",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "world-cup-trophy",
+      "name": "Copa del Mundo",
+      "kind": "custom",
+      "defaultScale": 1
+    },
+    {
+      "id": "rain-tent",
+      "name": "Carpa que llueve adentro",
+      "kind": "custom",
+      "defaultScale": 1
     }
   ],
   "maps": [

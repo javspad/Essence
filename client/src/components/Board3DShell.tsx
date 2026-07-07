@@ -12,6 +12,7 @@ import {
   OctahedronGeometry,
   Quaternion,
   SphereGeometry,
+  Spherical,
   TorusGeometry,
   Vector3,
   type Group,
@@ -83,6 +84,10 @@ interface Board3DShellProps {
   className?: string;
   interactive?: boolean;
   cameraMode?: CameraMode;
+  /** Cámara de órbita libre (arrastrar/zoom/pan): sólo para inspeccionar en el builder. */
+  freeCamera?: boolean;
+  /** Con cámara libre, reencuadra al cambiar el encuadre general (p. ej. galería al cambiar de prop/tamaño). */
+  freeCameraRefit?: boolean;
   focusedPlayerId?: FocusedPlayerId;
   onPlayerFocus?: (playerId: string) => void;
 }
@@ -105,6 +110,8 @@ export default function Board3DShell({
   className,
   interactive = false,
   cameraMode = "followActivePlayer",
+  freeCamera = false,
+  freeCameraRefit = false,
   focusedPlayerId = null,
   onPlayerFocus,
 }: Board3DShellProps) {
@@ -196,16 +203,20 @@ export default function Board3DShell({
         shadows={renderSettings.shadows}
       >
         <WebGLContextGuard onLost={disableWebGL} />
-        <CinematicCamera
-          mode={cameraMode}
-          target={trackedSlot}
-          tokenRef={trackedTokenRef}
-          motion={motion}
-          walking={activeMotion !== null}
-          dice={Boolean(diceCue)}
-          turnKey={activeId ?? ""}
-          overview={overviewShot}
-        />
+        {freeCamera ? (
+          <FreeOrbitCamera overview={overviewShot} refit={freeCameraRefit} />
+        ) : (
+          <CinematicCamera
+            mode={cameraMode}
+            target={trackedSlot}
+            tokenRef={trackedTokenRef}
+            motion={motion}
+            walking={activeMotion !== null}
+            dice={Boolean(diceCue)}
+            turnKey={activeId ?? ""}
+            overview={overviewShot}
+          />
+        )}
         <ambientLight intensity={0.62} color="#fff8e1" />
         <directionalLight
           position={[5, 10, 7]}
@@ -616,6 +627,134 @@ function CinematicCamera({
     camera.position.lerp(desired.current, frameLerp(delta, speed));
     look.current.lerp(desiredLook.current, frameLerp(delta, speed * 1.2));
     camera.lookAt(look.current);
+  });
+
+  return null;
+}
+
+/**
+ * Cámara de órbita libre para el Map Builder: arrastrar orbita alrededor del punto
+ * de mira, la rueda hace zoom y click derecho (o Shift+arrastrar) desplaza el punto
+ * de mira sobre el piso. Pensada para inspeccionar props de cerca y desde cualquier
+ * ángulo mientras se editan; no se usa en la partida real.
+ */
+export function FreeOrbitCamera({ overview, refit = false }: { overview: BoardCameraShot; refit?: boolean }) {
+  const { camera, gl, invalidate } = useThree();
+  // Con refit, reencuadra cada vez que cambia la toma general (galería: nuevo prop o
+  // nuevo tamaño). Sin refit, sólo encuadra una vez al montar (no pisa la vista al editar).
+  const frameSignal = refit ? `${overview.position.join(",")}|${overview.look.join(",")}` : "once";
+  const target = useRef(new Vector3(...overview.look));
+  const desiredTarget = useRef(new Vector3(...overview.look));
+  const spherical = useRef(new Spherical());
+  const desired = useRef(new Spherical());
+  const dragging = useRef<"orbit" | "pan" | null>(null);
+  const last = useRef({ x: 0, y: 0 });
+  const scratch = useRef(new Vector3());
+
+  // Encuadre inicial desde la toma general; se fija una sola vez porque el overview
+  // del builder es estable mientras el preview está abierto (no queremos que la
+  // cámara vuelva al centro cada vez que se mueve un prop).
+  useLayoutEffect(() => {
+    const look = scratch.current.set(...overview.look);
+    const offset = new Vector3(...overview.position).sub(look);
+    spherical.current.setFromVector3(offset);
+    spherical.current.makeSafe();
+    desired.current.copy(spherical.current);
+    target.current.set(...overview.look);
+    desiredTarget.current.set(...overview.look);
+    camera.position.set(...overview.position);
+    camera.lookAt(target.current);
+    camera.updateProjectionMatrix();
+    invalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameSignal]);
+
+  useEffect(() => {
+    const el = gl.domElement;
+    const MIN_PHI = 0.1;
+    const MAX_PHI = 1.5;
+    const MIN_RADIUS = 1.4;
+    const MAX_RADIUS = 80;
+
+    const onPointerDown = (event: PointerEvent) => {
+      dragging.current = event.button === 2 || event.shiftKey ? "pan" : "orbit";
+      last.current = { x: event.clientX, y: event.clientY };
+      el.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (!dragging.current) return;
+      const dx = event.clientX - last.current.x;
+      const dy = event.clientY - last.current.y;
+      last.current = { x: event.clientX, y: event.clientY };
+      if (dragging.current === "orbit") {
+        desired.current.theta -= dx * 0.005;
+        desired.current.phi = clampNumber(desired.current.phi - dy * 0.005, MIN_PHI, MAX_PHI);
+      } else {
+        // Pan sobre el plano del piso, relativo al azimut actual (estilo "agarrar el mapa").
+        const theta = desired.current.theta;
+        const forwardX = -Math.sin(theta);
+        const forwardZ = -Math.cos(theta);
+        const rightX = -forwardZ;
+        const rightZ = forwardX;
+        const panScale = desired.current.radius * 0.0018;
+        desiredTarget.current.x += (-rightX * dx - forwardX * dy) * panScale;
+        desiredTarget.current.z += (-rightZ * dx - forwardZ * dy) * panScale;
+      }
+      invalidate();
+    };
+    const stop = (event: PointerEvent) => {
+      if (!dragging.current) return;
+      dragging.current = null;
+      try {
+        el.releasePointerCapture(event.pointerId);
+      } catch {
+        // el puntero ya se soltó
+      }
+    };
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      desired.current.radius = clampNumber(desired.current.radius * Math.exp(event.deltaY * 0.0015), MIN_RADIUS, MAX_RADIUS);
+      invalidate();
+    };
+    const onContextMenu = (event: Event) => event.preventDefault();
+
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", stop);
+    el.addEventListener("pointercancel", stop);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("contextmenu", onContextMenu);
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", stop);
+      el.removeEventListener("pointercancel", stop);
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, [gl, invalidate]);
+
+  useFrame((_, delta) => {
+    const s = spherical.current;
+    const d = desired.current;
+    const k = frameLerp(delta, 14);
+    s.phi += (d.phi - s.phi) * k;
+    s.theta += (d.theta - s.theta) * k;
+    s.radius += (d.radius - s.radius) * k;
+    s.makeSafe();
+    target.current.lerp(desiredTarget.current, k);
+    const offset = scratch.current.setFromSpherical(s);
+    camera.position.copy(target.current).add(offset);
+    camera.lookAt(target.current);
+    // En modo "demand" hay que pedir el próximo frame mientras la cámara aún se
+    // acerca a su objetivo; si no, el amortiguado se congela a mitad de camino.
+    const settled =
+      Math.abs(d.phi - s.phi) < 1e-4 &&
+      Math.abs(d.theta - s.theta) < 1e-4 &&
+      Math.abs(d.radius - s.radius) < 1e-3 &&
+      target.current.distanceToSquared(desiredTarget.current) < 1e-6;
+    if (!settled) invalidate();
   });
 
   return null;
@@ -1083,6 +1222,25 @@ export function PlayerTokenPawn({
   );
 }
 
+/** Ids de cosméticos conocidos, para el catálogo/galería. */
+export const COSMETIC_IDS = [
+  "party-goggles",
+  "big-mustache",
+  "mustache-handlebar",
+  "mustache-pencil",
+  "party-hat",
+  "top-hat",
+  "cap",
+  "field-hat",
+  "coin-crown",
+  "gold-chain",
+  "dice-necklace",
+  "wristwatch",
+  "tuxedo",
+  "pet-dog",
+  "pet-cat",
+] as const;
+
 function TokenCosmetics({
   cosmeticIds,
   cosmetics,
@@ -1192,6 +1350,36 @@ function TokenCosmetic({
     );
   }
 
+  if (kind === "mustache-handlebar") {
+    const mouth = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: -0.005, z: 0.03 });
+    return (
+      <group position={mouth} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh scale={[1.3, 0.34, 0.3]}>
+          <sphereGeometry args={[0.045, 12, 8]} />
+          <meshStandardMaterial color={primary} roughness={0.6} transparent opacity={opacity} />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.06, 0.02, 0.006]} rotation={[Math.PI / 2, 0, side * 0.9]}>
+            <torusGeometry args={[0.02, 0.008, 6, 12, Math.PI * 1.3]} />
+            <meshStandardMaterial color={primary} roughness={0.6} transparent opacity={opacity} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  if (kind === "mustache-pencil") {
+    const mouth = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.005, z: 0.03 });
+    return (
+      <group position={mouth} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh scale={[1, 0.16, 0.22]}>
+          <boxGeometry args={[0.11, 0.02, 0.02]} />
+          <meshStandardMaterial color={primary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
   if (kind === "beard") {
     const mouth = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: -0.065, z: 0.032 });
     return (
@@ -1201,6 +1389,87 @@ function TokenCosmetic({
             <meshStandardMaterial color={primary} roughness={0.7} metalness={0.01} transparent opacity={opacity} />
           </mesh>
         ))}
+      </group>
+    );
+  }
+
+  if (kind === "top-hat") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.02 });
+    return (
+      <group position={head} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh position={[0, 0.012, 0]}>
+          <cylinderGeometry args={[0.13, 0.13, 0.016, 20]} />
+          <meshStandardMaterial color={primary} roughness={0.4} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.085, 0.09, 0.2, 20]} />
+          <meshStandardMaterial color={primary} roughness={0.4} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.045, 0]}>
+          <cylinderGeometry args={[0.092, 0.092, 0.03, 20]} />
+          <meshStandardMaterial color={secondary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "cap") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.02 });
+    return (
+      <group position={head} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh position={[0, 0.03, 0]}>
+          <sphereGeometry args={[0.1, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color={primary} roughness={0.55} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.02, 0.11]} rotation={[-0.25, 0, 0]}>
+          <cylinderGeometry args={[0.09, 0.09, 0.016, 16, 1, false, 0, Math.PI]} />
+          <meshStandardMaterial color={secondary} roughness={0.55} side={DoubleSide} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.11, 0]}>
+          <sphereGeometry args={[0.014, 8, 6]} />
+          <meshStandardMaterial color={secondary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "field-hat") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.02 });
+    return (
+      <group position={head} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh position={[0, 0.012, 0]}>
+          <cylinderGeometry args={[0.16, 0.16, 0.012, 20]} />
+          <meshStandardMaterial color={primary} roughness={0.7} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.065, 0]}>
+          <cylinderGeometry args={[0.072, 0.09, 0.1, 16]} />
+          <meshStandardMaterial color={primary} roughness={0.7} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.035, 0]}>
+          <cylinderGeometry args={[0.092, 0.092, 0.022, 16]} />
+          <meshStandardMaterial color={secondary} roughness={0.75} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "coin-crown") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.02 });
+    return (
+      <group position={head} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh position={[0, 0.03, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.1, 0.016, 8, 20]} />
+          <meshStandardMaterial color={primary} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+        </mesh>
+        {[0, 1, 2, 3, 4, 5].map((index) => {
+          const angle = (index / 6) * Math.PI * 2;
+          return (
+            <mesh key={index} position={[Math.cos(angle) * 0.1, 0.075, Math.sin(angle) * 0.1]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.026, 0.026, 0.008, 14]} />
+              <meshStandardMaterial color={primary} metalness={0.85} roughness={0.22} transparent opacity={opacity} />
+            </mesh>
+          );
+        })}
       </group>
     );
   }
@@ -1216,6 +1485,104 @@ function TokenCosmetic({
           <meshStandardMaterial color={secondary} roughness={0.38} metalness={0.08} transparent opacity={opacity} />
         </mesh>
       </group>
+    );
+  }
+
+  if (kind === "gold-chain" || kind === "dice-necklace") {
+    const chest = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.07, z: -0.02 });
+    const isDice = kind === "dice-necklace";
+    return (
+      <group position={chest} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 0.68]}>
+          <torusGeometry args={[0.12, isDice ? 0.009 : 0.013, 8, 26]} />
+          <meshStandardMaterial color={primary} metalness={0.8} roughness={0.24} transparent opacity={opacity} />
+        </mesh>
+        {isDice ? (
+          <>
+            <mesh position={[0, -0.08, 0.045]} rotation={[0.2, 0.4, 0]}>
+              <boxGeometry args={[0.05, 0.05, 0.05]} />
+              <meshStandardMaterial color={secondary} roughness={0.4} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, -0.08, 0.072]}>
+              <sphereGeometry args={[0.007, 6, 6]} />
+              <meshStandardMaterial color="#111827" transparent opacity={opacity} />
+            </mesh>
+          </>
+        ) : (
+          <mesh position={[0, -0.07, 0.03]}>
+            <sphereGeometry args={[0.022, 10, 8]} />
+            <meshStandardMaterial color={primary} metalness={0.85} roughness={0.22} transparent opacity={opacity} />
+          </mesh>
+        )}
+      </group>
+    );
+  }
+
+  if (kind === "wristwatch") {
+    const hand = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { z: 0.008 });
+    return (
+      <group position={hand} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.032, 0.032, 0.022, 14, 1, true]} />
+          <meshStandardMaterial color={primary} roughness={0.6} side={DoubleSide} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0, 0.03]}>
+          <cylinderGeometry args={[0.026, 0.026, 0.012, 16]} />
+          <meshStandardMaterial color={secondary} metalness={0.6} roughness={0.3} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0, 0.037]}>
+          <cylinderGeometry args={[0.02, 0.02, 0.003, 16]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.4} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "tuxedo") {
+    return (
+      <group
+        position={[cosmetic.transform?.x ?? 0, cosmetic.transform?.y ?? 0, cosmetic.transform?.z ?? 0]}
+        rotation={[0, 0, rotation]}
+        scale={scale}
+      >
+        <mesh position={[0, 0.235, 0]} scale={[1.06, 1.12, 1.06]}>
+          <sphereGeometry args={[0.19, 20, 14]} />
+          <meshStandardMaterial color={primary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.24, 0.18]}>
+          <boxGeometry args={[0.07, 0.22, 0.02]} />
+          <meshStandardMaterial color={secondary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.055, 0.31, 0.185]} rotation={[0, 0, side * 0.5]}>
+            <boxGeometry args={[0.035, 0.12, 0.01]} />
+            <meshStandardMaterial color="#1f2937" roughness={0.5} transparent opacity={opacity} />
+          </mesh>
+        ))}
+        {[-1, 1].map((side) => (
+          <mesh key={`bow-${side}`} position={[side * 0.028, 0.4, 0.17]} rotation={[0, 0, side * 0.5]} scale={[1.5, 0.85, 0.4]}>
+            <sphereGeometry args={[0.03, 10, 8]} />
+            <meshStandardMaterial color="#111827" roughness={0.5} transparent opacity={opacity} />
+          </mesh>
+        ))}
+        {[0.29, 0.23].map((y) => (
+          <mesh key={y} position={[0, y, 0.2]}>
+            <sphereGeometry args={[0.008, 6, 6]} />
+            <meshStandardMaterial color="#f5c542" metalness={0.8} roughness={0.25} transparent opacity={opacity} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  if (kind === "pet-dog" || kind === "pet-cat") {
+    return (
+      <PetCompanion
+        opacity={opacity}
+        kind={kind === "pet-dog" ? "dog" : "cat"}
+        color={primary}
+        secondaryColor={secondary}
+      />
     );
   }
 
@@ -1252,6 +1619,71 @@ function TokenCosmetic({
       <mesh geometry={TOKEN_TATTOO_GEOMETRY} dispose={null}>
         <meshBasicMaterial color={primary} transparent opacity={opacity * 0.9} side={DoubleSide} toneMapped={false} />
       </mesh>
+    </group>
+  );
+}
+
+function PetCompanion({
+  opacity,
+  kind,
+  color,
+  secondaryColor,
+}: {
+  opacity: number;
+  kind: "dog" | "cat";
+  color: string;
+  secondaryColor: string;
+}) {
+  const hop = useRef<Group | null>(null);
+  useFrame((state) => {
+    if (!hop.current) return;
+    const time = state.clock.elapsedTime;
+    hop.current.position.y = Math.abs(Math.sin(time * 3.4)) * 0.09;
+    hop.current.rotation.x = Math.sin(time * 3.4) * 0.12;
+  });
+
+  return (
+    <group position={[0.42, 0, 0.06]}>
+      <group ref={hop}>
+        <mesh castShadow position={[0, 0.08, 0]} scale={[1, 0.85, 1.35]}>
+          <sphereGeometry args={[0.08, 12, 10]} />
+          <meshStandardMaterial color={color} roughness={0.65} transparent opacity={opacity} />
+        </mesh>
+        <mesh castShadow position={[0, 0.14, 0.09]}>
+          <sphereGeometry args={[0.06, 12, 10]} />
+          <meshStandardMaterial color={color} roughness={0.65} transparent opacity={opacity} />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.035, 0.19, 0.08]} scale={kind === "cat" ? [0.55, 1.1, 0.4] : [0.75, 0.7, 0.45]}>
+            <sphereGeometry args={[0.026, 8, 6]} />
+            <meshStandardMaterial color={secondaryColor} roughness={0.7} transparent opacity={opacity} />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.115, 0.14]}>
+          <sphereGeometry args={[0.03, 8, 6]} />
+          <meshStandardMaterial color={secondaryColor} roughness={0.65} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.12, 0.17]}>
+          <sphereGeometry args={[0.011, 8, 6]} />
+          <meshStandardMaterial color="#111827" roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={`eye-${side}`} position={[side * 0.022, 0.15, 0.135]}>
+            <sphereGeometry args={[0.008, 6, 6]} />
+            <meshStandardMaterial color="#111827" roughness={0.4} transparent opacity={opacity} />
+          </mesh>
+        ))}
+        {([[-0.04, -0.05], [0.04, -0.05], [-0.04, 0.06], [0.04, 0.06]] as [number, number][]).map(([x, z], index) => (
+          <mesh key={index} position={[x, 0.02, z]}>
+            <cylinderGeometry args={[0.015, 0.015, 0.06, 6]} />
+            <meshStandardMaterial color={secondaryColor} roughness={0.7} transparent opacity={opacity} />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.12, -0.09]} rotation={[0.7, 0, 0]}>
+          <cylinderGeometry args={[0.01, 0.016, 0.11, 6]} />
+          <meshStandardMaterial color={color} roughness={0.65} transparent opacity={opacity} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -1314,6 +1746,17 @@ function cosmeticColor(cosmetic: CosmeticDef, key: "color" | "secondaryColor", f
 }
 
 function defaultCosmeticColor(kind: string): string {
+  if (kind === "mustache-handlebar") return "#3a2416";
+  if (kind === "mustache-pencil") return "#111827";
+  if (kind === "top-hat") return "#111827";
+  if (kind === "cap") return "#2563eb";
+  if (kind === "field-hat") return "#c69a5b";
+  if (kind === "coin-crown" || kind === "gold-chain") return "#f5c542";
+  if (kind === "dice-necklace") return "#cbd5e1";
+  if (kind === "wristwatch") return "#3a2416";
+  if (kind === "tuxedo") return "#0f1115";
+  if (kind === "pet-dog") return "#a9702f";
+  if (kind === "pet-cat") return "#7c8794";
   if (kind === "hat") return "#a855f7";
   if (kind === "piercing") return "#e5e7eb";
   if (kind === "tattoo") return "#111827";
@@ -1781,6 +2224,10 @@ function playersByPosition(players: Player[]): Map<number, Player[]> {
 
 function easeOut(t: number): number {
   return 1 - Math.pow(1 - t, 3);
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 /** Iniciales para la placa facial por defecto (1-2 letras, ej. "Juan Pérez" → "JP"). */

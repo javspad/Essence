@@ -46,9 +46,15 @@ import {
 } from "../mapBuilder";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import { eventIdsForTile, eventTitle, resolveTileEventForPlayer } from "@essence/shared/events";
-import Board3DShell from "./Board3DShell";
+import type { CosmeticDef } from "@essence/shared";
+import { Canvas } from "@react-three/fiber";
+import Board3DShell, { PlayerTokenPawn, FreeOrbitCamera } from "./Board3DShell";
+import { TOKEN_PREVIEW_GROUP_POSITION, TOKEN_PREVIEW_GROUP_SCALE } from "../characterTokenRig";
 
 const BASE_CONTENT = normalizeContentSchema(seedContent);
+const COSMETIC_LIST: CosmeticDef[] = Object.values(
+  (seedContent as unknown as { cosmetics?: Record<string, CosmeticDef> }).cosmetics ?? {}
+);
 const STORAGE_KEY = "essence:map-builder:draft";
 
 const TILE_LABEL: Record<TileType, string> = {
@@ -133,7 +139,7 @@ const ASSET_EMOJI: Record<string, string> = {
   "vomiting-person": "🤢",
   "blue-ikea-bag": "🛍️",
   "hockey-stick": "🏑",
-  "condom-bolas": "🪢",
+  "condom-bolas": "💩",
   "botherlands-disc": "💿",
   "hoodie-log": "🪵",
   "cut-branch-oak": "🌳",
@@ -150,6 +156,40 @@ const ASSET_EMOJI: Record<string, string> = {
   "jardinera-can": "🥫",
   "sunscreen": "🧴",
   "vodka-bottle": "🍾",
+  "classroom-giant-log": "🪵",
+  "split-tree-trunk": "🪵",
+  "bleach-sound-bomb": "🧪",
+  "firecracker-box": "🧨",
+  "upd-noose-chair": "🪑",
+  "vinchuca-jar": "🫙",
+  "broken-window-frame": "🪟",
+  "school-locker-hiding": "🚪",
+  "locker-row": "🗄️",
+  "steamy-taxi": "🚕",
+  "just-dance-kinect": "💃",
+  "school-desk-pupitre": "🪑",
+  "city-barricade-peed": "🚧",
+  "crumpled-exam-ausente": "📄",
+  "martina-impact-ball": "⚽",
+  "teacher-figures": "👩‍🏫",
+  "giant-groin-cup": "🛡️",
+  "sleeping-bag": "🛌",
+  "tongue-toy": "👅",
+  "jony-duck-window": "🪟",
+  "flying-chair": "🪑",
+  "kiosk-bag-nofui": "🛍️",
+  "tiny-trophy": "🏆",
+  "silly-pool-float": "🦩",
+  "broken-umbrella": "☂️",
+  "megaphone": "📣",
+  "stopwatch": "⏱️",
+  "lucky-sock": "🧦",
+  "cursed-calculator": "🔮",
+  "giant-pencil": "✏️",
+  "sticker-suitcase": "🧳",
+  "banana-peel-trap": "🍌",
+  "world-cup-trophy": "🏆",
+  "rain-tent": "⛺",
 };
 
 const KIND_EMOJI: Record<MapAssetDef["kind"], string> = {
@@ -217,6 +257,8 @@ export default function MapBuilder() {
   const [importText, setImportText] = useState("");
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [cosmeticsOpen, setCosmeticsOpen] = useState(false);
   const exportContent = useMemo(() => builderContentToGameContent(BASE_CONTENT, state.content), [state.content]);
   const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
 
@@ -264,6 +306,14 @@ export default function MapBuilder() {
     setPlaytest3DOpen(true);
   };
 
+  // Coloca en el mapa el prop que se estaba viendo en la galería 3D, con el tamaño
+  // elegido, y lo deja seleccionado.
+  const placePropFromGallery = (galleryAssetId: string, galleryScale: number) => {
+    dispatch({ type: "add_artifact", assetId: galleryAssetId, point: mapCenterPoint(activeMap), scale: galleryScale });
+    setAssetId(galleryAssetId);
+    setGalleryOpen(false);
+  };
+
   const createMap = () => {
     dispatch({ type: "create_map" });
     setMapDetailsOpen(true);
@@ -293,6 +343,8 @@ export default function MapBuilder() {
           onDownload={downloadJson}
           onReset={resetDraft}
           onOpen3D={open3DPlaytest}
+          onOpenGallery={() => setGalleryOpen(true)}
+          onOpenCosmetics={() => setCosmeticsOpen(true)}
           testMode={testMode}
           onToggleTest={() => setTestMode((value) => !value)}
         />
@@ -312,14 +364,18 @@ export default function MapBuilder() {
               onTestCellChange={setTestCellId}
             />
 
-            <Floating3DPreview
-              map={activeMap}
-              assetCatalog={state.content.assetCatalog}
-              players={previewPlayers}
-              testMode={testMode}
-              testCellId={testCellId}
-              onOpen={open3DPlaytest}
-            />
+            {/* Mientras un overlay 3D a pantalla completa está abierto (playtest, galería
+                de props o de cosméticos), desmontamos el preview chico: un solo canvas WebGL. */}
+            {!playtest3DOpen && !galleryOpen && !cosmeticsOpen && (
+              <Floating3DPreview
+                map={activeMap}
+                assetCatalog={state.content.assetCatalog}
+                players={previewPlayers}
+                testMode={testMode}
+                testCellId={testCellId}
+                onOpen={open3DPlaytest}
+              />
+            )}
 
             <FloatingToolBar
               state={state}
@@ -375,6 +431,17 @@ export default function MapBuilder() {
           onClose={() => setPlaytest3DOpen(false)}
         />
       )}
+
+      {galleryOpen && (
+        <PropGalleryOverlay
+          assetCatalog={state.content.assetCatalog}
+          initialAssetId={assetId}
+          onPlace={placePropFromGallery}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
+
+      {cosmeticsOpen && <CosmeticGalleryOverlay cosmetics={COSMETIC_LIST} onClose={() => setCosmeticsOpen(false)} />}
     </main>
   );
 }
@@ -390,6 +457,8 @@ function MapTopBar({
   onDownload,
   onReset,
   onOpen3D,
+  onOpenGallery,
+  onOpenCosmetics,
   testMode,
   onToggleTest,
 }: {
@@ -403,11 +472,13 @@ function MapTopBar({
   onDownload: () => void;
   onReset: () => void;
   onOpen3D: () => void;
+  onOpenGallery: () => void;
+  onOpenCosmetics: () => void;
   testMode: boolean;
   onToggleTest: () => void;
 }) {
   return (
-    <section className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.035] p-1.5">
+    <section className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.035] p-1.5">
       <select
         value={state.activeMapId}
         onChange={(event) => dispatch({ type: "select_map", mapId: event.target.value })}
@@ -441,9 +512,13 @@ function MapTopBar({
       <button type="button" onClick={onReset} className="builder-button danger">
         Reset
       </button>
-      <button type="button" onClick={onOpen3D} className="builder-button preview">
-        3D playtest
-      </button>
+      <ViewsMenu
+        items={[
+          { label: "🎮 3D playtest", onClick: onOpen3D },
+          { label: "🧱 Props 3D", onClick: onOpenGallery },
+          { label: "🧢 Cosméticos 3D", onClick: onOpenCosmetics },
+        ]}
+      />
       <button type="button" onClick={onToggleTest} className={`builder-button ${testMode ? "active" : ""}`}>
         {testMode ? "Stop test" : "Test map"}
       </button>
@@ -454,6 +529,38 @@ function MapTopBar({
         Game
       </a>
     </section>
+  );
+}
+
+/** Desplegable que agrupa las vistas 3D para que la barra no se desborde. */
+function ViewsMenu({ items }: { items: { label: string; onClick: () => void }[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="builder-button preview">
+        Vistas 3D ▾
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-50 mt-1 min-w-[11rem] rounded-md border border-white/15 bg-[#141b12] p-1 shadow-2xl shadow-black/45">
+            {items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  item.onClick();
+                  setOpen(false);
+                }}
+                className="block w-full rounded px-3 py-2 text-left text-xs font-black text-white transition hover:bg-white/10"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1480,6 +1587,7 @@ function Playtest3DOverlay({
   const outgoing = current ? outgoingRoutes(map, current.id) : [];
   const start = map.board.find((tile) => tile.type === "start") ?? map.board[0];
   const finish = map.board.find((tile) => tile.type === "finish") ?? map.board[map.board.length - 1];
+  const [freeCamera, setFreeCamera] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-[#101510]">
@@ -1493,6 +1601,7 @@ function Playtest3DOverlay({
         players={players}
         activeId="test-player"
         interactive
+        freeCamera={freeCamera}
         className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
       />
 
@@ -1502,10 +1611,27 @@ function Playtest3DOverlay({
             <p className="text-[0.65rem] font-black uppercase tracking-[0.24em] text-cyan-200">3D playtest</p>
             <h2 className="mt-1 text-2xl font-black text-white">{map.name}</h2>
             <p className="mt-1 text-sm font-bold text-emerald-100/85">{current ? cellSummary(current) : "No cells"}</p>
+            {freeCamera && (
+              <p className="mt-2 text-xs font-bold text-cyan-100/80">Arrastrá para orbitar · rueda para zoom · click derecho o Shift+arrastrar para desplazar</p>
+            )}
           </div>
-          <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
-            Close
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <button
+              type="button"
+              onClick={() => setFreeCamera((value) => !value)}
+              aria-pressed={freeCamera}
+              className={`rounded-md border px-4 py-3 text-sm font-black shadow-2xl backdrop-blur-md transition ${
+                freeCamera
+                  ? "border-cyan-300/60 bg-cyan-400/20 text-cyan-100 hover:bg-cyan-400/30"
+                  : "border-white/20 bg-slate-950/60 text-white hover:bg-white/10"
+              }`}
+            >
+              {freeCamera ? "🎥 Cámara libre: ON" : "🎥 Cámara libre"}
+            </button>
+            <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
+              Close
+            </button>
+          </div>
         </header>
 
         <section className="pointer-events-auto ml-auto w-[min(25rem,calc(100vw-1.5rem))] rounded-lg border border-white/15 bg-slate-950/65 p-3 shadow-2xl shadow-black/35 backdrop-blur-md">
@@ -1553,6 +1679,263 @@ function Playtest3DOverlay({
             ))}
             {outgoing.length === 0 && <p className="rounded-md border border-white/10 bg-black/25 p-3 text-sm font-bold text-slate-400">No outgoing routes from this cell.</p>}
           </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/** Mini-mapa de un solo prop centrado, para mostrarlo aislado en el visor 3D.
+ *  El piso se dimensiona según el tamaño del prop (auto-fit): props chicos quedan
+ *  sobre un piso chico y se ven grandes; los grandes reciben más lugar. */
+function buildPropPreviewMap(assetId: string, asset: MapAssetDef | undefined, scale: number): {
+  board: Tile[];
+  artifacts: MapArtifact[];
+  boardShape: MapBoardShape;
+} {
+  const radius = (asset ? assetProjectionRadius(asset) : 0.6) * scale;
+  const half = Math.min(4.5, Math.max(0.85, radius * 1.7));
+  const boardShape: MapBoardShape = {
+    minX: -half,
+    minY: -half,
+    maxX: half,
+    maxY: half,
+    blockedCells: [],
+    borderEdges: [],
+  };
+  const artifacts: MapArtifact[] = assetId
+    ? [{ id: "prop-preview", assetId, position: { x: 0, y: 0 }, scale }]
+    : [];
+  return { board: [], artifacts, boardShape };
+}
+
+/** Punto central del mapa activo, usado para dejar caer ahí el prop elegido en la galería. */
+function mapCenterPoint(map: MapDefinition): TileLayout {
+  const shape = map.boardShape;
+  if (shape) return { x: (shape.minX + shape.maxX) / 2, y: (shape.minY + shape.maxY) / 2 };
+  const layouts = map.board.map((tile) => tile.layout).filter((layout): layout is TileLayout => Boolean(layout));
+  if (!layouts.length) return { x: 0, y: 0 };
+  const sum = layouts.reduce((acc, layout) => ({ x: acc.x + layout.x, y: acc.y + layout.y }), { x: 0, y: 0 });
+  return { x: sum.x / layouts.length, y: sum.y / layouts.length };
+}
+
+const COSMETIC_PREVIEW_SHOT = { position: [0, 0.2, 4.4] as [number, number, number], look: [0, -0.1, 0] as [number, number, number] };
+const COSMETIC_PREVIEW_CHARACTER = { id: "cosmetic-preview", name: "Vos", color: "#c9a24a", groom: false };
+
+/**
+ * Visor 3D de cosméticos: muestra un cosmético a la vez puesto sobre un muñeco,
+ * con cámara libre para girarlo/acercarlo. Sirve para revisarlos y ajustarlos.
+ */
+function CosmeticGalleryOverlay({ cosmetics, onClose }: { cosmetics: CosmeticDef[]; onClose: () => void }) {
+  const [selectedId, setSelectedId] = useState(cosmetics[0]?.id ?? "");
+  const [catalogOpen, setCatalogOpen] = useState(true);
+  const cosmeticCatalog = useMemo<Record<string, CosmeticDef>>(
+    () => Object.fromEntries(cosmetics.map((cosmetic) => [cosmetic.id, cosmetic])),
+    [cosmetics]
+  );
+  const index = Math.max(0, cosmetics.findIndex((cosmetic) => cosmetic.id === selectedId));
+  const current = cosmetics[index];
+  const step = (delta: number) => {
+    if (!cosmetics.length) return;
+    setSelectedId(cosmetics[(index + delta + cosmetics.length) % cosmetics.length].id);
+  };
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#2a3550_0%,#141b2b_55%,#0a0e17_100%)]">
+      <Canvas camera={{ position: [0, 0.5, 3], fov: 34, near: 0.1, far: 40 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: true }} className="absolute inset-0">
+        <FreeOrbitCamera overview={COSMETIC_PREVIEW_SHOT} />
+        <ambientLight intensity={0.74} color="#fff8e1" />
+        <directionalLight position={[3, 5, 4]} intensity={2.4} />
+        <directionalLight position={[-3, 2, -3]} intensity={0.6} color="#b3d4ff" />
+        <group position={TOKEN_PREVIEW_GROUP_POSITION} scale={TOKEN_PREVIEW_GROUP_SCALE}>
+          <PlayerTokenPawn character={COSMETIC_PREVIEW_CHARACTER} cosmeticIds={current ? [current.id] : []} cosmeticCatalog={cosmeticCatalog} />
+        </group>
+        <mesh position={[0, -0.72, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[1.5, 40]} />
+          <meshStandardMaterial color="#101728" roughness={0.9} transparent opacity={0.7} />
+        </mesh>
+      </Canvas>
+
+      <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col justify-between p-3 sm:p-5">
+        <header className="pointer-events-auto flex flex-wrap items-start justify-between gap-3">
+          <div className="rounded-lg border border-white/15 bg-slate-950/60 px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <p className="text-[0.65rem] font-black uppercase tracking-[0.24em] text-fuchsia-200">Galería de cosméticos</p>
+            <h2 className="mt-1 text-2xl font-black text-white">{current ? current.name : "Sin cosméticos"}</h2>
+            <p className="mt-2 text-xs font-bold text-fuchsia-100/80">Arrastrá para orbitar · rueda para zoom · click derecho o Shift+arrastrar para desplazar</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
+            Close
+          </button>
+        </header>
+
+        <section className="pointer-events-auto w-full rounded-lg border border-white/15 bg-slate-950/65 p-3 shadow-2xl shadow-black/35 backdrop-blur-md">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => step(-1)} className="builder-button compact" aria-label="Anterior">◀</button>
+              <span className="min-w-[4rem] text-center text-xs font-bold text-slate-300">{cosmetics.length ? index + 1 : 0} / {cosmetics.length}</span>
+              <button type="button" onClick={() => step(1)} className="builder-button compact" aria-label="Siguiente">▶</button>
+              <button type="button" onClick={() => setCatalogOpen((open) => !open)} className="builder-button compact" aria-expanded={catalogOpen}>
+                {catalogOpen ? "Catálogo ▾" : "Catálogo ▸"}
+              </button>
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{current?.anchor ?? ""}</span>
+          </div>
+          {catalogOpen && (
+            <div className="mt-3 grid max-h-[30vh] grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-2 overflow-y-auto overscroll-contain pr-1">
+              {cosmetics.map((cosmetic) => (
+                <button
+                  key={cosmetic.id}
+                  type="button"
+                  onClick={() => setSelectedId(cosmetic.id)}
+                  aria-pressed={cosmetic.id === selectedId}
+                  className={`rounded-md border px-2 py-2 text-left text-xs font-bold transition ${
+                    cosmetic.id === selectedId
+                      ? "border-fuchsia-300/70 bg-fuchsia-400/20 text-fuchsia-100"
+                      : "border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/10"
+                  }`}
+                >
+                  <span className="block truncate">{cosmetic.name}</span>
+                  <span className="mt-0.5 block truncate text-[0.56rem] uppercase tracking-[0.08em] text-slate-500">{cosmetic.anchor}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Visor 3D de props: muestra un prop a la vez, aislado y en grande sobre un piso,
+ * con cámara libre para girarlo/acercarlo. Se puede recorrer todo el catálogo y
+ * colocar en el mapa el que se está viendo.
+ */
+function PropGalleryOverlay({
+  assetCatalog,
+  initialAssetId,
+  onPlace,
+  onClose,
+}: {
+  assetCatalog: MapAssetDef[];
+  initialAssetId: string;
+  onPlace: (assetId: string, scale: number) => void;
+  onClose: () => void;
+}) {
+  const [selectedId, setSelectedId] = useState(
+    assetCatalog.some((asset) => asset.id === initialAssetId) ? initialAssetId : assetCatalog[0]?.id ?? ""
+  );
+  const selectedIndex = Math.max(0, assetCatalog.findIndex((asset) => asset.id === selectedId));
+  const selectedAsset = assetCatalog[selectedIndex];
+  const [scale, setScale] = useState(selectedAsset?.defaultScale ?? 1);
+  const [catalogOpen, setCatalogOpen] = useState(true);
+  const preview = useMemo(() => buildPropPreviewMap(selectedAsset?.id ?? "", selectedAsset, scale), [selectedAsset, scale]);
+
+  // Cambiar de prop resetea el tamaño al por defecto de ese prop.
+  const selectProp = (id: string) => {
+    setSelectedId(id);
+    setScale(assetCatalog.find((asset) => asset.id === id)?.defaultScale ?? 1);
+  };
+
+  const step = (delta: number) => {
+    if (!assetCatalog.length) return;
+    const next = (selectedIndex + delta + assetCatalog.length) % assetCatalog.length;
+    selectProp(assetCatalog[next].id);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-[#101510]">
+      <Board3DShell
+        tiles={preview.board}
+        routes={[]}
+        artifacts={preview.artifacts}
+        terraces={[]}
+        assetCatalog={assetCatalog}
+        boardShape={preview.boardShape}
+        players={[]}
+        freeCamera
+        freeCameraRefit
+        interactive
+        className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
+      />
+
+      <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col justify-between p-3 sm:p-5">
+        <header className="pointer-events-auto flex flex-wrap items-start justify-between gap-3">
+          <div className="rounded-lg border border-white/15 bg-slate-950/60 px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <p className="text-[0.65rem] font-black uppercase tracking-[0.24em] text-cyan-200">Galería de props</p>
+            <h2 className="mt-1 text-2xl font-black text-white">{selectedAsset ? assetOptionLabel(selectedAsset) : "Sin props"}</h2>
+            <p className="mt-2 text-xs font-bold text-cyan-100/80">Arrastrá para orbitar · rueda para zoom · click derecho o Shift+arrastrar para desplazar</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
+            Close
+          </button>
+        </header>
+
+        <section className="pointer-events-auto w-full rounded-lg border border-white/15 bg-slate-950/65 p-3 shadow-2xl shadow-black/35 backdrop-blur-md">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => step(-1)} className="builder-button compact" aria-label="Prop anterior">◀</button>
+              <span className="min-w-[4rem] text-center text-xs font-bold text-slate-300">{assetCatalog.length ? selectedIndex + 1 : 0} / {assetCatalog.length}</span>
+              <button type="button" onClick={() => step(1)} className="builder-button compact" aria-label="Prop siguiente">▶</button>
+              <button
+                type="button"
+                onClick={() => setCatalogOpen((open) => !open)}
+                className="builder-button compact"
+                aria-expanded={catalogOpen}
+              >
+                {catalogOpen ? "Catálogo ▾" : "Catálogo ▸"}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-300">Tamaño</span>
+              <input
+                type="range"
+                min={0.3}
+                max={3}
+                step={0.05}
+                value={scale}
+                onChange={(event) => setScale(Number(event.target.value))}
+                aria-label="Tamaño del prop"
+                className="w-36 accent-cyan-400 sm:w-48"
+              />
+              <span className="w-12 text-right text-xs font-black text-cyan-100">{scale.toFixed(2)}×</span>
+              <button
+                type="button"
+                onClick={() => setScale(selectedAsset?.defaultScale ?? 1)}
+                className="builder-button compact"
+                aria-label="Restablecer tamaño"
+              >
+                Reset
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => selectedAsset && onPlace(selectedAsset.id, scale)}
+              disabled={!selectedAsset}
+              className="rounded-md border border-emerald-300/60 bg-emerald-400/20 px-4 py-2 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/30 disabled:opacity-40"
+            >
+              Colocar en el mapa
+            </button>
+          </div>
+          {catalogOpen && (
+            <div className="mt-3 grid max-h-[30vh] grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto overscroll-contain pr-1">
+            {assetCatalog.map((asset) => (
+              <button
+                key={asset.id}
+                type="button"
+                onClick={() => selectProp(asset.id)}
+                aria-pressed={asset.id === selectedId}
+                className={`flex items-center gap-2 rounded-md border px-2 py-2 text-left text-xs font-bold transition ${
+                  asset.id === selectedId
+                    ? "border-cyan-300/70 bg-cyan-400/20 text-cyan-100"
+                    : "border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/10"
+                }`}
+              >
+                <span className="text-base leading-none">{ASSET_EMOJI[asset.id] ?? KIND_EMOJI[asset.kind] ?? KIND_EMOJI.custom}</span>
+                <span className="truncate">{asset.name}</span>
+              </button>
+            ))}
+            </div>
+          )}
         </section>
       </div>
     </div>

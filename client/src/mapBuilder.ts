@@ -76,7 +76,7 @@ export type MapBuilderEvent =
   | { type: "add_route_point"; id: string; point?: TileLayout }
   | { type: "update_route_point"; id: string; index: number; point: TileLayout }
   | { type: "remove_route_point"; id: string; index: number }
-  | { type: "add_artifact"; assetId: string; point: TileLayout }
+  | { type: "add_artifact"; assetId: string; point: TileLayout; scale?: number }
   | { type: "move_artifact"; id: string; point: TileLayout }
   | { type: "update_artifact"; id: string; patch: Partial<MapArtifact> }
   | { type: "add_terrace"; rect: TerraceRect; elevation?: number; surface?: MapTerraceSurface }
@@ -132,8 +132,8 @@ const DEFAULT_ASSETS: MapAssetDef[] = [
   { id: "fallen-fernet", name: "Fernet tirado", kind: "decor", defaultScale: 1 },
   { id: "vomiting-person", name: "Persona vomitando", kind: "decor", defaultScale: 1 },
   { id: "blue-ikea-bag", name: "Bolso azul grande", kind: "decor", defaultScale: 1 },
-  { id: "hockey-stick", name: "Palo de hockey", kind: "decor", defaultScale: 1 },
-  { id: "condom-bolas", name: "Boleadoras raras", kind: "decor", defaultScale: 1 },
+  { id: "hockey-stick", name: "Palo con vidrios", kind: "decor", defaultScale: 1 },
+  { id: "condom-bolas", name: "Boleadora de caca", kind: "decor", defaultScale: 1 },
   { id: "botherlands-disc", name: "Disco Botherlands X360", kind: "decor", defaultScale: 1 },
   { id: "hoodie-log", name: "Tronco con buzo", kind: "decor", defaultScale: 1 },
   { id: "cut-branch-oak", name: "Roble con rama cortada", kind: "tree", defaultScale: 1 },
@@ -150,6 +150,40 @@ const DEFAULT_ASSETS: MapAssetDef[] = [
   { id: "jardinera-can", name: "Lata de jardinera", kind: "decor", defaultScale: 1 },
   { id: "sunscreen", name: "Protector solar", kind: "decor", defaultScale: 1 },
   { id: "vodka-bottle", name: "Vodka", kind: "decor", defaultScale: 1 },
+  { id: "classroom-giant-log", name: "Tronco gigante (aula)", kind: "decor", defaultScale: 1 },
+  { id: "split-tree-trunk", name: "Árbol roto", kind: "tree", defaultScale: 1 },
+  { id: "bleach-sound-bomb", name: "Frasco de cloro", kind: "decor", defaultScale: 1 },
+  { id: "firecracker-box", name: "Caja de petardos", kind: "decor", defaultScale: 1 },
+  { id: "upd-noose-chair", name: "Silla con soga UPD", kind: "decor", defaultScale: 1 },
+  { id: "vinchuca-jar", name: "Frasco con vinchuca", kind: "decor", defaultScale: 1 },
+  { id: "broken-window-frame", name: "Marco de ventana roto", kind: "decor", defaultScale: 1 },
+  { id: "school-locker-hiding", name: "Locker con Willy", kind: "house", defaultScale: 1 },
+  { id: "locker-row", name: "Lockers para esconderse", kind: "house", defaultScale: 1 },
+  { id: "steamy-taxi", name: "Taxi caldeado", kind: "vehicle", defaultScale: 1 },
+  { id: "just-dance-kinect", name: "Kinect + pista Just Dance", kind: "decor", defaultScale: 1 },
+  { id: "school-desk-pupitre", name: "Pupitre", kind: "decor", defaultScale: 1 },
+  { id: "city-barricade-peed", name: "Coso amarillo meado", kind: "sign", defaultScale: 1 },
+  { id: "crumpled-exam-ausente", name: "Examen AUSENTE", kind: "decor", defaultScale: 1 },
+  { id: "martina-impact-ball", name: "Pelota del pelotazo", kind: "decor", defaultScale: 1 },
+  { id: "teacher-figures", name: "Profesores", kind: "custom", defaultScale: 1 },
+  { id: "giant-groin-cup", name: "Protector de Javi", kind: "decor", defaultScale: 1 },
+  { id: "sleeping-bag", name: "Bolsa de dormir", kind: "decor", defaultScale: 1 },
+  { id: "tongue-toy", name: "Lengua loca", kind: "decor", defaultScale: 1 },
+  { id: "jony-duck-window", name: "Ventana de Jony", kind: "decor", defaultScale: 1 },
+  { id: "flying-chair", name: "Silla voladora", kind: "decor", defaultScale: 1 },
+  { id: "kiosk-bag-nofui", name: "Bolsa NO FUI YO", kind: "decor", defaultScale: 1 },
+  { id: "tiny-trophy", name: "Trofeo chiquito", kind: "custom", defaultScale: 1 },
+  { id: "silly-pool-float", name: "Flotador ridículo", kind: "decor", defaultScale: 1 },
+  { id: "broken-umbrella", name: "Paraguas roto", kind: "decor", defaultScale: 1 },
+  { id: "megaphone", name: "Megáfono", kind: "decor", defaultScale: 1 },
+  { id: "stopwatch", name: "Cronómetro", kind: "decor", defaultScale: 1 },
+  { id: "lucky-sock", name: "Media de la suerte", kind: "decor", defaultScale: 1 },
+  { id: "cursed-calculator", name: "Calculadora maldita", kind: "decor", defaultScale: 1 },
+  { id: "giant-pencil", name: "Lápiz gigante", kind: "decor", defaultScale: 1 },
+  { id: "sticker-suitcase", name: "Valija con stickers", kind: "decor", defaultScale: 1 },
+  { id: "banana-peel-trap", name: "Cáscara de banana", kind: "decor", defaultScale: 1 },
+  { id: "world-cup-trophy", name: "Copa del Mundo", kind: "custom", defaultScale: 1 },
+  { id: "rain-tent", name: "Carpa que llueve adentro", kind: "custom", defaultScale: 1 },
 ];
 
 export function createInitialMapBuilderState(content: GameContent): MapBuilderState {
@@ -195,8 +229,27 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
   return {
     activeMapId,
     maps,
-    assetCatalog: normalizeAssetCatalog(content.assetCatalog?.length ? content.assetCatalog : DEFAULT_ASSETS),
+    // Unimos el catálogo guardado con los assets por defecto, para que los props
+    // nuevos aparezcan aunque haya un borrador viejo en localStorage (sin pisar
+    // las personalizaciones ya guardadas).
+    assetCatalog: normalizeAssetCatalog(mergeAssetCatalog(content.assetCatalog ?? [], DEFAULT_ASSETS)),
   };
+}
+
+/**
+ * Une el catálogo guardado con los assets por defecto: refresca nombre/kind/escala
+ * de los assets conocidos desde el catálogo por defecto (para que renombres se vean
+ * aunque haya un borrador viejo), conserva footprints/tags guardados, y suma los
+ * assets nuevos que falten.
+ */
+function mergeAssetCatalog(stored: MapAssetDef[], defaults: MapAssetDef[]): MapAssetDef[] {
+  const defById = new Map(defaults.map((asset) => [asset.id, asset]));
+  const storedIds = new Set(stored.map((asset) => asset.id));
+  const refreshed = stored.map((asset) => {
+    const def = defById.get(asset.id);
+    return def ? { ...asset, name: def.name, kind: def.kind, defaultScale: def.defaultScale } : asset;
+  });
+  return [...refreshed, ...defaults.filter((asset) => !storedIds.has(asset.id))];
 }
 
 export function builderContentToGameContent(base: GameContent, builder: BuilderContent): GameContent {
@@ -521,7 +574,7 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
                 id: createdId,
                 assetId: event.assetId,
                 position: coerceLayoutForMap(map, event.point),
-                scale: state.content.assetCatalog.find((asset) => asset.id === event.assetId)?.defaultScale ?? 1,
+                scale: event.scale ?? state.content.assetCatalog.find((asset) => asset.id === event.assetId)?.defaultScale ?? 1,
               },
             ],
           };
