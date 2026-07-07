@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
+  BufferGeometry,
   CircleGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
   Euler,
+  Float32BufferAttribute,
   OctahedronGeometry,
   Quaternion,
   SphereGeometry,
@@ -874,13 +876,11 @@ function SlotDecalMesh({
 const TOKEN_BASE_GEOMETRY = new CylinderGeometry(0.2, 0.23, 0.07, 24);
 const TOKEN_BODY_GEOMETRY = new SphereGeometry(0.19, 24, 18);
 const TOKEN_HEAD_GEOMETRY = new SphereGeometry(0.135, 24, 18);
-/** Placa facial: pad redondo + decal frontal para que la foto no quede hundida en la cabeza. */
-const TOKEN_FACE_BACKING_GEOMETRY = new CylinderGeometry(0.122, 0.116, 0.028, 40);
-const TOKEN_FACE_DECAL_GEOMETRY = new CircleGeometry(0.108, 40);
+/** Calcomania facial enorme, casi impresa sobre la cabeza. */
+const TOKEN_FACE_DECAL_GEOMETRY = makeCurvedTokenFaceGeometry();
 const TOKEN_CROWN_GEOMETRY = new CylinderGeometry(0.05, 0.07, 0.05, 6);
 const TOKEN_SHADOW_GEOMETRY = new CircleGeometry(0.2, 20);
 const TOKEN_MARKER_GEOMETRY = new OctahedronGeometry(0.085);
-const TOKEN_FACE_ROTATION: [number, number, number] = [Math.PI / 2 - 0.18, 0, 0];
 const TOKEN_GOGGLE_RING_GEOMETRY = new TorusGeometry(0.035, 0.006, 10, 24);
 const TOKEN_GOGGLE_LENS_GEOMETRY = new CircleGeometry(0.029, 24);
 const TOKEN_GOGGLE_BRIDGE_GEOMETRY = new CylinderGeometry(0.006, 0.006, 0.09, 12);
@@ -889,36 +889,72 @@ const TOKEN_HAT_GEOMETRY = new ConeGeometry(0.085, 0.18, 24);
 const TOKEN_HAT_BRIM_GEOMETRY = new CylinderGeometry(0.092, 0.1, 0.025, 24);
 
 /**
- * Placa facial del token: recibe cualquier THREE.Texture y la proyecta sobre
- * el disco achatado que mira a +Z. Puede mostrar iniciales o una textura
+ * Cara del token: recibe cualquier THREE.Texture y la proyecta como una
+ * calcomania curvada sobre la cabeza. Puede mostrar iniciales o una textura
  * circular creada desde la foto del jugador.
  */
 function AvatarFace({ texture, opacity }: { texture: Texture; opacity: number }) {
   return (
-    <group position={[0, 0.502, 0.138]} rotation={TOKEN_FACE_ROTATION}>
-      <mesh castShadow receiveShadow geometry={TOKEN_FACE_BACKING_GEOMETRY} dispose={null}>
-        <meshStandardMaterial color="#fff1d5" roughness={0.42} metalness={0.02} transparent opacity={opacity} />
-      </mesh>
-      <mesh
-        position={[0, 0.0155, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        geometry={TOKEN_FACE_DECAL_GEOMETRY}
-        dispose={null}
-        renderOrder={4}
-      >
-        <meshBasicMaterial
-          map={texture}
-          transparent
-          opacity={opacity}
-          toneMapped={false}
-          depthWrite={false}
-          side={DoubleSide}
-          polygonOffset
-          polygonOffsetFactor={-4}
-        />
-      </mesh>
-    </group>
+    <mesh geometry={TOKEN_FACE_DECAL_GEOMETRY} dispose={null} renderOrder={4}>
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        opacity={opacity}
+        toneMapped={false}
+        depthWrite={false}
+        side={DoubleSide}
+        polygonOffset
+        polygonOffsetFactor={-4}
+      />
+    </mesh>
   );
+}
+
+function makeCurvedTokenFaceGeometry(): BufferGeometry {
+  const headCenterY = 0.5;
+  const headRadius = 0.135;
+  const faceCenterY = 0.505;
+  const faceRadius = 0.132;
+  const surfaceLift = 0.004;
+  const radialSegments = 24;
+  const angularSegments = 80;
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  for (let ring = 0; ring <= radialSegments; ring += 1) {
+    const radius = (faceRadius * ring) / radialSegments;
+    for (let segment = 0; segment <= angularSegments; segment += 1) {
+      const angle = (segment / angularSegments) * Math.PI * 2;
+      const x = Math.cos(angle) * radius;
+      const vertical = Math.sin(angle) * radius;
+      const y = faceCenterY + vertical;
+      const dy = y - headCenterY;
+      const z = Math.sqrt(Math.max(0, headRadius * headRadius - x * x - dy * dy)) + surfaceLift;
+      positions.push(x, y, z);
+      uvs.push(0.5 + x / (faceRadius * 2), 0.5 + vertical / (faceRadius * 2));
+    }
+  }
+
+  for (let ring = 0; ring < radialSegments; ring += 1) {
+    const row = ring * (angularSegments + 1);
+    const nextRow = (ring + 1) * (angularSegments + 1);
+    for (let segment = 0; segment < angularSegments; segment += 1) {
+      const a = row + segment;
+      const b = row + segment + 1;
+      const c = nextRow + segment;
+      const d = nextRow + segment + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  return geometry;
 }
 
 type TokenCharacter = Pick<Player, "id" | "name" | "color" | "groom">;
