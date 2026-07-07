@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { Canvas, useThree } from "@react-three/fiber";
 import { Crosshair, Download, Home, ImagePlus, Plus, Rotate3D, RotateCcw, Trash2, Upload, Wrench } from "lucide-react";
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
-import type { CharacterDef, CharacterSetDef, CosmeticDef, FaceAnchor, FacePhotoAlignment, GameContent } from "@essence/shared";
+import type { CharacterDef, CharacterSetDef, CosmeticDef, EffectDef, FaceAnchor, FacePhotoAlignment, GameContent } from "@essence/shared";
 import { characterDisplayName } from "@essence/shared/characters";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import seedContent from "@shared/content.json";
@@ -361,6 +361,7 @@ export default function CharacterBuilder() {
             <CharacterEditor
               character={selectedCharacter}
               cosmetics={content.cosmetics ?? {}}
+              effects={content.effects ?? {}}
               onChange={(updater) => updateCharacter(selectedCharacter.id, updater)}
               onDelete={() => deleteCharacter(selectedCharacter.id)}
             />
@@ -389,11 +390,13 @@ export default function CharacterBuilder() {
 function CharacterEditor({
   character,
   cosmetics,
+  effects,
   onChange,
   onDelete,
 }: {
   character: CharacterDef;
   cosmetics: Record<string, CosmeticDef>;
+  effects: Record<string, EffectDef>;
   onChange: (updater: (character: CharacterDef) => CharacterDef) => void;
   onDelete: () => void;
 }) {
@@ -458,15 +461,142 @@ function CharacterEditor({
       </section>
 
       <section className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-fuchsia-200">Defaults</p>
-        <div className="mt-3 grid gap-3">
-          <TextInput
-            label="Default traits"
-            value={(character.defaultTraits ?? []).join(", ")}
-            onChange={(value) => update({ defaultTraits: csv(value) })}
-          />
+        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-fuchsia-200">Ventajas y desventajas</p>
+        <p className="mt-1 text-[0.68rem] text-slate-400">Elegí hasta 3 de cada una. Las marcadas <span className="font-black text-amber-300">pronto</span> ya se guardan pero todavía no tienen efecto en el motor.</p>
+        <div className="mt-3">
+          <TraitPicker effects={effects} value={character.defaultTraits ?? []} onChange={(next) => update({ defaultTraits: next })} />
         </div>
       </section>
+    </div>
+  );
+}
+
+const TRAIT_MAX = 3;
+const CATEGORY_ORDER = ["dado", "mapa", "monedas", "minijuegos", "turnos", "otros"];
+const CATEGORY_LABEL: Record<string, string> = {
+  dado: "Dado",
+  mapa: "Mapa",
+  monedas: "Monedas",
+  minijuegos: "Minijuegos",
+  turnos: "Turnos",
+  otros: "Otros",
+};
+
+function toggleTrait(value: string[], id: string, columnIds: Set<string>): string[] {
+  if (value.includes(id)) return value.filter((x) => x !== id);
+  if (value.filter((x) => columnIds.has(x)).length >= TRAIT_MAX) return value; // tope por columna
+  return [...value, id];
+}
+
+function sortedEffects(effects: EffectDef[]): EffectDef[] {
+  return [...effects].sort(
+    (a, b) => CATEGORY_ORDER.indexOf(a.category ?? "otros") - CATEGORY_ORDER.indexOf(b.category ?? "otros") || a.name.localeCompare(b.name)
+  );
+}
+
+function TraitPicker({
+  effects,
+  value,
+  onChange,
+}: {
+  effects: Record<string, EffectDef>;
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const ventajas = useMemo(() => sortedEffects(Object.values(effects).filter((e) => e.polarity === "ventaja")), [effects]);
+  const desventajas = useMemo(() => sortedEffects(Object.values(effects).filter((e) => e.polarity === "desventaja")), [effects]);
+  const ventajaIds = useMemo(() => new Set(ventajas.map((e) => e.id)), [ventajas]);
+  const desventajaIds = useMemo(() => new Set(desventajas.map((e) => e.id)), [desventajas]);
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <TraitColumn
+        title="Ventajas"
+        accent="emerald"
+        effects={ventajas}
+        value={value}
+        columnIds={ventajaIds}
+        onToggle={(id) => onChange(toggleTrait(value, id, ventajaIds))}
+      />
+      <TraitColumn
+        title="Desventajas"
+        accent="rose"
+        effects={desventajas}
+        value={value}
+        columnIds={desventajaIds}
+        onToggle={(id) => onChange(toggleTrait(value, id, desventajaIds))}
+      />
+    </div>
+  );
+}
+
+function TraitColumn({
+  title,
+  accent,
+  effects,
+  value,
+  columnIds,
+  onToggle,
+}: {
+  title: string;
+  accent: "emerald" | "rose";
+  effects: EffectDef[];
+  value: string[];
+  columnIds: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  const selectedCount = value.filter((id) => columnIds.has(id)).length;
+  const full = selectedCount >= TRAIT_MAX;
+  const groups: [string, EffectDef[]][] = [];
+  for (const effect of effects) {
+    const cat = effect.category ?? "otros";
+    const bucket = groups.find(([key]) => key === cat);
+    if (bucket) bucket[1].push(effect);
+    else groups.push([cat, [effect]]);
+  }
+  const accentText = accent === "emerald" ? "text-emerald-300" : "text-rose-300";
+  const selectedCls =
+    accent === "emerald"
+      ? "border-emerald-300/70 bg-emerald-400/15 text-emerald-100"
+      : "border-rose-300/70 bg-rose-400/15 text-rose-100";
+
+  return (
+    <div className="rounded-md border border-white/10 bg-black/15 p-3">
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className={`text-[0.66rem] font-black uppercase tracking-[0.14em] ${accentText}`}>{title}</p>
+        <span className={`text-[0.66rem] font-black ${full ? accentText : "text-slate-500"}`}>{selectedCount}/{TRAIT_MAX}</span>
+      </div>
+      <div className="space-y-2.5">
+        {groups.map(([cat, list]) => (
+          <div key={cat}>
+            <p className="mb-1 text-[0.55rem] font-black uppercase tracking-[0.12em] text-slate-500">{CATEGORY_LABEL[cat] ?? cat}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {list.map((effect) => {
+                const selected = value.includes(effect.id);
+                const disabled = !selected && full;
+                const soon = effect.status === "soon";
+                return (
+                  <button
+                    key={effect.id}
+                    type="button"
+                    title={effect.description}
+                    disabled={disabled}
+                    onClick={() => onToggle(effect.id)}
+                    className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[0.68rem] font-black transition ${
+                      selected ? selectedCls : "border-white/12 bg-white/[0.03] text-slate-300 hover:border-white/25 hover:text-white"
+                    } ${disabled ? "cursor-not-allowed opacity-35 hover:border-white/12 hover:text-slate-300" : ""} ${
+                      !selected && soon ? "opacity-70" : ""
+                    }`}
+                  >
+                    {effect.name}
+                    {soon && <span className="rounded-sm bg-amber-300/20 px-1 text-[0.5rem] uppercase tracking-wide text-amber-200">pronto</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1032,30 +1162,6 @@ function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: strin
   );
 }
 
-function TextInput({
-  label,
-  value,
-  disabled = false,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  disabled?: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-      {label}
-      <input
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-md border border-white/15 bg-[#151922] px-3 py-2 text-sm font-bold text-white outline-none focus:border-amber-300 disabled:opacity-55"
-      />
-    </label>
-  );
-}
-
 function NumberInput({
   label,
   value,
@@ -1252,13 +1358,6 @@ function nextId(prefix: string, records: Record<string, unknown>): string {
     id = `${prefix}-${index}`;
   }
   return id;
-}
-
-function csv(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function anchorLabel(id: string): string {
