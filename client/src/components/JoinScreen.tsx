@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Check, LogIn, RefreshCw, Users, Wrench } from "lucide-react";
-import type { CharacterSetSummary, CharacterSlot, RoomSummary } from "@essence/shared";
+import type { CharacterSetSummary, CharacterSlot, GameContent, RoomSummary } from "@essence/shared";
+import { characterSetSummaries } from "@essence/shared/characters";
+import seedContent from "@shared/content.json";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 import { Input } from "@/components/ui/8bit/input";
+
+const FALLBACK_CHARACTER_SETS = characterSetSummaries(seedContent as unknown as GameContent);
 
 interface Props {
   error: string | null;
@@ -102,18 +106,29 @@ function CreateView({
   useEffect(() => {
     let cancelled = false;
     fetch("/api/character-sets")
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((res) => {
+        const contentType = res.headers.get("content-type") ?? "";
+        if (!res.ok || !contentType.includes("application/json")) throw new Error("Character set API unavailable");
+        return res.json();
+      })
       .then((data: { characterSets: CharacterSetSummary[] }) => {
         if (cancelled) return;
-        setSets(data.characterSets);
-        const firstSet = data.characterSets[0];
+        const nextSets = Array.isArray(data.characterSets) && data.characterSets.length ? data.characterSets : FALLBACK_CHARACTER_SETS;
+        setSets(nextSets);
+        const firstSet = nextSets[0];
         if (firstSet) {
           setCharacterSetId((current) => current || firstSet.id);
           setCharacterId((current) => current || firstSet.characters[0]?.id || "");
         }
       })
       .catch(() => {
-        if (!cancelled) setSets([]);
+        if (cancelled) return;
+        setSets(FALLBACK_CHARACTER_SETS);
+        const firstSet = FALLBACK_CHARACTER_SETS[0];
+        if (firstSet) {
+          setCharacterSetId((current) => current || firstSet.id);
+          setCharacterId((current) => current || firstSet.characters[0]?.id || "");
+        }
       });
     return () => {
       cancelled = true;
