@@ -895,6 +895,546 @@
           "anchorId": "back"
         }
       ]
+    },
+    "corona-rey": {
+      "id": "corona-rey",
+      "name": "Corona de rey",
+      "description": "Corona dorada con joyas para el que manda.",
+      "price": 0,
+      "asset": "corona-rey",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "sombrero-mariachi": {
+      "id": "sombrero-mariachi",
+      "name": "Sombrero mariachi",
+      "description": "Sombrerazo mexicano de ala enorme.",
+      "price": 0,
+      "asset": "sombrero-mariachi",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "gorro-bufon": {
+      "id": "gorro-bufon",
+      "name": "Gorro de bufón",
+      "description": "Gorro de tres puntas con cascabeles.",
+      "price": 0,
+      "asset": "gorro-bufon",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "casco-vikingo": {
+      "id": "casco-vikingo",
+      "name": "Casco vikingo",
+      "description": "Casco con cuernos para saquear la fiesta.",
+      "price": 0,
+      "asset": "casco-vikingo",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "corona-laurel": {
+      "id": "corona-laurel",
+      "name": "Corona de laurel",
+      "description": "Laureles de campeón romano.",
+      "price": 0,
+      "asset": "corona-laurel",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "aureola": {
+      "id": "aureola",
+      "name": "Aureola",
+      "description": "Aureola de angelito que flota y brilla.",
+      "price": 0,
+      "asset": "aureola",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "cuernos-diablo": {
+      "id": "cuernos-diablo",
+      "name": "Cuernos de diablo",
+      "description": "Cuernitos rojos de diablito.",
+      "price": 0,
+      "asset": "cuernos-diablo",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "gorro-hongo": {
+      "id": "gorro-hongo",
+      "name": "Gorro hongo",
+      "description": "Gorro con forma de hongo rojo con lunares.",
+      "price": 0,
+      "asset": "gorro-hongo",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "helice-gorro": {
+      "id": "helice-gorro",
+      "name": "Gorro con hélice",
+      "description": "Gorrito con hélice que gira.",
+      "price": 0,
+      "asset": "helice-gorro",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "corona-flores": {
+      "id": "corona-flores",
+      "name": "Corona de flores",
+      "description": "Coronita de flores primaveral.",
+      "price": 0,
+      "asset": "corona-flores",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "casco-obra": {
+      "id": "casco-obra",
+      "name": "Casco de obra",
+      "description": "Casco amarillo de albañil.",
+      "price": 0,
+      "asset": "casco-obra",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "sombrero-bruja": {
+      "id": "sombrero-bruja",
+      "name": "Sombrero de bruja",
+      "description": "Sombrero puntiagudo de bruja.",
+      "price": 0,
+      "asset": "sombrero-bruja",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "cresta-punk": {
+      "id": "cresta-punk",
+      "name": "Cresta punk",
+      "description": "Cresta mohawk bien rebelde.",
+      "price": 0,
+      "asset": "cresta-punk",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "fez": {
+      "id": "fez",
+      "name": "Fez",
+      "description": "Fez rojo con borla.",
+      "price": 0,
+      "asset": "fez",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "aleta-tiburon": {
+      "id": "aleta-tiburon",
+      "name": "Aleta de tiburón",
+      "description": "Aleta de tiburón en la cabeza.",
+      "price": 0,
+      "asset": "aleta-tiburon",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "pulpo-sombrero": {
+      "id": "pulpo-sombrero",
+      "name": "Pulpo en la cabeza",
+      "description": "Un pulpo abrazándote la cabeza.",
+      "price": 0,
+      "asset": "pulpo-sombrero",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "banana-cabeza": {
+      "id": "banana-cabeza",
+      "name": "Banana",
+      "description": "Una banana gigante de sombrero.",
+      "price": 0,
+      "asset": "banana-cabeza",
+      "anchorType": "body",
+      "anchorId": "head",
+      "anchor": "head"
+    },
+    "lentes-corazon": {
+      "id": "lentes-corazon",
+      "name": "Lentes corazón",
+      "description": "Anteojos con forma de corazón.",
+      "price": 0,
+      "asset": "lentes-corazon",
+      "anchorType": "face",
+      "anchorId": "leftEye",
+      "anchor": "leftEye"
+    },
+    "lentes-estrella": {
+      "id": "lentes-estrella",
+      "name": "Lentes estrella",
+      "description": "Anteojos con forma de estrella.",
+      "price": 0,
+      "asset": "lentes-estrella",
+      "anchorType": "face",
+      "anchorId": "leftEye",
+      "anchor": "leftEye"
+    },
+    "monoculo": {
+      "id": "monoculo",
+      "name": "Monóculo",
+      "description": "Monóculo de señorito elegante.",
+      "price": 0,
+      "asset": "monoculo",
+      "anchorType": "face",
+      "anchorId": "rightEye",
+      "anchor": "rightEye"
+    },
+    "lentes-3d": {
+      "id": "lentes-3d",
+      "name": "Lentes 3D",
+      "description": "Anteojos 3D rojo y cian.",
+      "price": 0,
+      "asset": "lentes-3d",
+      "anchorType": "face",
+      "anchorId": "leftEye",
+      "anchor": "leftEye"
+    },
+    "antifaz": {
+      "id": "antifaz",
+      "name": "Antifaz",
+      "description": "Antifaz de superhéroe.",
+      "price": 0,
+      "asset": "antifaz",
+      "anchorType": "face",
+      "anchorId": "leftEye",
+      "anchor": "leftEye"
+    },
+    "parche-pirata": {
+      "id": "parche-pirata",
+      "name": "Parche pirata",
+      "description": "Parche negro de pirata.",
+      "price": 0,
+      "asset": "parche-pirata",
+      "anchorType": "face",
+      "anchorId": "leftEye",
+      "anchor": "leftEye"
+    },
+    "lentes-pixel": {
+      "id": "lentes-pixel",
+      "name": "Lentes pixeladas",
+      "description": "Anteojos pixelados estilo meme.",
+      "price": 0,
+      "asset": "lentes-pixel",
+      "anchorType": "face",
+      "anchorId": "leftEye",
+      "anchor": "leftEye"
+    },
+    "nariz-payaso": {
+      "id": "nariz-payaso",
+      "name": "Nariz de payaso",
+      "description": "Nariz roja de payaso.",
+      "price": 0,
+      "asset": "nariz-payaso",
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "anchor": "mouth"
+    },
+    "ojos-saltones": {
+      "id": "ojos-saltones",
+      "name": "Ojos saltones",
+      "description": "Ojos de resorte que tiemblan.",
+      "price": 0,
+      "asset": "ojos-saltones",
+      "anchorType": "face",
+      "anchorId": "leftEye",
+      "anchor": "leftEye"
+    },
+    "chupete": {
+      "id": "chupete",
+      "name": "Chupete",
+      "description": "Chupete gigante de bebé.",
+      "price": 0,
+      "asset": "chupete",
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "anchor": "mouth"
+    },
+    "puro": {
+      "id": "puro",
+      "name": "Puro",
+      "description": "Un puro para festejar el pozo.",
+      "price": 0,
+      "asset": "puro",
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "anchor": "mouth"
+    },
+    "pipa": {
+      "id": "pipa",
+      "name": "Pipa",
+      "description": "Pipa de detective.",
+      "price": 0,
+      "asset": "pipa",
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "anchor": "mouth"
+    },
+    "diente-oro": {
+      "id": "diente-oro",
+      "name": "Diente de oro",
+      "description": "Un diente de oro que brilla.",
+      "price": 0,
+      "asset": "diente-oro",
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "anchor": "mouth"
+    },
+    "barba-vikinga": {
+      "id": "barba-vikinga",
+      "name": "Barba vikinga",
+      "description": "Barbota trenzada con anillos.",
+      "price": 0,
+      "asset": "barba-vikinga",
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "anchor": "mouth"
+    },
+    "globo-chicle": {
+      "id": "globo-chicle",
+      "name": "Globo de chicle",
+      "description": "Globo de chicle que se infla.",
+      "price": 0,
+      "asset": "globo-chicle",
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "anchor": "mouth"
+    },
+    "banda-novio": {
+      "id": "banda-novio",
+      "name": "Banda de Novio",
+      "description": "Banda de 'Novio' para la despedida.",
+      "price": 0,
+      "asset": "banda-novio",
+      "anchorType": "body",
+      "anchorId": "chest",
+      "anchor": "chest"
+    },
+    "medalla-oro": {
+      "id": "medalla-oro",
+      "name": "Medalla de oro",
+      "description": "Medalla dorada de campeón.",
+      "price": 0,
+      "asset": "medalla-oro",
+      "anchorType": "body",
+      "anchorId": "chest",
+      "anchor": "chest"
+    },
+    "armadura-caballero": {
+      "id": "armadura-caballero",
+      "name": "Peto de caballero",
+      "description": "Peto de armadura medieval.",
+      "price": 0,
+      "asset": "armadura-caballero",
+      "anchorType": "body",
+      "anchorId": "chest",
+      "anchor": "chest"
+    },
+    "chaleco-salvavidas": {
+      "id": "chaleco-salvavidas",
+      "name": "Chaleco salvavidas",
+      "description": "Chaleco naranja de rescate.",
+      "price": 0,
+      "asset": "chaleco-salvavidas",
+      "anchorType": "body",
+      "anchorId": "chest",
+      "anchor": "chest"
+    },
+    "bandolera": {
+      "id": "bandolera",
+      "name": "Bandolera",
+      "description": "Bandolera de balas cruzada.",
+      "price": 0,
+      "asset": "bandolera",
+      "anchorType": "body",
+      "anchorId": "chest",
+      "anchor": "chest"
+    },
+    "corbata-luces": {
+      "id": "corbata-luces",
+      "name": "Moño con luces",
+      "description": "Moño de fiesta con lucecitas.",
+      "price": 0,
+      "asset": "corbata-luces",
+      "anchorType": "body",
+      "anchorId": "chest",
+      "anchor": "chest"
+    },
+    "collar-hawaiano": {
+      "id": "collar-hawaiano",
+      "name": "Collar hawaiano",
+      "description": "Collar de flores tropicales.",
+      "price": 0,
+      "asset": "collar-hawaiano",
+      "anchorType": "body",
+      "anchorId": "chest",
+      "anchor": "chest"
+    },
+    "mochila-jet": {
+      "id": "mochila-jet",
+      "name": "Jetpack",
+      "description": "Mochila cohete con llamas.",
+      "price": 0,
+      "asset": "mochila-jet",
+      "anchorType": "body",
+      "anchorId": "back",
+      "anchor": "back"
+    },
+    "alas-angel": {
+      "id": "alas-angel",
+      "name": "Alas de ángel",
+      "description": "Alas blancas de plumas.",
+      "price": 0,
+      "asset": "alas-angel",
+      "anchorType": "body",
+      "anchorId": "back",
+      "anchor": "back"
+    },
+    "alas-demonio": {
+      "id": "alas-demonio",
+      "name": "Alas de demonio",
+      "description": "Alas de murciélago rojas.",
+      "price": 0,
+      "asset": "alas-demonio",
+      "anchorType": "body",
+      "anchorId": "back",
+      "anchor": "back"
+    },
+    "caparazon-tortuga": {
+      "id": "caparazon-tortuga",
+      "name": "Caparazón de tortuga",
+      "description": "Caparazón verde en la espalda.",
+      "price": 0,
+      "asset": "caparazon-tortuga",
+      "anchorType": "body",
+      "anchorId": "back",
+      "anchor": "back"
+    },
+    "capa-super": {
+      "id": "capa-super",
+      "name": "Capa de superhéroe",
+      "description": "Capa roja que ondea.",
+      "price": 0,
+      "asset": "capa-super",
+      "anchorType": "body",
+      "anchorId": "back",
+      "anchor": "back"
+    },
+    "tanque-buzo": {
+      "id": "tanque-buzo",
+      "name": "Tanque de buceo",
+      "description": "Tanque de buzo con manguera.",
+      "price": 0,
+      "asset": "tanque-buzo",
+      "anchorType": "body",
+      "anchorId": "back",
+      "anchor": "back"
+    },
+    "alas-hada": {
+      "id": "alas-hada",
+      "name": "Alas de hada",
+      "description": "Alitas de hada iridiscentes.",
+      "price": 0,
+      "asset": "alas-hada",
+      "anchorType": "body",
+      "anchorId": "back",
+      "anchor": "back"
+    },
+    "guantes-boxeo": {
+      "id": "guantes-boxeo",
+      "name": "Guantes de box",
+      "description": "Guantazos de boxeo rojos.",
+      "price": 0,
+      "asset": "guantes-boxeo",
+      "anchorType": "body",
+      "anchorId": "rightHand",
+      "anchor": "rightHand"
+    },
+    "sable-laser": {
+      "id": "sable-laser",
+      "name": "Sable láser",
+      "description": "Sable de luz que brilla.",
+      "price": 0,
+      "asset": "sable-laser",
+      "anchorType": "body",
+      "anchorId": "rightHand",
+      "anchor": "rightHand"
+    },
+    "varita-magica": {
+      "id": "varita-magica",
+      "name": "Varita mágica",
+      "description": "Varita con estrella brillante.",
+      "price": 0,
+      "asset": "varita-magica",
+      "anchorType": "body",
+      "anchorId": "rightHand",
+      "anchor": "rightHand"
+    },
+    "maracas": {
+      "id": "maracas",
+      "name": "Maracas",
+      "description": "Un par de maracas fiesteras.",
+      "price": 0,
+      "asset": "maracas",
+      "anchorType": "body",
+      "anchorId": "rightHand",
+      "anchor": "rightHand"
+    },
+    "copa-champan": {
+      "id": "copa-champan",
+      "name": "Copa de champán",
+      "description": "Copa de champán para brindar.",
+      "price": 0,
+      "asset": "copa-champan",
+      "anchorType": "body",
+      "anchorId": "rightHand",
+      "anchor": "rightHand"
+    },
+    "jarra-cerveza": {
+      "id": "jarra-cerveza",
+      "name": "Jarra de cerveza",
+      "description": "Jarra de birra con espuma.",
+      "price": 0,
+      "asset": "jarra-cerveza",
+      "anchorType": "body",
+      "anchorId": "rightHand",
+      "anchor": "rightHand"
+    },
+    "antorcha": {
+      "id": "antorcha",
+      "name": "Antorcha",
+      "description": "Antorcha con fuego real.",
+      "price": 0,
+      "asset": "antorcha",
+      "anchorType": "body",
+      "anchorId": "rightHand",
+      "anchor": "rightHand"
+    },
+    "globo-perro": {
+      "id": "globo-perro",
+      "name": "Globo perro",
+      "description": "Globo con forma de perrito.",
+      "price": 0,
+      "asset": "globo-perro",
+      "anchorType": "body",
+      "anchorId": "leftHand",
+      "anchor": "leftHand"
     }
   },
   "board": [

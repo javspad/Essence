@@ -1239,6 +1239,60 @@ export const COSMETIC_IDS = [
   "tuxedo",
   "pet-dog",
   "pet-cat",
+  "corona-rey",
+  "sombrero-mariachi",
+  "gorro-bufon",
+  "casco-vikingo",
+  "corona-laurel",
+  "aureola",
+  "cuernos-diablo",
+  "gorro-hongo",
+  "helice-gorro",
+  "corona-flores",
+  "casco-obra",
+  "sombrero-bruja",
+  "cresta-punk",
+  "fez",
+  "aleta-tiburon",
+  "pulpo-sombrero",
+  "banana-cabeza",
+  "lentes-corazon",
+  "lentes-estrella",
+  "monoculo",
+  "lentes-3d",
+  "antifaz",
+  "parche-pirata",
+  "lentes-pixel",
+  "nariz-payaso",
+  "ojos-saltones",
+  "chupete",
+  "puro",
+  "pipa",
+  "diente-oro",
+  "barba-vikinga",
+  "globo-chicle",
+  "banda-novio",
+  "medalla-oro",
+  "armadura-caballero",
+  "chaleco-salvavidas",
+  "bandolera",
+  "corbata-luces",
+  "collar-hawaiano",
+  "mochila-jet",
+  "alas-angel",
+  "alas-demonio",
+  "caparazon-tortuga",
+  "capa-super",
+  "tanque-buzo",
+  "alas-hada",
+  "guantes-boxeo",
+  "sable-laser",
+  "varita-magica",
+  "maracas",
+  "copa-champan",
+  "jarra-cerveza",
+  "antorcha",
+  "globo-perro",
 ] as const;
 
 function TokenCosmetics({
@@ -1276,6 +1330,314 @@ function TokenCosmetics({
         />
       ))}
     </>
+  );
+}
+
+type CosmeticAnchors = {
+  leftEye: Vec3;
+  rightEye: Vec3;
+  mouth: Vec3;
+  head: Vec3;
+  chest: Vec3;
+  leftHand: Vec3;
+  rightHand: Vec3;
+  back: Vec3;
+};
+
+      function CosmeticAureola({ a, opacity }: { a: CosmeticAnchors; opacity: number }) {
+        const ref = useRef<Group | null>(null);
+        useFrame((state) => {
+          if (!ref.current) return;
+          const t = state.clock.elapsedTime;
+          ref.current.position.y = a.head[1] + 0.19 + Math.sin(t * 1.6) * 0.02;
+          ref.current.rotation.y = t * 0.6;
+        });
+        return (
+          <group ref={ref} position={[0, a.head[1] + 0.19, 0]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.075, 0.014, 14, 40]} />
+              <meshStandardMaterial color={"#f5c542"} emissive="#fbbf24" emissiveIntensity={1.2} metalness={0.6} roughness={0.25} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+            <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1.35, 1.35, 1.35]}>
+              <torusGeometry args={[0.075, 0.02, 12, 40]} />
+              <meshBasicMaterial color="#fde68a" transparent opacity={opacity * 0.22} toneMapped={false} side={DoubleSide} />
+            </mesh>
+          </group>
+        );
+      }
+
+      function CosmeticHeliceGorro({ a, opacity }: { a: CosmeticAnchors; opacity: number }) {
+        const propRef = useRef<Group | null>(null);
+        useFrame((state) => {
+          if (!propRef.current) return;
+          propRef.current.rotation.y = state.clock.elapsedTime * 14;
+        });
+        const panelColors = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#ec4899"];
+        const bladeColors = ["#f43f5e", "#22d3ee", "#facc15"];
+        return (
+          <group position={[0, a.head[1] + 0.02, 0]}>
+            {panelColors.map((c, i) => (
+              <mesh key={i} position={[0, 0.055, 0]} scale={[1, 0.6, 1]}>
+                <sphereGeometry
+                  args={[
+                    0.11,
+                    10,
+                    12,
+                    (i / panelColors.length) * Math.PI * 2,
+                    (Math.PI * 2) / panelColors.length,
+                    0,
+                    Math.PI / 2,
+                  ]}
+                />
+                <meshStandardMaterial color={c} roughness={0.45} side={DoubleSide} transparent opacity={opacity} />
+              </mesh>
+            ))}
+            <mesh position={[0, 0.006, 0]}>
+              <torusGeometry args={[0.11, 0.014, 10, 28]} />
+              <meshStandardMaterial color="#ffffff" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.112, 0]}>
+              <sphereGeometry args={[0.018, 14, 12]} />
+              <meshStandardMaterial color="#f5c542" metalness={0.7} roughness={0.25} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.14, 0]}>
+              <cylinderGeometry args={[0.006, 0.006, 0.05, 10]} />
+              <meshStandardMaterial color="#111827" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <group ref={propRef} position={[0, 0.168, 0]}>
+              {bladeColors.map((c, i) => (
+                <mesh
+                  key={i}
+                  rotation={[0, (i / bladeColors.length) * Math.PI * 2, 0]}
+                  position={[
+                    Math.cos((i / bladeColors.length) * Math.PI * 2) * 0.045,
+                    0,
+                    -Math.sin((i / bladeColors.length) * Math.PI * 2) * 0.045,
+                  ]}
+                >
+                  <boxGeometry args={[0.09, 0.006, 0.025]} />
+                  <meshStandardMaterial color={c} roughness={0.35} side={DoubleSide} transparent opacity={opacity} toneMapped={false} />
+                </mesh>
+              ))}
+              <mesh>
+                <sphereGeometry args={[0.014, 12, 10]} />
+                <meshStandardMaterial color="#f5c542" metalness={0.7} roughness={0.25} transparent opacity={opacity} />
+              </mesh>
+            </group>
+          </group>
+        );
+      }
+
+      function CosmeticOjosSaltones({ a, opacity }: { a: CosmeticAnchors; opacity: number }) {
+        const leftRef = useRef<Group | null>(null);
+        const rightRef = useRef<Group | null>(null);
+        useFrame((state) => {
+          const t = state.clock.elapsedTime;
+          if (leftRef.current) {
+            leftRef.current.position.x = a.leftEye[0] + Math.sin(t * 6) * 0.012;
+            leftRef.current.position.y = a.leftEye[1] + Math.sin(t * 5 + 1.1) * 0.014;
+            leftRef.current.rotation.z = Math.sin(t * 4) * 0.28;
+          }
+          if (rightRef.current) {
+            rightRef.current.position.x = a.rightEye[0] + Math.sin(t * 6 + 2.3) * 0.012;
+            rightRef.current.position.y = a.rightEye[1] + Math.sin(t * 5 + 3.4) * 0.014;
+            rightRef.current.rotation.z = Math.sin(t * 4 + 1.7) * 0.28;
+          }
+        });
+        const springColors = ["#f43f5e", "#f59e0b", "#22d3ee", "#a855f7", "#f43f5e", "#f59e0b"];
+        const eyes: Array<{ ref: typeof leftRef; p: Vec3; k: string }> = [
+          { ref: leftRef, p: a.leftEye, k: "L" },
+          { ref: rightRef, p: a.rightEye, k: "R" },
+        ];
+        return (
+          <group>
+            {eyes.map((e) => (
+              <group key={e.k} ref={e.ref} position={[e.p[0], e.p[1], e.p[2] + 0.03]}>
+                {springColors.map((c, ci) => (
+                  <mesh key={ci} position={[0, 0, ci * 0.013]} rotation={[Math.PI / 2, 0, 0]}>
+                    <torusGeometry args={[0.015, 0.0045, 8, 16]} />
+                    <meshStandardMaterial color={c} metalness={0.5} roughness={0.3} transparent opacity={opacity} />
+                  </mesh>
+                ))}
+                <mesh position={[0, 0, 0.115]}>
+                  <sphereGeometry args={[0.045, 20, 20]} />
+                  <meshStandardMaterial color="#ffffff" roughness={0.25} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, 0, 0.156]}>
+                  <sphereGeometry args={[0.02, 16, 16]} />
+                  <meshStandardMaterial color="#111827" roughness={0.2} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0.007, 0.007, 0.17]}>
+                  <sphereGeometry args={[0.007, 12, 12]} />
+                  <meshBasicMaterial color="#ffffff" transparent opacity={opacity} toneMapped={false} />
+                </mesh>
+              </group>
+            ))}
+          </group>
+        );
+      }
+
+      function CosmeticGloboChicle({ a, opacity }: { a: CosmeticAnchors; opacity: number }) {
+        const ref = useRef<Group | null>(null);
+        useFrame((state) => {
+          if (!ref.current) return;
+          const t = state.clock.elapsedTime;
+          const s = 0.95 + Math.sin(t * 1.6) * 0.35;
+          ref.current.scale.set(s, s, s);
+        });
+        return (
+          <group ref={ref} position={[a.mouth[0], a.mouth[1] - 0.01, a.mouth[2] + 0.09]}>
+            <mesh position={[0, -0.05, -0.02]}>
+              <cylinderGeometry args={[0.006, 0.012, 0.035, 12]} />
+              <meshStandardMaterial color="#ff6fb5" roughness={0.25} transparent opacity={opacity * 0.85} />
+            </mesh>
+            <mesh>
+              <sphereGeometry args={[0.06, 24, 24]} />
+              <meshStandardMaterial
+                color="#ff6fb5"
+                emissive="#ff8ec7"
+                emissiveIntensity={0.25}
+                metalness={0.1}
+                roughness={0.08}
+                transparent
+                opacity={opacity * 0.82}
+              />
+            </mesh>
+            <mesh position={[-0.02, 0.022, 0.045]}>
+              <sphereGeometry args={[0.015, 14, 14]} />
+              <meshBasicMaterial color="#ffe3f2" transparent opacity={opacity * 0.7} toneMapped={false} />
+            </mesh>
+          </group>
+        );
+      }
+
+      function CosmeticMochilaJet({ a, opacity }: { a: CosmeticAnchors; opacity: number }) {
+        const ref = useRef<Group | null>(null);
+        useFrame((state) => {
+          if (!ref.current) return;
+          const t = state.clock.elapsedTime;
+          const flames = ref.current.children;
+          for (let i = 0; i < flames.length; i++) {
+            const f = flames[i] as unknown as Group;
+            const phase = t * 22 + i * 2.1;
+            const s = 0.72 + Math.sin(phase) * 0.28 + Math.sin(phase * 2.3) * 0.12;
+            f.scale.set(1, Math.max(0.35, s), 1);
+          }
+        });
+        const tankOffsets = [-0.055, 0.055];
+        const tankColors = ["#9ca3af", "#ef4444"];
+        const baseY = a.chest[1] + 0.02;
+        const baseZ = a.back[2] - 0.06;
+        const flameTopY = baseY - 0.135;
+        return (
+          <group>
+            {tankOffsets.map((ox, i) => (
+              <group key={`tank-${i}`} position={[ox, baseY, baseZ]}>
+                <mesh>
+                  <cylinderGeometry args={[0.03, 0.03, 0.17, 16]} />
+                  <meshStandardMaterial color={tankColors[i]} metalness={0.7} roughness={0.3} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, 0.095, 0]}>
+                  <sphereGeometry args={[0.03, 16, 12]} />
+                  <meshStandardMaterial color="#d1d5db" metalness={0.75} roughness={0.25} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, 0, 0.025]}>
+                  <boxGeometry args={[0.02, 0.11, 0.008]} />
+                  <meshStandardMaterial color={"#f5c542"} metalness={0.8} roughness={0.25} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, -0.11, 0]}>
+                  <coneGeometry args={[0.028, 0.05, 16]} />
+                  <meshStandardMaterial color="#4b5563" metalness={0.8} roughness={0.3} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+            <group ref={ref}>
+              {tankOffsets.map((ox, i) => (
+                <group key={`flame-${i}`} position={[ox, flameTopY, baseZ]}>
+                  <mesh position={[0, -0.045, 0]} rotation={[Math.PI, 0, 0]}>
+                    <coneGeometry args={[0.026, 0.09, 14]} />
+                    <meshBasicMaterial color="#fb923c" transparent opacity={opacity * 0.85} toneMapped={false} />
+                  </mesh>
+                  <mesh position={[0, -0.032, 0]} rotation={[Math.PI, 0, 0]}>
+                    <coneGeometry args={[0.014, 0.058, 12]} />
+                    <meshBasicMaterial color="#60a5fa" transparent opacity={opacity * 0.95} toneMapped={false} />
+                  </mesh>
+                </group>
+              ))}
+            </group>
+          </group>
+        );
+      }
+
+function CosmeticSableLaser({ a, opacity }: { a: CosmeticAnchors; opacity: number }) {
+  const blade = useRef<Group | null>(null);
+  useFrame((state) => {
+    if (!blade.current) return;
+    const t = state.clock.elapsedTime;
+    blade.current.scale.y = 1 + Math.sin(t * 22) * 0.02 + Math.sin(t * 9) * 0.015;
+  });
+  return (
+    <group position={[a.rightHand[0] + 0.02, a.rightHand[1] + 0.03, a.rightHand[2] + 0.02]} rotation={[0, 0, -0.15]}>
+      <mesh position={[0, -0.02, 0]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.06, 12]} />
+        <meshStandardMaterial color="#6b7280" metalness={0.8} roughness={0.3} transparent opacity={opacity} />
+      </mesh>
+      <mesh position={[0, 0.006, 0]}>
+        <cylinderGeometry args={[0.014, 0.014, 0.008, 12]} />
+        <meshStandardMaterial color="#111827" metalness={0.6} roughness={0.4} transparent opacity={opacity} />
+      </mesh>
+      <group ref={blade} position={[0, 0.03, 0]}>
+        <mesh position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.009, 0.009, 0.24, 12]} />
+          <meshStandardMaterial color="#bbf7d0" emissive="#22c55e" emissiveIntensity={1.1} transparent opacity={opacity} toneMapped={false} />
+        </mesh>
+        <mesh position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.016, 0.016, 0.235, 12]} />
+          <meshBasicMaterial color="#4ade80" transparent opacity={opacity * 0.25} toneMapped={false} />
+        </mesh>
+        <mesh position={[0, 0.24, 0]}>
+          <sphereGeometry args={[0.009, 10, 8]} />
+          <meshStandardMaterial color="#dcfce7" emissive="#22c55e" emissiveIntensity={1.1} transparent opacity={opacity} toneMapped={false} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+function CosmeticAntorcha({ a, opacity }: { a: CosmeticAnchors; opacity: number }) {
+  const flame = useRef<Group | null>(null);
+  useFrame((state) => {
+    if (!flame.current) return;
+    const t = state.clock.elapsedTime;
+    flame.current.scale.y = 1 + Math.sin(t * 15) * 0.12 + Math.sin(t * 27) * 0.06;
+    flame.current.scale.x = 1 + Math.sin(t * 19) * 0.05;
+    flame.current.rotation.z = Math.sin(t * 6) * 0.08;
+  });
+  return (
+    <group position={[a.rightHand[0] + 0.02, a.rightHand[1] + 0.03, a.rightHand[2] + 0.02]}>
+      <mesh position={[0, -0.02, 0]}>
+        <cylinderGeometry args={[0.011, 0.013, 0.11, 10]} />
+        <meshStandardMaterial color="#5b3a1e" roughness={0.7} transparent opacity={opacity} />
+      </mesh>
+      <mesh position={[0, 0.04, 0]}>
+        <cylinderGeometry args={[0.02, 0.016, 0.03, 10]} />
+        <meshStandardMaterial color="#3a2412" roughness={0.6} transparent opacity={opacity} />
+      </mesh>
+      <group ref={flame} position={[0, 0.06, 0]}>
+        <mesh position={[0, 0.05, 0]}>
+          <coneGeometry args={[0.03, 0.11, 12]} />
+          <meshStandardMaterial color="#f97316" emissive="#ea580c" emissiveIntensity={0.9} transparent opacity={opacity * 0.9} toneMapped={false} />
+        </mesh>
+        <mesh position={[0, 0.06, 0]}>
+          <coneGeometry args={[0.02, 0.09, 12]} />
+          <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1} transparent opacity={opacity} toneMapped={false} />
+        </mesh>
+        <mesh position={[0, 0.065, 0]}>
+          <coneGeometry args={[0.011, 0.06, 10]} />
+          <meshStandardMaterial color="#fef9c3" emissive="#fde68a" emissiveIntensity={1.2} transparent opacity={opacity} toneMapped={false} />
+        </mesh>
+      </group>
+    </group>
   );
 }
 
@@ -1611,6 +1973,1800 @@ function TokenCosmetic({
         </mesh>
       </group>
     );
+  }
+
+  const a: CosmeticAnchors = {
+    leftEye: anchorSurface("face", "leftEye", faceAnchors, bodyAnchors),
+    rightEye: anchorSurface("face", "rightEye", faceAnchors, bodyAnchors),
+    mouth: anchorSurface("face", "mouth", faceAnchors, bodyAnchors),
+    head: anchorSurface("body", "head", faceAnchors, bodyAnchors),
+    chest: anchorSurface("body", "chest", faceAnchors, bodyAnchors),
+    leftHand: anchorSurface("body", "leftHand", faceAnchors, bodyAnchors),
+    rightHand: anchorSurface("body", "rightHand", faceAnchors, bodyAnchors),
+    back: anchorSurface("body", "back", faceAnchors, bodyAnchors),
+  };
+  const black = "#111827";
+  const gold = "#f5c542";
+  const hatBase: Vec3 = [0, a.head[1] + 0.02, 0];
+  if (kind === "corona-rey") {
+    {
+        const gems = ["#ef4444", "#3b82f6", "#22c55e", "#ef4444", "#3b82f6"];
+        const bandR = 0.105;
+        return (
+          <group position={[0, a.head[1] + 0.05, 0]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[bandR, 0.02, 12, 28]} />
+              <meshStandardMaterial color={gold} metalness={0.9} roughness={0.15} transparent opacity={opacity} />
+            </mesh>
+            {gems.map((gem, i) => {
+              const ang = (i / gems.length) * Math.PI * 2;
+              const px = Math.cos(ang) * bandR;
+              const pz = Math.sin(ang) * bandR;
+              return (
+                <group key={i} position={[px, 0, pz]}>
+                  <mesh position={[0, 0.05, 0]}>
+                    <coneGeometry args={[0.024, 0.08, 12]} />
+                    <meshStandardMaterial color={gold} metalness={0.9} roughness={0.15} transparent opacity={opacity} />
+                  </mesh>
+                  <mesh position={[0, 0.104, 0]}>
+                    <octahedronGeometry args={[0.022, 0]} />
+                    <meshStandardMaterial color={gem} emissive={gem} emissiveIntensity={0.35} metalness={0.3} roughness={0.1} transparent opacity={opacity} toneMapped={false} />
+                  </mesh>
+                </group>
+              );
+            })}
+          </group>
+        );
+      }
+  }
+  if (kind === "sombrero-mariachi") {
+    return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.008, 0]}>
+              <cylinderGeometry args={[0.22, 0.22, 0.014, 40]} />
+              <meshStandardMaterial color="#c8965a" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.012, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.218, 0.012, 10, 44]} />
+              <meshStandardMaterial color="#b5854a" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.024, 0]}>
+              <cylinderGeometry args={[0.1, 0.135, 0.028, 32]} />
+              <meshStandardMaterial color="#b5854a" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.04, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.104, 0.013, 10, 32]} />
+              <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+            <mesh position={[0, 0.13, 0]}>
+              <coneGeometry args={[0.1, 0.18, 32]} />
+              <meshStandardMaterial color="#c8965a" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.098, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.066, 0.008, 8, 28]} />
+              <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+            <mesh position={[0, 0.222, 0]}>
+              <sphereGeometry args={[0.032, 20, 16]} />
+              <meshStandardMaterial color="#b5854a" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "gorro-bufon") {
+    return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.03, 0]}>
+              <sphereGeometry args={[0.11, 20, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color="#7c3aed" roughness={0.7} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0.028, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.108, 0.016, 10, 24]} />
+              <meshStandardMaterial color={gold} metalness={0.6} roughness={0.35} transparent opacity={opacity} />
+            </mesh>
+            <group position={[-0.085, 0.055, 0]} rotation={[0, 0, 1.05]}>
+              <mesh position={[0, 0.065, 0]}>
+                <coneGeometry args={[0.038, 0.13, 14]} />
+                <meshStandardMaterial color="#ef4444" roughness={0.65} transparent opacity={opacity} side={DoubleSide} />
+              </mesh>
+              <mesh position={[0, 0.148, 0]}>
+                <sphereGeometry args={[0.022, 12, 10]} />
+                <meshStandardMaterial color={gold} metalness={0.8} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+            </group>
+            <group position={[0.01, 0.1, 0]} rotation={[0, 0, -0.14]}>
+              <mesh position={[0, 0.07, 0]}>
+                <coneGeometry args={[0.038, 0.14, 14]} />
+                <meshStandardMaterial color="#22c55e" roughness={0.65} transparent opacity={opacity} side={DoubleSide} />
+              </mesh>
+              <mesh position={[0, 0.158, 0]}>
+                <sphereGeometry args={[0.022, 12, 10]} />
+                <meshStandardMaterial color={gold} metalness={0.8} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+            </group>
+            <group position={[0.085, 0.05, 0]} rotation={[0, 0, -1.1]}>
+              <mesh position={[0, 0.0625, 0]}>
+                <coneGeometry args={[0.038, 0.125, 14]} />
+                <meshStandardMaterial color="#a855f7" roughness={0.65} transparent opacity={opacity} side={DoubleSide} />
+              </mesh>
+              <mesh position={[0, 0.143, 0]}>
+                <sphereGeometry args={[0.022, 12, 10]} />
+                <meshStandardMaterial color={gold} metalness={0.8} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+            </group>
+          </group>
+        );
+  }
+  if (kind === "casco-vikingo") {
+    return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.05, 0]}>
+              <sphereGeometry args={[0.125, 22, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color="#9ca3af" metalness={0.55} roughness={0.35} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0.048, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.126, 0.016, 12, 30]} />
+              <meshStandardMaterial color="#6b7280" metalness={0.7} roughness={0.3} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.052, 0.128]}>
+              <boxGeometry args={[0.03, 0.11, 0.02]} />
+              <meshStandardMaterial color="#6b7280" metalness={0.7} roughness={0.3} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.165, 0]}>
+              <sphereGeometry args={[0.022, 14, 12]} />
+              <meshStandardMaterial color="#6b7280" metalness={0.7} roughness={0.3} transparent opacity={opacity} />
+            </mesh>
+            {[-1, 1].map((s) => (
+              <mesh key={`socket-${s}`} position={[s * 0.088, 0.058, 0]} rotation={[0, 0, s * -0.6]}>
+                <cylinderGeometry args={[0.03, 0.032, 0.028, 14]} />
+                <meshStandardMaterial color="#6b7280" metalness={0.7} roughness={0.3} transparent opacity={opacity} />
+              </mesh>
+            ))}
+            {[-1, 1].map((s) => (
+              <mesh key={`horn-${s}`} position={[s * 0.115, 0.115, 0]} rotation={[0, 0, s * -0.85]}>
+                <coneGeometry args={[0.032, 0.17, 16]} />
+                <meshStandardMaterial color="#f4ecd8" metalness={0.1} roughness={0.6} transparent opacity={opacity} />
+              </mesh>
+            ))}
+            {[-1, 1].map((s) => (
+              <mesh key={`tip-${s}`} position={[s * 0.175, 0.235, 0]} rotation={[0, 0, s * -0.28]}>
+                <coneGeometry args={[0.018, 0.13, 16]} />
+                <meshStandardMaterial color="#faf6ea" metalness={0.1} roughness={0.55} transparent opacity={opacity} />
+              </mesh>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "corona-laurel") {
+    return (
+          <group position={hatBase}>
+            {[-1, 1].map((side) => (
+              <group key={side} scale={[side, 1, 1]}>
+                {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+                  const ang = 0.34 + (i / 6) * (Math.PI * 0.6);
+                  const r = 0.112;
+                  const lx = Math.sin(ang) * r;
+                  const ly = 0.026 + Math.cos(ang) * 0.052;
+                  const lz = Math.cos(ang) * r * 0.35;
+                  return (
+                    <mesh
+                      key={i}
+                      position={[lx, ly, lz]}
+                      rotation={[0.35, -ang * 0.9 - 0.3, ang * 0.5 + 0.4]}
+                      scale={[0.05, 0.02, 0.03]}
+                    >
+                      <coneGeometry args={[1, 2, 6]} />
+                      <meshStandardMaterial
+                        color={i % 2 === 0 ? "#2f7d32" : "#3f9a45"}
+                        roughness={0.9}
+                        metalness={0}
+                        transparent
+                        opacity={opacity}
+                      />
+                    </mesh>
+                  );
+                })}
+              </group>
+            ))}
+            {[-1, 1].map((side) => (
+              <mesh
+                key={`berry-${side}`}
+                position={[side * 0.05, 0.052, 0.045]}
+              >
+                <sphereGeometry args={[0.011, 10, 10]} />
+                <meshStandardMaterial
+                  color={gold}
+                  metalness={0.85}
+                  roughness={0.25}
+                  emissive={gold}
+                  emissiveIntensity={0.25}
+                  transparent
+                  opacity={opacity}
+                />
+              </mesh>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "aureola") {
+    return <CosmeticAureola a={a} opacity={opacity} />;
+  }
+  if (kind === "cuernos-diablo") {
+    return (
+          <group position={hatBase}>
+            {[-1, 1].map((s) => (
+              <group key={s} position={[s * 0.07, 0.04, -0.02]}>
+                <mesh position={[0, 0, 0]} rotation={[-0.35, 0, s * 0.28]}>
+                  <coneGeometry args={[0.028, 0.075, 16]} />
+                  <meshStandardMaterial color="#dc2626" roughness={0.12} metalness={0.15} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[s * 0.006, 0.052, -0.016]} rotation={[-0.75, 0, s * 0.4]}>
+                  <coneGeometry args={[0.016, 0.055, 16]} />
+                  <meshStandardMaterial color="#ef4444" roughness={0.1} metalness={0.2} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, -0.026, 0.006]}>
+                  <sphereGeometry args={[0.026, 16, 16]} />
+                  <meshStandardMaterial color="#b91c1c" roughness={0.15} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "gorro-hongo") {
+    return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.05, 0]}>
+              <cylinderGeometry args={[0.075, 0.09, 0.05, 24]} />
+              <meshStandardMaterial color="#f5ecd8" roughness={0.7} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.085, 0]} scale={[1, 0.72, 1]}>
+              <sphereGeometry args={[0.135, 26, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color="#e23c2e" roughness={0.45} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.087, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.132, 0.012, 10, 30]} />
+              <meshStandardMaterial color="#c22b1f" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            {[
+              [0.0, 0.182, 0.0],
+              [0.085, 0.162, 0.031],
+              [-0.1, 0.143, 0.057],
+              [-0.028, 0.15, -0.104],
+              [0.042, 0.132, 0.117],
+              [0.06, 0.16, -0.072],
+              [-0.108, 0.14, -0.02],
+            ].map((p, i) => (
+              <mesh key={i} position={[p[0], p[1], p[2]]} scale={[1, 0.55, 1]}>
+                <sphereGeometry args={[0.022 - (i % 3) * 0.003, 14, 10]} />
+                <meshStandardMaterial color="#fbf6ec" roughness={0.6} transparent opacity={opacity} />
+              </mesh>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "helice-gorro") {
+    return <CosmeticHeliceGorro a={a} opacity={opacity} />;
+  }
+  if (kind === "corona-flores") {
+    return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.115, 0.014, 10, 28]} />
+              <meshStandardMaterial color="#3f9d4f" roughness={0.6} transparent opacity={opacity} />
+            </mesh>
+            {[
+              { ang: 0, petal: "#f472b6" },
+              { ang: (Math.PI * 2) / 7, petal: "#f9fafb" },
+              { ang: (Math.PI * 4) / 7, petal: "#c4b5fd" },
+              { ang: (Math.PI * 6) / 7, petal: "#fb7185" },
+              { ang: (Math.PI * 8) / 7, petal: "#e9d5ff" },
+              { ang: (Math.PI * 10) / 7, petal: "#f472b6" },
+              { ang: (Math.PI * 12) / 7, petal: "#fbcfe8" },
+            ].map((f, i) => {
+              const r = 0.115;
+              const fx = Math.cos(f.ang) * r;
+              const fz = Math.sin(f.ang) * r;
+              const fy = 0.058;
+              return (
+                <group key={i} position={[fx, fy, fz]} rotation={[0, -f.ang, 0]}>
+                  {[0, 1, 2, 3, 4].map((p) => {
+                    const pa = (p / 5) * Math.PI * 2;
+                    const pr = 0.026;
+                    return (
+                      <mesh
+                        key={p}
+                        position={[0, Math.sin(pa) * pr, Math.cos(pa) * pr]}
+                        scale={[0.45, 1, 1]}
+                      >
+                        <sphereGeometry args={[0.02, 10, 10]} />
+                        <meshStandardMaterial color={f.petal} roughness={0.5} transparent opacity={opacity} />
+                      </mesh>
+                    );
+                  })}
+                  <mesh scale={[0.6, 1, 1]}>
+                    <sphereGeometry args={[0.016, 10, 10]} />
+                    <meshStandardMaterial color={gold} emissive="#eab308" emissiveIntensity={0.25} roughness={0.4} transparent opacity={opacity} />
+                  </mesh>
+                </group>
+              );
+            })}
+          </group>
+        );
+  }
+  if (kind === "casco-obra") {
+    return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.035, 0]}>
+              <sphereGeometry args={[0.12, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color="#facc15" metalness={0.15} roughness={0.45} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0.035, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.026, 0.026, 0.2, 14, 1, false, 0, Math.PI]} />
+              <meshStandardMaterial color="#f59e0b" metalness={0.15} roughness={0.4} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0.03, 0.108]} rotation={[-0.32, 0, 0]}>
+              <boxGeometry args={[0.16, 0.014, 0.07]} />
+              <meshStandardMaterial color="#facc15" metalness={0.15} roughness={0.45} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.008, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.116, 0.011, 10, 30]} />
+              <meshStandardMaterial color="#f59e0b" metalness={0.2} roughness={0.4} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "sombrero-bruja") {
+    return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.008, 0]}>
+              <cylinderGeometry args={[0.185, 0.185, 0.004, 28]} />
+              <meshStandardMaterial color="#4c1d95" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.013, 0]}>
+              <cylinderGeometry args={[0.16, 0.16, 0.012, 28]} />
+              <meshStandardMaterial color="#2e1065" roughness={0.6} metalness={0.1} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.012, 0.06, 0]} rotation={[0, 0, -0.14]}>
+              <coneGeometry args={[0.085, 0.11, 24]} />
+              <meshStandardMaterial color="#3b0764" roughness={0.6} metalness={0.1} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.032, 0.145, 0]} rotation={[0, 0, -0.34]}>
+              <coneGeometry args={[0.05, 0.1, 24]} />
+              <meshStandardMaterial color="#3b0764" roughness={0.6} metalness={0.1} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.058, 0.215, 0]} rotation={[0, 0, -0.6]}>
+              <coneGeometry args={[0.024, 0.09, 24]} />
+              <meshStandardMaterial color="#2e1065" roughness={0.6} metalness={0.1} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.02, 0.048, 0]} rotation={[0, 0, -0.14]}>
+              <cylinderGeometry args={[0.09, 0.096, 0.03, 24]} />
+              <meshStandardMaterial color="#1e1b4b" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.028, 0.048, 0.088]}>
+              <boxGeometry args={[0.032, 0.032, 0.01]} />
+              <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.028, 0.048, 0.09]}>
+              <boxGeometry args={[0.015, 0.015, 0.01]} />
+              <meshStandardMaterial color="#1e1b4b" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "cresta-punk") {
+    {
+        const spikes = [0.05, 0.09, 0.13, 0.16, 0.13, 0.09, 0.05];
+        const pinks = ["#ec4899", "#f0399f", "#f5259a", "#ff1493", "#f5259a", "#f0399f", "#ec4899"];
+        return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.02, a.head[2]]} rotation={[Math.PI / 2, 0, 0]}>
+              <boxGeometry args={[0.022, 0.13, 0.02]} />
+              <meshStandardMaterial color="#be185d" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            {spikes.map((h, i) => {
+              const z = a.head[2] + 0.055 - i * 0.018;
+              return (
+                <mesh key={i} position={[0, 0.02 + h / 2, z]}>
+                  <coneGeometry args={[0.026, h, 4]} />
+                  <meshStandardMaterial color={pinks[i]} roughness={0.35} emissive={pinks[i]} emissiveIntensity={0.35} transparent opacity={opacity} />
+                </mesh>
+              );
+            })}
+          </group>
+        );
+      }
+  }
+  if (kind === "fez") {
+    return (
+          <group position={hatBase}>
+            <mesh position={[0, 0.055, 0]}>
+              <cylinderGeometry args={[0.075, 0.088, 0.11, 24]} />
+              <meshStandardMaterial color="#d92b2b" roughness={0.45} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.112, 0]}>
+              <cylinderGeometry args={[0.075, 0.075, 0.006, 24]} />
+              <meshStandardMaterial color="#a81f1f" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.118, 0]}>
+              <cylinderGeometry args={[0.014, 0.014, 0.01, 12]} />
+              <meshStandardMaterial color={gold} metalness={0.8} roughness={0.25} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.02, 0.13, 0]} rotation={[0, 0, -0.35]}>
+              <cylinderGeometry args={[0.004, 0.004, 0.04, 8]} />
+              <meshStandardMaterial color={black} roughness={0.6} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.05, 0.075, 0]}>
+              <cylinderGeometry args={[0.005, 0.005, 0.07, 8]} />
+              <meshStandardMaterial color={black} roughness={0.6} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.05, 0.033, 0]}>
+              <sphereGeometry args={[0.017, 12, 12]} />
+              <meshStandardMaterial color={black} roughness={0.7} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "aleta-tiburon") {
+    return (
+          <group position={[0, a.head[1] + 0.02, 0]}>
+            <mesh position={[0, 0.085, -0.012]} rotation={[0.28, 0, 0]} scale={[1, 1, 0.14]}>
+              <coneGeometry args={[0.085, 0.19, 3]} />
+              <meshStandardMaterial color="#5b6b7a" roughness={0.9} metalness={0.04} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0.088, 0.006]} rotation={[0.28, 0, 0]} scale={[0.7, 0.86, 0.1]}>
+              <coneGeometry args={[0.085, 0.19, 3]} />
+              <meshStandardMaterial color="#7d8fa0" roughness={0.95} metalness={0.02} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "pulpo-sombrero") {
+    return (
+          <group position={[0, a.head[1] + 0.06, 0]}>
+            <mesh position={[0, 0.055, 0]} scale={[1, 0.88, 1]}>
+              <sphereGeometry args={[0.12, 24, 20]} />
+              <meshStandardMaterial color="#a855f7" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            {[-1, 1].map((s) => (
+              <group key={s}>
+                <mesh position={[s * 0.045, 0.085, 0.105]}>
+                  <sphereGeometry args={[0.036, 16, 16]} />
+                  <meshStandardMaterial color="#ffffff" roughness={0.3} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[s * 0.05, 0.082, 0.135]}>
+                  <sphereGeometry args={[0.017, 14, 14]} />
+                  <meshStandardMaterial color={black} roughness={0.2} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+            {[0, 1, 2, 3, 4, 5].map((i) => {
+              const ang = (i / 6) * Math.PI * 2;
+              const r = 0.095;
+              const tx = Math.cos(ang) * r;
+              const tz = Math.sin(ang) * r;
+              return (
+                <group key={i} position={[tx, -0.02, tz]} rotation={[0, -ang + Math.PI / 2, 0]}>
+                  <mesh position={[0, -0.06, 0.02]} rotation={[0.55, 0, 0]}>
+                    <coneGeometry args={[0.03, 0.16, 12]} />
+                    <meshStandardMaterial color="#9333ea" roughness={0.5} transparent opacity={opacity} />
+                  </mesh>
+                  <mesh position={[0, -0.13, 0.075]} rotation={[1.1, 0, 0]}>
+                    <coneGeometry args={[0.016, 0.07, 10]} />
+                    <meshStandardMaterial color="#7e22ce" roughness={0.5} transparent opacity={opacity} />
+                  </mesh>
+                </group>
+              );
+            })}
+          </group>
+        );
+  }
+  if (kind === "banana-cabeza") {
+    return (
+          <group position={[0, a.head[1] + 0.14, 0]}>
+            <mesh position={[-0.1, 0.02, 0]} rotation={[0, 0, 0.7]}>
+              <cylinderGeometry args={[0.02, 0.032, 0.09, 12]} />
+              <meshStandardMaterial color="#facc15" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[-0.055, 0.05, 0]} rotation={[0, 0, 0.35]}>
+              <cylinderGeometry args={[0.032, 0.032, 0.075, 12]} />
+              <meshStandardMaterial color="#fde047" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.06, 0]} rotation={[0, 0, 0]}>
+              <cylinderGeometry args={[0.034, 0.034, 0.075, 12]} />
+              <meshStandardMaterial color="#fde047" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.055, 0.05, 0]} rotation={[0, 0, -0.35]}>
+              <cylinderGeometry args={[0.032, 0.032, 0.075, 12]} />
+              <meshStandardMaterial color="#fde047" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.1, 0.02, 0]} rotation={[0, 0, -0.7]}>
+              <cylinderGeometry args={[0.032, 0.02, 0.09, 12]} />
+              <meshStandardMaterial color="#facc15" roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[-0.128, -0.002, 0]} rotation={[0, 0, 0.95]}>
+              <cylinderGeometry args={[0.008, 0.018, 0.04, 10]} />
+              <meshStandardMaterial color="#4d7c0f" roughness={0.6} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.128, -0.002, 0]} rotation={[0, 0, -0.95]}>
+              <cylinderGeometry args={[0.018, 0.008, 0.04, 10]} />
+              <meshStandardMaterial color="#78350f" roughness={0.6} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "lentes-corazon") {
+    return (
+          <group>
+            {[a.leftEye, a.rightEye].map((p, i) => (
+              <group key={i} position={[p[0], p[1], p[2] + 0.03]}>
+                <mesh position={[-0.015, 0.011, 0]}>
+                  <sphereGeometry args={[0.018, 16, 16]} />
+                  <meshStandardMaterial color="#f43f5e" emissive="#ef4444" emissiveIntensity={0.35} roughness={0.25} metalness={0.1} transparent opacity={opacity * 0.7} />
+                </mesh>
+                <mesh position={[0.015, 0.011, 0]}>
+                  <sphereGeometry args={[0.018, 16, 16]} />
+                  <meshStandardMaterial color="#f43f5e" emissive="#ef4444" emissiveIntensity={0.35} roughness={0.25} metalness={0.1} transparent opacity={opacity * 0.7} />
+                </mesh>
+                <mesh position={[0, -0.014, 0]} rotation={[0, 0, Math.PI]}>
+                  <coneGeometry args={[0.032, 0.04, 4]} />
+                  <meshStandardMaterial color="#f43f5e" emissive="#ef4444" emissiveIntensity={0.35} roughness={0.25} metalness={0.1} transparent opacity={opacity * 0.7} />
+                </mesh>
+                <mesh position={[-0.015, 0.012, 0.006]}>
+                  <torusGeometry args={[0.017, 0.0035, 8, 20]} />
+                  <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0.015, 0.012, 0.006]}>
+                  <torusGeometry args={[0.017, 0.0035, 8, 20]} />
+                  <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[-0.011, -0.015, 0.006]} rotation={[0, 0, 0.7]}>
+                  <cylinderGeometry args={[0.0035, 0.0035, 0.034, 8]} />
+                  <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0.011, -0.015, 0.006]} rotation={[0, 0, -0.7]}>
+                  <cylinderGeometry args={[0.0035, 0.0035, 0.034, 8]} />
+                  <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+            <mesh position={[(a.leftEye[0] + a.rightEye[0]) / 2, (a.leftEye[1] + a.rightEye[1]) / 2 + 0.006, (a.leftEye[2] + a.rightEye[2]) / 2 + 0.03]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.004, 0.004, 0.03, 10]} />
+              <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+            </mesh>
+            {[a.leftEye, a.rightEye].map((p, i) => (
+              <mesh
+                key={`arm-${i}`}
+                position={[p[0] + (i === 0 ? -0.05 : 0.05), p[1] + 0.008, p[2] - 0.01]}
+                rotation={[-0.32, 0, 0]}
+              >
+                <boxGeometry args={[0.006, 0.006, 0.06]} />
+                <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "lentes-estrella") {
+    return (
+          <group>
+            {[a.leftEye, a.rightEye].map((p, i) => (
+              <group key={i} position={[p[0], p[1], p[2] + 0.03]}>
+                <mesh>
+                  <circleGeometry args={[0.03, 24]} />
+                  <meshBasicMaterial color="#7c3aed" transparent opacity={opacity * 0.55} side={DoubleSide} toneMapped={false} />
+                </mesh>
+                {[0, 1, 2, 3, 4].map((k) => {
+                  const ang = (k * Math.PI * 2) / 5;
+                  const r = 0.036;
+                  return (
+                    <mesh
+                      key={k}
+                      position={[Math.sin(ang) * r, Math.cos(ang) * r, 0.004]}
+                      rotation={[0, 0, -ang]}
+                    >
+                      <coneGeometry args={[0.016, 0.03, 4]} />
+                      <meshStandardMaterial color={gold} metalness={0.9} roughness={0.15} emissive="#b8860b" emissiveIntensity={0.35} transparent opacity={opacity} />
+                    </mesh>
+                  );
+                })}
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <torusGeometry args={[0.03, 0.006, 8, 24]} />
+                  <meshStandardMaterial color={gold} metalness={0.9} roughness={0.15} emissive="#b8860b" emissiveIntensity={0.35} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+            <mesh position={[(a.leftEye[0] + a.rightEye[0]) / 2, (a.leftEye[1] + a.rightEye[1]) / 2, a.leftEye[2] + 0.03]}>
+              <boxGeometry args={[0.028, 0.007, 0.007]} />
+              <meshStandardMaterial color={gold} metalness={0.9} roughness={0.15} emissive="#b8860b" emissiveIntensity={0.35} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "monoculo") {
+    return (
+          <group>
+            <mesh position={[a.rightEye[0], a.rightEye[1], a.rightEye[2] + 0.032]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.034, 0.006, 10, 26]} />
+              <meshStandardMaterial color={gold} metalness={0.9} roughness={0.18} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[a.rightEye[0], a.rightEye[1], a.rightEye[2] + 0.03]}>
+              <circleGeometry args={[0.03, 24]} />
+              <meshBasicMaterial color="#bae6fd" transparent opacity={opacity * 0.3} side={DoubleSide} toneMapped={false} />
+            </mesh>
+            <mesh position={[a.rightEye[0] - 0.014, a.rightEye[1] + 0.011, a.rightEye[2] + 0.031]} rotation={[0, 0, 0.7]}>
+              <planeGeometry args={[0.02, 0.006]} />
+              <meshBasicMaterial color="#ffffff" transparent opacity={opacity * 0.5} side={DoubleSide} toneMapped={false} />
+            </mesh>
+            {[0, 1, 2, 3, 4, 5].map((i) => {
+              const t = i / 5;
+              const sx = a.rightEye[0] + 0.03;
+              const sy = a.rightEye[1] - 0.03;
+              const ex = a.chest[0] + 0.05;
+              const ey = a.chest[1] + 0.02;
+              const px = sx + (ex - sx) * t;
+              const py = sy + (ey - sy) * t - Math.sin(t * Math.PI) * 0.03;
+              const pz = a.rightEye[2] + 0.03;
+              return (
+                <mesh key={i} position={[px, py, pz]}>
+                  <sphereGeometry args={[0.007, 8, 8]} />
+                  <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+                </mesh>
+              );
+            })}
+          </group>
+        );
+  }
+  if (kind === "lentes-3d") {
+    return (
+          <group>
+            <mesh position={[a.leftEye[0], a.leftEye[1], a.leftEye[2] + 0.03]}>
+              <boxGeometry args={[0.05, 0.036, 0.004]} />
+              <meshStandardMaterial color="#ef4444" transparent opacity={opacity * 0.55} side={DoubleSide} roughness={0.25} />
+            </mesh>
+            <mesh position={[a.rightEye[0], a.rightEye[1], a.rightEye[2] + 0.03]}>
+              <boxGeometry args={[0.05, 0.036, 0.004]} />
+              <meshStandardMaterial color="#22d3ee" transparent opacity={opacity * 0.55} side={DoubleSide} roughness={0.25} />
+            </mesh>
+            {[a.leftEye, a.rightEye].map((p, i) => (
+              <group key={i} position={[p[0], p[1], p[2] + 0.032]}>
+                <mesh position={[0, 0.022, 0]}>
+                  <boxGeometry args={[0.062, 0.008, 0.012]} />
+                  <meshStandardMaterial color={black} roughness={0.6} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, -0.022, 0]}>
+                  <boxGeometry args={[0.062, 0.008, 0.012]} />
+                  <meshStandardMaterial color={black} roughness={0.6} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[-0.029, 0, 0]}>
+                  <boxGeometry args={[0.008, 0.05, 0.012]} />
+                  <meshStandardMaterial color={black} roughness={0.6} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0.029, 0, 0]}>
+                  <boxGeometry args={[0.008, 0.05, 0.012]} />
+                  <meshStandardMaterial color={black} roughness={0.6} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+            <mesh position={[(a.leftEye[0] + a.rightEye[0]) / 2, (a.leftEye[1] + a.rightEye[1]) / 2, a.leftEye[2] + 0.032]}>
+              <boxGeometry args={[0.03, 0.01, 0.012]} />
+              <meshStandardMaterial color={black} roughness={0.6} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "antifaz") {
+    {
+        const cx = (a.leftEye[0] + a.rightEye[0]) / 2;
+        const cy = (a.leftEye[1] + a.rightEye[1]) / 2;
+        const cz = Math.max(a.leftEye[2], a.rightEye[2]) + 0.03;
+        const eyes: Vec3[] = [a.leftEye, a.rightEye];
+        return (
+          <group position={[cx, cy, cz]}>
+            <mesh position={[0, 0.006, 0]}>
+              <boxGeometry args={[0.185, 0.07, 0.014]} />
+              <meshStandardMaterial color={black} roughness={0.8} metalness={0.05} transparent opacity={opacity} />
+            </mesh>
+            {eyes.map((p, i) => {
+              const side = i === 0 ? -1 : 1;
+              return (
+                <mesh key={`peak-${i}`} position={[side * 0.082, 0.036, 0.002]} rotation={[0, 0, side * -0.6]}>
+                  <coneGeometry args={[0.026, 0.05, 4]} />
+                  <meshStandardMaterial color={black} roughness={0.8} transparent opacity={opacity} />
+                </mesh>
+              );
+            })}
+            {eyes.map((p, i) => (
+              <mesh key={`hole-${i}`} position={[p[0] - cx, p[1] - cy, 0.006]}>
+                <circleGeometry args={[0.021, 24]} />
+                <meshBasicMaterial color="#000000" transparent opacity={opacity * 0.9} side={DoubleSide} toneMapped={false} />
+              </mesh>
+            ))}
+            {eyes.map((p, i) => (
+              <mesh key={`ring-${i}`} position={[p[0] - cx, p[1] - cy, 0.01]}>
+                <torusGeometry args={[0.023, 0.006, 10, 24]} />
+                <meshStandardMaterial color={gold} metalness={0.9} roughness={0.25} emissive={gold} emissiveIntensity={0.2} transparent opacity={opacity} toneMapped={false} />
+              </mesh>
+            ))}
+            {eyes.map((p, i) => {
+              const side = i === 0 ? -1 : 1;
+              return (
+                <mesh key={`strap-${i}`} position={[side * 0.11, 0.006, -0.022]} rotation={[0, side * 0.5, 0]}>
+                  <boxGeometry args={[0.07, 0.018, 0.008]} />
+                  <meshStandardMaterial color={black} roughness={0.85} transparent opacity={opacity * 0.9} />
+                </mesh>
+              );
+            })}
+          </group>
+        );
+      }
+  }
+  if (kind === "parche-pirata") {
+    return (
+          <group>
+            <group position={[a.leftEye[0], a.leftEye[1], a.leftEye[2] + 0.03]}>
+              <mesh scale={[1, 1.12, 0.4]}>
+                <sphereGeometry args={[0.05, 20, 16]} />
+                <meshStandardMaterial color={black} roughness={0.9} metalness={0.05} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[0, 0, 0.02]} scale={[1, 1.12, 0.35]}>
+                <sphereGeometry args={[0.052, 20, 16]} />
+                <meshStandardMaterial color="#0b0f19" roughness={0.95} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[-0.014, 0.016, 0.024]}>
+                <sphereGeometry args={[0.009, 10, 8]} />
+                <meshBasicMaterial color="#4b5563" transparent opacity={opacity * 0.6} toneMapped={false} />
+              </mesh>
+            </group>
+            <mesh
+              position={[a.leftEye[0] + 0.02, a.leftEye[1] + 0.05, a.leftEye[2] - 0.02]}
+              rotation={[0, 0, -Math.PI / 3.2]}
+            >
+              <boxGeometry args={[0.024, 0.24, 0.02]} />
+              <meshStandardMaterial color={black} roughness={0.9} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "lentes-pixel") {
+    {
+        const px = 0.011;
+        const cy = (a.leftEye[1] + a.rightEye[1]) / 2;
+        const cx = (a.leftEye[0] + a.rightEye[0]) / 2;
+        const cz = Math.max(a.leftEye[2], a.rightEye[2]) + 0.032;
+        const lensCX = (a.leftEye[0] - cx) / px;
+        const rows = [1.5, 0.5, -0.5, -1.5];
+        return (
+          <group position={[cx, cy, cz]}>
+            {[a.leftEye, a.rightEye].map((p, side) => {
+              const dir = side === 0 ? -1 : 1;
+              const lensX = dir * Math.abs(lensCX);
+              const cols = [-1.5, -0.5, 0.5, 1.5];
+              return (
+                <group key={side} position={[lensX * px, 0, 0]}>
+                  {rows.map((ry, ri) =>
+                    cols.map((cxi, ci) => (
+                      <mesh key={`${ri}-${ci}`} position={[cxi * px, ry * px, 0]}>
+                        <boxGeometry args={[px, px, px]} />
+                        <meshStandardMaterial
+                          color={black}
+                          roughness={0.3}
+                          metalness={0.2}
+                          transparent
+                          opacity={opacity}
+                        />
+                      </mesh>
+                    )),
+                  )}
+                  <mesh position={[dir * 2.5 * px, 1.5 * px, 0]}>
+                    <boxGeometry args={[px, px, px]} />
+                    <meshStandardMaterial
+                      color={black}
+                      roughness={0.3}
+                      metalness={0.2}
+                      transparent
+                      opacity={opacity}
+                    />
+                  </mesh>
+                  <mesh position={[dir * 2.5 * px, 0.5 * px, 0]}>
+                    <boxGeometry args={[px, px, px]} />
+                    <meshStandardMaterial
+                      color={black}
+                      roughness={0.3}
+                      metalness={0.2}
+                      transparent
+                      opacity={opacity}
+                    />
+                  </mesh>
+                  {[0.65, -0.35].map((sy, gi) => (
+                    <mesh
+                      key={`glint-${gi}`}
+                      position={[(-1.1 + gi * 0.9) * px, sy * px, px * 0.55]}
+                    >
+                      <boxGeometry args={[px * 0.85, px * 0.85, px * 0.25]} />
+                      <meshBasicMaterial
+                        color="#5b6270"
+                        transparent
+                        opacity={opacity * 0.9}
+                        toneMapped={false}
+                      />
+                    </mesh>
+                  ))}
+                  <mesh position={[dir * 3.5 * px, 0.5 * px, -px * 0.4]}>
+                    <boxGeometry args={[px * 2, px * 0.9, px * 0.9]} />
+                    <meshStandardMaterial
+                      color={black}
+                      roughness={0.35}
+                      metalness={0.2}
+                      transparent
+                      opacity={opacity}
+                    />
+                  </mesh>
+                </group>
+              );
+            })}
+            {[0.5, -0.5].map((by, bi) => (
+              <mesh key={`bridge-${bi}`} position={[0, by * px, 0]}>
+                <boxGeometry args={[Math.abs(2 * lensCX - 2) * px, px, px]} />
+                <meshStandardMaterial
+                  color={black}
+                  roughness={0.3}
+                  metalness={0.2}
+                  transparent
+                  opacity={opacity}
+                />
+              </mesh>
+            ))}
+          </group>
+        );
+      }
+  }
+  if (kind === "nariz-payaso") {
+    return (
+          <group position={[a.mouth[0], a.mouth[1] + 0.05, a.mouth[2] + 0.03]}>
+            <mesh>
+              <sphereGeometry args={[0.032, 20, 20]} />
+              <meshStandardMaterial color="#ff1f1f" roughness={0.08} metalness={0.1} emissive="#7f0000" emissiveIntensity={0.25} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[-0.01, 0.009, 0.024]}>
+              <sphereGeometry args={[0.008, 12, 12]} />
+              <meshBasicMaterial color="#ffe0e0" transparent opacity={opacity * 0.9} toneMapped={false} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "ojos-saltones") {
+    return <CosmeticOjosSaltones a={a} opacity={opacity} />;
+  }
+  if (kind === "chupete") {
+    return (
+          <group position={[a.mouth[0], a.mouth[1], a.mouth[2] + 0.03]}>
+            <mesh position={[0, 0, 0.01]}>
+              <sphereGeometry args={[0.022, 16, 12]} />
+              <meshStandardMaterial color="#fca5a5" roughness={0.35} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0, 0.03]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.085, 0.085, 0.014, 24]} />
+              <meshStandardMaterial color="#38bdf8" roughness={0.3} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0, 0.062]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.05, 0.014, 12, 28]} />
+              <meshStandardMaterial color="#f472b6" roughness={0.3} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "puro") {
+    return (
+          <group position={[a.mouth[0] + 0.03, a.mouth[1] - 0.005, a.mouth[2] + 0.03]}>
+            <mesh position={[0.0234, 0.0553, 0]} rotation={[0, 0, -0.4]}>
+              <cylinderGeometry args={[0.015, 0.015, 0.12, 14]} />
+              <meshStandardMaterial color="#7b4a1e" roughness={0.75} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.0272, 0.0645, 0]} rotation={[0, 0, -0.4]}>
+              <cylinderGeometry args={[0.0155, 0.0155, 0.02, 14]} />
+              <meshStandardMaterial color="#d1d5db" roughness={0.95} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.0347, 0.082, 0]}>
+              <sphereGeometry args={[0.01, 12, 12]} />
+              <meshStandardMaterial color="#ff5a1f" emissive="#ff3d00" emissiveIntensity={1.4} roughness={0.5} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "pipa") {
+    {
+        const woodDark = "#5a3617";
+        const woodLight = "#8b5a2b";
+        const ember = "#ff6b1a";
+        const mx = a.mouth[0];
+        const my = a.mouth[1];
+        const mz = a.mouth[2] + 0.03;
+        return (
+          <group position={[mx, my, mz]}>
+            <mesh position={[0.0, -0.007, 0.006]} rotation={[0, 0, -Math.PI / 2.6]}>
+              <sphereGeometry args={[0.014, 12, 12]} />
+              <meshStandardMaterial color={black} roughness={0.4} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.024, -0.02, 0.012]} rotation={[0, 0, -Math.PI / 2.6]}>
+              <cylinderGeometry args={[0.01, 0.012, 0.055, 12]} />
+              <meshStandardMaterial color={woodDark} roughness={0.6} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.058, -0.05, 0.022]} rotation={[Math.PI / 6, 0, -Math.PI / 3.2]}>
+              <cylinderGeometry args={[0.0085, 0.011, 0.06, 12]} />
+              <meshStandardMaterial color={woodDark} roughness={0.6} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.078, -0.088, 0.035]}>
+              <cylinderGeometry args={[0.026, 0.021, 0.052, 18]} />
+              <meshStandardMaterial color={woodLight} roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.078, -0.062, 0.035]}>
+              <torusGeometry args={[0.026, 0.004, 8, 20]} />
+              <meshStandardMaterial color={woodDark} roughness={0.5} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.078, -0.062, 0.035]}>
+              <cylinderGeometry args={[0.021, 0.021, 0.003, 18]} />
+              <meshBasicMaterial color={ember} transparent opacity={opacity * 0.9} toneMapped={false} />
+            </mesh>
+            <mesh position={[0.078, -0.056, 0.035]}>
+              <sphereGeometry args={[0.009, 8, 8]} />
+              <meshBasicMaterial color="#ffd27f" transparent opacity={opacity * 0.6} toneMapped={false} />
+            </mesh>
+          </group>
+        );
+      }
+  }
+  if (kind === "diente-oro") {
+    return (
+          <group position={[a.mouth[0], a.mouth[1] - 0.02, a.mouth[2] + 0.035]}>
+            <mesh>
+              <boxGeometry args={[0.026, 0.032, 0.014]} />
+              <meshStandardMaterial color={gold} metalness={0.95} roughness={0.12} emissive={gold} emissiveIntensity={0.25} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+            <mesh position={[0, 0.017, 0.004]}>
+              <boxGeometry args={[0.022, 0.008, 0.008]} />
+              <meshStandardMaterial color="#fff7cc" metalness={0.9} roughness={0.05} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+            <mesh position={[0.026, -0.002, -0.001]}>
+              <boxGeometry args={[0.017, 0.024, 0.012]} />
+              <meshStandardMaterial color={gold} metalness={0.95} roughness={0.14} emissive={gold} emissiveIntensity={0.2} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+            <mesh position={[0.003, 0.005, 0.009]}>
+              <sphereGeometry args={[0.004, 12, 12]} />
+              <meshStandardMaterial color="#ffffff" metalness={0.2} roughness={0.05} emissive="#ffffff" emissiveIntensity={0.5} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "barba-vikinga") {
+    return (
+          <group position={[a.mouth[0], a.mouth[1] - 0.05, a.mouth[2] + 0.02]}>
+            <mesh position={[0, 0, 0]} scale={[1, 0.7, 0.7]}>
+              <sphereGeometry args={[0.11, 20, 16]} />
+              <meshStandardMaterial color="#8a5a2b" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, -0.02, 0.02]} scale={[0.85, 0.6, 0.6]}>
+              <sphereGeometry args={[0.09, 16, 14]} />
+              <meshStandardMaterial color="#a06a35" roughness={0.8} transparent opacity={opacity} />
+            </mesh>
+            {[-0.05, 0.05].map((bx, bi) => (
+              <group key={bi} position={[bx, -0.07, 0.02]}>
+                {[0, 1, 2].map((si) => (
+                  <mesh key={si} position={[0, -si * 0.045, 0]} scale={[1, 0.9, 0.9]}>
+                    <sphereGeometry args={[0.03, 14, 12]} />
+                    <meshStandardMaterial color="#8a5a2b" roughness={0.85} transparent opacity={opacity} />
+                  </mesh>
+                ))}
+                <mesh position={[0, -0.09, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                  <torusGeometry args={[0.028, 0.006, 8, 18]} />
+                  <meshStandardMaterial color="#9ca3af" metalness={0.8} roughness={0.3} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, -0.135, 0]} rotation={[Math.PI, 0, 0]}>
+                  <coneGeometry args={[0.022, 0.05, 12]} />
+                  <meshStandardMaterial color="#8a5a2b" roughness={0.85} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "globo-chicle") {
+    return <CosmeticGloboChicle a={a} opacity={opacity} />;
+  }
+  if (kind === "banda-novio") {
+    return (
+          <group position={[a.chest[0], a.chest[1] + 0.02, a.chest[2] + 0.05]}>
+            <group rotation={[0, 0, 0.6]}>
+              <mesh>
+                <boxGeometry args={[0.34, 0.075, 0.02]} />
+                <meshStandardMaterial color="#2563eb" roughness={0.35} metalness={0.15} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[0, 0.031, 0.011]}>
+                <boxGeometry args={[0.34, 0.012, 0.006]} />
+                <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[0, -0.031, 0.011]}>
+                <boxGeometry args={[0.34, 0.012, 0.006]} />
+                <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+              <group position={[0.12, 0.0, 0.02]} scale={[1, 1, 0.4]}>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <octahedronGeometry args={[0.042, 0]} />
+                  <meshStandardMaterial color={gold} emissive="#f59e0b" emissiveIntensity={0.5} metalness={0.9} roughness={0.15} transparent opacity={opacity} toneMapped={false} />
+                </mesh>
+                <mesh rotation={[Math.PI / 2, 0, Math.PI / 4]}>
+                  <octahedronGeometry args={[0.042, 0]} />
+                  <meshStandardMaterial color={gold} emissive="#f59e0b" emissiveIntensity={0.5} metalness={0.9} roughness={0.15} transparent opacity={opacity} toneMapped={false} />
+                </mesh>
+              </group>
+            </group>
+          </group>
+        );
+  }
+  if (kind === "medalla-oro") {
+    return (
+          <group position={[a.chest[0], a.chest[1], a.chest[2] + 0.03]}>
+            {[-1, 1].map((s) => (
+              <mesh
+                key={s}
+                position={[s * 0.045, 0.085, 0]}
+                rotation={[0, 0, s * 0.42]}
+              >
+                <boxGeometry args={[0.02, 0.17, 0.008]} />
+                <meshStandardMaterial
+                  color={s < 0 ? "#dc2626" : "#2563eb"}
+                  roughness={0.6}
+                  transparent
+                  opacity={opacity}
+                />
+              </mesh>
+            ))}
+            <mesh position={[0, 0.02, 0.004]}>
+              <cylinderGeometry args={[0.008, 0.008, 0.01, 12]} />
+              <meshStandardMaterial
+                color={gold}
+                metalness={0.95}
+                roughness={0.2}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+            <mesh position={[0, -0.03, 0.006]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.06, 0.06, 0.014, 32]} />
+              <meshStandardMaterial
+                color={gold}
+                metalness={0.95}
+                roughness={0.15}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+            <mesh position={[0, -0.03, 0.006]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.06, 0.008, 12, 32]} />
+              <meshStandardMaterial
+                color="#fde68a"
+                metalness={0.9}
+                roughness={0.2}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+            {[0, 1, 2, 3, 4].map((i) => {
+              const ang = (i / 5) * Math.PI * 2 + Math.PI / 2;
+              return (
+                <mesh
+                  key={i}
+                  position={[
+                    Math.cos(ang) * 0.02,
+                    -0.03 + Math.sin(ang) * 0.02,
+                    0.015,
+                  ]}
+                  rotation={[0, 0, ang - Math.PI / 2]}
+                >
+                  <coneGeometry args={[0.011, 0.028, 4]} />
+                  <meshStandardMaterial
+                    color="#fffbe6"
+                    metalness={0.85}
+                    roughness={0.25}
+                    transparent
+                    opacity={opacity}
+                  />
+                </mesh>
+              );
+            })}
+            <mesh position={[0, -0.03, 0.015]}>
+              <cylinderGeometry args={[0.014, 0.014, 0.006, 5]} />
+              <meshStandardMaterial
+                color="#fffbe6"
+                metalness={0.85}
+                roughness={0.25}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "armadura-caballero") {
+    return (
+          <group position={[a.chest[0], a.chest[1] + 0.02, a.chest[2] + 0.02]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[1.15, 0.7, 1.3]}>
+              <sphereGeometry args={[0.14, 24, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color="#9aa3ad" metalness={0.75} roughness={0.35} side={DoubleSide} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, -0.06, 0.02]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.02, 0.6, 1.05]}>
+              <sphereGeometry args={[0.12, 24, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color="#b3bcc6" metalness={0.7} roughness={0.4} side={DoubleSide} transparent opacity={opacity} />
+            </mesh>
+            {[
+              [-0.11, 0.05, 0.06],
+              [0.11, 0.05, 0.06],
+              [-0.1, -0.08, 0.06],
+              [0.1, -0.08, 0.06],
+            ].map((p, i) => (
+              <mesh key={i} position={[p[0], p[1], p[2]]}>
+                <sphereGeometry args={[0.012, 10, 10]} />
+                <meshStandardMaterial color="#e5e9ee" metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+            ))}
+            <mesh position={[0, -0.01, 0.085]}>
+              <boxGeometry args={[0.07, 0.09, 0.012]} />
+              <meshStandardMaterial color="#c62828" metalness={0.4} roughness={0.45} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, -0.05, 0.09]}>
+              <coneGeometry args={[0.036, 0.045, 4]} />
+              <meshStandardMaterial color="#c62828" metalness={0.4} roughness={0.45} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.02, 0.093]}>
+              <boxGeometry args={[0.008, 0.05, 0.01]} />
+              <meshStandardMaterial color={gold} metalness={0.85} roughness={0.25} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0.03, 0.093]}>
+              <boxGeometry args={[0.032, 0.008, 0.01]} />
+              <meshStandardMaterial color={gold} metalness={0.85} roughness={0.25} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "chaleco-salvavidas") {
+    return (
+          <group position={[a.chest[0], a.chest[1], a.chest[2] + 0.055]}>
+            {[-1, 1].map((s) => (
+              <group key={s} position={[s * 0.075, 0.01, 0]}>
+                <mesh>
+                  <boxGeometry args={[0.1, 0.19, 0.055]} />
+                  <meshStandardMaterial color="#ff6a00" roughness={0.9} metalness={0} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, 0.095, 0]}>
+                  <cylinderGeometry args={[0.05, 0.05, 0.055, 12]} />
+                  <meshStandardMaterial color="#ff6a00" roughness={0.9} metalness={0} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, -0.095, 0]}>
+                  <cylinderGeometry args={[0.05, 0.05, 0.055, 12]} />
+                  <meshStandardMaterial color="#ff6a00" roughness={0.9} metalness={0} transparent opacity={opacity} />
+                </mesh>
+                {[0.05, -0.03].map((sy) => (
+                  <mesh key={sy} position={[0, sy, 0.029]}>
+                    <boxGeometry args={[0.098, 0.026, 0.004]} />
+                    <meshStandardMaterial color="#cbd5e1" roughness={0.35} metalness={0.5} transparent opacity={opacity} />
+                  </mesh>
+                ))}
+              </group>
+            ))}
+            {[0.06, -0.005, -0.07].map((sy) => (
+              <mesh key={sy} position={[0, sy, 0.012]}>
+                <boxGeometry args={[0.075, 0.018, 0.02]} />
+                <meshStandardMaterial color={black} roughness={0.6} transparent opacity={opacity} />
+              </mesh>
+            ))}
+            {[0.06, -0.005, -0.07].map((sy) => (
+              <mesh key={sy} position={[0, sy, 0.024]}>
+                <boxGeometry args={[0.022, 0.024, 0.01]} />
+                <meshStandardMaterial color="#9ca3af" roughness={0.4} metalness={0.6} transparent opacity={opacity} />
+              </mesh>
+            ))}
+            <mesh position={[0, 0.12, 0.005]}>
+              <boxGeometry args={[0.2, 0.03, 0.045]} />
+              <meshStandardMaterial color="#ff6a00" roughness={0.9} metalness={0} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "bandolera") {
+    return (
+          <group position={[a.chest[0], a.chest[1] + 0.02, a.chest[2] + 0.05]} rotation={[0, 0, -Math.PI / 4]}>
+            <mesh>
+              <boxGeometry args={[0.05, 0.34, 0.028]} />
+              <meshStandardMaterial color="#5a3a1e" roughness={0.85} metalness={0.05} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, 0, 0.017]}>
+              <boxGeometry args={[0.012, 0.34, 0.006]} />
+              <meshStandardMaterial color="#3a2410" roughness={0.9} transparent opacity={opacity} />
+            </mesh>
+            {[-0.13, -0.078, -0.026, 0.026, 0.078, 0.13].map((s, i) => (
+              <group key={i} position={[0, s, 0.02]}>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.012, 0.012, 0.03, 12]} />
+                  <meshStandardMaterial color={gold} metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, 0, 0.025]} rotation={[Math.PI / 2, 0, 0]}>
+                  <coneGeometry args={[0.012, 0.018, 12]} />
+                  <meshStandardMaterial color="#c9822a" metalness={0.7} roughness={0.35} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "corbata-luces") {
+    return (
+          <group position={[a.chest[0], a.chest[1] + 0.09, a.chest[2] + 0.02]}>
+            {[-1, 1].map((s) => (
+              <mesh key={s} position={[s * 0.055, 0, 0]} rotation={[0, 0, s * 0.35]} scale={[1.25, 0.85, 0.55]}>
+                <sphereGeometry args={[0.05, 16, 16]} />
+                <meshStandardMaterial color="#7f1020" roughness={0.35} metalness={0.15} transparent opacity={opacity} />
+              </mesh>
+            ))}
+            <mesh>
+              <boxGeometry args={[0.032, 0.05, 0.045]} />
+              <meshStandardMaterial color={black} roughness={0.4} transparent opacity={opacity} />
+            </mesh>
+            {[
+              { p: [-0.075, 0.018, 0.032], c: "#ff2d55" },
+              { p: [-0.045, -0.02, 0.034], c: "#3ba7ff" },
+              { p: [-0.022, 0.026, 0.03], c: "#ffd028" },
+              { p: [-0.09, -0.01, 0.026], c: "#3dff88" },
+              { p: [0.022, 0.02, 0.03], c: "#ff2d55" },
+              { p: [0.05, -0.022, 0.034], c: "#c46bff" },
+              { p: [0.078, 0.014, 0.03], c: "#3ba7ff" },
+              { p: [0.09, -0.008, 0.026], c: "#ffd028" },
+              { p: [-0.06, 0.03, 0.028], c: "#3dff88" },
+              { p: [0.062, 0.03, 0.028], c: "#ff8a00" },
+            ].map((d, i) => (
+              <mesh key={i} position={d.p as [number, number, number]}>
+                <sphereGeometry args={[0.009, 10, 10]} />
+                <meshStandardMaterial color={d.c} emissive={d.c} emissiveIntensity={1.4} toneMapped={false} transparent opacity={opacity} />
+              </mesh>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "collar-hawaiano") {
+    return (
+          <group position={[a.chest[0], a.chest[1] + 0.08, a.chest[2] + 0.02]} rotation={[0.5, 0, 0]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 0.72]}>
+              <torusGeometry args={[0.11, 0.009, 8, 30]} />
+              <meshStandardMaterial color="#3f6212" roughness={0.7} transparent opacity={opacity} />
+            </mesh>
+            {Array.from({ length: 12 }).map((_, i) => {
+              const ang = (i / 12) * Math.PI * 2;
+              const fx = Math.cos(ang) * 0.11;
+              const fz = Math.sin(ang) * 0.11 * 0.72;
+              const petalColors = ["#ec4899", "#ffffff", "#facc15", "#fb923c"];
+              const petal = petalColors[i % 4];
+              return (
+                <group key={i} position={[fx, 0, fz]} rotation={[0, Math.atan2(fx, fz), 0]}>
+                  {Array.from({ length: 5 }).map((__, j) => {
+                    const pAng = (j / 5) * Math.PI * 2;
+                    return (
+                      <mesh
+                        key={j}
+                        position={[Math.cos(pAng) * 0.02, Math.sin(pAng) * 0.02, 0.012]}
+                      >
+                        <sphereGeometry args={[0.016, 8, 8]} />
+                        <meshStandardMaterial color={petal} roughness={0.45} transparent opacity={opacity} />
+                      </mesh>
+                    );
+                  })}
+                  <mesh position={[0, 0, 0.022]}>
+                    <sphereGeometry args={[0.012, 8, 8]} />
+                    <meshStandardMaterial color="#fde047" emissive="#f59e0b" emissiveIntensity={0.35} roughness={0.4} transparent opacity={opacity} />
+                  </mesh>
+                </group>
+              );
+            })}
+          </group>
+        );
+  }
+  if (kind === "mochila-jet") {
+    return <CosmeticMochilaJet a={a} opacity={opacity} />;
+  }
+  if (kind === "alas-angel") {
+    return (
+        <group position={[0, a.chest[1] + 0.06, a.back[2] - 0.05]}>
+          {[-1, 1].map((s) => (
+            <group key={s} rotation={[0, s * 0.35, 0]}>
+              {[0, 1, 2, 3, 4, 5].map((i) => {
+                const t = i / 5;
+                return (
+                  <mesh
+                    key={i}
+                    position={[s * (0.02 + t * 0.14), -0.02 + t * 0.16, -0.005 - t * 0.015]}
+                    rotation={[0, 0, s * (0.4 + t * 0.7)]}
+                    scale={[0.85 - t * 0.25, 1.6 - t * 0.5, 0.32]}
+                  >
+                    <sphereGeometry args={[0.05, 10, 8]} />
+                    <meshStandardMaterial color="#fbfbf5" roughness={0.8} transparent opacity={opacity} />
+                  </mesh>
+                );
+              })}
+            </group>
+          ))}
+        </group>
+      );
+  }
+  if (kind === "alas-demonio") {
+    return (
+          <group position={[0, a.chest[1] + 0.05, a.back[2] - 0.02]}>
+            {[-1, 1].map((s) => {
+              const spokeAngles = [0.5, 0.15, -0.25, -0.6];
+              const spokeLen = [0.2, 0.24, 0.22, 0.16];
+              const origin: [number, number, number] = [0.03, 0.0, -0.01];
+              return (
+                <group
+                  key={s}
+                  scale={[s, 1, 1]}
+                  rotation={[0, s === 1 ? -0.4 : 0.4, 0]}
+                >
+                  <mesh position={[0.02, 0, -0.01]} rotation={[Math.PI / 2, 0, 0.25]}>
+                    <cylinderGeometry args={[0.014, 0.02, 0.11, 8]} />
+                    <meshStandardMaterial color="#3b0d10" roughness={0.6} transparent opacity={opacity} />
+                  </mesh>
+                  {spokeAngles.map((ang, i) => (
+                    <mesh
+                      key={`spoke-${i}`}
+                      position={[
+                        origin[0] + (Math.cos(ang) * spokeLen[i]) / 2,
+                        origin[1] + (Math.sin(ang) * spokeLen[i]) / 2,
+                        origin[2],
+                      ]}
+                      rotation={[0, 0, ang - Math.PI / 2]}
+                    >
+                      <cylinderGeometry args={[0.006, 0.011, spokeLen[i], 6]} />
+                      <meshStandardMaterial color="#3b0d10" roughness={0.55} transparent opacity={opacity} />
+                    </mesh>
+                  ))}
+                  {spokeAngles.map((ang, i) => (
+                    <mesh
+                      key={`claw-${i}`}
+                      position={[
+                        origin[0] + Math.cos(ang) * (spokeLen[i] + 0.02),
+                        origin[1] + Math.sin(ang) * (spokeLen[i] + 0.02),
+                        origin[2],
+                      ]}
+                      rotation={[0, 0, ang - Math.PI / 2]}
+                    >
+                      <coneGeometry args={[0.013, 0.04, 6]} />
+                      <meshStandardMaterial color="#1f0507" roughness={0.5} transparent opacity={opacity} />
+                    </mesh>
+                  ))}
+                  {spokeAngles.slice(0, -1).map((ang, i) => {
+                    const nextAng = spokeAngles[i + 1];
+                    const nextLen = spokeLen[i + 1];
+                    const len = spokeLen[i];
+                    const tipX = origin[0] + Math.cos(ang) * len;
+                    const tipY = origin[1] + Math.sin(ang) * len;
+                    const nextTipX = origin[0] + Math.cos(nextAng) * nextLen;
+                    const nextTipY = origin[1] + Math.sin(nextAng) * nextLen;
+                    const cx = (origin[0] + tipX + nextTipX) / 3;
+                    const cy = (origin[1] + tipY + nextTipY) / 3;
+                    const panelAng = (ang + nextAng) / 2;
+                    const panelLen = (len + nextLen) / 2;
+                    const spread = Math.abs(ang - nextAng);
+                    return (
+                      <mesh
+                        key={`web-${i}`}
+                        position={[cx, cy, origin[2] - 0.008]}
+                        rotation={[0, 0, panelAng]}
+                        scale={[panelLen * 1.05, panelLen * spread * 1.9, 1]}
+                      >
+                        <circleGeometry args={[0.5, 3]} />
+                        <meshStandardMaterial
+                          color="#5c0f16"
+                          emissive="#2a0508"
+                          emissiveIntensity={0.3}
+                          roughness={0.7}
+                          side={DoubleSide}
+                          transparent
+                          opacity={opacity * 0.9}
+                        />
+                      </mesh>
+                    );
+                  })}
+                </group>
+              );
+            })}
+          </group>
+        );
+  }
+  if (kind === "caparazon-tortuga") {
+    return (
+          <group position={[0, a.chest[1] + 0.02, a.back[2] - 0.03]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh scale={[1.15, 1.15, 0.85]}>
+              <sphereGeometry args={[0.15, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color="#3f8f4f" roughness={0.9} metalness={0} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0.13, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.05, 0.05, 0.008, 6]} />
+              <meshStandardMaterial color="#2c6636" roughness={0.95} transparent opacity={opacity} />
+            </mesh>
+            {Array.from({ length: 6 }).map((_, i) => {
+              const ang = (i / 6) * Math.PI * 2;
+              const tilt = Math.PI / 4;
+              const r = Math.sin(tilt) * 0.15;
+              const x = Math.cos(ang) * r * 1.15;
+              const z = Math.sin(ang) * r * 1.15;
+              const y = Math.cos(tilt) * 0.15;
+              return (
+                <mesh
+                  key={`plate-${i}`}
+                  position={[x, y, z]}
+                  rotation={[tilt * Math.sin(ang), -ang, tilt * Math.cos(ang)]}
+                >
+                  <cylinderGeometry args={[0.038, 0.038, 0.008, 6]} />
+                  <meshStandardMaterial color="#2c6636" roughness={0.95} transparent opacity={opacity} />
+                </mesh>
+              );
+            })}
+            {Array.from({ length: 18 }).map((_, i) => {
+              const ang = (i / 18) * Math.PI * 2;
+              return (
+                <mesh
+                  key={`rim-${i}`}
+                  position={[Math.cos(ang) * 0.153 * 1.15, 0.004, Math.sin(ang) * 0.153 * 1.15]}
+                  rotation={[0, -ang, 0]}
+                >
+                  <boxGeometry args={[0.036, 0.03, 0.02]} />
+                  <meshStandardMaterial color="#b8895a" roughness={0.95} transparent opacity={opacity} />
+                </mesh>
+              );
+            })}
+          </group>
+        );
+  }
+  if (kind === "capa-super") {
+    return (
+          <group position={[0, a.chest[1] + 0.05, a.back[2] - 0.02]}>
+            <mesh position={[0, 0.02, 0]} rotation={[0, 0, 0.04]}>
+              <boxGeometry args={[0.16, 0.13, 0.008]} />
+              <meshStandardMaterial color="#dc2626" roughness={0.55} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[-0.055, -0.08, -0.012]} rotation={[0.12, 0.14, 0.05]}>
+              <boxGeometry args={[0.11, 0.16, 0.008]} />
+              <meshStandardMaterial color="#c81e1e" roughness={0.55} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0.055, -0.08, -0.012]} rotation={[0.12, -0.14, -0.05]}>
+              <boxGeometry args={[0.11, 0.16, 0.008]} />
+              <meshStandardMaterial color="#c81e1e" roughness={0.55} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[-0.1, -0.16, -0.028]} rotation={[0.24, 0.26, 0.08]}>
+              <boxGeometry args={[0.095, 0.17, 0.008]} />
+              <meshStandardMaterial color="#b91c1c" roughness={0.55} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0.1, -0.16, -0.028]} rotation={[0.24, -0.26, -0.08]}>
+              <boxGeometry args={[0.095, 0.17, 0.008]} />
+              <meshStandardMaterial color="#b91c1c" roughness={0.55} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, -0.2, -0.04]} rotation={[0.32, 0, 0]}>
+              <boxGeometry args={[0.13, 0.16, 0.008]} />
+              <meshStandardMaterial color="#a01414" roughness={0.55} transparent opacity={opacity} side={DoubleSide} />
+            </mesh>
+            <group position={[0, 0.085, 0.02]}>
+              <mesh position={[-0.06, 0, 0]}>
+                <sphereGeometry args={[0.02, 14, 14]} />
+                <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[0.06, 0, 0]}>
+                <sphereGeometry args={[0.02, 14, 14]} />
+                <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[0.006, 0.006, 0.12, 10]} />
+                <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+            </group>
+          </group>
+        );
+  }
+  if (kind === "tanque-buzo") {
+    return (
+          <group position={[a.chest[0], a.chest[1] + 0.02, a.back[2] - 0.04]}>
+            {[-0.045, 0.045].map((dx, i) => (
+              <group key={i} position={[dx, 0, 0]}>
+                <mesh position={[0, 0, 0]}>
+                  <cylinderGeometry args={[0.035, 0.035, 0.19, 20]} />
+                  <meshStandardMaterial
+                    color={i === 0 ? "#14b8a6" : "#facc15"}
+                    metalness={0.55}
+                    roughness={0.18}
+                    transparent
+                    opacity={opacity}
+                  />
+                </mesh>
+                <mesh position={[0, 0.098, 0]}>
+                  <sphereGeometry args={[0.035, 20, 12]} />
+                  <meshStandardMaterial
+                    color={i === 0 ? "#14b8a6" : "#facc15"}
+                    metalness={0.55}
+                    roughness={0.18}
+                    transparent
+                    opacity={opacity}
+                  />
+                </mesh>
+                <mesh position={[0, -0.098, 0]}>
+                  <sphereGeometry args={[0.035, 20, 12]} />
+                  <meshStandardMaterial
+                    color={i === 0 ? "#0f766e" : "#ca8a04"}
+                    metalness={0.55}
+                    roughness={0.18}
+                    transparent
+                    opacity={opacity}
+                  />
+                </mesh>
+                <mesh position={[0, 0.128, 0]}>
+                  <cylinderGeometry args={[0.011, 0.011, 0.03, 12]} />
+                  <meshStandardMaterial color="#9ca3af" metalness={0.8} roughness={0.25} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, 0.148, 0]}>
+                  <sphereGeometry args={[0.02, 14, 10]} />
+                  <meshStandardMaterial color={black} metalness={0.4} roughness={0.4} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, 0.048, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                  <torusGeometry args={[0.036, 0.006, 8, 20]} />
+                  <meshStandardMaterial color="#f97316" metalness={0.3} roughness={0.5} transparent opacity={opacity} />
+                </mesh>
+                <mesh position={[0, -0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                  <torusGeometry args={[0.036, 0.006, 8, 20]} />
+                  <meshStandardMaterial color="#f97316" metalness={0.3} roughness={0.5} transparent opacity={opacity} />
+                </mesh>
+              </group>
+            ))}
+            {[
+              { p: [0.045, 0.15, 0.02] as Vec3, r: [0.3, 0, -0.5] as Vec3 },
+              { p: [0.068, 0.155, 0.06] as Vec3, r: [0.7, 0, -0.85] as Vec3 },
+              { p: [0.085, 0.135, 0.11] as Vec3, r: [1.1, 0, -1.05] as Vec3 },
+              { p: [0.085, 0.095, 0.155] as Vec3, r: [1.45, 0, -1.0] as Vec3 },
+            ].map((seg, i) => (
+              <mesh key={`hose-${i}`} position={seg.p} rotation={seg.r}>
+                <cylinderGeometry args={[0.009, 0.009, 0.065, 10]} />
+                <meshStandardMaterial color="#1f2937" metalness={0.3} roughness={0.6} transparent opacity={opacity} />
+              </mesh>
+            ))}
+            <mesh position={[0.085, 0.07, 0.185]} rotation={[Math.PI / 2, 0, 0]}>
+              <boxGeometry args={[0.05, 0.03, 0.02]} />
+              <meshStandardMaterial color={black} metalness={0.5} roughness={0.35} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "alas-hada") {
+    return (
+          <group position={[0, a.chest[1] + 0.05, a.back[2] - 0.02]}>
+            {[-1, 1].map((s) => (
+              <group key={s}>
+                <mesh position={[s * 0.11, 0.06, -0.008]} rotation={[0, s * -0.4, s * 0.5]} scale={[0.09, 0.15, 1]}>
+                  <circleGeometry args={[1, 28]} />
+                  <meshStandardMaterial color="#f9a8d4" emissive="#ec4899" emissiveIntensity={0.4} roughness={0.25} transparent opacity={opacity * 0.5} side={DoubleSide} />
+                </mesh>
+                <mesh position={[s * 0.075, 0.05, 0.004]} rotation={[0, s * -0.4, s * 0.5]} scale={[0.05, 0.1, 1]}>
+                  <circleGeometry args={[1, 28]} />
+                  <meshStandardMaterial color="#a7f3d0" emissive="#2dd4bf" emissiveIntensity={0.35} roughness={0.25} transparent opacity={opacity * 0.4} side={DoubleSide} />
+                </mesh>
+                <mesh position={[s * 0.09, -0.08, -0.008]} rotation={[0, s * -0.32, s * -0.55]} scale={[0.06, 0.1, 1]}>
+                  <circleGeometry args={[1, 28]} />
+                  <meshStandardMaterial color="#c4b5fd" emissive="#8b5cf6" emissiveIntensity={0.4} roughness={0.25} transparent opacity={opacity * 0.48} side={DoubleSide} />
+                </mesh>
+                <mesh position={[s * 0.065, -0.07, 0.004]} rotation={[0, s * -0.32, s * -0.55]} scale={[0.035, 0.065, 1]}>
+                  <circleGeometry args={[1, 28]} />
+                  <meshStandardMaterial color="#bae6fd" emissive="#38bdf8" emissiveIntensity={0.35} roughness={0.25} transparent opacity={opacity * 0.4} side={DoubleSide} />
+                </mesh>
+                <mesh position={[s * 0.11, 0.06, 0.008]} rotation={[0, s * -0.4, s * 0.5]}>
+                  <boxGeometry args={[0.004, 0.26, 0.004]} />
+                  <meshStandardMaterial color="#fbcfe8" emissive="#f9a8d4" emissiveIntensity={0.3} transparent opacity={opacity * 0.7} />
+                </mesh>
+                <mesh position={[s * 0.09, -0.08, 0.008]} rotation={[0, s * -0.32, s * -0.55]}>
+                  <boxGeometry args={[0.004, 0.18, 0.004]} />
+                  <meshStandardMaterial color="#ddd6fe" emissive="#c4b5fd" emissiveIntensity={0.3} transparent opacity={opacity * 0.7} />
+                </mesh>
+              </group>
+            ))}
+          </group>
+        );
+  }
+  if (kind === "guantes-boxeo") {
+    return (
+          <group>
+            {[a.leftHand, a.rightHand].map((h, i) => {
+              const side = i === 0 ? -1 : 1;
+              return (
+                <group key={i} position={[h[0], h[1], h[2] + 0.01]}>
+                  <mesh scale={[1, 0.92, 0.85]}>
+                    <sphereGeometry args={[0.075, 20, 20]} />
+                    <meshStandardMaterial color="#dc2626" roughness={0.15} metalness={0.1} transparent opacity={opacity} />
+                  </mesh>
+                  <mesh position={[side * 0.055, -0.028, 0.02]} scale={[1, 1.1, 1]}>
+                    <sphereGeometry args={[0.032, 16, 16]} />
+                    <meshStandardMaterial color="#dc2626" roughness={0.15} metalness={0.1} transparent opacity={opacity} />
+                  </mesh>
+                  <mesh position={[0, -0.066, 0]}>
+                    <cylinderGeometry args={[0.052, 0.052, 0.04, 18]} />
+                    <meshStandardMaterial color="#ffffff" roughness={0.55} transparent opacity={opacity} />
+                  </mesh>
+                  {[0, 1, 2].map((j) => (
+                    <mesh key={j} position={[0, 0.024 - j * 0.022, 0.07]} rotation={[0, 0, j % 2 === 0 ? 0.35 : -0.35]}>
+                      <boxGeometry args={[0.05, 0.006, 0.005]} />
+                      <meshStandardMaterial color="#ffffff" roughness={0.55} transparent opacity={opacity} />
+                    </mesh>
+                  ))}
+                </group>
+              );
+            })}
+          </group>
+        );
+  }
+  if (kind === "sable-laser") {
+    return <CosmeticSableLaser a={a} opacity={opacity} />;
+  }
+  if (kind === "varita-magica") {
+    return (
+        <group position={[a.rightHand[0] + 0.02, a.rightHand[1] + 0.05, a.rightHand[2] + 0.02]} rotation={[0, 0, 0.12]}>
+          <mesh>
+            <cylinderGeometry args={[0.007, 0.009, 0.18, 10]} />
+            <meshStandardMaterial color="#3a2b1a" roughness={0.6} transparent opacity={opacity} />
+          </mesh>
+          <group position={[0, 0.11, 0]}>
+            {[0, 1, 2, 3, 4].map((i) => {
+              const ang = (i / 5) * Math.PI * 2;
+              return (
+                <mesh key={i} position={[Math.cos(ang) * 0.03, Math.sin(ang) * 0.03, 0]} rotation={[0, 0, ang - Math.PI / 2]}>
+                  <coneGeometry args={[0.014, 0.055, 4]} />
+                  <meshStandardMaterial color={gold} emissive="#fbbf24" emissiveIntensity={0.9} roughness={0.3} transparent opacity={opacity} toneMapped={false} />
+                </mesh>
+              );
+            })}
+            <mesh>
+              <sphereGeometry args={[0.02, 12, 10]} />
+              <meshStandardMaterial color="#fff7cc" emissive="#fde68a" emissiveIntensity={1} transparent opacity={opacity} toneMapped={false} />
+            </mesh>
+          </group>
+        </group>
+      );
+  }
+  if (kind === "maracas") {
+    return (
+        <group>
+          {[
+            { p: a.leftHand, c: "#ef4444", s: -1 },
+            { p: a.rightHand, c: "#f59e0b", s: 1 },
+          ].map((m, i) => (
+            <group key={i} position={[m.p[0] + m.s * 0.01, m.p[1] + 0.05, m.p[2] + 0.01]} rotation={[0, 0, m.s * 0.25]}>
+              <mesh position={[0, 0.03, 0]}>
+                <sphereGeometry args={[0.045, 14, 12]} />
+                <meshStandardMaterial color={m.c} roughness={0.55} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[0, -0.03, 0]}>
+                <cylinderGeometry args={[0.012, 0.014, 0.07, 10]} />
+                <meshStandardMaterial color="#7a4a24" roughness={0.6} transparent opacity={opacity} />
+              </mesh>
+              {[0, 1, 2].map((d) => (
+                <mesh key={d} position={[Math.cos(d * 2.1) * 0.028, 0.03 + Math.sin(d * 2.1) * 0.028, 0.038]}>
+                  <sphereGeometry args={[0.006, 6, 6]} />
+                  <meshStandardMaterial color="#fef3c7" roughness={0.5} transparent opacity={opacity} />
+                </mesh>
+              ))}
+            </group>
+          ))}
+        </group>
+      );
+  }
+  if (kind === "copa-champan") {
+    return (
+        <group position={[a.rightHand[0] + 0.02, a.rightHand[1] + 0.05, a.rightHand[2] + 0.02]}>
+          <mesh position={[0, -0.055, 0]}>
+            <cylinderGeometry args={[0.022, 0.022, 0.005, 16]} />
+            <meshStandardMaterial color="#e5e7eb" roughness={0.2} metalness={0.1} transparent opacity={opacity * 0.85} />
+          </mesh>
+          <mesh position={[0, -0.01, 0]}>
+            <cylinderGeometry args={[0.005, 0.005, 0.09, 8]} />
+            <meshStandardMaterial color="#e5e7eb" roughness={0.15} transparent opacity={opacity * 0.7} />
+          </mesh>
+          <mesh position={[0, 0.06, 0]}>
+            <cylinderGeometry args={[0.028, 0.014, 0.075, 16, 1, true]} />
+            <meshStandardMaterial color="#f8fafc" roughness={0.1} metalness={0.05} transparent opacity={opacity * 0.35} side={DoubleSide} />
+          </mesh>
+          <mesh position={[0, 0.05, 0]}>
+            <cylinderGeometry args={[0.02, 0.013, 0.045, 16]} />
+            <meshStandardMaterial color="#facc15" roughness={0.2} transparent opacity={opacity * 0.7} />
+          </mesh>
+          {[0, 1, 2].map((b) => (
+            <mesh key={b} position={[(b - 1) * 0.008, 0.07 + b * 0.015, 0.006]}>
+              <sphereGeometry args={[0.0035, 6, 6]} />
+              <meshStandardMaterial color="#fffbeb" transparent opacity={opacity * 0.85} />
+            </mesh>
+          ))}
+        </group>
+      );
+  }
+  if (kind === "jarra-cerveza") {
+    return (
+          <group position={[a.rightHand[0], a.rightHand[1] + 0.05, a.rightHand[2] + 0.01]}>
+            <mesh position={[0, 0, 0]}>
+              <cylinderGeometry args={[0.055, 0.05, 0.13, 20]} />
+              <meshStandardMaterial color="#cfe8ff" metalness={0.1} roughness={0.05} transparent opacity={opacity * 0.35} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, -0.012, 0]}>
+              <cylinderGeometry args={[0.049, 0.045, 0.095, 20]} />
+              <meshStandardMaterial color="#f5a623" emissive="#c97a00" emissiveIntensity={0.2} roughness={0.25} transparent opacity={opacity * 0.92} />
+            </mesh>
+            <mesh position={[0, -0.062, 0]}>
+              <cylinderGeometry args={[0.05, 0.05, 0.012, 20]} />
+              <meshStandardMaterial color="#bcd9f0" metalness={0.2} roughness={0.1} transparent opacity={opacity * 0.5} />
+            </mesh>
+            <mesh position={[0.06, 0.005, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.036, 0.011, 10, 20, Math.PI]} />
+              <meshStandardMaterial color="#cfe8ff" metalness={0.15} roughness={0.08} transparent opacity={opacity * 0.45} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0.06, 0]}>
+              <sphereGeometry args={[0.05, 16, 14]} />
+              <meshStandardMaterial color="#fffdf5" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.024, 0.075, 0.018]}>
+              <sphereGeometry args={[0.03, 14, 12]} />
+              <meshStandardMaterial color="#ffffff" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[-0.026, 0.073, -0.012]}>
+              <sphereGeometry args={[0.028, 14, 12]} />
+              <meshStandardMaterial color="#fbfaf3" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0.002, 0.088, -0.02]}>
+              <sphereGeometry args={[0.024, 12, 10]} />
+              <meshStandardMaterial color="#ffffff" roughness={0.85} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        );
+  }
+  if (kind === "antorcha") {
+    return <CosmeticAntorcha a={a} opacity={opacity} />;
+  }
+  if (kind === "globo-perro") {
+    return (
+        <group position={[a.leftHand[0] - 0.03, a.leftHand[1] + 0.07, a.leftHand[2] + 0.02]}>
+          <mesh rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.018, 0.018, 0.09, 12]} />
+            <meshStandardMaterial color="#ec4899" roughness={0.15} metalness={0.05} transparent opacity={opacity} />
+          </mesh>
+          {[[-0.035, -0.02], [-0.035, 0.02], [0.035, -0.02], [0.035, 0.02]].map((pos, i) => (
+            <mesh key={i} position={[pos[0], -0.03, pos[1]]}>
+              <cylinderGeometry args={[0.013, 0.013, 0.05, 10]} />
+              <meshStandardMaterial color="#ec4899" roughness={0.15} metalness={0.05} transparent opacity={opacity} />
+            </mesh>
+          ))}
+          <mesh position={[0.05, 0.03, 0]} rotation={[0, 0, -0.5]}>
+            <cylinderGeometry args={[0.014, 0.014, 0.06, 10]} />
+            <meshStandardMaterial color="#ec4899" roughness={0.15} metalness={0.05} transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[0.075, 0.06, 0]}>
+            <sphereGeometry args={[0.022, 12, 10]} />
+            <meshStandardMaterial color="#ec4899" roughness={0.15} metalness={0.05} transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[0.095, 0.052, 0]} rotation={[0, 0, 1.4]}>
+            <cylinderGeometry args={[0.009, 0.011, 0.03, 8]} />
+            <meshStandardMaterial color="#ec4899" roughness={0.15} metalness={0.05} transparent opacity={opacity} />
+          </mesh>
+          {[-1, 1].map((s) => (
+            <mesh key={s} position={[0.07, 0.075, s * 0.016]} rotation={[Math.PI / 2, 0.3, 0]}>
+              <torusGeometry args={[0.014, 0.006, 8, 14]} />
+              <meshStandardMaterial color="#db2777" roughness={0.2} metalness={0.05} transparent opacity={opacity} />
+            </mesh>
+          ))}
+          {[[0.04, 0], [-0.04, 0], [0.05, 0.055]].map((pos, i) => (
+            <mesh key={i} position={[pos[0], pos[1], 0]}>
+              <sphereGeometry args={[0.008, 8, 8]} />
+              <meshStandardMaterial color="#f9a8d4" roughness={0.2} transparent opacity={opacity} />
+            </mesh>
+          ))}
+        </group>
+      );
   }
 
   const anchor = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { z: 0.04 });
