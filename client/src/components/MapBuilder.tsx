@@ -165,6 +165,23 @@ const ASSET_EMOJI: Record<string, string> = {
   "city-barricade-peed": "🚧",
   "crumpled-exam-ausente": "📄",
   "martina-impact-ball": "⚽",
+  "teacher-figures": "👩‍🏫",
+  "giant-groin-cup": "🛡️",
+  "sleeping-bag": "🛌",
+  "tongue-toy": "👅",
+  "jony-duck-window": "🪟",
+  "flying-chair": "🪑",
+  "kiosk-bag-nofui": "🛍️",
+  "tiny-trophy": "🏆",
+  "silly-pool-float": "🦩",
+  "broken-umbrella": "☂️",
+  "megaphone": "📣",
+  "stopwatch": "⏱️",
+  "lucky-sock": "🧦",
+  "cursed-calculator": "🔮",
+  "giant-pencil": "✏️",
+  "sticker-suitcase": "🧳",
+  "banana-peel-trap": "🍌",
 };
 
 const KIND_EMOJI: Record<MapAssetDef["kind"], string> = {
@@ -1677,6 +1694,7 @@ function PropGalleryOverlay({
   const selectedIndex = Math.max(0, assetCatalog.findIndex((asset) => asset.id === selectedId));
   const selectedAsset = assetCatalog[selectedIndex];
   const [scale, setScale] = useState(selectedAsset?.defaultScale ?? 1);
+  const [catalogOpen, setCatalogOpen] = useState(true);
   const preview = useMemo(() => buildPropPreviewMap(selectedAsset?.id ?? "", selectedAsset, scale), [selectedAsset, scale]);
 
   // Cambiar de prop resetea el tamaño al por defecto de ese prop.
@@ -1725,6 +1743,14 @@ function PropGalleryOverlay({
               <button type="button" onClick={() => step(-1)} className="builder-button compact" aria-label="Prop anterior">◀</button>
               <span className="min-w-[4rem] text-center text-xs font-bold text-slate-300">{assetCatalog.length ? selectedIndex + 1 : 0} / {assetCatalog.length}</span>
               <button type="button" onClick={() => step(1)} className="builder-button compact" aria-label="Prop siguiente">▶</button>
+              <button
+                type="button"
+                onClick={() => setCatalogOpen((open) => !open)}
+                className="builder-button compact"
+                aria-expanded={catalogOpen}
+              >
+                {catalogOpen ? "Catálogo ▾" : "Catálogo ▸"}
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-300">Tamaño</span>
@@ -1757,7 +1783,8 @@ function PropGalleryOverlay({
               Colocar en el mapa
             </button>
           </div>
-          <div className="mt-3 grid max-h-[34vh] grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto overscroll-contain pr-1">
+          {catalogOpen && (
+            <div className="mt-3 grid max-h-[30vh] grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto overscroll-contain pr-1">
             {assetCatalog.map((asset) => (
               <button
                 key={asset.id}
@@ -1774,7 +1801,8 @@ function PropGalleryOverlay({
                 <span className="truncate">{asset.name}</span>
               </button>
             ))}
-          </div>
+            </div>
+          )}
         </section>
       </div>
     </div>

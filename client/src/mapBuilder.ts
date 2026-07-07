@@ -165,6 +165,23 @@ const DEFAULT_ASSETS: MapAssetDef[] = [
   { id: "city-barricade-peed", name: "Coso amarillo meado", kind: "sign", defaultScale: 1 },
   { id: "crumpled-exam-ausente", name: "Examen AUSENTE", kind: "decor", defaultScale: 1 },
   { id: "martina-impact-ball", name: "Pelota del pelotazo", kind: "decor", defaultScale: 1 },
+  { id: "teacher-figures", name: "Profesores", kind: "custom", defaultScale: 1 },
+  { id: "giant-groin-cup", name: "Protector de Javi", kind: "decor", defaultScale: 1 },
+  { id: "sleeping-bag", name: "Bolsa de dormir", kind: "decor", defaultScale: 1 },
+  { id: "tongue-toy", name: "Lengua loca", kind: "decor", defaultScale: 1 },
+  { id: "jony-duck-window", name: "Ventana de Jony", kind: "decor", defaultScale: 1 },
+  { id: "flying-chair", name: "Silla voladora", kind: "decor", defaultScale: 1 },
+  { id: "kiosk-bag-nofui", name: "Bolsa NO FUI YO", kind: "decor", defaultScale: 1 },
+  { id: "tiny-trophy", name: "Trofeo chiquito", kind: "custom", defaultScale: 1 },
+  { id: "silly-pool-float", name: "Flotador ridículo", kind: "decor", defaultScale: 1 },
+  { id: "broken-umbrella", name: "Paraguas roto", kind: "decor", defaultScale: 1 },
+  { id: "megaphone", name: "Megáfono", kind: "decor", defaultScale: 1 },
+  { id: "stopwatch", name: "Cronómetro", kind: "decor", defaultScale: 1 },
+  { id: "lucky-sock", name: "Media de la suerte", kind: "decor", defaultScale: 1 },
+  { id: "cursed-calculator", name: "Calculadora maldita", kind: "decor", defaultScale: 1 },
+  { id: "giant-pencil", name: "Lápiz gigante", kind: "decor", defaultScale: 1 },
+  { id: "sticker-suitcase", name: "Valija con stickers", kind: "decor", defaultScale: 1 },
+  { id: "banana-peel-trap", name: "Cáscara de banana", kind: "decor", defaultScale: 1 },
 ];
 
 export function createInitialMapBuilderState(content: GameContent): MapBuilderState {
@@ -210,8 +227,17 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
   return {
     activeMapId,
     maps,
-    assetCatalog: normalizeAssetCatalog(content.assetCatalog?.length ? content.assetCatalog : DEFAULT_ASSETS),
+    // Unimos el catálogo guardado con los assets por defecto, para que los props
+    // nuevos aparezcan aunque haya un borrador viejo en localStorage (sin pisar
+    // las personalizaciones ya guardadas).
+    assetCatalog: normalizeAssetCatalog(mergeAssetCatalog(content.assetCatalog ?? [], DEFAULT_ASSETS)),
   };
+}
+
+/** Une el catálogo guardado con los assets por defecto que falten (por id). */
+function mergeAssetCatalog(stored: MapAssetDef[], defaults: MapAssetDef[]): MapAssetDef[] {
+  const ids = new Set(stored.map((asset) => asset.id));
+  return [...stored, ...defaults.filter((asset) => !ids.has(asset.id))];
 }
 
 export function builderContentToGameContent(base: GameContent, builder: BuilderContent): GameContent {
