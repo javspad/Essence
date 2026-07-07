@@ -127,6 +127,7 @@ io.on("connection", (socket) => {
   socket.on("minigame:action", (data) => withRoom((r) => r.minigameAction(socket.id, data)));
   socket.on("minigame:result", (payload) => withRoom((r) => void r.submitResult(socket.id, payload)));
   socket.on("minigame:force", () => withRoom((r) => void r.forceResolve(socket.id)));
+  socket.on("debug:applyEffect", (payload) => withRoom((r) => r.debugApplyEffect(socket.id, payload)));
 
   socket.on("disconnect", () => {
     withRoom((r) => r.disconnect(socket.id));

@@ -128,6 +128,7 @@ function ConnectedGame({
           }}
           onNext={actions.next}
           onLeave={actions.leave}
+          onDebugApplyEffect={actions.debugApplyEffect}
         />
       </Suspense>
     );

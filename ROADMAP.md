@@ -342,8 +342,9 @@ Verification notes:
 - Server now attaches duration-based consequence actions to resolved users, applies `applyEffect` consequences, runs effect lifecycle hooks during roll/movement/cell/activity/turn flow, expires use/turn/round/until-triggered effects, and emits `effect:ended`.
 - Active effects appear in the legacy score list and the 3D HUD score panel with names, remaining duration, and hover/tap detail text.
 - Event Builder now exposes common target selectors, multiple actions per consequence branch, inline attached-action timing, an Effect builder for reusable effect types, named effect choices in the action type list, and the existing Content JSON import/export escape hatch.
+- The live board now has a host-only development effect tool beside the map button in dev builds, with a `?debugTools` override for built static QA; it can attach server catalog effects and saved Event Builder draft effects to a selected player.
 - Regression coverage: server tests for catalog effect application, generic movement multiplier, one-use attached consequences, dice bias, duration ticking, and end notification; shared/client tests for target selectors, duration labels, invalid effect references, and legacy modifier-to-consequence migration.
-- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright Event Builder QA with screenshot at `/tmp/essence-effect-builder.png`; `git diff --check`.
+- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright Event Builder QA with screenshot at `/tmp/essence-effect-builder.png`; Playwright live board dev-effect QA with screenshot at `/tmp/essence-debug-effects-tool.png`; `git diff --check`.
 
 Manual validation checklist:
 
@@ -352,6 +353,8 @@ Manual validation checklist:
 - [ ] In `/event-builder`, set an action's Timing to `Attach to user`, change Runs/Duration/Count, and verify the Advanced JSON shows `hook` and `duration`.
 - [ ] In `/event-builder`, create a new Effect builder entry, compose movement multiplier plus dice bias or another timed consequence, then verify the new effect appears by name in a consequence action's Type list.
 - [ ] Save, refresh, and verify the new effect type persists in the Effect builder and can still be selected from a consequence action.
+- [ ] As host in a live room, open the **Dev effects** tool beside the map button and verify built-in effects plus saved Event Builder draft effects appear in the Effect type list.
+- [ ] Apply an effect to a player from **Dev effects** and verify the score panel immediately shows that active effect with remaining duration.
 - [ ] In a room with content that applies `half-roll-2-rounds`, trigger the effect and verify the target's score row shows the active effect with remaining duration.
 - [ ] While the effect is active, roll and verify movement is halved without any take-shot prompt appearing from the effect itself.
 - [ ] Advance turns/rounds until expiration and verify the active effect disappears from the score UI.

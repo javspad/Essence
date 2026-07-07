@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { GameState, RevealPayload } from "@essence/shared";
+import type { EffectDef, GameState, RevealPayload } from "@essence/shared";
 import { socket } from "./socket";
 
 interface MinigameStart {
@@ -136,6 +136,7 @@ export function useGame() {
       start: () => socket.emit("game:start"),
       roll: () => socket.emit("turn:roll"),
       next: () => socket.emit("turn:next"),
+      debugApplyEffect: (playerId: string, effect: EffectDef) => socket.emit("debug:applyEffect", { playerId, effectId: effect.id, effect }),
       forceResolve: () => socket.emit("minigame:force"),
       submitResult: (score: number, payload: unknown, outcome?: "win" | "loss") =>
         socket.emit("minigame:result", { score, payload, outcome }),

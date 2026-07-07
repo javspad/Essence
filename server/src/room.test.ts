@@ -381,6 +381,47 @@ await withRolls([1, 6], async () => {
   assert.equal(events.some((event) => event.event === "effect:ended" && (event.payload as { reason?: string }).reason === "expired"), true);
 });
 
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DBG1", "Debug effects", {
+    ...effectContent,
+    players: [
+      { id: "alice", name: "Alice", color: "#f87171" },
+      { id: "bob", name: "Bob", color: "#60a5fa" },
+    ],
+  });
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  assert.equal(room.getState().effects?.["half-roll-2-rounds"]?.name, "Half movement");
+
+  room.debugApplyEffect("socket-bob", { playerId: "alice", effectId: "half-roll-2-rounds" });
+  assert.equal(room.getState().activeEffects.length, 0, "non-hosts cannot apply debug effects");
+
+  room.debugApplyEffect("socket-alice", { playerId: "bob", effectId: "half-roll-2-rounds" });
+  assert.equal(room.getState().activeEffects.length, 1);
+  assert.equal(room.getState().activeEffects[0].targetPlayerId, "bob");
+  assert.equal(room.getState().activeEffects[0].effectId, "half-roll-2-rounds");
+  assert.equal(room.getState().activeEffects[0].sourcePlayerId, "alice");
+
+  room.debugApplyEffect("socket-alice", { playerId: "bob", effectId: "missing-effect" });
+  assert.equal(room.getState().activeEffects.length, 1, "missing effects are ignored");
+
+  room.debugApplyEffect("socket-alice", {
+    playerId: "bob",
+    effectId: "draft-dice-charm",
+    effect: {
+      id: "draft-dice-charm",
+      name: "Draft dice charm",
+      duration: { mode: "uses", value: 1 },
+      consequences: [{ type: "diceBias", hook: "beforeRoll", face: 5, chanceDeltaPercent: 25 }],
+    },
+  });
+  assert.equal(room.getState().activeEffects.length, 2, "hosts can apply draft-only effect definitions");
+  assert.equal(room.getState().activeEffects[1].effectId, "draft-dice-charm");
+  assert.equal(room.getState().activeEffects[1].consequences[0].type, "diceBias");
+}
+
 const timedConsequenceContent: GameContent = normalizeGameContentEvents({
   board: [
     { id: 0, type: "start" },

@@ -648,6 +648,7 @@ export interface GameState {
   activeEvent: ActiveEvent | null;
   reveal: RevealPayload | null;
   winnerId: string | null;
+  effects?: Record<string, EffectDef>;
   activeEffects: EffectInstance[];
 }
 
@@ -744,6 +745,8 @@ export interface ClientToServerEvents {
   "minigame:result": (payload: { score: number; payload: unknown; outcome?: "win" | "loss" }) => void;
   /** host fuerza el cierre del minijuego si alguien se colgó */
   "minigame:force": () => void;
+  /** Development-only host tool: attach a catalog effect to a player for simulation/debugging. */
+  "debug:applyEffect": (payload: { playerId: string; effectId: string; effect?: EffectDef }) => void;
   "reveal:next": () => void;
 }
 

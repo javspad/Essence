@@ -4,6 +4,7 @@ import type {
   AppliedEventAction,
   CharacterDef,
   ClientToServerEvents,
+  EffectDef,
   EffectDuration,
   EffectInstance,
   EffectLifecycleHook,
@@ -98,6 +99,7 @@ export class GameRoom {
       activeEvent: null,
       reveal: null,
       winnerId: null,
+      effects: content.effects,
       activeEffects: [],
     };
   }
@@ -488,6 +490,18 @@ export class GameRoom {
       return;
     }
     await this.resolveActiveMinigame();
+  }
+
+  debugApplyEffect(socketId: string, payload: { playerId?: unknown; effectId?: unknown; effect?: unknown }) {
+    const host = this.playerBySocket(socketId);
+    if (!host?.isHost) return;
+    const playerId = typeof payload.playerId === "string" ? payload.playerId : "";
+    const effectId = typeof payload.effectId === "string" ? payload.effectId : "";
+    if (!this.state.players.some((player) => player.id === playerId)) return;
+    const effect = debugEffectFromPayload(payload.effect, effectId) ?? this.content.effects?.[effectId];
+    if (!effect) return;
+    this.attachEffectToTargets(effect, [playerId], { sourcePlayerId: host.id });
+    this.broadcast();
   }
 
   private startJudgeVoting(mg: ActiveMinigame) {
@@ -1146,6 +1160,36 @@ function formatSigned(value: number): string {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function debugEffectFromPayload(value: unknown, effectId: string): EffectDef | null {
+  if (!isRecord(value)) return null;
+  const id = typeof value.id === "string" ? value.id : effectId;
+  if (!id || id !== effectId) return null;
+  const duration = debugDurationFromPayload(value.duration);
+  if (!duration) return null;
+
+  const effect: EffectDef = {
+    id,
+    name: typeof value.name === "string" && value.name.trim() ? value.name.trim() : id,
+    duration,
+  };
+  if (typeof value.description === "string" && value.description.trim()) effect.description = value.description.trim();
+  if (typeof value.visualAssetId === "string" && value.visualAssetId.trim()) effect.visualAssetId = value.visualAssetId.trim();
+  if (Array.isArray(value.consequences)) effect.consequences = value.consequences.filter(isRecord) as EventAction[];
+  if (Array.isArray(value.actions)) effect.actions = value.actions.filter(isRecord) as EventAction[];
+  if (Array.isArray(value.modifiers)) effect.modifiers = value.modifiers.filter(isRecord) as EffectDef["modifiers"];
+  if (!effect.consequences?.length && !effect.actions?.length && !effect.modifiers?.length) return null;
+  return effect;
+}
+
+function debugDurationFromPayload(value: unknown): EffectDuration | null {
+  if (!isRecord(value) || typeof value.mode !== "string") return null;
+  if (value.mode === "game" || value.mode === "untilTriggered") return { mode: value.mode };
+  if (value.mode !== "turns" && value.mode !== "rounds" && value.mode !== "uses") return null;
+  const count = typeof value.value === "number" ? value.value : 1;
+  if (!Number.isFinite(count)) return null;
+  return { mode: value.mode, value: Math.max(1, Math.round(count)) };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

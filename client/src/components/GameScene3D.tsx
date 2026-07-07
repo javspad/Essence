@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { EffectInstance, GameState, Player } from "@essence/shared";
-import { effectRemainingLabel } from "@essence/shared/consequences";
+import type { EffectDef, EffectInstance, GameState, Player } from "@essence/shared";
+import { durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import {
+  Bug,
   Dice5,
   LogOut,
   Map as MapIcon,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -36,10 +38,12 @@ interface GameScene3DProps {
   onRoll: () => void;
   onNext: () => void;
   onLeave: () => void;
+  onDebugApplyEffect: (playerId: string, effect: EffectDef) => void;
 }
 
 const DICE = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
 const DEFAULT_CAMERA_STATE: BoardCameraState = { mode: "followActivePlayer", focusedPlayerId: null };
+const EVENT_BUILDER_STORAGE_KEY = "essence:event-builder:draft:v1";
 
 export default function GameScene3D({
   connected,
@@ -56,6 +60,7 @@ export default function GameScene3D({
   onRoll,
   onNext,
   onLeave,
+  onDebugApplyEffect,
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
   const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
@@ -142,6 +147,7 @@ export default function GameScene3D({
         isMyTurn={isMyTurn}
         canAdvance={canAdvance}
         editMode={editMode}
+        isHost={isHost}
         cameraState={cameraState}
         eventBusyLabel={eventBusyLabel}
         rollBlocked={rollBlocked}
@@ -151,6 +157,7 @@ export default function GameScene3D({
         onRoll={onRoll}
         onNext={onNext}
         onLeave={requestLeave}
+        onDebugApplyEffect={onDebugApplyEffect}
       />
 
       {leaveConfirmOpen && (
@@ -177,6 +184,7 @@ function SceneChrome({
   isMyTurn,
   canAdvance,
   editMode,
+  isHost,
   cameraState,
   eventBusyLabel,
   rollBlocked,
@@ -186,6 +194,7 @@ function SceneChrome({
   onRoll,
   onNext,
   onLeave,
+  onDebugApplyEffect,
 }: {
   connected: boolean;
   state: GameState;
@@ -194,6 +203,7 @@ function SceneChrome({
   isMyTurn: boolean;
   canAdvance: boolean;
   editMode: boolean;
+  isHost: boolean;
   cameraState: BoardCameraState;
   eventBusyLabel?: string | null;
   rollBlocked: boolean;
@@ -203,9 +213,11 @@ function SceneChrome({
   onRoll: () => void;
   onNext: () => void;
   onLeave: () => void;
+  onDebugApplyEffect: (playerId: string, effect: EffectDef) => void;
 }) {
   const active = state.players.find((player) => player.id === activeId);
   const sorted = rankPlayersByProgress(state.players);
+  const debugToolsEnabled = isDevBuild() || (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debugTools"));
   const showTurnPanel =
     state.phase !== "reveal" &&
     state.phase !== "finished" &&
@@ -230,6 +242,13 @@ function SceneChrome({
         </div>
         {state.phase !== "finished" && (
           <div className="relative z-30 ml-0 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
+            {isHost && debugToolsEnabled && (
+              <DebugEffectTool
+                players={state.players}
+                effects={state.effects}
+                onApply={onDebugApplyEffect}
+              />
+            )}
             <MapToggleButton cameraMode={cameraState.mode} onCameraIntent={onCameraIntent} />
             <LeaveButton onLeave={onLeave} />
           </div>
@@ -367,6 +386,169 @@ function ScorePanel({
         </CardContent>
       </aside>
     </Card>
+  );
+}
+
+function DebugEffectTool({
+  players,
+  effects,
+  onApply,
+}: {
+  players: Player[];
+  effects?: Record<string, EffectDef>;
+  onApply: (playerId: string, effect: EffectDef) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draftVersion, setDraftVersion] = useState(0);
+  const effectOptions = useMemo(
+    () => mergedEffectCatalog(effects, loadEventBuilderDraftEffects()),
+    [effects, draftVersion]
+  );
+  const [selectedPlayerId, setSelectedPlayerId] = useState(players[0]?.id ?? "");
+  const [selectedEffectId, setSelectedEffectId] = useState(effectOptions[0]?.id ?? "");
+  const selectedEffect = effectOptions.find((effect) => effect.id === selectedEffectId);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === EVENT_BUILDER_STORAGE_KEY) setDraftVersion((version) => version + 1);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  useEffect(() => {
+    if (selectedPlayerId && players.some((player) => player.id === selectedPlayerId)) return;
+    setSelectedPlayerId(players[0]?.id ?? "");
+  }, [players, selectedPlayerId]);
+
+  useEffect(() => {
+    if (selectedEffectId && effectOptions.some((effect) => effect.id === selectedEffectId)) return;
+    setSelectedEffectId(effectOptions[0]?.id ?? "");
+  }, [effectOptions, selectedEffectId]);
+
+  const apply = () => {
+    if (!selectedPlayerId || !selectedEffect) return;
+    onApply(selectedPlayerId, selectedEffect);
+    setOpen(false);
+  };
+
+  return (
+    <div className="pointer-events-auto relative">
+      <Button
+        type="button"
+        aria-label="Abrir herramienta de efectos de desarrollo"
+        aria-expanded={open}
+        title="Aplicar efectos de desarrollo"
+        data-testid="debug-effects-toggle"
+        onClick={() => {
+          setDraftVersion((version) => version + 1);
+          setOpen((current) => !current);
+        }}
+        className={cn(
+          "flex h-9 items-center gap-1.5 border border-[#a7f3d0]/35 px-3 text-[10px] font-black uppercase tracking-wider text-[#bbf7d0] shadow-[0_0_0_1px_rgba(167,243,208,0.08),0_8px_24px_rgb(0_0_0/0.4)] backdrop-blur-xl transition-colors hover:bg-[#34d399]/20 hover:text-white",
+          open ? "bg-[#34d399]/24 ring-1 ring-[#a7f3d0]/60" : "bg-[#052e1a]/82"
+        )}
+      >
+        <Bug data-icon="inline-start" className="size-3.5" />
+        <span className="hidden sm:inline">Dev effects</span>
+      </Button>
+
+      {open && (
+        <section
+          aria-label="Development effect tool"
+          data-testid="debug-effects-panel"
+          className="absolute right-0 top-11 w-[min(19rem,calc(100vw-1.5rem))] rounded-sm border border-[#a7f3d0]/35 bg-[#07140f]/96 p-3 text-[#ecfdf5] shadow-[0_0_0_1px_rgba(167,243,208,0.08),0_18px_50px_rgb(0_0_0/0.55)] backdrop-blur-xl"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="retro text-[8px] uppercase tracking-widest text-[#86efac]">Development</p>
+              <h2 className="mt-1 text-sm font-black text-[#f0fdf4]">Apply effect</h2>
+            </div>
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-[#f5d547]" />
+          </div>
+
+          <div className="mt-3 grid gap-2">
+            <DevToolSelect
+              label="Player"
+              value={selectedPlayerId}
+              disabled={!players.length}
+              options={players.map((player) => ({ value: player.id, label: player.name }))}
+              testId="debug-effect-player"
+              onChange={setSelectedPlayerId}
+            />
+            <DevToolSelect
+              label="Effect type"
+              value={selectedEffectId}
+              disabled={!effectOptions.length}
+              options={effectOptions.length ? effectOptions.map((effect) => ({ value: effect.id, label: effect.name })) : [{ value: "", label: "No effects" }]}
+              testId="debug-effect-effect"
+              onChange={setSelectedEffectId}
+            />
+          </div>
+
+          {selectedEffect ? (
+            <div className="mt-3 rounded-sm border border-white/10 bg-black/25 p-2">
+              <p className="truncate text-xs font-black text-[#f0fdf4]">{selectedEffect.name}</p>
+              <p className="mt-1 line-clamp-2 text-[10px] font-bold leading-4 text-[#bbf7d0]/75">
+                {selectedEffect.description ?? "Custom effect from the active catalog."}
+              </p>
+              <p className="mt-2 w-fit rounded-sm border border-[#a7f3d0]/25 bg-[#34d399]/12 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-[#bbf7d0]">
+                {effectRemainingLabel(durationStateFromDef(selectedEffect.duration))}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-sm border border-dashed border-white/15 p-2 text-xs font-bold text-[#bbf7d0]/70">
+              Create and save an effect in Event Builder, or add effects to content.json.
+            </p>
+          )}
+
+          <Button
+            type="button"
+            data-testid="debug-effect-apply"
+            disabled={!selectedPlayerId || !selectedEffect}
+            onClick={apply}
+            className="mt-3 h-10 w-full bg-[#34d399] px-4 text-xs font-black uppercase tracking-wider text-[#052e1a] hover:bg-[#6ee7b7] disabled:bg-white/15 disabled:text-white/50"
+          >
+            Apply to player
+          </Button>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function DevToolSelect({
+  label,
+  value,
+  disabled,
+  options,
+  testId,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  options: { value: string; label: string }[];
+  testId: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block text-[9px] font-black uppercase tracking-wider text-[#86efac]">
+      {label}
+      <select
+        value={value}
+        disabled={disabled}
+        data-testid={testId}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-9 w-full rounded-sm border border-white/15 bg-[#0e0a1a] px-2 text-xs font-black normal-case tracking-normal text-[#f0fdf4] outline-none focus:border-[#86efac] disabled:opacity-45"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value} className="bg-[#0e0a1a] text-[#f0fdf4]">
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -694,6 +876,49 @@ function SceneEditHint({ active }: { active?: Player }) {
       <p className="mt-1 text-sky-200/80">{active ? `Cámara siguiendo a ${active.name}` : "Mapa tipo Game of Life"}</p>
     </aside>
   );
+}
+
+function mergedEffectCatalog(serverEffects: Record<string, EffectDef> | undefined, draftEffects: Record<string, EffectDef>): EffectDef[] {
+  const merged = new Map<string, EffectDef>();
+  for (const effect of Object.values(serverEffects ?? {})) merged.set(effect.id, effect);
+  for (const effect of Object.values(draftEffects)) merged.set(effect.id, effect);
+  return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function loadEventBuilderDraftEffects(): Record<string, EffectDef> {
+  if (typeof window === "undefined") return {};
+  try {
+    const saved = window.localStorage.getItem(EVENT_BUILDER_STORAGE_KEY);
+    if (!saved) return {};
+    const parsed = JSON.parse(saved);
+    if (!isRecord(parsed) || !isRecord(parsed.effects)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed.effects).filter((entry): entry is [string, EffectDef] => isEffectDef(entry[1]))
+    );
+  } catch {
+    return {};
+  }
+}
+
+function isEffectDef(value: unknown): value is EffectDef {
+  if (!isRecord(value)) return false;
+  if (typeof value.id !== "string" || typeof value.name !== "string") return false;
+  if (!isEffectDuration(value.duration)) return false;
+  return Array.isArray(value.consequences) || Array.isArray(value.actions) || Array.isArray(value.modifiers);
+}
+
+function isEffectDuration(value: unknown): value is EffectDef["duration"] {
+  if (!isRecord(value) || typeof value.mode !== "string") return false;
+  if (value.mode === "game" || value.mode === "untilTriggered") return true;
+  return (value.mode === "turns" || value.mode === "rounds" || value.mode === "uses") && typeof value.value === "number" && Number.isFinite(value.value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isDevBuild(): boolean {
+  return Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
 }
 
 function turnTitle(state: GameState, active: Player | undefined, isMyTurn: boolean): string {
