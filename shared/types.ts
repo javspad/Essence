@@ -363,6 +363,7 @@ export type EffectDuration =
 export interface FaceAnchor {
   x: number;
   y: number;
+  z?: number;
   angle?: number;
 }
 

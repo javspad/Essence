@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Copy, Crosshair, Download, Home, Plus, Save, Trash2, Upload, Wrench } from "lucide-react";
-import type { CharacterDef, CosmeticAnchorRef, CosmeticAnchorType, CosmeticDef, CosmeticTransform, FaceAnchor, GameContent } from "@essence/shared";
+import type {
+  CharacterDef,
+  CosmeticAnchorRef,
+  CosmeticAnchorType,
+  CosmeticDef,
+  CosmeticTransform,
+  FaceAnchor,
+  FacePhotoAlignment,
+  GameContent,
+} from "@essence/shared";
 import { characterDisplayName } from "@essence/shared/characters";
 import {
   BODY_COSMETIC_ANCHORS,
@@ -23,10 +32,13 @@ import {
   type ProjectedTokenAnchor,
   type TokenPreviewAnchorHandle,
 } from "./TokenPreviewer";
+import { contentWithCharacterList } from "./builderContent";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 
 const STORAGE_KEY = "essence:cosmetic-builder:draft:v1";
+const CHARACTER_BUILDER_STORAGE_KEY = "essence:character-builder:draft:v1";
 const BASE_CONTENT = normalizeContentSchema(seedContent);
+const DEFAULT_FACE_ALIGNMENT: FacePhotoAlignment = { x: 0.5, y: 0.5, scale: 1.08, angle: 0 };
 const ASSET_KINDS = ["goggles", "mustache", "hat", "beard", "piercing", "tattoo", "badge", "custom"] as const;
 const ANCHOR_OPTIONS: Record<CosmeticAnchorType, string[]> = {
   face: [...FACE_COSMETIC_ANCHORS],
@@ -113,7 +125,7 @@ export default function CosmeticBuilder() {
   const importJson = () => {
     try {
       const parsed = JSON.parse(importText);
-      const next = normalizeContentSchema(isFullContent(parsed) ? parsed : { ...BASE_CONTENT, ...parsed });
+      const next = cosmeticBuilderContentFrom(isFullContent(parsed) ? parsed : { ...BASE_CONTENT, ...parsed });
       setContent(next);
       setSelectedCosmeticId(Object.keys(next.cosmetics ?? {})[0] ?? "");
       setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
@@ -127,9 +139,10 @@ export default function CosmeticBuilder() {
 
   const resetDraft = () => {
     localStorage.removeItem(STORAGE_KEY);
-    setContent(BASE_CONTENT);
-    setSelectedCosmeticId(Object.keys(BASE_CONTENT.cosmetics ?? {})[0] ?? "");
-    setSelectedCharacterId(Object.keys(BASE_CONTENT.characters ?? {})[0] ?? "");
+    const next = cosmeticBuilderContentFrom(BASE_CONTENT);
+    setContent(next);
+    setSelectedCosmeticId(Object.keys(next.cosmetics ?? {})[0] ?? "");
+    setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
     setImportText("");
     setJsonOpen(false);
     setSaveStatus("Reset");
@@ -442,6 +455,7 @@ function CosmeticEditor({
               cosmetics={content.cosmetics ?? {}}
               cosmeticIds={[cosmetic.id]}
               previewRotation={previewRotation}
+              facePhotoAlignmentFallback={DEFAULT_FACE_ALIGNMENT}
               anchorProjectionInput={showAnchors ? cosmeticAnchorProjectionInput : []}
               onAnchorsProjected={updateProjectedAnchors}
             />
@@ -730,11 +744,79 @@ function EmptyState({ label }: { label: string }) {
 function loadInitialContent(): GameContent {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return cosmeticBuilderContentFrom(BASE_CONTENT);
+    return cosmeticBuilderContentFrom(JSON.parse(saved));
+  } catch {
+    return cosmeticBuilderContentFrom(BASE_CONTENT);
+  }
+}
+
+function cosmeticBuilderContentFrom(input: unknown): GameContent {
+  const imported = normalizeContentSchema(input);
+  const characterContent = currentCharacterContent();
+  const characters = characterContent.characters ?? {};
+  const characterIds = new Set(Object.keys(characters));
+  const cosmetics = cosmeticsForCurrentCharacters(imported.cosmetics ?? {}, characterIds);
+  return normalizeContentSchema({
+    ...BASE_CONTENT,
+    players: characterContent.players ?? BASE_CONTENT.players,
+    characters: charactersForCosmetics(characters, cosmetics),
+    cosmetics,
+  });
+}
+
+function currentCharacterContent(): GameContent {
+  try {
+    const saved = localStorage.getItem(CHARACTER_BUILDER_STORAGE_KEY);
     if (!saved) return BASE_CONTENT;
-    return normalizeContentSchema(JSON.parse(saved));
+    return contentWithCharacterList(JSON.parse(saved), BASE_CONTENT);
   } catch {
     return BASE_CONTENT;
   }
+}
+
+function cosmeticsForCurrentCharacters(
+  cosmetics: Record<string, CosmeticDef>,
+  characterIds: Set<string>
+): Record<string, CosmeticDef> {
+  return Object.fromEntries(
+    Object.entries(cosmetics).map(([id, cosmetic]) => {
+      const compatibleIds = cosmetic.compatibility?.characterIds?.filter((characterId) => characterIds.has(characterId));
+      const excludedIds = cosmetic.compatibility?.excludeCharacterIds?.filter((characterId) => characterIds.has(characterId));
+      const tags = cosmetic.compatibility?.tags;
+      const compatibility =
+        compatibleIds?.length || excludedIds?.length || tags?.length
+          ? {
+              ...(cosmetic.compatibility ?? {}),
+              characterIds: compatibleIds?.length ? compatibleIds : undefined,
+              excludeCharacterIds: excludedIds?.length ? excludedIds : undefined,
+            }
+          : undefined;
+      return [id, normalizeCosmeticDef({ ...cosmetic, compatibility }, id)];
+    })
+  );
+}
+
+function charactersForCosmetics(
+  characters: Record<string, CharacterDef>,
+  cosmetics: Record<string, CosmeticDef>
+): Record<string, CharacterDef> {
+  const cosmeticIds = new Set(Object.keys(cosmetics));
+  return Object.fromEntries(
+    Object.entries(characters).map(([id, character]) => [
+      id,
+      {
+        ...character,
+        defaultLoadout: character.defaultLoadout
+          ? {
+              ...character.defaultLoadout,
+              cosmeticIds: (character.defaultLoadout.cosmeticIds ?? []).filter((cosmeticId) => cosmeticIds.has(cosmeticId)),
+            }
+          : undefined,
+        defaultCosmetics: character.defaultCosmetics?.filter((cosmeticId) => cosmeticIds.has(cosmeticId)),
+      },
+    ])
+  );
 }
 
 function emptyCosmetic(id: string): CosmeticDef {

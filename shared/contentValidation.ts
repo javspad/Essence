@@ -52,6 +52,7 @@ type MapDefinitionImport = Omit<MapDefinition, "artifacts"> & {
 const FaceAnchorSchema = z.object({
   x: z.number().finite(),
   y: z.number().finite(),
+  z: z.number().finite().optional(),
   angle: z.number().finite().optional(),
 });
 

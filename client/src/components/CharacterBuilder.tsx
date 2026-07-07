@@ -14,6 +14,7 @@ import {
   useTokenPreviewRotation,
   type ProjectedTokenAnchor,
 } from "./TokenPreviewer";
+import { contentWithCharacterList } from "./builderContent";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 
 const BASE_CONTENT = normalizeContentSchema(seedContent);
@@ -55,7 +56,8 @@ export default function CharacterBuilder() {
   const [saveStatus, setSaveStatus] = useState("");
 
   const selectedCharacter = selectedCharacterId ? content.characters?.[selectedCharacterId] : undefined;
-  const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(content), null, 2), [content]);
+  const exportContent = useMemo(() => contentWithCharacterList(content, BASE_CONTENT), [content]);
+  const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
 
   useEffect(() => {
     if (selectedCharacterId && characterIds.includes(selectedCharacterId)) return;
@@ -137,7 +139,7 @@ export default function CharacterBuilder() {
   const importJson = () => {
     try {
       const parsed = JSON.parse(importText);
-      const next = normalizeContentSchema(isFullContent(parsed) ? parsed : { ...BASE_CONTENT, ...parsed });
+      const next = contentWithCharacterList(isFullContent(parsed) ? parsed : { ...BASE_CONTENT, ...parsed }, BASE_CONTENT);
       setContent(next);
       setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
       setImportText("");
@@ -150,8 +152,9 @@ export default function CharacterBuilder() {
 
   const resetDraft = () => {
     localStorage.removeItem(STORAGE_KEY);
-    setContent(BASE_CONTENT);
-    setSelectedCharacterId(Object.keys(BASE_CONTENT.characters ?? {})[0] ?? "");
+    const next = contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+    setContent(next);
+    setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
     setImportText("");
     setJsonModalOpen(false);
     setSaveStatus("Reset");
@@ -229,6 +232,7 @@ export default function CharacterBuilder() {
         <section className="bg-[#151c27] p-3 lg:min-h-0 lg:overflow-y-auto">
           {selectedCharacter ? (
             <CharacterEditor
+              key={selectedCharacter.id}
               character={selectedCharacter}
               cosmetics={content.cosmetics ?? {}}
               onChange={(updater) => updateCharacter(selectedCharacter.id, updater)}
@@ -556,7 +560,7 @@ function CharacterPreviewer({
                   opacity: projected?.visible === false ? 0 : undefined,
                   pointerEvents: projected?.visible === false ? "none" : undefined,
                   background: ANCHOR_COLORS[handle.id] ?? "#f5d547",
-                  transform: `translate(-50%, -50%) rotate(${anchor.angle ?? 0}deg)`,
+                  transform: "translate(-50%, -50%)",
                 }}
                 aria-label={handle.label}
               >
@@ -693,10 +697,10 @@ function CharacterPreviewer({
             <NumberInput label="X" value={selectedAnchor.x} step={0.01} onChange={(x) => updateAnchor(selectedHandle, { ...selectedAnchor, x })} />
             <NumberInput label="Y" value={selectedAnchor.y} step={0.01} onChange={(y) => updateAnchor(selectedHandle, { ...selectedAnchor, y })} />
             <NumberInput
-              label="Angle"
-              value={selectedAnchor.angle ?? 0}
-              step={1}
-              onChange={(angle) => updateAnchor(selectedHandle, { ...selectedAnchor, angle })}
+              label="Z"
+              value={selectedAnchor.z ?? 0}
+              step={0.01}
+              onChange={(z) => updateAnchor(selectedHandle, { ...selectedAnchor, z })}
             />
           </div>
         </section>
@@ -888,10 +892,10 @@ function EmptyState({ label }: { label: string }) {
 function loadInitialContent(): GameContent {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return BASE_CONTENT;
-    return normalizeContentSchema(JSON.parse(saved));
+    if (!saved) return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+    return contentWithCharacterList(JSON.parse(saved), BASE_CONTENT);
   } catch {
-    return BASE_CONTENT;
+    return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
   }
 }
 
@@ -950,7 +954,7 @@ function clampAnchor(anchor: FaceAnchor): FaceAnchor {
   return {
     x: clamp(anchor.x, 0, 1),
     y: clamp(anchor.y, 0, 1),
-    angle: Number.isFinite(anchor.angle ?? 0) ? anchor.angle : 0,
+    z: clamp(Number.isFinite(anchor.z ?? 0) ? anchor.z ?? 0 : 0, -0.5, 0.5),
   };
 }
 

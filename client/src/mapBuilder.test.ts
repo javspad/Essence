@@ -18,6 +18,8 @@ import {
   normalizeBuilderContent,
   validateMap,
 } from "./mapBuilder";
+import { contentWithCharacterList } from "./components/builderContent";
+import { defaultTokenAnchor, TOKEN_HEAD_DEFAULT_ANCHOR_Z, TOKEN_HEAD_TOP_ANCHOR_Y } from "./characterTokenRig";
 import {
   eventTriggerScore,
   normalizeGameContentEvents,
@@ -87,6 +89,67 @@ const legacySetImport = normalizeContentSchema({
   },
 } as unknown);
 assert.equal("characterSets" in legacySetImport, false);
+
+const authoredCharacterIdsAreStable = normalizeContentSchema({
+  ...content,
+  characters: {
+    "character-4": { id: "character-4", displayName: "Facu" },
+    "character-5": { id: "character-5", displayName: "Beltro" },
+    "character-6": { id: "character-6", displayName: "Willy" },
+  },
+});
+assert.deepEqual(Object.keys(authoredCharacterIdsAreStable.characters ?? {}), ["character-4", "character-5", "character-6"]);
+
+const characterBuilderDraft = contentWithCharacterList(
+  {
+    ...content,
+    characters: {
+      javi: {
+        id: "javi",
+        displayName: "Javi",
+        bodyAnchors: { head: { x: 0.5, y: 0.16, angle: 0 } },
+      },
+      custom: {
+        id: "custom",
+        displayName: "Custom",
+        bodyAnchors: { head: { x: 0.45, y: 0.13, angle: 0 } },
+      },
+      legacyDefaults: {
+        id: "legacyDefaults",
+        displayName: "Legacy defaults",
+        faceAnchors: {
+          leftEye: { x: 0.42, y: 0.38, z: 0 },
+          rightEye: { x: 0.58, y: 0.38, z: 0 },
+          mouth: { x: 0.5, y: 0.62, z: 0 },
+        },
+        bodyAnchors: {
+          head: { x: 0.5, y: 0.09, z: 0 },
+          chest: { x: 0.5, y: 0.44, z: 0 },
+          leftHand: { x: 0.28, y: 0.46, z: 0 },
+          rightHand: { x: 0.72, y: 0.46, z: 0 },
+          back: { x: 0.5, y: 0.48, z: 0 },
+        },
+      },
+    },
+    cosmetics: {},
+    assetCatalog: [],
+  },
+  {
+    ...content,
+    cosmetics: { kept: { id: "kept", name: "Kept", price: 0, asset: "hat", anchorType: "body", anchorId: "head" } },
+    assetCatalog: [{ id: "oak-tree", name: "Oak", kind: "tree", defaultScale: 1 }],
+  }
+);
+assert.equal(characterBuilderDraft.characters?.javi.bodyAnchors?.head.y, TOKEN_HEAD_TOP_ANCHOR_Y);
+assert.equal(characterBuilderDraft.characters?.javi.bodyAnchors?.head.z, TOKEN_HEAD_DEFAULT_ANCHOR_Z);
+assert.equal(characterBuilderDraft.characters?.custom.bodyAnchors?.head.y, 0.13);
+assert.deepEqual(characterBuilderDraft.characters?.legacyDefaults.faceAnchors?.leftEye, defaultTokenAnchor("leftEye"));
+assert.deepEqual(characterBuilderDraft.characters?.legacyDefaults.faceAnchors?.rightEye, defaultTokenAnchor("rightEye"));
+assert.deepEqual(characterBuilderDraft.characters?.legacyDefaults.faceAnchors?.mouth, defaultTokenAnchor("mouth"));
+assert.deepEqual(characterBuilderDraft.characters?.legacyDefaults.bodyAnchors?.chest, defaultTokenAnchor("chest"));
+assert.deepEqual(characterBuilderDraft.characters?.legacyDefaults.bodyAnchors?.back, defaultTokenAnchor("back"));
+assert.deepEqual(Object.keys(characterBuilderDraft.cosmetics ?? {}), ["kept"]);
+assert.equal(characterBuilderDraft.assetCatalog?.length, 1);
 
 let state = createInitialMapBuilderState(content);
 state = mapBuilderReducer(state, { type: "start_route", from: 0 });

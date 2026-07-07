@@ -246,7 +246,7 @@ function PreviewAnchorProjector({
 }) {
   const { camera } = useThree();
   const anchorKey = useMemo(
-    () => anchors.map(({ handle, anchor }) => `${handle.scope}:${handle.id}:${anchor.x}:${anchor.y}:${anchor.angle ?? 0}`).join("|"),
+    () => anchors.map(({ handle, anchor }) => `${handle.scope}:${handle.id}:${anchor.x}:${anchor.y}:${anchor.z ?? 0}:${anchor.angle ?? 0}`).join("|"),
     [anchors]
   );
 

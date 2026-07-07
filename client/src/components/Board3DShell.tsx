@@ -1205,13 +1205,13 @@ function TokenCosmetic({
   }
 
   if (kind === "hat") {
-    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.035, z: -0.025 });
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { z: -0.025 });
     return (
       <group position={head} rotation={[0.12, 0, -0.08 + rotation]} scale={scale}>
-        <mesh position={[0, 0.085, 0]} geometry={TOKEN_HAT_GEOMETRY} dispose={null}>
+        <mesh position={[0, 0.072, 0]} geometry={TOKEN_HAT_GEOMETRY} dispose={null}>
           <meshStandardMaterial color={primary} emissive={primary} emissiveIntensity={0.12} roughness={0.5} transparent opacity={opacity} />
         </mesh>
-        <mesh position={[0, 0.005, 0]} geometry={TOKEN_HAT_BRIM_GEOMETRY} dispose={null}>
+        <mesh position={[0, -0.006, 0]} geometry={TOKEN_HAT_BRIM_GEOMETRY} dispose={null}>
           <meshStandardMaterial color={secondary} roughness={0.38} metalness={0.08} transparent opacity={opacity} />
         </mesh>
       </group>
