@@ -20,22 +20,34 @@ const EXAMPLE_COSMETICS: Record<string, CosmeticDef> = {
     id: "party-goggles",
     name: "Party goggles",
     description: "Round party goggles mounted to the eye anchors.",
-    assetId: "goggles",
-    anchor: "leftEye",
+    price: 3,
+    asset: { kind: "goggles", color: "#111827", secondaryColor: "#67e8f9" },
+    anchorType: "face",
+    anchorId: "leftEye",
+    transform: { z: 0.01, scale: 1 },
+    preview: { color: "#67e8f9", secondaryColor: "#111827", order: 10 },
   },
   "big-mustache": {
     id: "big-mustache",
     name: "Big mustache",
     description: "A bold mustache mounted to the mouth anchor.",
-    assetId: "mustache",
-    anchor: "mouth",
+    price: 0,
+    asset: { kind: "mustache", color: "#111827" },
+    anchorType: "face",
+    anchorId: "mouth",
+    transform: { y: -0.02, z: 0.012, scale: 1 },
+    preview: { color: "#111827", order: 20 },
   },
   "party-hat": {
     id: "party-hat",
     name: "Party hat",
     description: "A cone hat mounted to the head anchor.",
-    assetId: "hat",
-    anchor: "head",
+    price: 2,
+    asset: { kind: "hat", color: "#a855f7", secondaryColor: "#22d3ee" },
+    anchorType: "body",
+    anchorId: "head",
+    transform: { y: 0.035, z: -0.025, scale: 1, rotation: -8 },
+    preview: { color: "#a855f7", secondaryColor: "#22d3ee", order: 30 },
   },
 };
 
@@ -710,6 +722,7 @@ function CharacterPreviewer({
 
           <CharacterTokenCanvas
             character={character}
+            cosmetics={cosmetics}
             previewRotation={previewRotation}
             anchorProjectionInput={anchorProjectionInput}
             onAnchorsProjected={updateProjectedAnchors}
@@ -890,7 +903,7 @@ function CharacterPreviewer({
                 >
                   <span className="block">{cosmetic.name}</span>
                   <span className="mt-0.5 block truncate text-[0.56rem] uppercase tracking-[0.08em] text-slate-500">
-                    {cosmetic.anchor ?? cosmetic.assetId ?? cosmetic.id}
+                    {cosmetic.anchorType}:{cosmetic.anchorId}
                   </span>
                 </button>
               );
@@ -904,11 +917,13 @@ function CharacterPreviewer({
 
 function CharacterTokenCanvas({
   character,
+  cosmetics,
   previewRotation,
   anchorProjectionInput,
   onAnchorsProjected,
 }: {
   character: CharacterDef;
+  cosmetics: Record<string, CosmeticDef>;
   previewRotation: PreviewRotation;
   anchorProjectionInput: Array<{ handle: AnchorHandle; anchor: FaceAnchor }>;
   onAnchorsProjected: (anchors: Record<string, ProjectedAnchor>) => void;
@@ -952,6 +967,7 @@ function CharacterTokenCanvas({
           faceAnchors={character.faceAnchors}
           bodyAnchors={character.bodyAnchors}
           cosmeticIds={character.defaultLoadout?.cosmeticIds}
+          cosmeticCatalog={cosmetics}
           focused
         />
       </group>

@@ -126,6 +126,20 @@ io.on("connection", (socket) => {
   socket.on("reveal:next", () => withRoom((r) => r.next(socket.id)));
   socket.on("minigame:action", (data) => withRoom((r) => r.minigameAction(socket.id, data)));
   socket.on("minigame:result", (payload) => withRoom((r) => void r.submitResult(socket.id, payload)));
+  socket.on("cosmetic:buy", ({ cosmeticId }, ack) =>
+    withRoom((r) => {
+      const result = r.buyCosmetic(socket.id, cosmeticId);
+      ack(result);
+      if (!result.ok) socket.emit("error", { message: result.error });
+    })
+  );
+  socket.on("cosmetic:equip", ({ cosmeticId, equipped }, ack) =>
+    withRoom((r) => {
+      const result = r.equipCosmetic(socket.id, cosmeticId, equipped);
+      ack(result);
+      if (!result.ok) socket.emit("error", { message: result.error });
+    })
+  );
   socket.on("minigame:force", () => withRoom((r) => void r.forceResolve(socket.id)));
 
   socket.on("disconnect", () => {

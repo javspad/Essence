@@ -1,0 +1,665 @@
+import { useEffect, useMemo, useState } from "react";
+import { Canvas } from "@react-three/fiber";
+import { Copy, Download, Home, Plus, Trash2, Upload, Wrench } from "lucide-react";
+import type { CharacterDef, CosmeticAnchorType, CosmeticDef, CosmeticTransform, GameContent } from "@essence/shared";
+import { characterDisplayName } from "@essence/shared/characters";
+import { cosmeticAnchorId, cosmeticAssetKind, normalizeCosmeticDef, uniqueCosmeticIds } from "@essence/shared/cosmetics";
+import { normalizeContentSchema } from "@essence/shared/contentValidation";
+import seedContent from "@shared/content.json";
+import {
+  TOKEN_PREVIEW_GROUP_POSITION,
+  TOKEN_PREVIEW_GROUP_SCALE,
+} from "../characterTokenRig";
+import { PlayerTokenPawn } from "./Board3DShell";
+
+const STORAGE_KEY = "essence:cosmetic-builder:draft:v1";
+const BASE_CONTENT = normalizeContentSchema(seedContent);
+const ASSET_KINDS = ["goggles", "mustache", "hat", "beard", "piercing", "tattoo", "badge", "custom"] as const;
+const ANCHOR_OPTIONS: Record<CosmeticAnchorType, string[]> = {
+  face: ["leftEye", "rightEye", "mouth"],
+  body: ["head", "chest", "leftHand", "rightHand", "back"],
+  token: ["center"],
+};
+
+export default function CosmeticBuilder() {
+  const [content, setContent] = useState<GameContent>(() => loadInitialContent());
+  const cosmeticIds = useMemo(() => Object.keys(content.cosmetics ?? {}), [content.cosmetics]);
+  const characterIds = useMemo(() => Object.keys(content.characters ?? {}), [content.characters]);
+  const [selectedCosmeticId, setSelectedCosmeticId] = useState(cosmeticIds[0] ?? "");
+  const [selectedCharacterId, setSelectedCharacterId] = useState(characterIds[0] ?? "");
+  const [jsonOpen, setJsonOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [saveStatus, setSaveStatus] = useState("");
+  const selectedCosmetic = selectedCosmeticId ? content.cosmetics?.[selectedCosmeticId] : undefined;
+  const selectedCharacter = selectedCharacterId ? content.characters?.[selectedCharacterId] : undefined;
+  const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(content), null, 2), [content]);
+
+  useEffect(() => {
+    if (selectedCosmeticId && cosmeticIds.includes(selectedCosmeticId)) return;
+    setSelectedCosmeticId(cosmeticIds[0] ?? "");
+  }, [cosmeticIds, selectedCosmeticId]);
+
+  useEffect(() => {
+    if (selectedCharacterId && characterIds.includes(selectedCharacterId)) return;
+    setSelectedCharacterId(characterIds[0] ?? "");
+  }, [characterIds, selectedCharacterId]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, exportJson);
+  }, [exportJson]);
+
+  useEffect(() => {
+    if (!saveStatus) return;
+    const timeout = window.setTimeout(() => setSaveStatus(""), 1600);
+    return () => window.clearTimeout(timeout);
+  }, [saveStatus]);
+
+  const updateCosmetic = (id: string, updater: (cosmetic: CosmeticDef) => CosmeticDef) => {
+    setContent((current) => {
+      const currentCosmetic = current.cosmetics?.[id] ?? emptyCosmetic(id);
+      const next = normalizeCosmeticDef(updater(currentCosmetic), id);
+      return {
+        ...current,
+        cosmetics: {
+          ...(current.cosmetics ?? {}),
+          [id]: next,
+        },
+      };
+    });
+  };
+
+  const createCosmetic = () => {
+    const id = nextId("cosmetic", content.cosmetics ?? {});
+    setContent((current) => ({
+      ...current,
+      cosmetics: {
+        ...(current.cosmetics ?? {}),
+        [id]: emptyCosmetic(id),
+      },
+    }));
+    setSelectedCosmeticId(id);
+    setSaveStatus("Created");
+  };
+
+  const deleteCosmetic = (id: string) => {
+    const cosmetic = content.cosmetics?.[id];
+    if (!cosmetic) return;
+    if (!window.confirm(`Delete "${cosmetic.name}"?`)) return;
+    setContent((current) => {
+      const { [id]: _deleted, ...cosmetics } = current.cosmetics ?? {};
+      const characters = Object.fromEntries(
+        Object.entries(current.characters ?? {}).map(([characterId, character]) => [
+          characterId,
+          removeDefaultCosmetic(character, id),
+        ])
+      );
+      return { ...current, cosmetics, characters };
+    });
+    setSaveStatus("Deleted");
+  };
+
+  const importJson = () => {
+    try {
+      const parsed = JSON.parse(importText);
+      const next = normalizeContentSchema(isFullContent(parsed) ? parsed : { ...BASE_CONTENT, ...parsed });
+      setContent(next);
+      setSelectedCosmeticId(Object.keys(next.cosmetics ?? {})[0] ?? "");
+      setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
+      setImportText("");
+      setJsonOpen(false);
+      setSaveStatus("Imported");
+    } catch {
+      window.alert("JSON invalido");
+    }
+  };
+
+  const resetDraft = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setContent(BASE_CONTENT);
+    setSelectedCosmeticId(Object.keys(BASE_CONTENT.cosmetics ?? {})[0] ?? "");
+    setSelectedCharacterId(Object.keys(BASE_CONTENT.characters ?? {})[0] ?? "");
+    setImportText("");
+    setJsonOpen(false);
+    setSaveStatus("Reset");
+  };
+
+  const copyJson = async () => {
+    await navigator.clipboard?.writeText(exportJson);
+    setSaveStatus("Copied");
+  };
+
+  const downloadJson = () => {
+    const blob = new Blob([exportJson], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "content.cosmetic-builder.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setSaveStatus("Downloaded");
+  };
+
+  return (
+    <main data-cosmetic-builder="true" className="flex min-h-dvh flex-col bg-[#0d141b] text-slate-100 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
+      <header className="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#121a24]/98 px-4 py-3 shadow-lg shadow-black/25">
+        <div className="min-w-0">
+          <p className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-cyan-200">Essence tools</p>
+          <h1 className="truncate text-xl font-black tracking-normal text-white">Cosmetic builder</h1>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button onClick={() => setJsonOpen(true)} className="builder-button preview gap-2">
+            <Upload className="h-4 w-4" />
+            Import/export
+          </button>
+          <button onClick={downloadJson} className="builder-button gap-2">
+            <Download className="h-4 w-4" />
+            Download
+          </button>
+          <span className="min-w-16 text-center text-xs font-black text-cyan-200">{saveStatus}</span>
+          <a href="/tools" className="builder-button gap-2">
+            <Wrench className="h-4 w-4" />
+            Tools
+          </a>
+          <a href="/" className="builder-button gap-2">
+            <Home className="h-4 w-4" />
+            Home
+          </a>
+        </div>
+      </header>
+
+      <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:overflow-hidden lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <aside className="flex flex-col border-b border-white/10 bg-[#0f1722] p-3 lg:min-h-0 lg:border-b-0 lg:border-r">
+          <PanelHeader eyebrow={`${cosmeticIds.length} cosmetics`} title="Catalog" action={createCosmetic} />
+          <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-y-auto pr-1 lg:min-h-0 lg:max-h-none lg:flex-1">
+            {cosmeticIds.map((id) => {
+              const cosmetic = content.cosmetics?.[id];
+              if (!cosmetic) return null;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  data-cosmetic-id={id}
+                  onClick={() => setSelectedCosmeticId(id)}
+                  className={`grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border p-2 text-left transition ${
+                    id === selectedCosmeticId ? "border-cyan-200/70 bg-cyan-300/12" : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <CosmeticSwatch cosmetic={cosmetic} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-white">{cosmetic.name}</span>
+                    <span className="block truncate text-[0.56rem] font-black uppercase tracking-[0.08em] text-slate-500">
+                      {cosmetic.anchorType}:{cosmeticAnchorId(cosmetic)}
+                    </span>
+                  </span>
+                  <span className="font-mono text-[0.62rem] font-black text-amber-200">{cosmetic.price}</span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        <section className="bg-[#141d29] p-3 lg:min-h-0 lg:overflow-y-auto">
+          {selectedCosmetic ? (
+            <CosmeticEditor
+              content={content}
+              cosmetic={selectedCosmetic}
+              selectedCharacterId={selectedCharacterId}
+              setSelectedCharacterId={setSelectedCharacterId}
+              previewCharacter={selectedCharacter}
+              onChange={(updater) => updateCosmetic(selectedCosmetic.id, updater)}
+              onDelete={() => deleteCosmetic(selectedCosmetic.id)}
+            />
+          ) : (
+            <EmptyState label="Create a cosmetic to start editing." />
+          )}
+        </section>
+      </div>
+
+      {jsonOpen && (
+        <JsonModal
+          exportJson={exportJson}
+          importText={importText}
+          setImportText={setImportText}
+          onCopy={copyJson}
+          onDownload={downloadJson}
+          onImport={importJson}
+          onReset={resetDraft}
+          onClose={() => setJsonOpen(false)}
+        />
+      )}
+    </main>
+  );
+}
+
+function CosmeticEditor({
+  content,
+  cosmetic,
+  selectedCharacterId,
+  setSelectedCharacterId,
+  previewCharacter,
+  onChange,
+  onDelete,
+}: {
+  content: GameContent;
+  cosmetic: CosmeticDef;
+  selectedCharacterId: string;
+  setSelectedCharacterId: (id: string) => void;
+  previewCharacter?: CharacterDef;
+  onChange: (updater: (cosmetic: CosmeticDef) => CosmeticDef) => void;
+  onDelete: () => void;
+}) {
+  const characterIds = Object.keys(content.characters ?? {});
+  const update = (patch: Partial<CosmeticDef>) => onChange((current) => normalizeCosmeticDef({ ...current, ...patch }, current.id));
+  const updateTransform = (patch: Partial<CosmeticTransform>) => update({ transform: { ...(cosmetic.transform ?? {}), ...patch } });
+  const updateAssetKind = (kind: string) => {
+    const asset = typeof cosmetic.asset === "string" ? { kind } : { ...cosmetic.asset, kind };
+    update({ asset, assetId: kind });
+  };
+  const updateAnchorType = (anchorType: CosmeticAnchorType) => update({ anchorType, anchorId: ANCHOR_OPTIONS[anchorType][0], anchor: ANCHOR_OPTIONS[anchorType][0] });
+  const toggleCompatibleCharacter = (characterId: string) => {
+    const current = new Set(cosmetic.compatibility?.characterIds ?? []);
+    if (current.has(characterId)) current.delete(characterId);
+    else current.add(characterId);
+    update({
+      compatibility: {
+        ...(cosmetic.compatibility ?? {}),
+        characterIds: current.size ? [...current] : undefined,
+      },
+    });
+  };
+
+  return (
+    <div className="mx-auto grid max-w-7xl gap-3 xl:grid-cols-[minmax(28rem,1fr)_25rem]">
+      <section className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            aria-label="Cosmetic name"
+            value={cosmetic.name}
+            onChange={(event) => update({ name: event.target.value })}
+            className="min-w-[12rem] flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-2xl font-black text-white outline-none transition focus:border-cyan-300/60 focus:bg-black/15"
+          />
+          <span className="rounded-md border border-white/10 bg-black/15 px-3 py-2 font-mono text-xs font-black text-slate-400">{cosmetic.id}</span>
+          <button type="button" onClick={onDelete} className="builder-button danger compact" aria-label={`Delete ${cosmetic.name}`}>
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <TextInput label="Description" value={cosmetic.description ?? ""} onChange={(description) => update({ description })} />
+          <NumberInput label="Price" value={cosmetic.price} step={1} onChange={(price) => update({ price: Math.max(0, price) })} />
+          <SelectInput label="Asset" value={cosmeticAssetKind(cosmetic)} options={ASSET_KINDS} onChange={updateAssetKind} />
+          <SelectInput label="Anchor type" value={cosmetic.anchorType} options={["face", "body", "token"]} onChange={(value) => updateAnchorType(value as CosmeticAnchorType)} />
+          <SelectInput
+            label="Anchor"
+            value={cosmetic.anchorId}
+            options={ANCHOR_OPTIONS[cosmetic.anchorType] ?? ANCHOR_OPTIONS.body}
+            onChange={(anchorId) => update({ anchorId, anchor: anchorId })}
+          />
+          <TextInput label="Tags" value={(cosmetic.tags ?? []).join(", ")} onChange={(value) => update({ tags: csv(value) })} />
+          <ColorInput
+            label="Primary"
+            value={cosmetic.preview?.color ?? assetColor(cosmetic, "color") ?? "#f5d547"}
+            onChange={(color) => update({ preview: { ...(cosmetic.preview ?? {}), color } })}
+          />
+          <ColorInput
+            label="Secondary"
+            value={cosmetic.preview?.secondaryColor ?? assetColor(cosmetic, "secondaryColor") ?? "#67e8f9"}
+            onChange={(secondaryColor) => update({ preview: { ...(cosmetic.preview ?? {}), secondaryColor } })}
+          />
+        </div>
+      </section>
+
+      <section className="row-span-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-cyan-200">Preview</p>
+            <h2 className="mt-1 text-lg font-black text-white">Anchored token</h2>
+          </div>
+          <select
+            aria-label="Preview character"
+            value={selectedCharacterId}
+            onChange={(event) => setSelectedCharacterId(event.target.value)}
+            className="rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-xs font-black text-white outline-none focus:border-cyan-300"
+          >
+            {characterIds.map((id) => (
+              <option key={id} value={id}>
+                {characterDisplayName(content.characters?.[id] ?? { id, displayName: id })}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mt-3 h-[32rem] overflow-hidden rounded-md border border-white/15 bg-[radial-gradient(circle_at_50%_20%,rgba(34,211,238,0.13),rgba(15,23,42,0.95)_48%,rgba(2,6,23,1))]">
+          {previewCharacter ? <CosmeticPreviewCanvas character={previewCharacter} cosmetic={cosmetic} cosmetics={content.cosmetics ?? {}} /> : null}
+        </div>
+      </section>
+
+      <section className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-emerald-200">Transform</p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <NumberInput label="X" value={cosmetic.transform?.x ?? 0} step={0.01} onChange={(x) => updateTransform({ x })} />
+          <NumberInput label="Y" value={cosmetic.transform?.y ?? 0} step={0.01} onChange={(y) => updateTransform({ y })} />
+          <NumberInput label="Z" value={cosmetic.transform?.z ?? 0} step={0.01} onChange={(z) => updateTransform({ z })} />
+          <NumberInput label="Scale" value={cosmetic.transform?.scale ?? 1} step={0.05} onChange={(scale) => updateTransform({ scale: Math.max(0.05, scale) })} />
+          <NumberInput label="Scale X" value={cosmetic.transform?.scaleX ?? 1} step={0.05} onChange={(scaleX) => updateTransform({ scaleX: Math.max(0.05, scaleX) })} />
+          <NumberInput label="Scale Y" value={cosmetic.transform?.scaleY ?? 1} step={0.05} onChange={(scaleY) => updateTransform({ scaleY: Math.max(0.05, scaleY) })} />
+          <NumberInput label="Rotation" value={cosmetic.transform?.rotation ?? 0} step={1} onChange={(rotation) => updateTransform({ rotation })} />
+        </div>
+      </section>
+
+      <section className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-amber-200">Compatibility</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {characterIds.map((id) => {
+            const character = content.characters?.[id];
+            const checked = cosmetic.compatibility?.characterIds?.includes(id) ?? false;
+            return (
+              <label key={id} className="flex items-center gap-2 rounded-md border border-white/10 bg-black/15 px-2 py-1.5 text-xs font-black text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleCompatibleCharacter(id)}
+                  className="size-4 accent-cyan-300"
+                />
+                <span className="min-w-0 truncate">{character ? characterDisplayName(character) : id}</span>
+              </label>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CosmeticPreviewCanvas({
+  character,
+  cosmetic,
+  cosmetics,
+}: {
+  character: CharacterDef;
+  cosmetic: CosmeticDef;
+  cosmetics: Record<string, CosmeticDef>;
+}) {
+  const tokenCharacter = useMemo(
+    () => ({
+      id: character.id,
+      name: characterDisplayName(character),
+      color: character.color ?? "#888888",
+      groom: Boolean(character.groom),
+    }),
+    [character.color, character.groom, character.id, character.displayName, character.name]
+  );
+  const cosmeticIds = uniqueCosmeticIds([...(character.defaultLoadout?.cosmeticIds ?? []), cosmetic.id]);
+
+  return (
+    <Canvas
+      camera={{ position: [0, 1.05, 3.4], fov: 32, near: 0.1, far: 20 }}
+      dpr={[1, 2]}
+      gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+      shadows
+    >
+      <ambientLight intensity={0.72} color="#fff8e1" />
+      <directionalLight position={[3, 5, 4]} intensity={2.7} castShadow />
+      <directionalLight position={[-3, 2, -3]} intensity={0.65} color="#b3d4ff" />
+      <group position={TOKEN_PREVIEW_GROUP_POSITION} scale={TOKEN_PREVIEW_GROUP_SCALE}>
+        <PlayerTokenPawn
+          character={tokenCharacter}
+          facePhoto={character.facePhoto}
+          facePhotoAlignment={character.facePhotoAlignment}
+          faceAnchors={character.faceAnchors}
+          bodyAnchors={character.bodyAnchors}
+          cosmeticIds={cosmeticIds}
+          cosmeticCatalog={cosmetics}
+          focused
+        />
+      </group>
+      <mesh position={[0, -0.84, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[1.24, 56]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.72} transparent opacity={0.58} />
+      </mesh>
+    </Canvas>
+  );
+}
+
+function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: string; action: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
+        <h2 className="truncate text-base font-black text-white">{title}</h2>
+      </div>
+      <button onClick={action} className="builder-button compact gap-2" aria-label={`Create ${title}`}>
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function TextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-500">
+      {label}
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-xs font-black normal-case tracking-normal text-white outline-none focus:border-cyan-300"
+      />
+    </label>
+  );
+}
+
+function NumberInput({ label, value, step, onChange }: { label: string; value: number; step: number; onChange: (value: number) => void }) {
+  return (
+    <label className="block text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-500">
+      {label}
+      <input
+        type="number"
+        step={step}
+        value={Number.isFinite(value) ? value : 0}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-1 w-full rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-xs font-black text-white outline-none focus:border-cyan-300"
+      />
+    </label>
+  );
+}
+
+function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-500">
+      {label}
+      <input
+        type="color"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-9 w-full rounded-md border border-white/10 bg-[#151922] p-1"
+      />
+    </label>
+  );
+}
+
+function SelectInput({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-500">
+      {label}
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-xs font-black text-white outline-none focus:border-cyan-300"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function JsonModal({
+  exportJson,
+  importText,
+  setImportText,
+  onCopy,
+  onDownload,
+  onImport,
+  onReset,
+  onClose,
+}: {
+  exportJson: string;
+  importText: string;
+  setImportText: (value: string) => void;
+  onCopy: () => void;
+  onDownload: () => void;
+  onImport: () => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div data-json-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3">
+      <section className="w-[min(58rem,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-white/15 bg-[#121923] text-slate-100 shadow-2xl shadow-black/45">
+        <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-300">Cosmetic JSON</h2>
+          <button type="button" onClick={onClose} className="builder-button compact">
+            Close
+          </button>
+        </header>
+        <div className="grid max-h-[calc(100dvh-8rem)] gap-3 overflow-auto p-4 lg:grid-cols-2">
+          <div>
+            <label className="block text-xs font-bold text-slate-300">
+              Import content
+              <textarea
+                value={importText}
+                onChange={(event) => setImportText(event.target.value)}
+                placeholder="Paste a content JSON or a cosmetics fragment"
+                className="mt-1 h-72 w-full resize-none rounded-md border border-white/10 bg-[#0d1218] p-2 font-mono text-xs text-slate-100 outline-none focus:border-cyan-300"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={onImport} disabled={!importText.trim()} className="builder-button gap-2 disabled:opacity-40">
+                <Upload className="h-4 w-4" />
+                Import
+              </button>
+              <button type="button" onClick={onReset} className="builder-button danger">
+                Reset draft
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-300">
+              Current export
+              <textarea
+                readOnly
+                value={exportJson}
+                className="mt-1 h-72 w-full resize-none rounded-md border border-white/10 bg-black/30 p-2 font-mono text-[0.65rem] text-slate-200"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={onCopy} className="builder-button gap-2">
+                <Copy className="h-4 w-4" />
+                Copy
+              </button>
+              <button type="button" onClick={onDownload} className="builder-button gap-2">
+                <Download className="h-4 w-4" />
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CosmeticSwatch({ cosmetic }: { cosmetic: CosmeticDef }) {
+  const primary = cosmetic.preview?.color ?? assetColor(cosmetic, "color") ?? "#f5d547";
+  const secondary = cosmetic.preview?.secondaryColor ?? assetColor(cosmetic, "secondaryColor") ?? "#67e8f9";
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-8 shrink-0 place-items-center rounded-sm border border-white/15 text-[0.55rem] font-black uppercase text-[#0d141b]"
+      style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
+    >
+      {cosmeticAssetKind(cosmetic).slice(0, 2)}
+    </span>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-full items-center justify-center">
+      <p className="rounded-md border border-dashed border-white/10 p-4 text-sm font-black text-slate-400">{label}</p>
+    </div>
+  );
+}
+
+function loadInitialContent(): GameContent {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return BASE_CONTENT;
+    return normalizeContentSchema(JSON.parse(saved));
+  } catch {
+    return BASE_CONTENT;
+  }
+}
+
+function emptyCosmetic(id: string): CosmeticDef {
+  return {
+    id,
+    name: "New cosmetic",
+    description: "",
+    price: 0,
+    asset: { kind: "badge", color: "#f5d547", secondaryColor: "#67e8f9" },
+    anchorType: "body",
+    anchorId: "chest",
+    transform: { z: 0.04, scale: 1 },
+    preview: { color: "#f5d547", secondaryColor: "#67e8f9", order: 100 },
+    tags: [],
+  };
+}
+
+function removeDefaultCosmetic(character: CharacterDef, cosmeticId: string): CharacterDef {
+  const cosmeticIds = (character.defaultLoadout?.cosmeticIds ?? []).filter((id) => id !== cosmeticId);
+  return {
+    ...character,
+    defaultLoadout: {
+      ...(character.defaultLoadout ?? {}),
+      cosmeticIds,
+    },
+    defaultCosmetics: undefined,
+  };
+}
+
+function nextId(prefix: string, records: Record<string, unknown>): string {
+  let index = Object.keys(records).length + 1;
+  let id = `${prefix}-${index}`;
+  while (records[id]) {
+    index += 1;
+    id = `${prefix}-${index}`;
+  }
+  return id;
+}
+
+function assetColor(cosmetic: CosmeticDef, key: "color" | "secondaryColor"): string | undefined {
+  return typeof cosmetic.asset === "string" ? undefined : cosmetic.asset[key];
+}
+
+function csv(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function isFullContent(value: unknown): value is GameContent {
+  return Boolean(value && typeof value === "object" && "board" in value && "players" in value);
+}

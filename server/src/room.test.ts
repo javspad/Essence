@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type { GameContent, ServerToClientEvents } from "@essence/shared";
+import { validateGameContent } from "@essence/shared/contentValidation";
 import { normalizeGameContentEvents } from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index";
 import { GameRoom } from "./room";
@@ -94,6 +95,32 @@ const characterSetContent: GameContent = normalizeGameContentEvents({
   characterSets: {
     duo: { id: "duo", name: "Duo", characterIds: ["groom", "guest"] },
   },
+  cosmetics: {
+    "party-goggles": {
+      id: "party-goggles",
+      name: "Party goggles",
+      price: 3,
+      asset: { kind: "goggles", color: "#111827", secondaryColor: "#67e8f9" },
+      anchorType: "face",
+      anchorId: "leftEye",
+    },
+    "big-mustache": {
+      id: "big-mustache",
+      name: "Big mustache",
+      price: 0,
+      asset: { kind: "mustache", color: "#111827" },
+      anchorType: "face",
+      anchorId: "mouth",
+    },
+    "party-hat": {
+      id: "party-hat",
+      name: "Party hat",
+      price: 2,
+      asset: { kind: "hat", color: "#a855f7", secondaryColor: "#22d3ee" },
+      anchorType: "body",
+      anchorId: "head",
+    },
+  },
 });
 
 const players = [
@@ -101,6 +128,31 @@ const players = [
   { id: "bob", name: "Bob", socketId: "socket-bob", connected: true, position: 0, coins: 0, isHost: false, groom: false, color: "#60a5fa" },
   { id: "carla", name: "Carla", socketId: "socket-carla", connected: true, position: 0, coins: 0, isHost: false, groom: false, color: "#34d399" },
 ];
+
+{
+  const result = validateGameContent({
+    board: [
+      { id: 0, type: "start", layout: { x: 0, y: 0 } },
+      { id: 1, type: "finish", layout: { x: 1, y: 0 } },
+    ],
+    minigames: {},
+    dares: {},
+    fates: {},
+    players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+    cosmetics: {
+      bad: {
+        id: "bad",
+        name: "Bad price",
+        price: -1,
+        asset: "badge",
+        anchorType: "body",
+        anchorId: "chest",
+      },
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.includes("cosmetics.bad.price")), "negative cosmetic prices are validation errors");
+}
 
 {
   const { io, events } = createIoRecorder();
@@ -213,6 +265,7 @@ const players = [
   assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.facePhotoAlignment, { x: 0.42, y: 0.57, scale: 1.2 });
   assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.faceAnchors, { mouth: { x: 0.5, y: 0.64, angle: 0 } });
   assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.bodyAnchors, { head: { x: 0.5, y: 0.14, angle: 0 } });
+  assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.ownedCosmeticIds, ["party-goggles", "big-mustache"]);
   assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.cosmeticIds, ["party-goggles", "big-mustache"]);
 
   assert.deepEqual((room as any).join("socket-steal", "Steal", { characterId: "guest" }), {
@@ -226,6 +279,37 @@ const players = [
   });
   assert.equal(room.getState().players.find((player) => player.id === "groom")?.groom, true);
   assert.deepEqual((room as any).join("socket-full", "Full"), { ok: false, error: "La sala está llena" });
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "COSM", "Cosmetics", characterSetContent, {
+    characterSetId: "duo",
+  } as any);
+
+  room.join("socket-guest", "Guest", { characterId: "guest" } as any);
+  const guest = room.getState().players.find((player) => player.id === "guest")!;
+  assert.deepEqual(room.buyCosmetic("socket-guest", "party-hat"), { ok: false, error: "No te alcanzan las monedas" });
+  assert.equal(guest.coins, 0);
+  assert.deepEqual(guest.ownedCosmeticIds, ["party-goggles", "big-mustache"]);
+  assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache"]);
+  assert.equal(guest.position, 0);
+  assert.equal(room.getState().phase, "lobby");
+
+  guest.coins = 2;
+  assert.deepEqual(room.buyCosmetic("socket-guest", "party-hat"), { ok: true });
+  assert.equal(guest.coins, 0);
+  assert.deepEqual(guest.ownedCosmeticIds, ["party-goggles", "big-mustache", "party-hat"]);
+  assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache"]);
+
+  assert.deepEqual(room.equipCosmetic("socket-guest", "party-hat", true), { ok: true });
+  assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache", "party-hat"]);
+  assert.equal(guest.position, 0);
+  assert.equal(room.getState().phase, "lobby");
+
+  assert.deepEqual(room.equipCosmetic("socket-guest", "party-hat", false), { ok: true });
+  assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache"]);
+  assert.deepEqual(room.equipCosmetic("socket-guest", "missing", true), { ok: false, error: "Ese cosmetic no existe" });
 }
 
 await withRolls([1, 1, 2], async () => {

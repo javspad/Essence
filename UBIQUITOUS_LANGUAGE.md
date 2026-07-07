@@ -49,7 +49,7 @@ This glossary is a working draft for Essence, based on the planning notes and th
 | Term | Definition | Aliases to avoid |
 | --- | --- | --- |
 | **Coin** | The spendable currency earned from minigames, cells, shots, and item effects. | Money, moneda in code |
-| **Cosmetic** | A purchasable visual item with no gameplay effect. | Artifact, effect item |
+| **Cosmetic** | A purchasable visual item that can be owned and equipped without gameplay effects. | Artifact, effect item |
 | **Artifact** | A purchasable gameplay item with an immediate use flow and optional visual representation. | Map artifact, cosmetic |
 | **Artifact Offer** | One of the random shop options shown during a shop visit. | Shop card |
 | **Shop Roll** | The generated set of **Artifact Offers** for one shop visit. | Reroll, shop reroll |
@@ -80,6 +80,7 @@ This glossary is a working draft for Essence, based on the planning notes and th
 - An **Event** can have zero or one **Activity** and zero or more **Consequences**.
 - An **Activity** has **Participants**, **Subjects**, submitted **Results**, and one resolved **Ranking**.
 - A **Reveal** displays **Results**, **Ranking**, awarded **Coins**, and applied **Consequences**.
+- A **Player** may own zero or more **Cosmetics** in a **Room** and equip a visual loadout from that owned set.
 - A **Cosmetic** may attach to a **Face Anchor**, body anchor, or board token, but never changes gameplay.
 - An **Artifact** may produce **Consequences**, apply **Effects**, require a **Target Player**, and optionally display an **Artifact Visual** or **Effect Visual**.
 - An **Effect Instance** belongs to exactly one **Target Player** and may reference one **Acting Player** as its source.
@@ -89,6 +90,7 @@ This glossary is a working draft for Essence, based on the planning notes and th
 
 - A **Consequence** is immediate: it changes state now, awards/removes **Coins**, moves a **Player**, or asks for a confirmed offline action.
 - An **Effect** has duration: it modifies future interactions for turns, rounds, a trigger window, or the whole **Game**.
+- Buying a **Cosmetic** may spend **Coins**, but equipping or rendering a **Cosmetic** never changes movement, scoring, events, activities, artifacts, effects, or minigame outcomes.
 - Joining a **Room** claims an existing **Character** slot; free-text names are reconnection/import compatibility, not a way to invent a new **Character** during play.
 - Decorative board objects are authored as **Map Props** in Content JSON (`mapProps`); legacy runtime/import code may still mirror them through `artifacts` until the implementation rename is safe.
 

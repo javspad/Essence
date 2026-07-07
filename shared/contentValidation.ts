@@ -20,6 +20,13 @@ import type {
 } from "./types";
 import { EVENT_ACTIVITY_TYPES, normalizeGameContentEvents } from "./events";
 import { DEFAULT_CHARACTER_SET_ID, defaultCharacterSetForPlayers, playerDefToCharacter } from "./characters";
+import {
+  cosmeticAnchorId,
+  cosmeticAnchorType,
+  cosmeticPrice,
+  normalizeCosmeticCatalog,
+  normalizeCosmeticDef,
+} from "./cosmetics";
 import { z } from "zod";
 
 export type ContentValidationSeverity = "error" | "warning";
@@ -86,15 +93,81 @@ const CharacterSetDefSchema = z
   })
   .passthrough();
 
+const CosmeticAssetSchema = z.union([
+  z.string().min(1),
+  z
+    .object({
+      kind: z.string().min(1),
+      color: z.string().optional(),
+      secondaryColor: z.string().optional(),
+      src: z.string().optional(),
+      label: z.string().optional(),
+    })
+    .passthrough(),
+]);
+
+const CosmeticTransformSchema = z
+  .object({
+    x: z.number().finite().optional(),
+    y: z.number().finite().optional(),
+    z: z.number().finite().optional(),
+    scale: z.number().finite().positive().optional(),
+    scaleX: z.number().finite().positive().optional(),
+    scaleY: z.number().finite().positive().optional(),
+    scaleZ: z.number().finite().positive().optional(),
+    rotation: z.number().finite().optional(),
+    rotationX: z.number().finite().optional(),
+    rotationY: z.number().finite().optional(),
+    rotationZ: z.number().finite().optional(),
+  })
+  .passthrough();
+
+const CosmeticCompatibilitySchema = z
+  .object({
+    characterIds: z.array(z.string().min(1)).optional(),
+    excludeCharacterIds: z.array(z.string().min(1)).optional(),
+    tags: z.array(z.string().min(1)).optional(),
+  })
+  .passthrough();
+
+const CosmeticPreviewSchema = z
+  .object({
+    color: z.string().optional(),
+    secondaryColor: z.string().optional(),
+    label: z.string().optional(),
+    order: z.number().finite().optional(),
+  })
+  .passthrough();
+
+const CosmeticDefSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().optional(),
+    price: z.number().finite().nonnegative(),
+    asset: CosmeticAssetSchema,
+    anchorType: z.enum(["face", "body", "token"]),
+    anchorId: z.string().min(1),
+    transform: CosmeticTransformSchema.optional(),
+    compatibility: CosmeticCompatibilitySchema.optional(),
+    preview: CosmeticPreviewSchema.optional(),
+    tags: z.array(z.string().min(1)).optional(),
+    assetId: z.string().optional(),
+    anchor: z.string().optional(),
+  })
+  .passthrough();
+
 export function normalizeContentSchema(input: unknown): GameContent {
   const content = input as GameContent;
   const normalized = normalizeGameContentEvents(content);
   const players = clonePlayers(normalized.players ?? []);
   const characters = normalizeCharacters(normalized.characters, players);
+  const cosmetics = normalizeCosmeticCatalog(normalized.cosmetics, normalized.characterCosmetics);
   return {
     ...normalized,
     players,
     characters,
+    cosmetics: cloneCosmetics(cosmetics),
     characterSets: normalizeCharacterSets(normalized.characterSets, characters, players),
     board: cloneTiles(normalized.board),
     maps: normalized.maps?.map((map) => normalizeMapDefinition(map as MapDefinitionImport)),
@@ -130,6 +203,7 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   }
 
   validateCatalogIds(normalized.cosmetics, "cosmetics", error);
+  validateCosmetics(normalized.cosmetics, characterIds, error, warning);
   validateCatalogIds(normalized.artifacts, "artifacts", error);
   validateCatalogIds(normalized.effects, "effects", error);
   validateFutureCatalogReferences(normalized, error, warning);
@@ -458,7 +532,34 @@ function validateFutureCatalogReferences(
     }
   }
   for (const [id, cosmetic] of Object.entries(content.cosmetics ?? {}) as [string, CosmeticDef][]) {
-    if (cosmetic.price !== undefined && cosmetic.price < 0) error(`cosmetics.${id}.price`, "must be non-negative");
+    if (cosmeticPrice(cosmetic) < 0) error(`cosmetics.${id}.price`, "must be non-negative");
+  }
+}
+
+function validateCosmetics(
+  cosmetics: Record<string, CosmeticDef> | undefined,
+  characterIds: Set<string>,
+  error: (path: string, message: string) => void,
+  warning: (path: string, message: string) => void
+) {
+  for (const [id, cosmetic] of Object.entries(cosmetics ?? {})) {
+    const normalized = normalizeCosmeticDef(cosmetic, id);
+    const result = CosmeticDefSchema.safeParse(normalized);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(`cosmetics.${id}`, issue.path), issue.message);
+      }
+    }
+    if (!cosmeticAnchorId(normalized)) error(`cosmetics.${id}.anchorId`, "must not be empty");
+    if (cosmeticAnchorType(normalized) === "token") {
+      warning(`cosmetics.${id}.anchorType`, "token cosmetics are visual-only and render without face/body anchor checks");
+    }
+    for (const characterId of normalized.compatibility?.characterIds ?? []) {
+      if (!characterIds.has(characterId)) error(`cosmetics.${id}.compatibility.characterIds`, `references missing character ${characterId}`);
+    }
+    for (const characterId of normalized.compatibility?.excludeCharacterIds ?? []) {
+      if (!characterIds.has(characterId)) error(`cosmetics.${id}.compatibility.excludeCharacterIds`, `references missing character ${characterId}`);
+    }
   }
 }
 
@@ -540,6 +641,29 @@ function cloneCharacter(character: CharacterDef): CharacterDef {
     defaultCosmetics: character.defaultCosmetics ? [...character.defaultCosmetics] : undefined,
     defaultTraits: character.defaultTraits ? [...character.defaultTraits] : undefined,
   };
+}
+
+function cloneCosmetics(cosmetics: Record<string, CosmeticDef>): Record<string, CosmeticDef> {
+  return Object.fromEntries(
+    Object.entries(cosmetics).map(([id, cosmetic]) => [
+      id,
+      {
+        ...cosmetic,
+        asset: typeof cosmetic.asset === "string" ? cosmetic.asset : { ...cosmetic.asset },
+        transform: cosmetic.transform ? { ...cosmetic.transform } : undefined,
+        compatibility: cosmetic.compatibility
+          ? {
+              ...cosmetic.compatibility,
+              characterIds: cosmetic.compatibility.characterIds ? [...cosmetic.compatibility.characterIds] : undefined,
+              excludeCharacterIds: cosmetic.compatibility.excludeCharacterIds ? [...cosmetic.compatibility.excludeCharacterIds] : undefined,
+              tags: cosmetic.compatibility.tags ? [...cosmetic.compatibility.tags] : undefined,
+            }
+          : undefined,
+        preview: cosmetic.preview ? { ...cosmetic.preview } : undefined,
+        tags: cosmetic.tags ? [...cosmetic.tags] : undefined,
+      },
+    ])
+  );
 }
 
 function cloneAnchors(anchors: unknown): Record<string, FaceAnchor> | undefined {

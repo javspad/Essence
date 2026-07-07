@@ -421,12 +421,69 @@ export interface CharacterSetSummary {
   characters: CharacterSlot[];
 }
 
+export type CosmeticAnchorType = "face" | "body" | "token";
+export type CosmeticAssetKind =
+  | "goggles"
+  | "mustache"
+  | "hat"
+  | "beard"
+  | "piercing"
+  | "tattoo"
+  | "badge"
+  | "custom";
+
+export interface CosmeticAsset {
+  kind: CosmeticAssetKind | string;
+  color?: string;
+  secondaryColor?: string;
+  src?: string;
+  label?: string;
+}
+
+export interface CosmeticTransform {
+  /** local offset in token/world preview units after anchor placement */
+  x?: number;
+  y?: number;
+  z?: number;
+  scale?: number;
+  scaleX?: number;
+  scaleY?: number;
+  scaleZ?: number;
+  /** rotation around the cosmetic's facing plane, in degrees */
+  rotation?: number;
+  rotationX?: number;
+  rotationY?: number;
+  rotationZ?: number;
+}
+
+export interface CosmeticCompatibility {
+  characterIds?: string[];
+  excludeCharacterIds?: string[];
+  tags?: string[];
+}
+
+export interface CosmeticPreviewMeta {
+  color?: string;
+  secondaryColor?: string;
+  label?: string;
+  order?: number;
+}
+
 export interface CosmeticDef {
   id: string;
   name: string;
   description?: string;
-  price?: number;
+  price: number;
+  asset: CosmeticAsset | string;
+  anchorType: CosmeticAnchorType;
+  anchorId: string;
+  transform?: CosmeticTransform;
+  compatibility?: CosmeticCompatibility;
+  preview?: CosmeticPreviewMeta;
+  tags?: string[];
+  /** Legacy/import alias normalized into asset. */
   assetId?: string;
+  /** Legacy/import alias normalized into anchorId. */
   anchor?: string;
 }
 
@@ -460,6 +517,8 @@ export interface GameContent {
   characters?: Record<string, CharacterDef>;
   characterSets?: Record<string, CharacterSetDef>;
   cosmetics?: Record<string, CosmeticDef>;
+  /** Legacy/import alias normalized into cosmetics. */
+  characterCosmetics?: unknown[];
   artifacts?: Record<string, ArtifactDef>;
   effects?: Record<string, EffectDef>;
   minigames: Record<string, MinigameDef>;
@@ -489,6 +548,7 @@ export interface Player {
   facePhotoAlignment?: FacePhotoAlignment;
   faceAnchors?: Record<string, FaceAnchor>;
   bodyAnchors?: Record<string, FaceAnchor>;
+  ownedCosmeticIds?: string[];
   cosmeticIds?: string[];
 }
 
@@ -546,6 +606,7 @@ export interface GameState {
   routes?: MapRoute[];
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
+  cosmetics?: Record<string, CosmeticDef>;
   boardShape?: MapBoardShape;
   terraces?: MapTerrace[];
   players: Player[];
@@ -649,6 +710,14 @@ export interface ClientToServerEvents {
   "turn:next": () => void;
   "minigame:action": (payload: unknown) => void;
   "minigame:result": (payload: { score: number; payload: unknown; outcome?: "win" | "loss" }) => void;
+  "cosmetic:buy": (
+    payload: { cosmeticId: string },
+    ack: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => void;
+  "cosmetic:equip": (
+    payload: { cosmeticId: string; equipped: boolean },
+    ack: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => void;
   /** host fuerza el cierre del minijuego si alguien se colgó */
   "minigame:force": () => void;
   "reveal:next": () => void;

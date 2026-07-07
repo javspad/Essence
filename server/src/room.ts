@@ -25,6 +25,11 @@ import {
   resolveTileEventForPlayer,
   type ResolvedGameEvent,
 } from "@essence/shared/events";
+import {
+  cosmeticPrice,
+  isCosmeticCompatibleWithCharacter,
+  uniqueCosmeticIds,
+} from "@essence/shared/cosmetics";
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -72,6 +77,7 @@ export class GameRoom {
       routes: activeMap?.routes,
       artifacts: activeMap?.artifacts,
       assetCatalog: content.assetCatalog,
+      cosmetics: content.cosmetics,
       boardShape: activeMap?.boardShape,
       terraces: activeMap?.terraces,
       players: [],
@@ -230,6 +236,7 @@ export class GameRoom {
   }
 
   private playerFromCharacter(character: CharacterDef, socketId: string): Player {
+    const defaultCosmeticIds = uniqueCosmeticIds(character.defaultLoadout?.cosmeticIds);
     const player: Player = {
       id: character.id,
       characterId: character.id,
@@ -241,13 +248,50 @@ export class GameRoom {
       isHost: this.state.players.length === 0,
       groom: Boolean(character.groom),
       color: character.color ?? "#888888",
+      ownedCosmeticIds: defaultCosmeticIds,
+      cosmeticIds: defaultCosmeticIds,
     };
     if (character.facePhoto) player.facePhoto = character.facePhoto;
     if (character.facePhotoAlignment) player.facePhotoAlignment = { ...character.facePhotoAlignment };
     if (character.faceAnchors) player.faceAnchors = { ...character.faceAnchors };
     if (character.bodyAnchors) player.bodyAnchors = { ...character.bodyAnchors };
-    if (character.defaultLoadout?.cosmeticIds?.length) player.cosmeticIds = [...character.defaultLoadout.cosmeticIds];
     return player;
+  }
+
+  buyCosmetic(socketId: string, cosmeticId: string): { ok: true } | { ok: false; error: string } {
+    const player = this.playerBySocket(socketId);
+    if (!player) return { ok: false, error: "No estás en esta sala" };
+    const cosmetic = this.content.cosmetics?.[cosmeticId];
+    if (!cosmetic) return { ok: false, error: "Ese cosmetic no existe" };
+    if (!isCosmeticCompatibleWithCharacter(cosmetic, player.characterId ?? player.id)) {
+      return { ok: false, error: "Ese cosmetic no es compatible con tu personaje" };
+    }
+    const owned = new Set(player.ownedCosmeticIds ?? []);
+    if (owned.has(cosmeticId)) return { ok: true };
+    const price = cosmeticPrice(cosmetic);
+    if (player.coins < price) return { ok: false, error: "No te alcanzan las monedas" };
+    player.coins -= price;
+    player.ownedCosmeticIds = uniqueCosmeticIds([...(player.ownedCosmeticIds ?? []), cosmeticId]);
+    this.broadcast();
+    return { ok: true };
+  }
+
+  equipCosmetic(socketId: string, cosmeticId: string, equipped: boolean): { ok: true } | { ok: false; error: string } {
+    const player = this.playerBySocket(socketId);
+    if (!player) return { ok: false, error: "No estás en esta sala" };
+    const cosmetic = this.content.cosmetics?.[cosmeticId];
+    if (!cosmetic) return { ok: false, error: "Ese cosmetic no existe" };
+    if (!isCosmeticCompatibleWithCharacter(cosmetic, player.characterId ?? player.id)) {
+      return { ok: false, error: "Ese cosmetic no es compatible con tu personaje" };
+    }
+    const owned = new Set(player.ownedCosmeticIds ?? []);
+    if (!owned.has(cosmeticId)) return { ok: false, error: "Primero comprá ese cosmetic" };
+    const equippedIds = new Set(player.cosmeticIds ?? []);
+    if (equipped) equippedIds.add(cosmeticId);
+    else equippedIds.delete(cosmeticId);
+    player.cosmeticIds = uniqueCosmeticIds([...equippedIds]);
+    this.broadcast();
+    return { ok: true };
   }
 
   // --- Inicio --------------------------------------------------------------
