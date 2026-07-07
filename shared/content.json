@@ -196,7 +196,7 @@
         "rightHand": { "x": 0.72, "y": 0.46, "angle": 0 },
         "back": { "x": 0.5, "y": 0.48, "angle": 0 }
       },
-      "defaultLoadout": { "cosmeticIds": [] },
+      "defaultLoadout": { "cosmeticIds": ["party-goggles", "big-mustache", "party-hat"] },
       "defaultTraits": []
     },
     "nico": {
@@ -319,6 +319,29 @@
       "id": "default",
       "name": "Despedida original",
       "characterIds": ["javi", "nico", "frang", "lucho", "tincho", "mati", "seba"]
+    }
+  },
+  "cosmetics": {
+    "party-goggles": {
+      "id": "party-goggles",
+      "name": "Party goggles",
+      "description": "Round party goggles mounted to the eye anchors.",
+      "assetId": "goggles",
+      "anchor": "leftEye"
+    },
+    "big-mustache": {
+      "id": "big-mustache",
+      "name": "Big mustache",
+      "description": "A bold mustache mounted to the mouth anchor.",
+      "assetId": "mustache",
+      "anchor": "mouth"
+    },
+    "party-hat": {
+      "id": "party-hat",
+      "name": "Party hat",
+      "description": "A cone hat mounted to the head anchor.",
+      "assetId": "hat",
+      "anchor": "head"
     }
   },
   "board": [

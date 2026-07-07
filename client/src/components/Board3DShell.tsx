@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
-  BoxGeometry,
   CircleGeometry,
   Color,
+  ConeGeometry,
   CylinderGeometry,
   DoubleSide,
   Euler,
@@ -17,9 +17,9 @@ import {
   type PointLight,
   type Texture,
 } from "three";
-import type { MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
-import { normalizePlayerCharacter } from "@essence/shared/character";
+import type { FaceAnchor, FacePhotoAlignment, MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
 import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
+import { defaultTokenAnchor, tokenAnchorSurface } from "../characterTokenRig";
 import {
   board3DMapBounds,
   boardCameraOverviewShot,
@@ -49,6 +49,7 @@ import {
 import { movementPath } from "../boardView";
 import {
   loadPlayerPhoto,
+  loadImage,
   makeFaceTexture,
   makePhotoFaceTexture,
   makeMetaDiscTexture,
@@ -873,39 +874,236 @@ function SlotDecalMesh({
 const TOKEN_BASE_GEOMETRY = new CylinderGeometry(0.2, 0.23, 0.07, 24);
 const TOKEN_BODY_GEOMETRY = new SphereGeometry(0.19, 24, 18);
 const TOKEN_HEAD_GEOMETRY = new SphereGeometry(0.135, 24, 18);
-/** Placa facial: cilindro bien achatado, cara plana mirando a +Z. */
-const TOKEN_FACE_GEOMETRY = new CylinderGeometry(0.1, 0.1, 0.02, 28);
+/** Placa facial: pad redondo + decal frontal para que la foto no quede hundida en la cabeza. */
+const TOKEN_FACE_BACKING_GEOMETRY = new CylinderGeometry(0.122, 0.116, 0.028, 40);
+const TOKEN_FACE_DECAL_GEOMETRY = new CircleGeometry(0.108, 40);
 const TOKEN_CROWN_GEOMETRY = new CylinderGeometry(0.05, 0.07, 0.05, 6);
 const TOKEN_SHADOW_GEOMETRY = new CircleGeometry(0.2, 20);
 const TOKEN_MARKER_GEOMETRY = new OctahedronGeometry(0.085);
-const TOKEN_LIMB_GEOMETRY = new CylinderGeometry(0.035, 0.04, 0.28, 12);
-const TOKEN_HAT_BRIM_GEOMETRY = new CylinderGeometry(0.18, 0.2, 0.025, 28);
-const TOKEN_HAT_TOP_GEOMETRY = new CylinderGeometry(0.115, 0.13, 0.12, 24);
-const TOKEN_MUSTACHE_GEOMETRY = new SphereGeometry(0.04, 12, 8);
-const TOKEN_PIERCING_GEOMETRY = new TorusGeometry(0.018, 0.005, 8, 14);
-const TOKEN_TATTOO_GEOMETRY = new BoxGeometry(0.075, 0.008, 0.045);
+const TOKEN_FACE_ROTATION: [number, number, number] = [Math.PI / 2 - 0.18, 0, 0];
+const TOKEN_GOGGLE_RING_GEOMETRY = new TorusGeometry(0.035, 0.006, 10, 24);
+const TOKEN_GOGGLE_LENS_GEOMETRY = new CircleGeometry(0.029, 24);
+const TOKEN_GOGGLE_BRIDGE_GEOMETRY = new CylinderGeometry(0.006, 0.006, 0.09, 12);
+const TOKEN_MUSTACHE_LOBE_GEOMETRY = new SphereGeometry(0.04, 18, 12);
+const TOKEN_HAT_GEOMETRY = new ConeGeometry(0.085, 0.18, 24);
+const TOKEN_HAT_BRIM_GEOMETRY = new CylinderGeometry(0.092, 0.1, 0.025, 24);
 
 /**
  * Placa facial del token: recibe cualquier THREE.Texture y la proyecta sobre
  * el disco achatado que mira a +Z. Puede mostrar iniciales o una textura
  * circular creada desde la foto del jugador.
  */
-function AvatarFace({
-  texture,
-  opacity,
-  position = [0, 0.505, 0.088],
-  scale = 1,
-}: {
-  texture: Texture;
-  opacity: number;
-  position?: [number, number, number];
-  scale?: number;
-}) {
+function AvatarFace({ texture, opacity }: { texture: Texture; opacity: number }) {
   return (
-    // Levemente inclinada hacia arriba: la cámara mira desde arriba y así la cara se lee mejor
-    <mesh castShadow position={position} scale={scale} rotation={[Math.PI / 2 - 0.24, 0, 0]} geometry={TOKEN_FACE_GEOMETRY} dispose={null}>
-      <meshStandardMaterial map={texture} roughness={0.5} metalness={0.02} transparent opacity={opacity} />
-    </mesh>
+    <group position={[0, 0.502, 0.138]} rotation={TOKEN_FACE_ROTATION}>
+      <mesh castShadow receiveShadow geometry={TOKEN_FACE_BACKING_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color="#fff1d5" roughness={0.42} metalness={0.02} transparent opacity={opacity} />
+      </mesh>
+      <mesh
+        position={[0, 0.0155, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        geometry={TOKEN_FACE_DECAL_GEOMETRY}
+        dispose={null}
+        renderOrder={4}
+      >
+        <meshBasicMaterial
+          map={texture}
+          transparent
+          opacity={opacity}
+          toneMapped={false}
+          depthWrite={false}
+          side={DoubleSide}
+          polygonOffset
+          polygonOffsetFactor={-4}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+type TokenCharacter = Pick<Player, "id" | "name" | "color" | "groom">;
+
+export function PlayerTokenPawn({
+  character,
+  facePhoto,
+  facePhotoAlignment,
+  faceAnchors,
+  bodyAnchors,
+  cosmeticIds = [],
+  opacity = 1,
+  focused = false,
+}: {
+  character: TokenCharacter;
+  facePhoto?: string;
+  facePhotoAlignment?: FacePhotoAlignment;
+  faceAnchors?: Record<string, FaceAnchor>;
+  bodyAnchors?: Record<string, FaceAnchor>;
+  cosmeticIds?: string[];
+  opacity?: number;
+  focused?: boolean;
+}) {
+  const baseColor = useMemo(() => new Color(character.color).multiplyScalar(0.62), [character.color]);
+  const initials = useMemo(() => playerInitials(character.name), [character.name]);
+  const faceTextureRef = useRef<Texture | null>(null);
+  const [faceTexture, setFaceTextureState] = useState<Texture>(() => {
+    const texture = makeFaceTexture(initials, character.color);
+    faceTextureRef.current = texture;
+    return texture;
+  });
+  const replaceFaceTexture = useCallback((texture: Texture) => {
+    const previousTexture = faceTextureRef.current;
+    if (previousTexture && previousTexture !== texture) previousTexture.dispose();
+    faceTextureRef.current = texture;
+    setFaceTextureState(texture);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    replaceFaceTexture(makeFaceTexture(initials, character.color));
+    const photo = facePhoto?.trim();
+    const imagePromise = photo ? loadImage(photo) : loadPlayerPhoto(character.id);
+    void imagePromise.then((image) => {
+      if (cancelled || !image) return;
+      const texture = makePhotoFaceTexture(image, character.color, facePhotoAlignment);
+      if (cancelled) {
+        texture.dispose();
+        return;
+      }
+      replaceFaceTexture(texture);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    character.color,
+    character.id,
+    facePhoto,
+    facePhotoAlignment?.angle,
+    facePhotoAlignment?.scale,
+    facePhotoAlignment?.x,
+    facePhotoAlignment?.y,
+    initials,
+    replaceFaceTexture,
+  ]);
+
+  useEffect(
+    () => () => {
+      faceTextureRef.current?.dispose();
+      faceTextureRef.current = null;
+    },
+    []
+  );
+
+  return (
+    <>
+      {/* Base disc */}
+      <mesh castShadow position={[0, 0.035, 0]} geometry={TOKEN_BASE_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color={baseColor} roughness={0.5} metalness={0.15} transparent opacity={opacity * 0.95} />
+      </mesh>
+      {/* Cuerpo tipo juguete: silueta capsule (esfera achatada verticalmente) */}
+      <mesh castShadow position={[0, 0.235, 0]} scale={[1, 1.15, 1]} geometry={TOKEN_BODY_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color={character.color} roughness={0.35} metalness={0.1} transparent opacity={opacity} />
+      </mesh>
+      {/* Cabeza redonda */}
+      <mesh castShadow position={[0, 0.5, 0]} geometry={TOKEN_HEAD_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color={character.color} roughness={0.3} metalness={0.08} transparent opacity={opacity} />
+      </mesh>
+      {/* Placa facial plana mirando a +Z (cámara): iniciales o la foto alineada */}
+      <AvatarFace texture={faceTexture} opacity={opacity} />
+      {/* Corona dorada para el novio/a */}
+      {character.groom && (
+        <mesh castShadow position={[0, 0.615, 0]} geometry={TOKEN_CROWN_GEOMETRY} dispose={null}>
+          <meshStandardMaterial color="#facc15" emissive="#f59e0b" emissiveIntensity={0.35} roughness={0.35} metalness={0.4} transparent opacity={opacity} />
+        </mesh>
+      )}
+      <TokenCosmetics cosmeticIds={cosmeticIds} faceAnchors={faceAnchors} bodyAnchors={bodyAnchors} opacity={opacity} />
+      {focused && (
+        <group position={[0, 0.11, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.33, 0.44, 40]} />
+            <meshStandardMaterial color="#67e8f9" emissive="#0891b2" emissiveIntensity={0.5} transparent opacity={0.95} side={DoubleSide} />
+          </mesh>
+          <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.5, 0.55, 40]} />
+            <meshStandardMaterial color="#fff4bf" emissive="#f5d547" emissiveIntensity={0.28} transparent opacity={0.7} side={DoubleSide} />
+          </mesh>
+        </group>
+      )}
+      {/* Soft shadow disc */}
+      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} geometry={TOKEN_SHADOW_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color="#000000" transparent opacity={focused ? 0.22 : 0.18} side={DoubleSide} />
+      </mesh>
+    </>
+  );
+}
+
+function TokenCosmetics({
+  cosmeticIds,
+  faceAnchors,
+  bodyAnchors,
+  opacity,
+}: {
+  cosmeticIds: string[];
+  faceAnchors?: Record<string, FaceAnchor>;
+  bodyAnchors?: Record<string, FaceAnchor>;
+  opacity: number;
+}) {
+  const selected = useMemo(() => new Set(cosmeticIds), [cosmeticIds]);
+  const leftEye = tokenAnchorSurface({ id: "leftEye", scope: "face" }, faceAnchors?.leftEye ?? defaultTokenAnchor("leftEye")).position;
+  const rightEye = tokenAnchorSurface({ id: "rightEye", scope: "face" }, faceAnchors?.rightEye ?? defaultTokenAnchor("rightEye")).position;
+  const mouth = tokenAnchorSurface({ id: "mouth", scope: "face" }, faceAnchors?.mouth ?? defaultTokenAnchor("mouth")).position;
+  const head = tokenAnchorSurface({ id: "head", scope: "body" }, bodyAnchors?.head ?? defaultTokenAnchor("head")).position;
+  const goggles = selected.has("party-goggles") || selected.has("goggles");
+  const mustache = selected.has("big-mustache") || selected.has("mustache");
+  const hat = selected.has("party-hat") || selected.has("hat");
+
+  if (!goggles && !mustache && !hat) return null;
+
+  return (
+    <>
+      {goggles && (
+        <group>
+          {[leftEye, rightEye].map((position, index) => (
+            <group key={index} position={[position[0], position[1], position[2] + 0.026]}>
+              <mesh geometry={TOKEN_GOGGLE_LENS_GEOMETRY} dispose={null}>
+                <meshBasicMaterial color="#67e8f9" transparent opacity={opacity * 0.45} side={DoubleSide} toneMapped={false} />
+              </mesh>
+              <mesh geometry={TOKEN_GOGGLE_RING_GEOMETRY} dispose={null}>
+                <meshStandardMaterial color="#111827" roughness={0.32} metalness={0.18} transparent opacity={opacity} />
+              </mesh>
+            </group>
+          ))}
+          <mesh
+            position={[(leftEye[0] + rightEye[0]) / 2, (leftEye[1] + rightEye[1]) / 2, Math.max(leftEye[2], rightEye[2]) + 0.026]}
+            rotation={[0, 0, Math.PI / 2]}
+            geometry={TOKEN_GOGGLE_BRIDGE_GEOMETRY}
+            dispose={null}
+          >
+            <meshStandardMaterial color="#111827" roughness={0.35} metalness={0.15} transparent opacity={opacity} />
+          </mesh>
+        </group>
+      )}
+      {mustache && (
+        <group position={[mouth[0], mouth[1] - 0.02, mouth[2] + 0.032]}>
+          <mesh position={[-0.035, 0, 0]} rotation={[0, 0, -0.25]} scale={[1.35, 0.42, 0.25]} geometry={TOKEN_MUSTACHE_LOBE_GEOMETRY} dispose={null}>
+            <meshStandardMaterial color="#111827" roughness={0.58} metalness={0.02} transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[0.035, 0, 0]} rotation={[0, 0, 0.25]} scale={[1.35, 0.42, 0.25]} geometry={TOKEN_MUSTACHE_LOBE_GEOMETRY} dispose={null}>
+            <meshStandardMaterial color="#111827" roughness={0.58} metalness={0.02} transparent opacity={opacity} />
+          </mesh>
+        </group>
+      )}
+      {hat && (
+        <group position={[head[0], head[1] + 0.035, Math.max(0.015, head[2] - 0.025)]} rotation={[0.12, 0, -0.08]}>
+          <mesh position={[0, 0.085, 0]} geometry={TOKEN_HAT_GEOMETRY} dispose={null}>
+            <meshStandardMaterial color="#a855f7" emissive="#4c1d95" emissiveIntensity={0.12} roughness={0.5} transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[0, 0.005, 0]} geometry={TOKEN_HAT_BRIM_GEOMETRY} dispose={null}>
+            <meshStandardMaterial color="#22d3ee" roughness={0.38} metalness={0.08} transparent opacity={opacity} />
+          </mesh>
+        </group>
+      )}
+    </>
   );
 }
 
@@ -933,50 +1131,9 @@ function PlayerToken({
 }) {
   const { gl } = useThree();
   const group = useRef<Group | null>(null);
-  const pawnGroup = useRef<Group | null>(null);
   const markerRef = useRef<Mesh | null>(null);
   const segment = useRef(0);
   const progress = useRef(0);
-  const character = useMemo(() => normalizePlayerCharacter(player.character, player.color), [player.character, player.color]);
-  const playerColor = character.base.color;
-  const baseColor = useMemo(() => new Color(playerColor).multiplyScalar(0.62), [playerColor]);
-  const initials = useMemo(() => playerInitials(player.name), [player.name]);
-  const faceTextureRef = useRef<Texture | null>(null);
-  const [faceTexture, setFaceTextureState] = useState<Texture>(() => {
-    const texture = makeFaceTexture(initials, playerColor);
-    faceTextureRef.current = texture;
-    return texture;
-  });
-  const replaceFaceTexture = useCallback((texture: Texture) => {
-    const previousTexture = faceTextureRef.current;
-    if (previousTexture && previousTexture !== texture) previousTexture.dispose();
-    faceTextureRef.current = texture;
-    setFaceTextureState(texture);
-  }, []);
-  useEffect(() => {
-    let cancelled = false;
-    replaceFaceTexture(makeFaceTexture(initials, playerColor));
-    void loadPlayerPhoto(player.id).then((image) => {
-      if (cancelled || !image) return;
-      const texture = makePhotoFaceTexture(image, playerColor);
-      if (cancelled) {
-        texture.dispose();
-        return;
-      }
-      replaceFaceTexture(texture);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [initials, playerColor, player.id, replaceFaceTexture]);
-  useEffect(
-    () => () => {
-      faceTextureRef.current?.dispose();
-      faceTextureRef.current = null;
-    },
-    [],
-  );
-  const characterMotionKind: BoardMotionKind = character.base.movement === "hop" ? "jump" : motionKind;
   const selectPlayer = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
       if (!onSelect) return;
@@ -997,7 +1154,7 @@ function PlayerToken({
     },
     [gl, onSelect]
   );
-  const pathKey = `${characterMotionKind}:${motionNonce}:${path.map((point) => point.join(",")).join("|")}`;
+  const pathKey = `${motionKind}:${motionNonce}:${path.map((point) => point.join(",")).join("|")}`;
   const points = useMemo(() => path.map((point) => new Vector3(...point)), [pathKey]);
   const finalPoint = path[path.length - 1] ?? [0, 0, 0];
   const start = motion.tokenStepSeconds === 0 ? finalPoint : path[0] ?? finalPoint;
@@ -1020,7 +1177,7 @@ function PlayerToken({
       progress.current += delta / motion.tokenStepSeconds;
       const t = easeOut(Math.min(1, progress.current));
       token.position.lerpVectors(points[segment.current], points[next], t);
-      token.position.y += Math.sin(Math.min(1, progress.current) * Math.PI) * (characterMotionKind === "jump" ? 0.95 : 0.22);
+      token.position.y += Math.sin(Math.min(1, progress.current) * Math.PI) * (motionKind === "jump" ? 0.95 : 0.22);
       if (progress.current >= 1) {
         segment.current = next;
         progress.current = 0;
@@ -1037,18 +1194,6 @@ function PlayerToken({
   });
 
   const opacity = player.connected ? 1 : 0.45;
-  const height = character.base.height;
-  const girth = character.base.weight;
-  const hasArms = character.base.limbs.arms;
-  const hasLegs = character.base.limbs.legs;
-  const ballOnly = !hasArms && !hasLegs;
-  const bodyY = ballOnly ? 0.285 * height : 0.235 * height;
-  const headY = ballOnly ? bodyY + 0.012 : 0.5 * height;
-  const facePosition: [number, number, number] = ballOnly
-    ? [0, bodyY + 0.03, 0.122 * girth]
-    : [0, headY + 0.005, 0.088 * girth];
-  const hatY = ballOnly ? bodyY + 0.25 * height : headY + 0.115;
-  const equipped = character.equippedCosmeticIds ?? {};
 
   return (
     <group
@@ -1070,113 +1215,22 @@ function PlayerToken({
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
       )}
-      <group ref={pawnGroup}>
-        {/* Base disc */}
-        <mesh castShadow position={[0, 0.035, 0]} geometry={TOKEN_BASE_GEOMETRY} dispose={null}>
-          <meshStandardMaterial color={baseColor} roughness={0.5} metalness={0.15} transparent opacity={opacity * 0.95} />
-        </mesh>
-        {hasLegs && (
-          <>
-            <mesh castShadow position={[-0.075 * girth, 0.135 * height, 0]} rotation={[0, 0, 0.04]} geometry={TOKEN_LIMB_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color={playerColor} roughness={0.4} metalness={0.08} transparent opacity={opacity} />
-            </mesh>
-            <mesh castShadow position={[0.075 * girth, 0.135 * height, 0]} rotation={[0, 0, -0.04]} geometry={TOKEN_LIMB_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color={playerColor} roughness={0.4} metalness={0.08} transparent opacity={opacity} />
-            </mesh>
-          </>
-        )}
-        {ballOnly ? (
-          <mesh castShadow position={[0, bodyY, 0]} scale={[1.16 * girth, 1.16 * girth, 1.16 * girth]} geometry={TOKEN_BODY_GEOMETRY} dispose={null}>
-            <meshStandardMaterial color={playerColor} roughness={0.35} metalness={0.1} transparent opacity={opacity} />
-          </mesh>
-        ) : (
-          <>
-            {/* Cuerpo tipo juguete: silueta capsule (esfera achatada verticalmente) */}
-            <mesh castShadow position={[0, bodyY, 0]} scale={[girth, 1.15 * height, girth]} geometry={TOKEN_BODY_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color={playerColor} roughness={0.35} metalness={0.1} transparent opacity={opacity} />
-            </mesh>
-            {/* Cabeza redonda */}
-            <mesh castShadow position={[0, headY, 0]} scale={[girth, height, girth]} geometry={TOKEN_HEAD_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color={playerColor} roughness={0.3} metalness={0.08} transparent opacity={opacity} />
-            </mesh>
-          </>
-        )}
-        {hasArms && (
-          <>
-            <mesh castShadow position={[-0.22 * girth, 0.31 * height, 0]} rotation={[0, 0, -0.9]} geometry={TOKEN_LIMB_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color={playerColor} roughness={0.42} metalness={0.08} transparent opacity={opacity} />
-            </mesh>
-            <mesh castShadow position={[0.22 * girth, 0.31 * height, 0]} rotation={[0, 0, 0.9]} geometry={TOKEN_LIMB_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color={playerColor} roughness={0.42} metalness={0.08} transparent opacity={opacity} />
-            </mesh>
-          </>
-        )}
-        {/* Placa facial plana mirando a +Z (cámara): hoy iniciales, mañana la foto */}
-        <AvatarFace texture={faceTexture} opacity={opacity} position={facePosition} scale={ballOnly ? 1.08 : 1} />
-        {equipped.mustache && (
-          <>
-            <mesh castShadow position={[-0.036, facePosition[1] - 0.035, facePosition[2] + 0.014]} scale={[1.5, 0.55, 0.55]} geometry={TOKEN_MUSTACHE_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color="#1f1307" roughness={0.5} transparent opacity={opacity} />
-            </mesh>
-            <mesh castShadow position={[0.036, facePosition[1] - 0.035, facePosition[2] + 0.014]} scale={[1.5, 0.55, 0.55]} geometry={TOKEN_MUSTACHE_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color="#1f1307" roughness={0.5} transparent opacity={opacity} />
-            </mesh>
-          </>
-        )}
-        {equipped.nipplePiercing && !ballOnly && (
-          <>
-            <mesh castShadow position={[-0.065 * girth, bodyY + 0.035, 0.17 * girth]} rotation={[Math.PI / 2, 0, 0]} geometry={TOKEN_PIERCING_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color="#e5e7eb" roughness={0.2} metalness={0.75} transparent opacity={opacity} />
-            </mesh>
-            <mesh castShadow position={[0.065 * girth, bodyY + 0.035, 0.17 * girth]} rotation={[Math.PI / 2, 0, 0]} geometry={TOKEN_PIERCING_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color="#e5e7eb" roughness={0.2} metalness={0.75} transparent opacity={opacity} />
-            </mesh>
-          </>
-        )}
-        {equipped.tattoo && (
-          <mesh castShadow position={[hasArms ? -0.255 * girth : -0.085 * girth, hasArms ? 0.34 * height : bodyY + 0.02, hasArms ? 0.02 : 0.18 * girth]} rotation={[0.12, 0, hasArms ? -0.9 : -0.2]} geometry={TOKEN_TATTOO_GEOMETRY} dispose={null}>
-            <meshStandardMaterial color="#111827" roughness={0.55} transparent opacity={opacity * 0.8} />
-          </mesh>
-        )}
-        {equipped.hat && (
-          <>
-            <mesh castShadow position={[0, hatY, 0]} geometry={TOKEN_HAT_BRIM_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color="#facc15" roughness={0.35} metalness={0.12} transparent opacity={opacity} />
-            </mesh>
-            <mesh castShadow position={[0, hatY + 0.07, 0]} geometry={TOKEN_HAT_TOP_GEOMETRY} dispose={null}>
-              <meshStandardMaterial color="#f59e0b" roughness={0.35} metalness={0.12} transparent opacity={opacity} />
-            </mesh>
-          </>
-        )}
-        {/* Corona dorada para el novio/a */}
-        {player.groom && (
-          <mesh castShadow position={[0, hatY + (equipped.hat ? 0.14 : 0), 0]} geometry={TOKEN_CROWN_GEOMETRY} dispose={null}>
-            <meshStandardMaterial color="#facc15" emissive="#f59e0b" emissiveIntensity={0.35} roughness={0.35} metalness={0.4} transparent opacity={opacity} />
-          </mesh>
-        )}
-      </group>
+      <PlayerTokenPawn
+        character={player}
+        facePhoto={player.facePhoto}
+        facePhotoAlignment={player.facePhotoAlignment}
+        faceAnchors={player.faceAnchors}
+        bodyAnchors={player.bodyAnchors}
+        cosmeticIds={player.cosmeticIds}
+        opacity={opacity}
+        focused={focused}
+      />
       {/* Floating turn marker */}
       {active && (
         <mesh ref={markerRef} position={[0, 0.94, 0]} geometry={TOKEN_MARKER_GEOMETRY} dispose={null}>
           <meshStandardMaterial color="#fde047" emissive="#f59e0b" emissiveIntensity={0.85} roughness={0.25} />
         </mesh>
       )}
-      {focused && (
-        <group position={[0, 0.11, 0]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.33, 0.44, 40]} />
-            <meshStandardMaterial color="#67e8f9" emissive="#0891b2" emissiveIntensity={0.5} transparent opacity={0.95} side={DoubleSide} />
-          </mesh>
-          <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.5, 0.55, 40]} />
-            <meshStandardMaterial color="#fff4bf" emissive="#f5d547" emissiveIntensity={0.28} transparent opacity={0.7} side={DoubleSide} />
-          </mesh>
-        </group>
-      )}
-      {/* Soft shadow disc */}
-      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} geometry={TOKEN_SHADOW_GEOMETRY} dispose={null}>
-        <meshStandardMaterial color="#000000" transparent opacity={active ? 0.26 : 0.18} side={DoubleSide} />
-      </mesh>
     </group>
   );
 }

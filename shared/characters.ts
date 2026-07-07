@@ -65,8 +65,15 @@ export function characterSlotsForContent(
       color: character.color ?? "#888888",
       groom: Boolean(character.groom),
       facePhoto: character.facePhoto,
+      facePhotoAlignment: character.facePhotoAlignment ? { ...character.facePhotoAlignment } : undefined,
       faceAnchors: character.faceAnchors ? { ...character.faceAnchors } : undefined,
       bodyAnchors: character.bodyAnchors ? { ...character.bodyAnchors } : undefined,
+      defaultLoadout: character.defaultLoadout
+        ? {
+            ...character.defaultLoadout,
+            cosmeticIds: character.defaultLoadout.cosmeticIds ? [...character.defaultLoadout.cosmeticIds] : undefined,
+          }
+        : undefined,
       claimedByPlayerId: claimed?.id,
       connected: claimed?.connected,
     };

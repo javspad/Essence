@@ -194,8 +194,15 @@ export class GameRoom {
           color: slot.color,
           groom: slot.groom,
           facePhoto: slot.facePhoto,
+          facePhotoAlignment: slot.facePhotoAlignment,
           faceAnchors: slot.faceAnchors,
           bodyAnchors: slot.bodyAnchors,
+          defaultLoadout: slot.defaultLoadout
+            ? {
+                ...slot.defaultLoadout,
+                cosmeticIds: slot.defaultLoadout.cosmeticIds ? [...slot.defaultLoadout.cosmeticIds] : undefined,
+              }
+            : undefined,
         } satisfies CharacterDef,
       ])
     );
@@ -223,7 +230,7 @@ export class GameRoom {
   }
 
   private playerFromCharacter(character: CharacterDef, socketId: string): Player {
-    return {
+    const player: Player = {
       id: character.id,
       characterId: character.id,
       name: characterDisplayName(character),
@@ -235,6 +242,12 @@ export class GameRoom {
       groom: Boolean(character.groom),
       color: character.color ?? "#888888",
     };
+    if (character.facePhoto) player.facePhoto = character.facePhoto;
+    if (character.facePhotoAlignment) player.facePhotoAlignment = { ...character.facePhotoAlignment };
+    if (character.faceAnchors) player.faceAnchors = { ...character.faceAnchors };
+    if (character.bodyAnchors) player.bodyAnchors = { ...character.bodyAnchors };
+    if (character.defaultLoadout?.cosmeticIds?.length) player.cosmeticIds = [...character.defaultLoadout.cosmeticIds];
+    return player;
   }
 
   // --- Inicio --------------------------------------------------------------

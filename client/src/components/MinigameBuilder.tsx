@@ -15,7 +15,6 @@ import type {
   Player,
   RevealEntry,
 } from "@essence/shared";
-import { characterForPlayerDef } from "@essence/shared/character";
 import seedContent from "@shared/content.json";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import {
@@ -1739,7 +1738,6 @@ function toPlayer(def: GameContent["players"][number], index = 0): Player {
     isHost: index === 0,
     groom: Boolean(def.groom),
     color: def.color ?? "#94a3b8",
-    character: characterForPlayerDef(def),
   };
 }
 

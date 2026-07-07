@@ -12,7 +12,7 @@ import {
   SRGBColorSpace,
   type Mesh,
 } from "three";
-import type { MapArtifact, MapAssetDef, MapTerrace, MapTerraceSurface } from "@essence/shared";
+import type { FacePhotoAlignment, MapArtifact, MapAssetDef, MapTerrace, MapTerraceSurface } from "@essence/shared";
 import { localAssetProjection } from "../artifactProjection";
 import { BOARD_GRID_SPACING, layoutToWorldPosition, type Board3DMapBounds, type Vec3 } from "../board3d";
 
@@ -159,7 +159,13 @@ export function makeFaceTexture(initials: string, color: string): CanvasTexture 
   return finishTexture(canvas);
 }
 
-export function makePhotoFaceTexture(image: HTMLImageElement, color: string): CanvasTexture {
+const DEFAULT_FACE_PHOTO_ALIGNMENT: FacePhotoAlignment = { x: 0.5, y: 0.5, scale: 1, angle: 0 };
+
+export function makePhotoFaceTexture(
+  image: HTMLImageElement,
+  color: string,
+  alignment: FacePhotoAlignment = DEFAULT_FACE_PHOTO_ALIGNMENT
+): CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 256;
@@ -170,11 +176,12 @@ export function makePhotoFaceTexture(image: HTMLImageElement, color: string): Ca
   const radius = canvas.width / 2 - 6;
   const imageWidth = image.naturalWidth || image.width;
   const imageHeight = image.naturalHeight || image.height;
-  const scale = Math.max(canvas.width / imageWidth, canvas.height / imageHeight);
+  const scale = Math.max(canvas.width / imageWidth, canvas.height / imageHeight) * Math.max(0.05, alignment.scale || 1);
   const drawWidth = imageWidth * scale;
   const drawHeight = imageHeight * scale;
-  const dx = (canvas.width - drawWidth) / 2;
-  const dy = (canvas.height - drawHeight) / 2;
+  const centerX = (Number.isFinite(alignment.x) ? alignment.x : DEFAULT_FACE_PHOTO_ALIGNMENT.x) * canvas.width;
+  const centerY = (Number.isFinite(alignment.y) ? alignment.y : DEFAULT_FACE_PHOTO_ALIGNMENT.y) * canvas.height;
+  const angle = ((Number.isFinite(alignment.angle ?? 0) ? alignment.angle ?? 0 : 0) * Math.PI) / 180;
 
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -182,7 +189,9 @@ export function makePhotoFaceTexture(image: HTMLImageElement, color: string): Ca
   ctx.fill();
   ctx.save();
   ctx.clip();
-  ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+  ctx.translate(centerX, centerY);
+  ctx.rotate(angle);
+  ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   ctx.restore();
   ctx.lineWidth = 10;
   ctx.strokeStyle = color;
@@ -195,9 +204,10 @@ export function makePhotoFaceTexture(image: HTMLImageElement, color: string): Ca
 const PLAYER_PHOTO_EXTENSIONS = ["webp", "jpg", "png"] as const;
 const playerPhotoCache = new Map<string, Promise<HTMLImageElement | null>>();
 
-function loadImage(src: string): Promise<HTMLImageElement | null> {
+export function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const image = new Image();
+    if (!src.startsWith("data:")) image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => resolve(null);
     image.src = src;

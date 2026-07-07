@@ -15,7 +15,6 @@ import type {
   TileLayout,
   TileType,
 } from "@essence/shared";
-import { normalizePlayerCharacter } from "@essence/shared/character";
 import seedContent from "@shared/content.json";
 import {
   assetProjectionRadius,
@@ -187,7 +186,6 @@ export default function MapBuilder() {
         isHost: false,
         groom: false,
         color: testMode ? "#34d399" : "#fef3c7",
-        character: normalizePlayerCharacter(undefined, testMode ? "#34d399" : "#fef3c7"),
       },
     ],
     [previewPosition, testMode]

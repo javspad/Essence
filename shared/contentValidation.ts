@@ -48,6 +48,13 @@ const FaceAnchorSchema = z.object({
   angle: z.number().finite().optional(),
 });
 
+const FacePhotoAlignmentSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  scale: z.number().finite().positive(),
+  angle: z.number().finite().optional(),
+});
+
 const CharacterLoadoutSchema = z
   .object({
     cosmeticIds: z.array(z.string()).optional(),
@@ -62,6 +69,7 @@ const CharacterDefSchema = z
     color: z.string().optional(),
     groom: z.boolean().optional(),
     facePhoto: z.string().optional(),
+    facePhotoAlignment: FacePhotoAlignmentSchema.optional(),
     faceAnchors: z.record(FaceAnchorSchema).optional(),
     bodyAnchors: z.record(FaceAnchorSchema).optional(),
     defaultLoadout: CharacterLoadoutSchema.optional(),
@@ -475,6 +483,7 @@ function normalizeCharacters(
       displayName,
       color: character.color ?? normalized[id]?.color,
       groom: character.groom ?? normalized[id]?.groom,
+      facePhotoAlignment: character.facePhotoAlignment ? { ...character.facePhotoAlignment } : undefined,
       faceAnchors: cloneAnchors(character.faceAnchors),
       bodyAnchors: cloneAnchors(character.bodyAnchors),
       defaultLoadout: cosmeticIds.length ? { ...defaultLoadout, cosmeticIds } : (defaultLoadout as CharacterDef["defaultLoadout"]),
@@ -521,6 +530,7 @@ function cloneCharacter(character: CharacterDef): CharacterDef {
     ...character,
     faceAnchors: cloneAnchors(character.faceAnchors),
     bodyAnchors: cloneAnchors(character.bodyAnchors),
+    facePhotoAlignment: character.facePhotoAlignment ? { ...character.facePhotoAlignment } : undefined,
     defaultLoadout: character.defaultLoadout
       ? {
           ...character.defaultLoadout,

@@ -80,7 +80,16 @@ const characterSetContent: GameContent = normalizeGameContentEvents({
   ],
   characters: {
     groom: { id: "groom", displayName: "Groom", groom: true, color: "#f59e0b" },
-    guest: { id: "guest", displayName: "Guest", color: "#38bdf8" },
+    guest: {
+      id: "guest",
+      displayName: "Guest",
+      color: "#38bdf8",
+      facePhoto: "data:image/png;base64,guest",
+      facePhotoAlignment: { x: 0.42, y: 0.57, scale: 1.2 },
+      faceAnchors: { mouth: { x: 0.5, y: 0.64, angle: 0 } },
+      bodyAnchors: { head: { x: 0.5, y: 0.14, angle: 0 } },
+      defaultLoadout: { cosmeticIds: ["party-goggles", "big-mustache"] },
+    },
   },
   characterSets: {
     duo: { id: "duo", name: "Duo", characterIds: ["groom", "guest"] },
@@ -200,6 +209,11 @@ const players = [
   assert.equal(room.getState().characterSlots?.find((slot) => slot.id === "guest")?.claimedByPlayerId, "guest");
   assert.equal(room.getState().players.find((player) => player.id === "guest")?.name, "Guest");
   assert.equal(room.getState().players.find((player) => player.id === "guest")?.color, "#38bdf8");
+  assert.equal(room.getState().players.find((player) => player.id === "guest")?.facePhoto, "data:image/png;base64,guest");
+  assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.facePhotoAlignment, { x: 0.42, y: 0.57, scale: 1.2 });
+  assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.faceAnchors, { mouth: { x: 0.5, y: 0.64, angle: 0 } });
+  assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.bodyAnchors, { head: { x: 0.5, y: 0.14, angle: 0 } });
+  assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.cosmeticIds, ["party-goggles", "big-mustache"]);
 
   assert.deepEqual((room as any).join("socket-steal", "Steal", { characterId: "guest" }), {
     ok: false,
