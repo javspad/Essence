@@ -9,6 +9,8 @@ import {
   LogOut,
   Map as MapIcon,
   Sparkles,
+  Trophy,
+  Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -40,6 +42,8 @@ interface GameScene3DProps {
   onNext: () => void;
   onLeave: () => void;
   onDebugApplyEffect: (playerId: string, effect: EffectDef) => void;
+  onDebugSetSkipMinigames: (enabled: boolean) => void;
+  onDebugChooseMinigameWinner: (playerId: string) => void;
 }
 
 const DICE = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
@@ -137,6 +141,8 @@ export default function GameScene3D({
   onNext,
   onLeave,
   onDebugApplyEffect,
+  onDebugSetSkipMinigames,
+  onDebugChooseMinigameWinner,
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
   const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
@@ -234,6 +240,8 @@ export default function GameScene3D({
         onNext={onNext}
         onLeave={requestLeave}
         onDebugApplyEffect={onDebugApplyEffect}
+        onDebugSetSkipMinigames={onDebugSetSkipMinigames}
+        onDebugChooseMinigameWinner={onDebugChooseMinigameWinner}
       />
 
       {leaveConfirmOpen && (
@@ -271,6 +279,8 @@ function SceneChrome({
   onNext,
   onLeave,
   onDebugApplyEffect,
+  onDebugSetSkipMinigames,
+  onDebugChooseMinigameWinner,
 }: {
   connected: boolean;
   state: GameState;
@@ -290,6 +300,8 @@ function SceneChrome({
   onNext: () => void;
   onLeave: () => void;
   onDebugApplyEffect: (playerId: string, effect: EffectDef) => void;
+  onDebugSetSkipMinigames: (enabled: boolean) => void;
+  onDebugChooseMinigameWinner: (playerId: string) => void;
 }) {
   const active = state.players.find((player) => player.id === activeId);
   const sorted = rankPlayersByProgress(state.players);
@@ -319,10 +331,11 @@ function SceneChrome({
         {state.phase !== "finished" && (
           <div className="relative z-30 ml-0 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
             {isHost && debugToolsEnabled && (
-              <DebugEffectTool
-                players={state.players}
-                effects={state.effects}
-                onApply={onDebugApplyEffect}
+              <DevToolsMenu
+                state={state}
+                onApplyEffect={onDebugApplyEffect}
+                onSkipMinigamesChange={onDebugSetSkipMinigames}
+                onChooseMinigameWinner={onDebugChooseMinigameWinner}
               />
             )}
             <MapToggleButton cameraMode={cameraState.mode} onCameraIntent={onCameraIntent} />
@@ -513,23 +526,36 @@ function EffectStackDetails({ effects }: { effects: EffectInstance[] }) {
   );
 }
 
-function DebugEffectTool({
-  players,
-  effects,
-  onApply,
+function DevToolsMenu({
+  state,
+  onApplyEffect,
+  onSkipMinigamesChange,
+  onChooseMinigameWinner,
 }: {
-  players: Player[];
-  effects?: Record<string, EffectDef>;
-  onApply: (playerId: string, effect: EffectDef) => void;
+  state: GameState;
+  onApplyEffect: (playerId: string, effect: EffectDef) => void;
+  onSkipMinigamesChange: (enabled: boolean) => void;
+  onChooseMinigameWinner: (playerId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [draftVersion, setDraftVersion] = useState(0);
+  const players = state.players;
+  const effects = state.effects;
+  const activeMinigame = state.activeMinigame;
+  const skipMinigames = Boolean(state.devSettings?.skipMinigames);
+  const winnerOptions = useMemo(() => {
+    const minigameWinnerIds = activeMinigame ? (activeMinigame.subjects?.length ? activeMinigame.subjects : activeMinigame.participants) : [];
+    return minigameWinnerIds
+      .map((id) => players.find((player) => player.id === id))
+      .filter((player): player is Player => Boolean(player));
+  }, [activeMinigame, players]);
   const effectOptions = useMemo(
     () => mergedEffectCatalog(SEED_EFFECTS, effects, loadEventBuilderDraftEffects(), keyedEffects(BUILT_IN_DEBUG_EFFECTS)),
     [effects, draftVersion]
   );
   const [selectedPlayerId, setSelectedPlayerId] = useState(players[0]?.id ?? "");
   const [selectedEffectId, setSelectedEffectId] = useState(effectOptions[0]?.id ?? "");
+  const [selectedWinnerId, setSelectedWinnerId] = useState(winnerOptions[0]?.id ?? "");
   const selectedEffect = effectOptions.find((effect) => effect.id === selectedEffectId);
 
   useEffect(() => {
@@ -550,9 +576,20 @@ function DebugEffectTool({
     setSelectedEffectId(effectOptions[0]?.id ?? "");
   }, [effectOptions, selectedEffectId]);
 
+  useEffect(() => {
+    if (selectedWinnerId && winnerOptions.some((player) => player.id === selectedWinnerId)) return;
+    setSelectedWinnerId(winnerOptions[0]?.id ?? "");
+  }, [selectedWinnerId, winnerOptions]);
+
   const apply = () => {
     if (!selectedPlayerId || !selectedEffect) return;
-    onApply(selectedPlayerId, selectedEffect);
+    onApplyEffect(selectedPlayerId, selectedEffect);
+    setOpen(false);
+  };
+
+  const chooseWinner = () => {
+    if (!selectedWinnerId) return;
+    onChooseMinigameWinner(selectedWinnerId);
     setOpen(false);
   };
 
@@ -560,10 +597,10 @@ function DebugEffectTool({
     <div className="pointer-events-auto relative">
       <Button
         type="button"
-        aria-label="Abrir herramienta de efectos de desarrollo"
+        aria-label="Abrir dev tools"
         aria-expanded={open}
-        title="Aplicar efectos de desarrollo"
-        data-testid="debug-effects-toggle"
+        title="Dev tools"
+        data-testid="dev-tools-toggle"
         onClick={() => {
           setDraftVersion((version) => version + 1);
           setOpen((current) => !current);
@@ -573,71 +610,121 @@ function DebugEffectTool({
           open ? "bg-[#34d399]/24 ring-1 ring-[#a7f3d0]/60" : "bg-[#052e1a]/82"
         )}
       >
-        <Bug data-icon="inline-start" className="size-3.5" />
-        <span className="hidden sm:inline">Dev effects</span>
+        <Wrench data-icon="inline-start" className="size-3.5" />
+        <span className="hidden sm:inline">Dev tools</span>
       </Button>
 
       {open && (
         <section
-          aria-label="Development effect tool"
-          data-testid="debug-effects-panel"
-          className="absolute right-0 top-11 w-[min(19rem,calc(100vw-1.5rem))] rounded-sm border border-[#a7f3d0]/35 bg-[#07140f]/96 p-3 text-[#ecfdf5] shadow-[0_0_0_1px_rgba(167,243,208,0.08),0_18px_50px_rgb(0_0_0/0.55)] backdrop-blur-xl"
+          aria-label="Development tools"
+          data-testid="dev-tools-panel"
+          className="absolute right-0 top-11 max-h-[calc(100vh-5rem)] w-[min(21rem,calc(100vw-1.5rem))] overflow-y-auto rounded-sm border border-[#a7f3d0]/35 bg-[#07140f]/96 p-3 text-[#ecfdf5] shadow-[0_0_0_1px_rgba(167,243,208,0.08),0_18px_50px_rgb(0_0_0/0.55)] backdrop-blur-xl"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="retro text-[8px] uppercase tracking-widest text-[#86efac]">Development</p>
-              <h2 className="mt-1 text-sm font-black text-[#f0fdf4]">Apply effect</h2>
+              <h2 className="mt-1 text-sm font-black text-[#f0fdf4]">Dev tools</h2>
             </div>
-            <Sparkles className="mt-0.5 size-4 shrink-0 text-[#f5d547]" />
+            <Bug className="mt-0.5 size-4 shrink-0 text-[#f5d547]" />
           </div>
 
-          <div className="mt-3 grid gap-2">
-            <DevToolSelect
-              label="Player"
-              value={selectedPlayerId}
-              disabled={!players.length}
-              options={players.map((player) => ({ value: player.id, label: player.name }))}
-              testId="debug-effect-player"
-              onChange={setSelectedPlayerId}
-            />
-            <DevToolSelect
-              label="Effect type"
-              value={selectedEffectId}
-              disabled={!effectOptions.length}
-              options={effectOptions.length ? effectOptions.map((effect) => ({ value: effect.id, label: `${effectIcon(effect)} ${effect.name}` })) : [{ value: "", label: "No effects" }]}
-              testId="debug-effect-effect"
-              onChange={setSelectedEffectId}
-            />
+          <div className="mt-3 rounded-sm border border-white/10 bg-white/[0.04] p-2.5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="size-3.5 text-[#f5d547]" />
+              <h3 className="text-[10px] font-black uppercase tracking-wider text-[#bbf7d0]">Effects</h3>
+            </div>
+            <div className="mt-2 grid gap-2">
+              <DevToolSelect
+                label="Player"
+                value={selectedPlayerId}
+                disabled={!players.length}
+                options={players.map((player) => ({ value: player.id, label: player.name }))}
+                testId="debug-effect-player"
+                onChange={setSelectedPlayerId}
+              />
+              <DevToolSelect
+                label="Effect type"
+                value={selectedEffectId}
+                disabled={!effectOptions.length}
+                options={effectOptions.length ? effectOptions.map((effect) => ({ value: effect.id, label: `${effectIcon(effect)} ${effect.name}` })) : [{ value: "", label: "No effects" }]}
+                testId="debug-effect-effect"
+                onChange={setSelectedEffectId}
+              />
+            </div>
+
+            {selectedEffect ? (
+              <div className="mt-3 rounded-sm border border-white/10 bg-black/25 p-2">
+                <p className="truncate text-xs font-black text-[#f0fdf4]">
+                  <span className="mr-1">{effectIcon(selectedEffect)}</span>
+                  {selectedEffect.name}
+                </p>
+                <p className="mt-1 line-clamp-2 text-[10px] font-bold leading-4 text-[#bbf7d0]/75">
+                  {selectedEffect.description ?? "Custom effect from the active catalog."}
+                </p>
+                <p className="mt-2 w-fit rounded-sm border border-[#a7f3d0]/25 bg-[#34d399]/12 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-[#bbf7d0]">
+                  {effectRemainingLabel(durationStateFromDef(selectedEffect.duration))}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-sm border border-dashed border-white/15 p-2 text-xs font-bold text-[#bbf7d0]/70">
+                Create and save an effect in Event Builder, or add effects to content.json.
+              </p>
+            )}
+
+            <Button
+              type="button"
+              data-testid="debug-effect-apply"
+              disabled={!selectedPlayerId || !selectedEffect}
+              onClick={apply}
+              className="mt-3 h-10 w-full bg-[#34d399] px-4 text-xs font-black uppercase tracking-wider text-[#052e1a] hover:bg-[#6ee7b7] disabled:bg-white/15 disabled:text-white/50"
+            >
+              Apply to player
+            </Button>
           </div>
 
-          {selectedEffect ? (
-            <div className="mt-3 rounded-sm border border-white/10 bg-black/25 p-2">
-              <p className="truncate text-xs font-black text-[#f0fdf4]">
-                <span className="mr-1">{effectIcon(selectedEffect)}</span>
-                {selectedEffect.name}
-              </p>
-              <p className="mt-1 line-clamp-2 text-[10px] font-bold leading-4 text-[#bbf7d0]/75">
-                {selectedEffect.description ?? "Custom effect from the active catalog."}
-              </p>
-              <p className="mt-2 w-fit rounded-sm border border-[#a7f3d0]/25 bg-[#34d399]/12 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-[#bbf7d0]">
-                {effectRemainingLabel(durationStateFromDef(selectedEffect.duration))}
-              </p>
+          <div className="mt-3 rounded-sm border border-white/10 bg-white/[0.04] p-2.5">
+            <div className="flex items-center gap-2">
+              <Trophy className="size-3.5 text-[#f5d547]" />
+              <h3 className="text-[10px] font-black uppercase tracking-wider text-[#bbf7d0]">Minigames</h3>
             </div>
-          ) : (
-            <p className="mt-3 rounded-sm border border-dashed border-white/15 p-2 text-xs font-bold text-[#bbf7d0]/70">
-              Create and save an effect in Event Builder, or add effects to content.json.
-            </p>
-          )}
+            <label className="mt-2 flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-black/25 px-2 py-2 text-xs font-black text-[#f0fdf4]">
+              <span>Skip minigames</span>
+              <input
+                type="checkbox"
+                checked={skipMinigames}
+                data-testid="debug-skip-minigames"
+                onChange={(event) => onSkipMinigamesChange(event.currentTarget.checked)}
+                className="h-4 w-4 accent-[#34d399]"
+              />
+            </label>
 
-          <Button
-            type="button"
-            data-testid="debug-effect-apply"
-            disabled={!selectedPlayerId || !selectedEffect}
-            onClick={apply}
-            className="mt-3 h-10 w-full bg-[#34d399] px-4 text-xs font-black uppercase tracking-wider text-[#052e1a] hover:bg-[#6ee7b7] disabled:bg-white/15 disabled:text-white/50"
-          >
-            Apply to player
-          </Button>
+            {activeMinigame ? (
+              <div className="mt-3 grid gap-2">
+                <DevToolSelect
+                  label="Winner"
+                  value={selectedWinnerId}
+                  disabled={!winnerOptions.length}
+                  options={winnerOptions.length ? winnerOptions.map((player) => ({ value: player.id, label: player.name })) : [{ value: "", label: "No players" }]}
+                  testId="debug-minigame-winner"
+                  onChange={setSelectedWinnerId}
+                />
+                <Button
+                  type="button"
+                  data-testid="debug-minigame-choose-winner"
+                  disabled={!selectedWinnerId}
+                  onClick={chooseWinner}
+                  className="h-10 w-full bg-[#f5d547] px-4 text-xs font-black uppercase tracking-wider text-[#201507] hover:bg-[#ffe96c] disabled:bg-white/15 disabled:text-white/50"
+                >
+                  <Trophy data-icon="inline-start" className="size-3.5" />
+                  Choose winner
+                </Button>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-sm border border-dashed border-white/15 p-2 text-xs font-bold text-[#bbf7d0]/70">
+                No active minigame.
+              </p>
+            )}
+          </div>
         </section>
       )}
     </div>

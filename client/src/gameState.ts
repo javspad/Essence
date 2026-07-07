@@ -5,5 +5,6 @@ export function normalizeGameState(state: GameState): GameState {
     ...state,
     activeEffects: Array.isArray(state.activeEffects) ? state.activeEffects : [],
     effects: state.effects ?? {},
+    devSettings: state.devSettings ?? { skipMinigames: false },
   };
 }

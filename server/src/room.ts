@@ -101,6 +101,7 @@ export class GameRoom {
       winnerId: null,
       effects: content.effects,
       activeEffects: [],
+      devSettings: { skipMinigames: false },
     };
   }
 
@@ -504,6 +505,22 @@ export class GameRoom {
     this.broadcast();
   }
 
+  debugSetSkipMinigames(socketId: string, payload: { enabled?: unknown }) {
+    const host = this.playerBySocket(socketId);
+    if (!host?.isHost) return;
+    this.state.devSettings = { skipMinigames: payload.enabled === true };
+    this.broadcast();
+  }
+
+  async debugChooseMinigameWinner(socketId: string, payload: { playerId?: unknown }) {
+    const host = this.playerBySocket(socketId);
+    const mg = this.state.activeMinigame;
+    const playerId = typeof payload.playerId === "string" ? payload.playerId : "";
+    if (!host?.isHost || !mg || !playerId) return;
+    if (!rankedMinigamePlayerIds(mg).includes(playerId)) return;
+    await this.resolveActiveMinigame({ forcedWinnerId: playerId });
+  }
+
   private startJudgeVoting(mg: ActiveMinigame) {
     const submissions = mg.participants.map((playerId, index) => {
       const result = this.pendingResults.get(playerId);
@@ -520,21 +537,25 @@ export class GameRoom {
     this.broadcast();
   }
 
-  private async resolveActiveMinigame() {
+  private async resolveActiveMinigame(options: { forcedWinnerId?: string } = {}) {
     const mg = this.state.activeMinigame;
     if (!mg || this.resolving) return;
     this.resolving = true;
     try {
       const event = this.pendingEvent;
-      const def = event?.activity ?? this.content.minigames[mg.id];
-      if (!def) {
+      const rawDef = event?.activity ?? this.content.minigames[mg.id];
+      if (!rawDef) {
         this.advanceTurn();
         return;
       }
-      const results = mg.type === "judge" && mg.judge?.phase === "voting"
-        ? this.judgeVoteResults(mg)
-        : [...this.pendingResults.values()];
-      const reveal = await resolveMinigame({
+      const def = options.forcedWinnerId ? { ...rawDef, rigged: undefined } : rawDef;
+      const results = options.forcedWinnerId
+        ? forcedMinigameResultsForWinner(mg, options.forcedWinnerId)
+        : mg.type === "judge" && mg.judge?.phase === "voting"
+          ? this.judgeVoteResults(mg)
+          : [...this.pendingResults.values()];
+      const coinPayout = mg.type === "prompt" ? [] : this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0];
+      let reveal = await resolveMinigame({
         minigameId: mg.id,
         eventId: mg.eventId,
         def,
@@ -542,9 +563,10 @@ export class GameRoom {
         participants: mg.participants,
         subjects: mg.subjects,
         players: this.state.players,
-        coinPayout: mg.type === "prompt" ? [] : this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0],
+        coinPayout,
         story: mg.story,
       });
+      if (options.forcedWinnerId) reveal = revealWithForcedWinner(reveal, options.forcedWinnerId, coinPayout);
 
       // Aplicar monedas (y consecuencias configuradas en el evento).
       for (const [id, c] of Object.entries(reveal.coins)) {
@@ -1060,6 +1082,86 @@ export class GameRoom {
       .find((player) => player && player.position >= finish);
     if (winner) this.state.winnerId = winner.id;
   }
+}
+
+function rankedMinigamePlayerIds(mg: ActiveMinigame): string[] {
+  return mg.subjects?.length ? mg.subjects : mg.participants;
+}
+
+function forcedMinigameResultsForWinner(mg: ActiveMinigame, winnerId: string): MinigameResult[] {
+  const rankedIds = rankedMinigamePlayerIds(mg);
+  const scoreFor = (id: string, index: number) => (id === winnerId ? 1_000_000 : 1_000 - index);
+
+  if (mg.type === "hostPick") {
+    return [{
+      playerId: mg.participants[0] ?? winnerId,
+      score: 1,
+      payload: { pickedPlayerId: winnerId, pick: "winner", devSkip: true },
+    }];
+  }
+
+  if (mg.type === "vote") {
+    return mg.participants.map((playerId) => ({
+      playerId,
+      score: playerId === winnerId ? 1 : 0,
+      payload: { votedFor: winnerId, devSkip: true },
+    }));
+  }
+
+  if (mg.type === "judge") {
+    return rankedIds.map((playerId) => ({
+      playerId,
+      score: playerId === winnerId ? mg.participants.length : 0,
+      payload: {
+        message: playerId === winnerId ? "Dev winner" : "Dev skipped",
+        votes: playerId === winnerId ? mg.participants.length : 0,
+        voters: playerId === winnerId ? [...mg.participants] : [],
+        devSkip: true,
+      },
+    }));
+  }
+
+  if (mg.type === "prompt") {
+    return mg.participants.map((playerId) => ({
+      playerId,
+      score: 1,
+      payload: {
+        confirmed: true,
+        confirmedBy: [...mg.participants],
+        requiredConfirmers: [...mg.participants],
+        missingConfirmers: [],
+        devWinnerId: winnerId,
+      },
+    }));
+  }
+
+  return rankedIds.map((playerId, index) => ({
+    playerId,
+    score: scoreFor(playerId, index),
+    payload: { devWinner: playerId === winnerId, devSkip: true },
+    outcome: playerId === winnerId ? "win" : "loss",
+  }));
+}
+
+function revealWithForcedWinner(reveal: RevealPayload, winnerId: string, coinPayout: number[]): RevealPayload {
+  if (!reveal.ranking.includes(winnerId)) return reveal;
+  const ranking = [winnerId, ...reveal.ranking.filter((id) => id !== winnerId)];
+  const coins: Record<string, number> = {};
+  ranking.forEach((id, index) => {
+    coins[id] = coinPayout[index] ?? 0;
+  });
+  const entriesById = new Map(reveal.entries.map((entry) => [entry.playerId, entry]));
+  const entries = ranking.flatMap((id, index) => {
+    const entry = entriesById.get(id);
+    if (!entry) return [];
+    return [{
+      ...entry,
+      rank: index + 1,
+      coins: coins[id] ?? 0,
+      resultLabel: id === winnerId && entry.resultLabel === "Sin resultado" ? "Dev winner" : entry.resultLabel,
+    }];
+  });
+  return { ...reveal, ranking, coins, entries };
 }
 
 function activityContent(activity: EventActivity, event: ResolvedGameEvent, active: Player, subjects: string[], players: Player[]): unknown {

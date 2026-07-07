@@ -422,6 +422,73 @@ await withRolls([1, 6], async () => {
   assert.equal(room.getState().activeEffects[1].consequences[0].type, "diceBias");
 }
 
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DBG2", "Debug settings", content);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+
+  room.debugSetSkipMinigames("socket-bob", { enabled: true });
+  assert.equal(room.getState().devSettings?.skipMinigames, false, "non-hosts cannot change debug minigame settings");
+
+  room.debugSetSkipMinigames("socket-alice", { enabled: true });
+  assert.equal(room.getState().devSettings?.skipMinigames, true);
+
+  room.debugSetSkipMinigames("socket-alice", { enabled: false });
+  assert.equal(room.getState().devSettings?.skipMinigames, false);
+}
+
+const debugMinigameContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "minigame", eventId: "debug-race" },
+    { id: 2, type: "finish" },
+  ],
+  events: {
+    "debug-race": {
+      name: "Debug race",
+      kind: "activity",
+      story: { title: "Debug race", prompt: "Pick a winner without playing." },
+      activity: { type: "timing", participants: "everyone", subjects: "everyone" },
+      outcomes: [{ when: "winner", actions: [{ type: "coins", value: 9, target: "winner" }] }],
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "alice", name: "Alice", color: "#f87171" },
+    { id: "bob", name: "Bob", color: "#60a5fa" },
+    { id: "carla", name: "Carla", color: "#34d399" },
+  ],
+});
+
+await withRolls([1], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DBG3", "Debug minigame", debugMinigameContent);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.join("socket-carla", "Carla");
+  room.startGame("socket-alice");
+  room.debugSetSkipMinigames("socket-alice", { enabled: true });
+  room.roll("socket-alice");
+
+  assert.equal(room.getState().phase, "minigame");
+  assert.deepEqual(room.getState().activeMinigame?.subjects, ["alice", "bob", "carla"]);
+
+  await room.debugChooseMinigameWinner("socket-bob", { playerId: "carla" });
+  assert.equal(room.getState().phase, "minigame", "non-hosts cannot choose the debug winner");
+
+  await room.debugChooseMinigameWinner("socket-alice", { playerId: "carla" });
+  assert.equal(room.getState().phase, "reveal");
+  assert.deepEqual(room.getState().reveal?.ranking, ["carla", "alice", "bob"]);
+  assert.equal(room.getState().players.find((player) => player.id === "carla")?.coins, 19);
+  assert.equal(room.getState().reveal?.entries[0].playerId, "carla");
+  assert.equal(room.getState().reveal?.entries[0].rank, 1);
+});
+
 const timedConsequenceContent: GameContent = normalizeGameContentEvents({
   board: [
     { id: 0, type: "start" },

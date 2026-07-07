@@ -626,6 +626,11 @@ export interface ActiveEvent {
   actions?: AppliedEventAction[];
 }
 
+export interface DevSettings {
+  /** Development-only host aid: keep the board visible and let the host choose minigame winners manually. */
+  skipMinigames: boolean;
+}
+
 export interface GameState {
   code: string;
   /** nombre legible de la sala, elegido por el host al crearla */
@@ -656,6 +661,7 @@ export interface GameState {
   winnerId: string | null;
   effects?: Record<string, EffectDef>;
   activeEffects: EffectInstance[];
+  devSettings?: DevSettings;
 }
 
 // ---------------------------------------------------------------------------
@@ -753,6 +759,10 @@ export interface ClientToServerEvents {
   "minigame:force": () => void;
   /** Development-only host tool: attach a catalog effect to a player for simulation/debugging. */
   "debug:applyEffect": (payload: { playerId: string; effectId: string; effect?: EffectDef }) => void;
+  /** Development-only host setting: bypass playable minigame screens during simulation. */
+  "debug:setSkipMinigames": (payload: { enabled: boolean }) => void;
+  /** Development-only host action: resolve the current minigame by selecting the winner. */
+  "debug:chooseMinigameWinner": (payload: { playerId: string }) => void;
   "reveal:next": () => void;
 }
 
