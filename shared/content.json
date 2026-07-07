@@ -821,6 +821,174 @@
         "vehicle",
         "urbano"
       ]
+    },
+    {
+      "id": "fallen-fernet",
+      "name": "Fernet tirado",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.65, "height": 0.35, "shape": "rect" },
+      "tags": ["fiesta", "decor"]
+    },
+    {
+      "id": "vomiting-person",
+      "name": "Persona vomitando",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.8, "height": 0.9, "shape": "ellipse" },
+      "tags": ["fiesta", "personaje"]
+    },
+    {
+      "id": "blue-ikea-bag",
+      "name": "Bolso azul grande",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.7, "height": 0.45, "shape": "rect" },
+      "tags": ["urbano", "decor"]
+    },
+    {
+      "id": "hockey-stick",
+      "name": "Palo de hockey",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 1.05, "height": 0.25, "shape": "rect" },
+      "tags": ["deporte", "decor"]
+    },
+    {
+      "id": "condom-bolas",
+      "name": "Boleadoras raras",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.9, "height": 0.45, "shape": "ellipse" },
+      "tags": ["fiesta", "decor"]
+    },
+    {
+      "id": "botherlands-disc",
+      "name": "Disco Botherlands X360",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.65, "height": 0.65, "shape": "circle" },
+      "tags": ["juego", "decor"]
+    },
+    {
+      "id": "hoodie-log",
+      "name": "Tronco con buzo",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.85, "height": 0.55, "shape": "rect" },
+      "tags": ["natural", "decor"]
+    },
+    {
+      "id": "cut-branch-oak",
+      "name": "Roble con rama cortada",
+      "kind": "tree",
+      "defaultScale": 1,
+      "footprint": { "width": 1.05, "height": 0.85, "shape": "ellipse" },
+      "tags": ["natural"]
+    },
+    {
+      "id": "uade-building",
+      "name": "UADE vidriada",
+      "kind": "house",
+      "defaultScale": 1,
+      "footprint": { "width": 1.35, "height": 1.15, "shape": "rect" },
+      "tags": ["building", "urbano"]
+    },
+    {
+      "id": "uba-building",
+      "name": "UBA con carteles",
+      "kind": "house",
+      "defaultScale": 1,
+      "footprint": { "width": 1.55, "height": 1.0, "shape": "rect" },
+      "tags": ["building", "urbano"]
+    },
+    {
+      "id": "desk-chair-tower",
+      "name": "Torre de bancos y sillas",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.8, "height": 0.65, "shape": "ellipse" },
+      "tags": ["escuela", "decor"]
+    },
+    {
+      "id": "croissant",
+      "name": "Medialuna",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.55, "height": 0.35, "shape": "ellipse" },
+      "tags": ["comida", "decor"]
+    },
+    {
+      "id": "wedding-ring",
+      "name": "Anillo de casamiento",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.45, "height": 0.45, "shape": "circle" },
+      "tags": ["casamiento", "decor"]
+    },
+    {
+      "id": "ukulele",
+      "name": "Ukulele",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.95, "height": 0.45, "shape": "ellipse" },
+      "tags": ["musica", "decor"]
+    },
+    {
+      "id": "rugby-ball",
+      "name": "Pelota de rugby",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.55, "height": 0.35, "shape": "ellipse" },
+      "tags": ["deporte", "decor"]
+    },
+    {
+      "id": "basketball",
+      "name": "Pelota de básquet",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.45, "height": 0.45, "shape": "circle" },
+      "tags": ["deporte", "decor"]
+    },
+    {
+      "id": "football-ball",
+      "name": "Pelota de fútbol",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.45, "height": 0.45, "shape": "circle" },
+      "tags": ["deporte", "decor"]
+    },
+    {
+      "id": "tuna-can",
+      "name": "Lata de atún",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.4, "height": 0.4, "shape": "circle" },
+      "tags": ["comida", "decor"]
+    },
+    {
+      "id": "jardinera-can",
+      "name": "Lata de jardinera",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.4, "height": 0.4, "shape": "circle" },
+      "tags": ["comida", "decor"]
+    },
+    {
+      "id": "sunscreen",
+      "name": "Protector solar",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.35, "height": 0.45, "shape": "rect" },
+      "tags": ["playa", "decor"]
+    },
+    {
+      "id": "vodka-bottle",
+      "name": "Vodka",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": { "width": 0.35, "height": 0.45, "shape": "circle" },
+      "tags": ["fiesta", "decor"]
     }
   ],
   "maps": [

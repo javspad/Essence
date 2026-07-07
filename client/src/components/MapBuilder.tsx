@@ -129,6 +129,27 @@ const ASSET_EMOJI: Record<string, string> = {
   "rock": "🪨",
   "billboard": "🖥️",
   "bus": "🚌",
+  "fallen-fernet": "🥃",
+  "vomiting-person": "🤢",
+  "blue-ikea-bag": "🛍️",
+  "hockey-stick": "🏑",
+  "condom-bolas": "🪢",
+  "botherlands-disc": "💿",
+  "hoodie-log": "🪵",
+  "cut-branch-oak": "🌳",
+  "uade-building": "🏢",
+  "uba-building": "🏚️",
+  "desk-chair-tower": "🪑",
+  "croissant": "🥐",
+  "wedding-ring": "💍",
+  "ukulele": "🪕",
+  "rugby-ball": "🏉",
+  "basketball": "🏀",
+  "football-ball": "⚽",
+  "tuna-can": "🥫",
+  "jardinera-can": "🥫",
+  "sunscreen": "🧴",
+  "vodka-bottle": "🍾",
 };
 
 const KIND_EMOJI: Record<MapAssetDef["kind"], string> = {
@@ -1947,12 +1968,17 @@ function loadInitialState(): MapBuilderState {
       const content = JSON.parse(raw);
       if (content?.maps?.length) {
         const base = createInitialMapBuilderState(BASE_CONTENT);
+        const migratedContent = normalizeBuilderContent({
+          ...BASE_CONTENT,
+          ...content,
+          assetCatalog: mergeAssetCatalog(content.assetCatalog, BASE_CONTENT.assetCatalog),
+        });
         return {
           ...base,
-          content,
-          activeMapId: content.activeMapId,
-          selection: content.maps[0]?.board[0] ? { kind: "node", id: content.maps[0].board[0].id } : null,
-          message: "Borrador local cargado",
+          content: migratedContent,
+          activeMapId: migratedContent.activeMapId,
+          selection: migratedContent.maps[0]?.board[0] ? { kind: "node", id: migratedContent.maps[0].board[0].id } : null,
+          message: "Borrador local cargado y actualizado",
         };
       }
     }
@@ -1960,6 +1986,13 @@ function loadInitialState(): MapBuilderState {
     localStorage.removeItem(STORAGE_KEY);
   }
   return createInitialMapBuilderState(BASE_CONTENT);
+}
+
+function mergeAssetCatalog(localCatalog: MapAssetDef[] | undefined, baseCatalog: MapAssetDef[] | undefined): MapAssetDef[] {
+  const assets = new Map<string, MapAssetDef>();
+  for (const asset of baseCatalog ?? []) assets.set(asset.id, asset);
+  for (const asset of localCatalog ?? []) assets.set(asset.id, asset);
+  return [...assets.values()];
 }
 
 function readInitial3DPlaytest(): boolean {
