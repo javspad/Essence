@@ -225,7 +225,8 @@ export type EventActivityType =
   | "flappy"
   | "snake"
   | "horserace"
-  | "redlight";
+  | "redlight"
+  | "tapduel";
 
 /** Legacy name kept for existing minigame definitions and engines. */
 export type MinigameType =
@@ -411,6 +412,7 @@ export interface CharacterSlot {
   faceAnchors?: Record<string, FaceAnchor>;
   bodyAnchors?: Record<string, FaceAnchor>;
   defaultLoadout?: CharacterLoadout;
+  defaultTraits?: string[];
   claimedByPlayerId?: string;
   connected?: boolean;
 }
@@ -490,6 +492,8 @@ export interface Player {
   faceAnchors?: Record<string, FaceAnchor>;
   bodyAnchors?: Record<string, FaceAnchor>;
   cosmeticIds?: string[];
+  /** ids de efectos pasivos (ventajas/desventajas) que trae el personaje */
+  traits?: string[];
 }
 
 export type Phase =
@@ -510,6 +514,8 @@ export interface ActiveMinigame {
   skin?: string;
   content: unknown;
   story?: EventStory;
+  /** marca minijuegos especiales que no nacen de un casillero (ej. duelo "todos contra uno") */
+  special?: "underdog";
   /** jugadores que deben submittear resultado (ids) */
   participants: string[];
   /** jugadores que se rankean para outcomes; por defecto coincide con participants */

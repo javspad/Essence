@@ -10,6 +10,7 @@ import type {
   EventOutcomeBranch,
   GameContent,
   GameState,
+  MinigameDef,
   MinigameResult,
   Player,
   RevealPayload,
@@ -28,6 +29,10 @@ import {
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
+
+/** Trait del "amigo perseguido" y id del duelo que dispara al sacar un 1. */
+const UNDERDOG_TRAIT = "underdog";
+const UNDERDOG_DUEL_ID = "underdog-duel";
 
 interface GameRoomOptions {
   characterSetId?: string;
@@ -203,6 +208,7 @@ export class GameRoom {
                 cosmeticIds: slot.defaultLoadout.cosmeticIds ? [...slot.defaultLoadout.cosmeticIds] : undefined,
               }
             : undefined,
+          defaultTraits: slot.defaultTraits ? [...slot.defaultTraits] : undefined,
         } satisfies CharacterDef,
       ])
     );
@@ -247,6 +253,7 @@ export class GameRoom {
     if (character.faceAnchors) player.faceAnchors = { ...character.faceAnchors };
     if (character.bodyAnchors) player.bodyAnchors = { ...character.bodyAnchors };
     if (character.defaultLoadout?.cosmeticIds?.length) player.cosmeticIds = [...character.defaultLoadout.cosmeticIds];
+    if (character.defaultTraits?.length) player.traits = [...character.defaultTraits];
     return player;
   }
 
@@ -280,6 +287,13 @@ export class GameRoom {
 
     const roll = 1 + Math.floor(Math.random() * 6);
     this.state.lastRoll = roll;
+
+    // "Todos contra uno": si el perseguido saca un 1, en vez de moverse abre un
+    // duelo rápido contra el resto. Gana = vuelve a tirar; pierde = retrocede 1.
+    if (roll === 1 && active.traits?.includes(UNDERDOG_TRAIT) && this.connectedPlayers().length > 1) {
+      this.startUnderdogDuel(active);
+      return;
+    }
 
     const finish = this.state.boardLength - 1;
     active.position = Math.min(active.position + roll, finish);
@@ -375,6 +389,46 @@ export class GameRoom {
     return resolveActivitySubjectIds(activity, this.connectedPlayers(), active, participants);
   }
 
+  /** Duelo "todos contra uno": el perseguido tap-race contra el resto de la mesa. */
+  private startUnderdogDuel(active: Player) {
+    this.pendingResults.clear();
+    this.pendingJudgeVotes.clear();
+    this.pendingJudgeSubmissionOwners.clear();
+    this.pendingEvent = null;
+    const participants = this.connectedPlayers().map((p) => p.id);
+    const story = {
+      title: "Todos contra uno",
+      setup: `${active.name} sacó un 1. Tiene que ganarle a todos para volver a tirar.`,
+      reward: "Gana → vuelve a tirar · Pierde → retrocede 1 casillero",
+    };
+    const mg: ActiveMinigame = {
+      id: UNDERDOG_DUEL_ID,
+      eventId: UNDERDOG_DUEL_ID,
+      protagonistId: active.id,
+      type: "tapduel",
+      special: "underdog",
+      content: {
+        label: `¡Todos contra ${active.name}!`,
+        protagonistId: active.id,
+        protagonistName: active.name,
+        durationMs: 5000,
+      },
+      story,
+      participants,
+      subjects: participants,
+      submitted: [],
+    };
+    this.state.activeMinigame = mg;
+    this.state.phase = "minigame";
+    this.broadcast();
+    this.io.to(this.code).emit("minigame:start", {
+      id: mg.id,
+      type: mg.type,
+      content: mg.content,
+      participants,
+    });
+  }
+
   minigameAction(socketId: string, data: unknown) {
     const p = this.playerBySocket(socketId);
     if (!p || !this.state.activeMinigame) return;
@@ -449,7 +503,10 @@ export class GameRoom {
     this.resolving = true;
     try {
       const event = this.pendingEvent;
-      const def = event?.activity ?? this.content.minigames[mg.id];
+      const underdog = mg.special === "underdog";
+      const def: MinigameDef | EventActivity | undefined = underdog
+        ? { type: "tapduel", content: mg.content }
+        : event?.activity ?? this.content.minigames[mg.id];
       if (!def) {
         this.advanceTurn();
         return;
@@ -465,7 +522,7 @@ export class GameRoom {
         participants: mg.participants,
         subjects: mg.subjects,
         players: this.state.players,
-        coinPayout: mg.type === "prompt" ? [] : this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0],
+        coinPayout: underdog || mg.type === "prompt" ? [] : this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0],
         story: mg.story,
       });
 
@@ -476,17 +533,19 @@ export class GameRoom {
       }
       const landingPlayerId = mg.protagonistId ?? reveal.ranking[0];
       const promptConfirmed = mg.type !== "prompt" || promptConfirmationComplete(reveal);
-      const actions = event
-        ? [
-            ...(mg.type === "prompt" && promptConfirmed
-              ? this.applyActions(event.actions ?? [], {
-                  landingPlayerId,
-                  ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
-                })
-              : []),
-            ...(promptConfirmed ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId) : []),
-          ]
-        : [];
+      const actions = underdog
+        ? this.applyUnderdogOutcome(mg.protagonistId ?? "", reveal.ranking)
+        : event
+          ? [
+              ...(mg.type === "prompt" && promptConfirmed
+                ? this.applyActions(event.actions ?? [], {
+                    landingPlayerId,
+                    ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
+                  })
+                : []),
+              ...(promptConfirmed ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId) : []),
+            ]
+          : [];
       this.state.reveal = { ...reveal, actions };
       this.state.activeMinigame = null;
       this.state.phase = "reveal";
@@ -588,6 +647,31 @@ export class GameRoom {
     this.state.activeIndex = nextIndex;
     this.state.phase = "turn";
     this.broadcast();
+  }
+
+  /** Resuelve el duelo "todos contra uno": 1° = vuelve a tirar; si no, retrocede 1. */
+  private applyUnderdogOutcome(protagonistId: string, ranking: string[]): AppliedEventAction[] {
+    const player = this.state.players.find((p) => p.id === protagonistId);
+    if (!player) return [];
+    if (ranking[0] === protagonistId) {
+      this.extraTurnPlayerId = protagonistId;
+      return [
+        {
+          type: "extraTurn",
+          targetPlayerIds: [protagonistId],
+          text: `${player.name} les ganó a todos: ¡vuelve a tirar!`,
+        },
+      ];
+    }
+    player.position = clamp(player.position - 1, 0, this.state.boardLength - 1);
+    return [
+      {
+        type: "move",
+        targetPlayerIds: [protagonistId],
+        text: `${player.name} perdió el duelo y retrocede 1 casillero.`,
+        value: -1,
+      },
+    ];
   }
 
   private applyOutcomeActions(branches: EventOutcomeBranch[], ranking: string[], landingPlayerId?: string): AppliedEventAction[] {

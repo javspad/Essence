@@ -427,3 +427,95 @@ await withRolls([1], async () => {
     voters: ["alice", "carla"],
   });
 });
+
+const underdogContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "minigame" },
+    { id: 2, type: "minigame" },
+    { id: 3, type: "minigame" },
+    { id: 4, type: "finish" },
+  ],
+  events: {},
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "quejoso", name: "Quejoso", color: "#f87171" },
+    { id: "ana", name: "Ana", color: "#60a5fa" },
+    { id: "beto", name: "Beto", color: "#34d399" },
+  ],
+  characters: {
+    quejoso: { id: "quejoso", displayName: "Quejoso", color: "#f87171", defaultTraits: ["underdog"] },
+    ana: { id: "ana", displayName: "Ana", color: "#60a5fa" },
+    beto: { id: "beto", displayName: "Beto", color: "#34d399" },
+  },
+  characterSets: {
+    squad: { id: "squad", name: "Squad", characterIds: ["quejoso", "ana", "beto"] },
+  },
+});
+
+// Sacar un 1 con el trait "underdog" abre el duelo "todos contra uno". Ganarlo = volver a tirar.
+await withRolls([1], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DUEL", "Underdog win", underdogContent, {
+    characterSetId: "squad",
+  } as any);
+
+  room.join("socket-q", "Quejoso", { characterId: "quejoso" });
+  room.join("socket-a", "Ana", { characterId: "ana" });
+  room.join("socket-b", "Beto", { characterId: "beto" });
+  assert.deepEqual(room.getState().players.find((player) => player.id === "quejoso")?.traits, ["underdog"]);
+  room.startGame("socket-q");
+
+  room.roll("socket-q");
+  assert.equal(room.getState().phase, "minigame", "rolling a 1 opens the duel instead of moving");
+  assert.equal(room.getState().activeMinigame?.type, "tapduel");
+  assert.equal(room.getState().activeMinigame?.protagonistId, "quejoso");
+  assert.deepEqual(room.getState().activeMinigame?.participants, ["quejoso", "ana", "beto"]);
+  assert.equal(room.getState().players.find((player) => player.id === "quejoso")?.position, 0, "the underdog does not move when the duel opens");
+
+  await room.submitResult("socket-q", { score: 12, payload: { taps: 12 } });
+  await room.submitResult("socket-a", { score: 4, payload: { taps: 4 } });
+  await room.submitResult("socket-b", { score: 2, payload: { taps: 2 } });
+
+  assert.equal(room.getState().phase, "reveal");
+  assert.equal(room.getState().reveal?.ranking[0], "quejoso");
+  assert.equal(room.getState().reveal?.entries[0].resultLabel, "12 toques");
+  assert.equal(room.getState().reveal?.actions?.[0]?.type, "extraTurn");
+  assert.equal(room.getState().players.find((player) => player.id === "quejoso")?.coins, 0, "the duel pays no coins");
+
+  room.next("socket-q");
+  assert.equal(room.getState().phase, "turn");
+  assert.equal(room.getState().turnOrder[room.getState().activeIndex], "quejoso", "winning the duel earns another roll");
+});
+
+// Perder el duelo retrocede al perseguido un casillero y pasa el turno.
+await withRolls([1], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DUE2", "Underdog loss", underdogContent, {
+    characterSetId: "squad",
+  } as any);
+
+  room.join("socket-q", "Quejoso", { characterId: "quejoso" });
+  room.join("socket-a", "Ana", { characterId: "ana" });
+  room.join("socket-b", "Beto", { characterId: "beto" });
+  room.startGame("socket-q");
+  room.getState().players.find((player) => player.id === "quejoso")!.position = 2;
+
+  room.roll("socket-q");
+  assert.equal(room.getState().phase, "minigame");
+
+  await room.submitResult("socket-q", { score: 1, payload: { taps: 1 } });
+  await room.submitResult("socket-a", { score: 9, payload: { taps: 9 } });
+  await room.submitResult("socket-b", { score: 5, payload: { taps: 5 } });
+
+  assert.equal(room.getState().phase, "reveal");
+  assert.equal(room.getState().reveal?.ranking[0], "ana");
+  assert.equal(room.getState().reveal?.actions?.[0]?.type, "move");
+  assert.equal(room.getState().players.find((player) => player.id === "quejoso")?.position, 1, "losing the duel moves the underdog back one cell");
+
+  room.next("socket-q");
+  assert.equal(room.getState().phase, "turn");
+  assert.equal(room.getState().turnOrder[room.getState().activeIndex], "ana", "losing the duel passes the turn on");
+});

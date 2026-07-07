@@ -344,6 +344,14 @@
       "anchor": "head"
     }
   },
+  "effects": {
+    "underdog": {
+      "id": "underdog",
+      "name": "Todos contra uno",
+      "description": "Cuando saca un 1, se abre un duelo rápido contra todos. Si gana, vuelve a tirar; si pierde, retrocede un casillero.",
+      "duration": { "mode": "game" }
+    }
+  },
   "board": [
     {
       "id": 0,

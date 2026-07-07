@@ -74,6 +74,7 @@ export function characterSlotsForContent(
             cosmeticIds: character.defaultLoadout.cosmeticIds ? [...character.defaultLoadout.cosmeticIds] : undefined,
           }
         : undefined,
+      defaultTraits: character.defaultTraits ? [...character.defaultTraits] : undefined,
       claimedByPlayerId: claimed?.id,
       connected: claimed?.connected,
     };

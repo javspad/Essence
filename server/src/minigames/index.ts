@@ -280,6 +280,11 @@ function formatEntryDisplay(
         resultLabel: typeof p.hits === "number" ? `${p.hits} aciertos` : `Puntaje ${formatScore(result.score)}`,
         flavor: formatFlavor(def, result.payload, result.playerId),
       };
+    case "tapduel":
+      return {
+        resultLabel: typeof p.taps === "number" ? `${p.taps} toques` : `Puntaje ${formatScore(result.score)}`,
+        flavor: formatFlavor(def, result.payload, result.playerId),
+      };
     case "maze":
     case "flappy":
     case "snake":
@@ -375,6 +380,8 @@ function formatFlavor(def: MinigameDef | EventActivity, payload: unknown, _id: s
       return p.correct ? `acertó (${Math.round((p.timeMs as number) ?? 0)}ms)` : "erró";
     case "whack":
       return typeof p.hits === "number" ? `${p.hits} aciertos` : undefined;
+    case "tapduel":
+      return typeof p.taps === "number" ? `${p.taps} toques` : undefined;
     case "maze":
       if (p.finished) return `salió en ${msToSeconds(p.timeMs)}s`;
       return typeof p.progress === "number" ? `llegó al ${Math.round((p.progress as number) * 100)}% 💥` : "chocó una pared";

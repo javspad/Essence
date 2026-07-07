@@ -421,7 +421,11 @@ function createRollPlan(previous: GameState, next: GameState): RollPlan | null {
   if (startPosition === null || finalPosition === null) return null;
 
   const rollLanding = clamp(startPosition + next.lastRoll, 0, Math.max(0, next.boardLength - 1));
-  const landingPosition = next.phase === "moving" ? finalPosition : rollLanding;
+  // Si el server asentó una fase que no mueve al jugador (ej. sacar un 1 abre el
+  // duelo "todos contra uno" en vez de avanzar), no fabriques una caminata a un
+  // casillero que la ficha nunca visita.
+  const landingPosition =
+    next.phase === "moving" ? finalPosition : finalPosition === startPosition ? startPosition : rollLanding;
   if (landingPosition === startPosition && finalPosition === startPosition) return null;
 
   const landingState =
