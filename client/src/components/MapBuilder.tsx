@@ -478,7 +478,7 @@ function MapTopBar({
   onToggleTest: () => void;
 }) {
   return (
-    <section className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.035] p-1.5">
+    <section className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.035] p-1.5">
       <select
         value={state.activeMapId}
         onChange={(event) => dispatch({ type: "select_map", mapId: event.target.value })}
@@ -512,15 +512,13 @@ function MapTopBar({
       <button type="button" onClick={onReset} className="builder-button danger">
         Reset
       </button>
-      <button type="button" onClick={onOpen3D} className="builder-button preview">
-        3D playtest
-      </button>
-      <button type="button" onClick={onOpenGallery} className="builder-button preview">
-        Props 3D
-      </button>
-      <button type="button" onClick={onOpenCosmetics} className="builder-button preview">
-        Cosméticos 3D
-      </button>
+      <ViewsMenu
+        items={[
+          { label: "🎮 3D playtest", onClick: onOpen3D },
+          { label: "🧱 Props 3D", onClick: onOpenGallery },
+          { label: "🧢 Cosméticos 3D", onClick: onOpenCosmetics },
+        ]}
+      />
       <button type="button" onClick={onToggleTest} className={`builder-button ${testMode ? "active" : ""}`}>
         {testMode ? "Stop test" : "Test map"}
       </button>
@@ -531,6 +529,38 @@ function MapTopBar({
         Game
       </a>
     </section>
+  );
+}
+
+/** Desplegable que agrupa las vistas 3D para que la barra no se desborde. */
+function ViewsMenu({ items }: { items: { label: string; onClick: () => void }[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="builder-button preview">
+        Vistas 3D ▾
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-50 mt-1 min-w-[11rem] rounded-md border border-white/15 bg-[#141b12] p-1 shadow-2xl shadow-black/45">
+            {items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  item.onClick();
+                  setOpen(false);
+                }}
+                className="block w-full rounded px-3 py-2 text-left text-xs font-black text-white transition hover:bg-white/10"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
