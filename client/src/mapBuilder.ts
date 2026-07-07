@@ -76,7 +76,7 @@ export type MapBuilderEvent =
   | { type: "add_route_point"; id: string; point?: TileLayout }
   | { type: "update_route_point"; id: string; index: number; point: TileLayout }
   | { type: "remove_route_point"; id: string; index: number }
-  | { type: "add_artifact"; assetId: string; point: TileLayout }
+  | { type: "add_artifact"; assetId: string; point: TileLayout; scale?: number }
   | { type: "move_artifact"; id: string; point: TileLayout }
   | { type: "update_artifact"; id: string; patch: Partial<MapArtifact> }
   | { type: "add_terrace"; rect: TerraceRect; elevation?: number; surface?: MapTerraceSurface }
@@ -521,7 +521,7 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
                 id: createdId,
                 assetId: event.assetId,
                 position: coerceLayoutForMap(map, event.point),
-                scale: state.content.assetCatalog.find((asset) => asset.id === event.assetId)?.defaultScale ?? 1,
+                scale: event.scale ?? state.content.assetCatalog.find((asset) => asset.id === event.assetId)?.defaultScale ?? 1,
               },
             ],
           };

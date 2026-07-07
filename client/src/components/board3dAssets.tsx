@@ -1516,53 +1516,76 @@ function FallenFernet({ position, rotationY = 0, scale = 1 }: AssetProps) {
 }
 
 function VomitingPerson({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  const skin = "#f2c197";
+  const shirt = "#7c3aed";
+  const pants = "#1f2937";
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
-      <mesh castShadow position={[-0.18, 0.34, -0.02]} rotation={[0.28, 0, -0.12]}>
-        <boxGeometry args={[0.26, 0.34, 0.17]} />
-        <meshStandardMaterial color="#7c3aed" roughness={0.72} />
+      {/* Piernas paradas, apenas flexionadas, con zapatillas apoyadas en el piso */}
+      {[-0.1, 0.1].map((x) => (
+        <group key={`leg-${x}`}>
+          <mesh castShadow position={[x, 0.23, -0.05]} rotation={[0.16, 0, 0]}>
+            <cylinderGeometry args={[0.062, 0.052, 0.46, 10]} />
+            <meshStandardMaterial color={pants} roughness={0.74} />
+          </mesh>
+          <mesh castShadow position={[x, 0.035, 0.04]}>
+            <boxGeometry args={[0.11, 0.06, 0.22]} />
+            <meshStandardMaterial color="#111827" roughness={0.7} />
+          </mesh>
+        </group>
+      ))}
+      {/* Cadera */}
+      <mesh castShadow position={[0, 0.45, -0.04]}>
+        <boxGeometry args={[0.28, 0.15, 0.2]} />
+        <meshStandardMaterial color={pants} roughness={0.74} />
       </mesh>
-      <mesh castShadow position={[-0.3, 0.61, 0.13]} rotation={[0.5, 0, -0.14]}>
-        <sphereGeometry args={[0.12, 14, 10]} />
-        <meshStandardMaterial color="#f2c197" roughness={0.55} />
+      {/* Torso redondeado inclinado hacia adelante (arqueado vomitando) */}
+      <mesh castShadow position={[0, 0.54, 0.07]} rotation={[1.0, 0, 0]}>
+        <cylinderGeometry args={[0.15, 0.165, 0.4, 14]} />
+        <meshStandardMaterial color={shirt} roughness={0.66} />
       </mesh>
-      <mesh position={[-0.31, 0.72, 0.08]} rotation={[0.34, 0, -0.12]}>
-        <sphereGeometry args={[0.125, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#2f1d13" roughness={0.74} />
+      {/* Hombros redondeados al frente */}
+      <mesh castShadow position={[0, 0.62, 0.23]}>
+        <sphereGeometry args={[0.15, 16, 12]} />
+        <meshStandardMaterial color={shirt} roughness={0.66} />
       </mesh>
-      {[
-        [-0.28, -0.11, 0.72],
-        [0.04, 0.11, -0.55],
-      ].map(([x, z, r]) => (
-        <mesh key={`${x}:${z}`} castShadow position={[x, 0.12, z]} rotation={[r, 0, 0]}>
-          <boxGeometry args={[0.07, 0.25, 0.07]} />
-          <meshStandardMaterial color="#1f2937" roughness={0.7} />
+      {/* Cuello */}
+      <mesh position={[0, 0.6, 0.31]} rotation={[0.9, 0, 0]}>
+        <cylinderGeometry args={[0.05, 0.055, 0.1, 10]} />
+        <meshStandardMaterial color={skin} roughness={0.56} />
+      </mesh>
+      {/* Cabeza gacha, mirando al piso */}
+      <mesh castShadow position={[0, 0.53, 0.37]}>
+        <sphereGeometry args={[0.12, 16, 12]} />
+        <meshStandardMaterial color={skin} roughness={0.55} />
+      </mesh>
+      {/* Pelo (media esfera arriba y atrás de la cabeza) */}
+      <mesh position={[0, 0.6, 0.32]} rotation={[-0.7, 0, 0]}>
+        <sphereGeometry args={[0.126, 14, 10, 0, Math.PI * 2, 0, Math.PI / 1.7]} />
+        <meshStandardMaterial color="#2f1d13" roughness={0.78} />
+      </mesh>
+      {/* Brazos: de los hombros bajando a las rodillas (manos apoyadas) */}
+      {[-0.15, 0.15].map((x) => (
+        <mesh key={`arm-${x}`} castShadow position={[x, 0.45, 0.16]} rotation={[0.42, 0, 0]}>
+          <cylinderGeometry args={[0.033, 0.03, 0.44, 8]} />
+          <meshStandardMaterial color={skin} roughness={0.55} />
         </mesh>
       ))}
-      {[[-0.36, -0.08, -0.55], [-0.04, 0.1, 0.42]].map(([x, z, r]) => (
-        <mesh key={`shoe-${x}`} castShadow position={[x, 0.035, z]} rotation={[0, r, 0]}>
-          <boxGeometry args={[0.14, 0.05, 0.08]} />
-          <meshStandardMaterial color="#111827" roughness={0.72} />
-        </mesh>
-      ))}
-      {[[-0.31, 0.18], [-0.02, -0.13]].map(([x, z]) => (
-        <mesh key={`hand-${x}`} castShadow position={[x, 0.31, z]} rotation={[0.8, 0, 0.2]}>
-          <cylinderGeometry args={[0.026, 0.028, 0.28, 8]} />
-          <meshStandardMaterial color="#f2c197" roughness={0.55} />
-        </mesh>
-      ))}
-      <mesh position={[-0.1, 0.18, 0.39]} rotation={[-0.95, 0, -0.1]}>
-        <cylinderGeometry args={[0.025, 0.045, 0.55, 8]} />
-        <meshStandardMaterial color="#86efac" roughness={0.45} transparent opacity={0.84} />
+      {/* Chorro de vómito desde la boca hacia el charco */}
+      <mesh position={[0, 0.3, 0.5]} rotation={[0.62, 0, 0]}>
+        <cylinderGeometry args={[0.028, 0.06, 0.42, 9]} />
+        <meshStandardMaterial color="#84cc16" roughness={0.45} transparent opacity={0.85} />
       </mesh>
-      <mesh position={[0.02, 0.024, 0.64]} scale={[1.65, 0.2, 0.78]}>
-        <sphereGeometry args={[0.15, 14, 8]} />
-        <meshStandardMaterial color="#65a30d" roughness={0.8} transparent opacity={0.82} />
+      {/* Charco */}
+      <mesh position={[0, 0.02, 0.66]} scale={[1.7, 0.18, 1.05]}>
+        <sphereGeometry args={[0.16, 16, 10]} />
+        <meshStandardMaterial color="#65a30d" roughness={0.8} transparent opacity={0.85} />
       </mesh>
-      {[0.23, 0.36, 0.49].map((z, index) => (
-        <mesh key={z} position={[-0.06 + index * 0.05, 0.032, z]} scale={[1, 0.28, 0.72]}>
-          <sphereGeometry args={[0.055, 10, 6]} />
-          <meshStandardMaterial color={index % 2 ? "#84cc16" : "#bef264"} roughness={0.72} transparent opacity={0.75} />
+      {/* Grumos flotando en el charco */}
+      {[[-0.07, 0.6], [0.06, 0.72], [0.12, 0.58]].map(([x, z], index) => (
+        <mesh key={`chunk-${index}`} position={[x, 0.05, z]} scale={[1, 0.4, 0.85]}>
+          <sphereGeometry args={[0.045, 8, 6]} />
+          <meshStandardMaterial color={index % 2 ? "#a3e635" : "#bef264"} roughness={0.72} transparent opacity={0.8} />
         </mesh>
       ))}
     </group>
@@ -1736,50 +1759,154 @@ function BotherlandsDisc({ position, rotationY = 0, scale = 1 }: AssetProps) {
 }
 
 function HoodieLog({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  // Un tronco del tamaño de una persona, apoyado en el piso y recostado sobre
+  // una silla, con el buzo de egresados bordó y la capucha puesta: el tronco es
+  // el protagonista (se ve mucho abajo y como "cabeza" en la capucha), bien
+  // roto y de madera viva para que se lea de lejos. "Un compañero más".
+  const bark = "#a9662a";
+  const woodBright = "#e6a95a";
+  const woodDeep = "#8a4a1c";
+  const crack = "#2c1809";
+  const chairWood = "#b07a43";
+  const metal = "#4b5563";
+  const burgundy = "#6d1a2e";
+  const burgundyDark = "#551122";
+  const cord = "#f3e3c0";
   return (
-    <group position={position} rotation={[0, rotationY, Math.PI / 2]} scale={[scale, scale, scale]}>
-      <mesh castShadow receiveShadow position={[0, 0.13, 0]}>
-        <cylinderGeometry args={[0.2, 0.22, 0.66, 16]} />
-        <meshStandardMaterial color="#8b5a2b" roughness={0.86} />
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      {/* ── Silla de la clase (el tronco se recuesta contra ella) ── */}
+      {[[-0.23, 0.06], [0.23, 0.06], [-0.23, -0.3], [0.23, -0.3]].map(([x, z]) => (
+        <mesh key={`leg-${x}-${z}`} castShadow position={[x, 0.22, z]}>
+          <cylinderGeometry args={[0.022, 0.022, 0.44, 8]} />
+          <meshStandardMaterial color={metal} metalness={0.5} roughness={0.4} />
+        </mesh>
+      ))}
+      <mesh castShadow receiveShadow position={[0, 0.46, -0.12]}>
+        <boxGeometry args={[0.56, 0.07, 0.48]} />
+        <meshStandardMaterial color={chairWood} roughness={0.7} />
       </mesh>
-      {[-0.34, 0.34].map((y) => (
-        <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.205, 0.205, 0.018, 18]} />
-          <meshStandardMaterial color="#d6b17c" roughness={0.8} />
-        </mesh>
-      ))}
-      {[-0.06, 0.02, 0.1].map((x) => (
-        <mesh key={x} position={[x, -0.342, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.1 + x * 0.5, 0.006, 6, 18]} />
-          <meshStandardMaterial color="#7a4a24" roughness={0.86} />
-        </mesh>
-      ))}
-      {[-0.2, 0.04, 0.24].map((y) => (
-        <mesh key={`bark-${y}`} position={[0.205, y, 0.04]} rotation={[0, 0, Math.PI / 2]}>
-          <boxGeometry args={[0.025, 0.28, 0.014]} />
-          <meshStandardMaterial color="#5f3519" roughness={0.9} />
-        </mesh>
-      ))}
-      <mesh position={[0.02, 0.03, 0.18]} rotation={[0, 0, -Math.PI / 2]}>
-        <boxGeometry args={[0.48, 0.06, 0.36]} />
-        <meshStandardMaterial color="#334155" roughness={0.82} />
+      <mesh castShadow position={[0, 0.68, -0.34]}>
+        <boxGeometry args={[0.54, 0.36, 0.06]} />
+        <meshStandardMaterial color={chairWood} roughness={0.72} />
       </mesh>
-      <mesh position={[0.01, 0.18, 0.2]} rotation={[Math.PI / 2, 0, -Math.PI / 2]}>
-        <torusGeometry args={[0.12, 0.035, 8, 18, Math.PI]} />
-        <meshStandardMaterial color="#1f2937" roughness={0.85} />
-      </mesh>
-      {[-0.13, 0.13].map((z) => (
-        <mesh key={z} position={[0, 0.07, 0.39 + z]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.012, 0.012, 0.28, 6]} />
-          <meshStandardMaterial color="#94a3b8" roughness={0.64} />
+
+      {/* ── Tronco: base en el piso (adelante), recostado hacia la silla ── */}
+      <group position={[0, 0, 0.34]} rotation={[-0.42, 0, 0]}>
+        {/* cuerpo del tronco */}
+        <mesh castShadow receiveShadow position={[0, 0.58, 0]}>
+          <cylinderGeometry args={[0.19, 0.24, 1.16, 16]} />
+          <meshStandardMaterial color={bark} roughness={0.92} flatShading />
         </mesh>
-      ))}
-      {[-0.18, 0.18].map((y) => (
-        <mesh key={`sleeve-${y}`} position={[0.0, y, 0.2]} rotation={[0, 0, -Math.PI / 2]}>
-          <boxGeometry args={[0.22, 0.045, 0.11]} />
-          <meshStandardMaterial color="#1f2937" roughness={0.86} />
+        {/* base rota apoyada en el piso (madera clara del corte) */}
+        <mesh position={[0, 0.02, 0]}>
+          <cylinderGeometry args={[0.235, 0.245, 0.07, 16]} />
+          <meshStandardMaterial color={woodBright} roughness={0.85} flatShading />
         </mesh>
-      ))}
+        <mesh position={[0, 0.055, 0]}>
+          <cylinderGeometry args={[0.12, 0.12, 0.02, 14]} />
+          <meshStandardMaterial color={woodDeep} roughness={0.88} />
+        </mesh>
+        {/* muchas grietas/roturas oscuras repartidas por el tronco */}
+        {[
+          [0.0, 0.48, 0.4, 0.05],
+          [0.26, 0.34, 0.3, 0.3],
+          [-0.2, 0.66, 0.34, -0.25],
+          [0.12, 0.2, 0.26, 0.15],
+          [-0.08, 0.82, 0.24, 0.2],
+          [0.34, 0.56, 0.24, -0.15],
+          [-0.32, 0.28, 0.2, 0.1],
+        ].map(([ang, y, len, tilt], i) => (
+          <mesh
+            key={`crack-${i}`}
+            position={[Math.sin(ang * Math.PI) * 0.21, y, Math.cos(ang * Math.PI) * 0.21]}
+            rotation={[tilt, ang * Math.PI, 0.08]}
+          >
+            <boxGeometry args={[0.024, len, 0.03]} />
+            <meshStandardMaterial color={crack} roughness={0.95} />
+          </mesh>
+        ))}
+        {/* nudos */}
+        {[[0.16, 0.44], [-0.28, 0.72], [0.42, 0.3]].map(([ang, y], i) => (
+          <mesh
+            key={`knot-${i}`}
+            position={[Math.sin(ang * Math.PI) * 0.2, y, Math.cos(ang * Math.PI) * 0.2]}
+            rotation={[0, ang * Math.PI, 0]}
+            scale={[1, 0.7, 0.45]}
+          >
+            <sphereGeometry args={[0.05, 10, 8]} />
+            <meshStandardMaterial color={woodDeep} roughness={0.9} />
+          </mesh>
+        ))}
+        {/* astillas quebradas en la punta (tronco roto) */}
+        {[[-0.06, 0.25], [0.06, -0.2], [0.0, 0.05]].map(([x, tilt], i) => (
+          <mesh key={`splinter-${i}`} castShadow position={[x, 1.2 + i * 0.02, 0.03]} rotation={[tilt, 0, x * 2.2]}>
+            <coneGeometry args={[0.04, 0.17, 6]} />
+            <meshStandardMaterial color={woodBright} roughness={0.85} flatShading />
+          </mesh>
+        ))}
+
+        {/* ── Buzo bordó: sólo el tramo del medio (se ve tronco arriba y abajo) ── */}
+        <mesh castShadow position={[0, 0.63, 0]}>
+          <cylinderGeometry args={[0.235, 0.25, 0.42, 18]} />
+          <meshStandardMaterial color={burgundy} roughness={0.72} />
+        </mesh>
+        <mesh position={[0, 0.42, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.248, 0.028, 8, 22]} />
+          <meshStandardMaterial color={burgundyDark} roughness={0.78} />
+        </mesh>
+        <mesh position={[0, 0.54, 0.248]}>
+          <boxGeometry args={[0.26, 0.12, 0.04]} />
+          <meshStandardMaterial color={burgundyDark} roughness={0.76} />
+        </mesh>
+        <group position={[0, 0.7, 0.258]}>
+          <MiniLabel text="EGRESADOS" background={burgundy} color="#f3d9a0" width={0.28} height={0.065} />
+        </group>
+        {[-1, 1].map((s) => (
+          <group key={`sleeve-${s}`}>
+            <mesh castShadow position={[s * 0.27, 0.58, 0.02]} rotation={[0, 0, s * 0.16]}>
+              <cylinderGeometry args={[0.07, 0.062, 0.4, 10]} />
+              <meshStandardMaterial color={burgundy} roughness={0.74} />
+            </mesh>
+            <mesh position={[s * 0.31, 0.39, 0.02]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.06, 0.02, 8, 16]} />
+              <meshStandardMaterial color={burgundyDark} roughness={0.78} />
+            </mesh>
+          </group>
+        ))}
+        {[-1, 1].map((s) => (
+          <mesh key={`cord-${s}`} position={[s * 0.05, 0.73, 0.24]}>
+            <cylinderGeometry args={[0.008, 0.008, 0.16, 6]} />
+            <meshStandardMaterial color={cord} roughness={0.6} />
+          </mesh>
+        ))}
+
+        {/* ── Capucha abierta: la punta del tronco asoma grande como cabeza ── */}
+        {/* cuello del tronco (bajo la capucha) */}
+        <mesh castShadow position={[0, 0.98, 0]}>
+          <cylinderGeometry args={[0.185, 0.195, 0.22, 16]} />
+          <meshStandardMaterial color={bark} roughness={0.9} flatShading />
+        </mesh>
+        {/* cabeza = corte del tronco, madera clara y rota, bien visible */}
+        <mesh castShadow position={[0, 1.12, 0.04]} scale={[1, 0.62, 1]}>
+          <sphereGeometry args={[0.19, 16, 12]} />
+          <meshStandardMaterial color={woodBright} roughness={0.82} flatShading />
+        </mesh>
+        {[-0.06, 0.05].map((x) => (
+          <mesh key={`hcrack-${x}`} position={[x, 1.16, 0.16]} rotation={[0.35, 0, x * 3]}>
+            <boxGeometry args={[0.016, 0.13, 0.02]} />
+            <meshStandardMaterial color={crack} roughness={0.95} />
+          </mesh>
+        ))}
+        {/* capucha por detrás/arriba, abierta al frente */}
+        <mesh castShadow position={[0, 1.16, -0.14]} scale={[1.1, 1.1, 0.95]}>
+          <sphereGeometry args={[0.24, 18, 14]} />
+          <meshStandardMaterial color={burgundy} roughness={0.72} />
+        </mesh>
+        <mesh position={[0, 1.06, 0.07]} rotation={[-0.32, 0, 0]}>
+          <torusGeometry args={[0.2, 0.05, 10, 24]} />
+          <meshStandardMaterial color={burgundy} roughness={0.72} />
+        </mesh>
+      </group>
     </group>
   );
 }

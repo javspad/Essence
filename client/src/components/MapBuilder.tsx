@@ -265,9 +265,10 @@ export default function MapBuilder() {
     setPlaytest3DOpen(true);
   };
 
-  // Coloca en el mapa el prop que se estaba viendo en la galería 3D y lo deja seleccionado.
-  const placePropFromGallery = (galleryAssetId: string) => {
-    dispatch({ type: "add_artifact", assetId: galleryAssetId, point: mapCenterPoint(activeMap) });
+  // Coloca en el mapa el prop que se estaba viendo en la galería 3D, con el tamaño
+  // elegido, y lo deja seleccionado.
+  const placePropFromGallery = (galleryAssetId: string, galleryScale: number) => {
+    dispatch({ type: "add_artifact", assetId: galleryAssetId, point: mapCenterPoint(activeMap), scale: galleryScale });
     setAssetId(galleryAssetId);
     setGalleryOpen(false);
   };
@@ -1605,25 +1606,26 @@ function Playtest3DOverlay({
   );
 }
 
-/** Medio ancho (en celdas) del piso de la galería: define el encuadre inicial del prop. */
-const PROP_PREVIEW_HALF = 2.5;
-
-/** Mini-mapa de un solo prop centrado, para mostrarlo aislado en el visor 3D. */
-function buildPropPreviewMap(assetId: string, asset?: MapAssetDef): {
+/** Mini-mapa de un solo prop centrado, para mostrarlo aislado en el visor 3D.
+ *  El piso se dimensiona según el tamaño del prop (auto-fit): props chicos quedan
+ *  sobre un piso chico y se ven grandes; los grandes reciben más lugar. */
+function buildPropPreviewMap(assetId: string, asset: MapAssetDef | undefined, scale: number): {
   board: Tile[];
   artifacts: MapArtifact[];
   boardShape: MapBoardShape;
 } {
+  const radius = (asset ? assetProjectionRadius(asset) : 0.6) * scale;
+  const half = Math.min(4.5, Math.max(0.85, radius * 1.7));
   const boardShape: MapBoardShape = {
-    minX: -PROP_PREVIEW_HALF,
-    minY: -PROP_PREVIEW_HALF,
-    maxX: PROP_PREVIEW_HALF,
-    maxY: PROP_PREVIEW_HALF,
+    minX: -half,
+    minY: -half,
+    maxX: half,
+    maxY: half,
     blockedCells: [],
     borderEdges: [],
   };
   const artifacts: MapArtifact[] = assetId
-    ? [{ id: "prop-preview", assetId, position: { x: 0, y: 0 }, scale: asset?.defaultScale ?? 1 }]
+    ? [{ id: "prop-preview", assetId, position: { x: 0, y: 0 }, scale }]
     : [];
   return { board: [], artifacts, boardShape };
 }
@@ -1651,7 +1653,7 @@ function PropGalleryOverlay({
 }: {
   assetCatalog: MapAssetDef[];
   initialAssetId: string;
-  onPlace: (assetId: string) => void;
+  onPlace: (assetId: string, scale: number) => void;
   onClose: () => void;
 }) {
   const [selectedId, setSelectedId] = useState(
@@ -1659,12 +1661,19 @@ function PropGalleryOverlay({
   );
   const selectedIndex = Math.max(0, assetCatalog.findIndex((asset) => asset.id === selectedId));
   const selectedAsset = assetCatalog[selectedIndex];
-  const preview = useMemo(() => buildPropPreviewMap(selectedAsset?.id ?? "", selectedAsset), [selectedAsset]);
+  const [scale, setScale] = useState(selectedAsset?.defaultScale ?? 1);
+  const preview = useMemo(() => buildPropPreviewMap(selectedAsset?.id ?? "", selectedAsset, scale), [selectedAsset, scale]);
+
+  // Cambiar de prop resetea el tamaño al por defecto de ese prop.
+  const selectProp = (id: string) => {
+    setSelectedId(id);
+    setScale(assetCatalog.find((asset) => asset.id === id)?.defaultScale ?? 1);
+  };
 
   const step = (delta: number) => {
     if (!assetCatalog.length) return;
     const next = (selectedIndex + delta + assetCatalog.length) % assetCatalog.length;
-    setSelectedId(assetCatalog[next].id);
+    selectProp(assetCatalog[next].id);
   };
 
   return (
@@ -1678,6 +1687,7 @@ function PropGalleryOverlay({
         boardShape={preview.boardShape}
         players={[]}
         freeCamera
+        freeCameraRefit
         interactive
         className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
       />
@@ -1701,9 +1711,31 @@ function PropGalleryOverlay({
               <span className="min-w-[4rem] text-center text-xs font-bold text-slate-300">{assetCatalog.length ? selectedIndex + 1 : 0} / {assetCatalog.length}</span>
               <button type="button" onClick={() => step(1)} className="builder-button compact" aria-label="Prop siguiente">▶</button>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-300">Tamaño</span>
+              <input
+                type="range"
+                min={0.3}
+                max={3}
+                step={0.05}
+                value={scale}
+                onChange={(event) => setScale(Number(event.target.value))}
+                aria-label="Tamaño del prop"
+                className="w-36 accent-cyan-400 sm:w-48"
+              />
+              <span className="w-12 text-right text-xs font-black text-cyan-100">{scale.toFixed(2)}×</span>
+              <button
+                type="button"
+                onClick={() => setScale(selectedAsset?.defaultScale ?? 1)}
+                className="builder-button compact"
+                aria-label="Restablecer tamaño"
+              >
+                Reset
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => selectedAsset && onPlace(selectedAsset.id)}
+              onClick={() => selectedAsset && onPlace(selectedAsset.id, scale)}
               disabled={!selectedAsset}
               className="rounded-md border border-emerald-300/60 bg-emerald-400/20 px-4 py-2 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/30 disabled:opacity-40"
             >
@@ -1715,7 +1747,7 @@ function PropGalleryOverlay({
               <button
                 key={asset.id}
                 type="button"
-                onClick={() => setSelectedId(asset.id)}
+                onClick={() => selectProp(asset.id)}
                 aria-pressed={asset.id === selectedId}
                 className={`flex items-center gap-2 rounded-md border px-2 py-2 text-left text-xs font-bold transition ${
                   asset.id === selectedId

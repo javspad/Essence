@@ -81,6 +81,8 @@ interface Board3DShellProps {
   cameraMode?: CameraMode;
   /** Cámara de órbita libre (arrastrar/zoom/pan): sólo para inspeccionar en el builder. */
   freeCamera?: boolean;
+  /** Con cámara libre, reencuadra al cambiar el encuadre general (p. ej. galería al cambiar de prop/tamaño). */
+  freeCameraRefit?: boolean;
   focusedPlayerId?: FocusedPlayerId;
   onPlayerFocus?: (playerId: string) => void;
 }
@@ -103,6 +105,7 @@ export default function Board3DShell({
   interactive = false,
   cameraMode = "followActivePlayer",
   freeCamera = false,
+  freeCameraRefit = false,
   focusedPlayerId = null,
   onPlayerFocus,
 }: Board3DShellProps) {
@@ -195,7 +198,7 @@ export default function Board3DShell({
       >
         <WebGLContextGuard onLost={disableWebGL} />
         {freeCamera ? (
-          <FreeOrbitCamera overview={overviewShot} />
+          <FreeOrbitCamera overview={overviewShot} refit={freeCameraRefit} />
         ) : (
           <CinematicCamera
             mode={cameraMode}
@@ -628,8 +631,11 @@ function CinematicCamera({
  * de mira sobre el piso. Pensada para inspeccionar props de cerca y desde cualquier
  * ángulo mientras se editan; no se usa en la partida real.
  */
-function FreeOrbitCamera({ overview }: { overview: BoardCameraShot }) {
+function FreeOrbitCamera({ overview, refit = false }: { overview: BoardCameraShot; refit?: boolean }) {
   const { camera, gl, invalidate } = useThree();
+  // Con refit, reencuadra cada vez que cambia la toma general (galería: nuevo prop o
+  // nuevo tamaño). Sin refit, sólo encuadra una vez al montar (no pisa la vista al editar).
+  const frameSignal = refit ? `${overview.position.join(",")}|${overview.look.join(",")}` : "once";
   const target = useRef(new Vector3(...overview.look));
   const desiredTarget = useRef(new Vector3(...overview.look));
   const spherical = useRef(new Spherical());
@@ -654,7 +660,7 @@ function FreeOrbitCamera({ overview }: { overview: BoardCameraShot }) {
     camera.updateProjectionMatrix();
     invalidate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [frameSignal]);
 
   useEffect(() => {
     const el = gl.domElement;
