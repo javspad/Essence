@@ -341,16 +341,17 @@ Verification notes:
 - Seeded `shared/content.json` with `half-roll-2-rounds`, a 2-round movement-multiplier effect that halves movement without bundling shot/offline-event behavior into the effect.
 - Server now attaches duration-based consequence actions to resolved users, applies `applyEffect` consequences, runs effect lifecycle hooks during roll/movement/cell/activity/turn flow, expires use/turn/round/until-triggered effects, and emits `effect:ended`.
 - Active effects appear in the legacy score list and the 3D HUD score panel with names, remaining duration, and hover/tap detail text.
-- Event Builder now exposes common target selectors, multiple actions per consequence branch, inline attached-action timing, saved-effect composition, and the existing Content JSON import/export escape hatch.
-- Regression coverage: server tests for saved-effect application, generic movement multiplier, one-use attached consequences, dice bias, duration ticking, and end notification; shared/client tests for target selectors, duration labels, invalid effect references, and legacy modifier-to-consequence migration.
-- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright Event Builder QA with screenshot at `/tmp/essence-s3-generic-effects.png`; `git diff --check`.
+- Event Builder now exposes common target selectors, multiple actions per consequence branch, inline attached-action timing, an Effect builder for reusable effect types, named effect choices in the action type list, and the existing Content JSON import/export escape hatch.
+- Regression coverage: server tests for catalog effect application, generic movement multiplier, one-use attached consequences, dice bias, duration ticking, and end notification; shared/client tests for target selectors, duration labels, invalid effect references, and legacy modifier-to-consequence migration.
+- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright Event Builder QA with screenshot at `/tmp/essence-effect-builder.png`; `git diff --check`.
 
 Manual validation checklist:
 
 - [ ] Open `/event-builder`, add a consequence, and verify one branch can contain multiple action/effect rows.
 - [ ] In `/event-builder`, choose target selectors for acting player, selected target, nearest ahead/behind, fixed player, winner/loser, and rank/range; verify the summary text stays readable.
 - [ ] In `/event-builder`, set an action's Timing to `Attach to user`, change Runs/Duration/Count, and verify the Advanced JSON shows `hook` and `duration`.
-- [ ] In `/event-builder`, choose `Saved effect`, compose movement multiplier plus dice bias or another timed consequence, then export/re-import Content JSON and verify it persists.
+- [ ] In `/event-builder`, create a new Effect builder entry, compose movement multiplier plus dice bias or another timed consequence, then verify the new effect appears by name in a consequence action's Type list.
+- [ ] Save, refresh, and verify the new effect type persists in the Effect builder and can still be selected from a consequence action.
 - [ ] In a room with content that applies `half-roll-2-rounds`, trigger the effect and verify the target's score row shows the active effect with remaining duration.
 - [ ] While the effect is active, roll and verify movement is halved without any take-shot prompt appearing from the effect itself.
 - [ ] Advance turns/rounds until expiration and verify the active effect disappears from the score UI.

@@ -81,7 +81,9 @@ interface PlaytestResolution {
 export default function MinigameBuilder() {
   const [content, setContent] = useState<GameContent>(() => loadInitialContent());
   const eventIds = useMemo(() => Object.keys(content.events ?? {}), [content.events]);
+  const effectIds = useMemo(() => Object.keys(content.effects ?? {}), [content.effects]);
   const [selectedId, setSelectedId] = useState(eventIds[0] ?? "");
+  const [selectedEffectId, setSelectedEffectId] = useState(effectIds[0] ?? DEFAULT_EFFECT_ID);
   const [activityFilter, setActivityFilter] = useState<EventActivityType | "all">("all");
   const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
   const [protagonistId, setProtagonistId] = useState(INITIAL_PLAYERS[0]?.id ?? "");
@@ -97,6 +99,7 @@ export default function MinigameBuilder() {
   const [saveStatus, setSaveStatus] = useState("");
 
   const selected = selectedId ? content.events?.[selectedId] : undefined;
+  const selectedEffect = selectedEffectId ? content.effects?.[selectedEffectId] : undefined;
   const protagonist = players.find((player) => player.id === protagonistId) ?? players[0];
   const actor = players.find((player) => player.id === actorId) ?? players[0];
   const resolved = selected && protagonist ? resolveEventForPlayer(content, selectedId, protagonist) : null;
@@ -115,6 +118,11 @@ export default function MinigameBuilder() {
     if (selectedId && eventIds.includes(selectedId)) return;
     setSelectedId(eventIds[0] ?? "");
   }, [eventIds, selectedId]);
+
+  useEffect(() => {
+    if (selectedEffectId && effectIds.includes(selectedEffectId)) return;
+    setSelectedEffectId(effectIds[0] ?? "");
+  }, [effectIds, selectedEffectId]);
 
   useEffect(() => {
     resetRun();
@@ -312,16 +320,6 @@ export default function MinigameBuilder() {
     addOutcome({ label: "New consequence", when: "winner", actions: [{ type: "coins", value: 1 }] });
   };
 
-  const ensureEffect = (effect: EffectDef) => {
-    setContent((current) => ({
-      ...current,
-      effects: {
-        ...(current.effects ?? {}),
-        [effect.id]: current.effects?.[effect.id] ?? effect,
-      },
-    }));
-  };
-
   const updateEffect = (effectId: string, updater: (effect: EffectDef) => EffectDef) => {
     setContent((current) => {
       const existing = current.effects?.[effectId] ?? defaultComposedEffect(effectId);
@@ -333,6 +331,29 @@ export default function MinigameBuilder() {
         },
       };
     });
+  };
+
+  const createEffect = () => {
+    const id = nextEffectId(content.effects ?? {});
+    const effect = defaultCustomEffect(id);
+    setContent((current) => ({
+      ...current,
+      effects: {
+        ...(current.effects ?? {}),
+        [id]: effect,
+      },
+    }));
+    setSelectedEffectId(id);
+    setSaveStatus("Effect created");
+  };
+
+  const deleteEffect = (effectId: string) => {
+    const effect = content.effects?.[effectId];
+    if (!effect) return;
+    if (!window.confirm(`Delete "${effect.name}"? Consequences using it will fall back to coins.`)) return;
+    setContent((current) => removeEffectFromContent(current, effectId));
+    setSelectedEffectId(effectIds.filter((id) => id !== effectId)[0] ?? "");
+    setSaveStatus("Effect deleted");
   };
 
   const addPlayer = () => {
@@ -642,6 +663,17 @@ export default function MinigameBuilder() {
             <ResolutionPanel resolution={playtestResolution} players={players} />
           </Panel>
 
+          <EffectBuilderPanel
+            effects={content.effects ?? {}}
+            selectedEffect={selectedEffect}
+            selectedEffectId={selectedEffectId}
+            players={PLAYER_POOL}
+            onSelect={setSelectedEffectId}
+            onCreate={createEffect}
+            onDelete={deleteEffect}
+            onUpdate={updateEffect}
+          />
+
           <Panel title="Consequences" eyebrow={`${selected?.outcomes?.length ?? 0} branches`}>
             <button
               onClick={addConsequence}
@@ -659,8 +691,6 @@ export default function MinigameBuilder() {
                   effects={content.effects ?? {}}
                   onChange={(updater) => updateOutcome(index, updater)}
                   onRemove={() => removeOutcome(index)}
-                  onEnsureEffect={ensureEffect}
-                  onUpdateEffect={updateEffect}
                 />
               ))}
             </div>
@@ -898,22 +928,80 @@ function EventScopeSelect({
   );
 }
 
+function EffectBuilderPanel({
+  effects,
+  selectedEffect,
+  selectedEffectId,
+  players,
+  onSelect,
+  onCreate,
+  onDelete,
+  onUpdate,
+}: {
+  effects: Record<string, EffectDef>;
+  selectedEffect?: EffectDef;
+  selectedEffectId: string;
+  players: GameContent["players"];
+  onSelect: (effectId: string) => void;
+  onCreate: () => void;
+  onDelete: (effectId: string) => void;
+  onUpdate: (effectId: string, updater: (effect: EffectDef) => EffectDef) => void;
+}) {
+  const effectOptions = Object.values(effects).map((effect) => ({ value: effect.id, label: effect.name }));
+  return (
+    <Panel title="Effect builder" eyebrow={`${effectOptions.length} types`}>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+        <SelectInput
+          label="Effect type"
+          value={selectedEffectId}
+          disabled={!effectOptions.length}
+          options={effectOptions.length ? effectOptions : [{ value: "", label: "No effects yet" }]}
+          onChange={onSelect}
+        />
+        <button
+          type="button"
+          onClick={onCreate}
+          className="mb-0.5 h-9 rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15"
+        >
+          New
+        </button>
+      </div>
+      {selectedEffect ? (
+        <>
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => onDelete(selectedEffect.id)}
+              className="rounded-md border border-rose-200/20 bg-rose-500/10 px-2.5 py-1.5 text-xs font-black text-rose-100 transition hover:bg-rose-500/15"
+            >
+              Delete effect
+            </button>
+          </div>
+          <EffectCompositionEditor
+            effect={selectedEffect}
+            players={players}
+            onChange={(updater) => onUpdate(selectedEffect.id, updater)}
+          />
+        </>
+      ) : (
+        <p className="mt-3 rounded-md border border-dashed border-white/10 p-3 text-sm text-slate-400">Create an effect type to use it from consequence actions.</p>
+      )}
+    </Panel>
+  );
+}
+
 function ConsequenceEditor({
   outcome,
   players,
   effects,
   onChange,
   onRemove,
-  onEnsureEffect,
-  onUpdateEffect,
 }: {
   outcome: EventOutcomeBranch;
   players: GameContent["players"];
   effects: Record<string, EffectDef>;
   onChange: (updater: (outcome: EventOutcomeBranch) => EventOutcomeBranch) => void;
   onRemove: () => void;
-  onEnsureEffect: (effect: EffectDef) => void;
-  onUpdateEffect: (effectId: string, updater: (effect: EffectDef) => EffectDef) => void;
 }) {
   const kind = targetKind(outcome.when);
   const actions = outcomeActions(outcome);
@@ -1011,8 +1099,6 @@ function ConsequenceEditor({
         canRemove={actions.length > 1}
         onChange={(action) => updateAction(0, action)}
         onRemove={() => removeAction(0)}
-        onEnsureEffect={onEnsureEffect}
-        onUpdateEffect={onUpdateEffect}
       />
       {actions.slice(1).map((action, index) => (
         <ConsequenceActionEditor
@@ -1024,8 +1110,6 @@ function ConsequenceEditor({
           canRemove
           onChange={(next) => updateAction(index + 1, next)}
           onRemove={() => removeAction(index + 1)}
-          onEnsureEffect={onEnsureEffect}
-          onUpdateEffect={onUpdateEffect}
         />
       ))}
       <button
@@ -1047,8 +1131,6 @@ function ConsequenceActionEditor({
   canRemove,
   onChange,
   onRemove,
-  onEnsureEffect,
-  onUpdateEffect,
 }: {
   action: EventAction;
   effects: Record<string, EffectDef>;
@@ -1057,13 +1139,11 @@ function ConsequenceActionEditor({
   canRemove: boolean;
   onChange: (action: EventAction) => void;
   onRemove: () => void;
-  onEnsureEffect: (effect: EffectDef) => void;
-  onUpdateEffect: (effectId: string, updater: (effect: EffectDef) => EffectDef) => void;
 }) {
   const text = action.text ?? "";
-  const effectOptions = Object.values(effects).map((effect) => ({ value: effect.id, label: effect.name }));
   const selectedEffect = action.type === "applyEffect" ? effects[action.effectId] : undefined;
   const timingMode = consequenceTimingMode(action);
+  const typeOptions = consequenceTypeOptions(effects, action);
   return (
     <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-2">
       <div className="flex items-center justify-between gap-2">
@@ -1080,24 +1160,14 @@ function ConsequenceActionEditor({
       <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
         <SelectInput
           label="Type"
-          value={action.type}
-          options={[
-            { value: "coins", label: "Coins" },
-            { value: "move", label: "Move" },
-            { value: "moveTo", label: "Move to cell" },
-            { value: "skipTurn", label: "Skip turn" },
-            { value: "extraTurn", label: "Extra turn" },
-            { value: "halfMovement", label: "Half movement" },
-            { value: "movementMultiplier", label: "Movement multiplier" },
-            { value: "diceBias", label: "Dice bias" },
-            { value: "swapPositions", label: "Swap positions" },
-            { value: "moveToNearest", label: "Move to nearest" },
-            { value: "applyEffect", label: "Saved effect" },
-          ]}
+          value={actionTypeSelectValue(action)}
+          options={typeOptions}
           onChange={(type) => {
-            const nextType = type as Exclude<EventAction["type"], "text" | "offlineAction">;
-            if (nextType === "applyEffect" && !Object.keys(effects).length) onEnsureEffect(defaultComposedEffect());
-            onChange(convertActionType(action, nextType, Object.keys(effects)[0] ?? DEFAULT_EFFECT_ID));
+            if (isEffectTypeOption(type)) {
+              onChange(convertActionToEffect(action, effectIdFromTypeOption(type)));
+              return;
+            }
+            onChange(convertActionType(action, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">));
           }}
         />
         {(action.type === "coins" || action.type === "move") && (
@@ -1167,20 +1237,7 @@ function ConsequenceActionEditor({
         />
       )}
       {action.type === "applyEffect" && (
-        <>
-          <SelectInput
-            label="Effect"
-            value={action.effectId}
-            options={effectOptions.length ? effectOptions : [{ value: action.effectId, label: action.effectId || "No effect configured" }]}
-            onChange={(effectId) => onChange({ ...action, effectId })}
-          />
-          <EffectCompositionEditor
-            effect={selectedEffect ?? defaultComposedEffect(action.effectId)}
-            players={players}
-            onEnsure={() => onEnsureEffect(selectedEffect ?? defaultComposedEffect(action.effectId))}
-            onChange={(updater) => onUpdateEffect(action.effectId, updater)}
-          />
-        </>
+        <EffectTypeSummary effect={selectedEffect} effectId={action.effectId} />
       )}
       {action.type !== "applyEffect" && (
         <>
@@ -1216,15 +1273,42 @@ function ConsequenceActionEditor({
   );
 }
 
+function EffectTypeSummary({ effect, effectId }: { effect?: EffectDef; effectId: string }) {
+  const consequences = effect ? effectConsequencesFor(effect) : [];
+  return (
+    <div className="mt-3 rounded-md border border-cyan-200/20 bg-cyan-300/10 p-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-black uppercase tracking-[0.12em] text-cyan-100">{effect?.name ?? effectId}</p>
+          <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-400">{effect?.description ?? "Missing effect type."}</p>
+        </div>
+        {effect && (
+          <span className="shrink-0 rounded-sm border border-cyan-200/25 bg-cyan-300/10 px-2 py-1 text-[0.62rem] font-black uppercase text-cyan-100">
+            {effectRemainingLabel(durationPreview(effect.duration))}
+          </span>
+        )}
+      </div>
+      {consequences.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {consequences.slice(0, 4).map((consequence, index) => (
+            <span key={`${consequence.type}-${index}`} className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[0.62rem] font-bold text-slate-200">
+              {actionSummary(consequence)}
+            </span>
+          ))}
+          {consequences.length > 4 && <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[0.62rem] font-bold text-slate-400">+{consequences.length - 4}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EffectCompositionEditor({
   effect,
   players,
-  onEnsure,
   onChange,
 }: {
   effect: EffectDef;
   players: GameContent["players"];
-  onEnsure: () => void;
   onChange: (updater: (effect: EffectDef) => EffectDef) => void;
 }) {
   const consequences = effectConsequencesFor(effect);
@@ -1274,7 +1358,6 @@ function EffectCompositionEditor({
       <button
         type="button"
         onClick={() => {
-          onEnsure();
           onChange((current) => ({
             ...current,
             consequences: [...(current.consequences ?? current.actions ?? []), { type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil" }],
@@ -1890,6 +1973,42 @@ function rewriteLegacyEffectAction(action: EventAction): EventAction {
   return { ...action, effectId: DEFAULT_EFFECT_ID };
 }
 
+function nextEffectId(effects: Record<string, EffectDef>): string {
+  let index = Object.keys(effects).length + 1;
+  let id = `effect-custom-${index}`;
+  while (effects[id]) {
+    index += 1;
+    id = `effect-custom-${index}`;
+  }
+  return id;
+}
+
+function removeEffectFromContent(content: GameContent, effectId: string): GameContent {
+  const { [effectId]: _deleted, ...effects } = content.effects ?? {};
+  return {
+    ...content,
+    effects,
+    events: mapEvents(content.events, (action) => rewriteDeletedEffectAction(action, effectId)),
+    artifacts: content.artifacts
+      ? Object.fromEntries(
+          Object.entries(content.artifacts).map(([id, artifact]) => [
+            id,
+            {
+              ...artifact,
+              consequences: artifact.consequences?.map((action) => rewriteDeletedEffectAction(action, effectId)),
+              effects: artifact.effects?.filter((id) => id !== effectId),
+            },
+          ])
+        )
+      : content.artifacts,
+  };
+}
+
+function rewriteDeletedEffectAction(action: EventAction, deletedEffectId: string): EventAction {
+  if (action.type !== "applyEffect" || action.effectId !== deletedEffectId) return action;
+  return { type: "coins", value: 1, text: action.text, ...("target" in action && action.target ? { target: action.target } : {}) };
+}
+
 function nextEventId(events: Record<string, GameEventDef>): string {
   let index = Object.keys(events).length + 1;
   let id = `event-custom-${index}`;
@@ -1975,6 +2094,53 @@ function rankToFor(target: EventActionTarget): number {
   return 2;
 }
 
+function consequenceTypeOptions(effects: Record<string, EffectDef>, action: EventAction): { value: string; label: string }[] {
+  const base = [
+    { value: "coins", label: "Coins" },
+    { value: "move", label: "Move" },
+    { value: "moveTo", label: "Move to cell" },
+    { value: "skipTurn", label: "Skip turn" },
+    { value: "extraTurn", label: "Extra turn" },
+    { value: "halfMovement", label: "Half movement" },
+    { value: "movementMultiplier", label: "Movement multiplier" },
+    { value: "diceBias", label: "Dice bias" },
+    { value: "swapPositions", label: "Swap positions" },
+    { value: "moveToNearest", label: "Move to nearest" },
+  ];
+  const effectOptions = Object.values(effects).map((effect) => ({ value: effectTypeOptionValue(effect.id), label: `Effect: ${effect.name}` }));
+  if (action.type === "applyEffect" && !effects[action.effectId]) {
+    effectOptions.push({ value: effectTypeOptionValue(action.effectId), label: `Missing effect: ${action.effectId}` });
+  }
+  return [...base, ...effectOptions];
+}
+
+function actionTypeSelectValue(action: EventAction): string {
+  return action.type === "applyEffect" ? effectTypeOptionValue(action.effectId) : action.type;
+}
+
+function effectTypeOptionValue(effectId: string): string {
+  return `effect:${effectId}`;
+}
+
+function isEffectTypeOption(value: string): boolean {
+  return value.startsWith("effect:");
+}
+
+function effectIdFromTypeOption(value: string): string {
+  return value.slice("effect:".length);
+}
+
+function convertActionToEffect(action: EventAction, effectId: string): EventAction {
+  const text = "text" in action ? action.text : undefined;
+  const target = "target" in action ? action.target : undefined;
+  return {
+    type: "applyEffect",
+    effectId,
+    ...(target ? { target } : {}),
+    ...(text ? { text } : {}),
+  };
+}
+
 function convertActionType(action: EventAction, type: Exclude<EventAction["type"], "text">, fallbackEffectId?: string): EventAction {
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
@@ -2028,6 +2194,16 @@ function defaultComposedEffect(id = DEFAULT_EFFECT_ID): EffectDef {
     description: "For 2 rounds, move half of the die roll.",
     duration: { mode: "rounds", value: 2 },
     consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll." }],
+  };
+}
+
+function defaultCustomEffect(id: string): EffectDef {
+  return {
+    id,
+    name: "New effect",
+    description: "Custom reusable effect.",
+    duration: { mode: "uses", value: 1 },
+    consequences: [{ type: "coins", hook: "onTurnEnd", value: 1, text: "Gain 1 coin." }],
   };
 }
 
