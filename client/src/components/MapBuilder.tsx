@@ -46,9 +46,15 @@ import {
 } from "../mapBuilder";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import { eventIdsForTile, eventTitle, resolveTileEventForPlayer } from "@essence/shared/events";
-import Board3DShell from "./Board3DShell";
+import type { CosmeticDef } from "@essence/shared";
+import { Canvas } from "@react-three/fiber";
+import Board3DShell, { PlayerTokenPawn, FreeOrbitCamera } from "./Board3DShell";
+import { TOKEN_PREVIEW_GROUP_POSITION, TOKEN_PREVIEW_GROUP_SCALE } from "../characterTokenRig";
 
 const BASE_CONTENT = normalizeContentSchema(seedContent);
+const COSMETIC_LIST: CosmeticDef[] = Object.values(
+  (seedContent as unknown as { cosmetics?: Record<string, CosmeticDef> }).cosmetics ?? {}
+);
 const STORAGE_KEY = "essence:map-builder:draft";
 
 const TILE_LABEL: Record<TileType, string> = {
@@ -252,6 +258,7 @@ export default function MapBuilder() {
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [cosmeticsOpen, setCosmeticsOpen] = useState(false);
   const exportContent = useMemo(() => builderContentToGameContent(BASE_CONTENT, state.content), [state.content]);
   const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
 
@@ -337,6 +344,7 @@ export default function MapBuilder() {
           onReset={resetDraft}
           onOpen3D={open3DPlaytest}
           onOpenGallery={() => setGalleryOpen(true)}
+          onOpenCosmetics={() => setCosmeticsOpen(true)}
           testMode={testMode}
           onToggleTest={() => setTestMode((value) => !value)}
         />
@@ -356,9 +364,9 @@ export default function MapBuilder() {
               onTestCellChange={setTestCellId}
             />
 
-            {/* Mientras un overlay 3D a pantalla completa está abierto (playtest o galería),
-                desmontamos el preview chico: así hay un solo canvas WebGL activo. */}
-            {!playtest3DOpen && !galleryOpen && (
+            {/* Mientras un overlay 3D a pantalla completa está abierto (playtest, galería
+                de props o de cosméticos), desmontamos el preview chico: un solo canvas WebGL. */}
+            {!playtest3DOpen && !galleryOpen && !cosmeticsOpen && (
               <Floating3DPreview
                 map={activeMap}
                 assetCatalog={state.content.assetCatalog}
@@ -432,6 +440,8 @@ export default function MapBuilder() {
           onClose={() => setGalleryOpen(false)}
         />
       )}
+
+      {cosmeticsOpen && <CosmeticGalleryOverlay cosmetics={COSMETIC_LIST} onClose={() => setCosmeticsOpen(false)} />}
     </main>
   );
 }
@@ -448,6 +458,7 @@ function MapTopBar({
   onReset,
   onOpen3D,
   onOpenGallery,
+  onOpenCosmetics,
   testMode,
   onToggleTest,
 }: {
@@ -462,6 +473,7 @@ function MapTopBar({
   onReset: () => void;
   onOpen3D: () => void;
   onOpenGallery: () => void;
+  onOpenCosmetics: () => void;
   testMode: boolean;
   onToggleTest: () => void;
 }) {
@@ -505,6 +517,9 @@ function MapTopBar({
       </button>
       <button type="button" onClick={onOpenGallery} className="builder-button preview">
         Props 3D
+      </button>
+      <button type="button" onClick={onOpenCosmetics} className="builder-button preview">
+        Cosméticos 3D
       </button>
       <button type="button" onClick={onToggleTest} className={`builder-button ${testMode ? "active" : ""}`}>
         {testMode ? "Stop test" : "Test map"}
@@ -1672,6 +1687,88 @@ function mapCenterPoint(map: MapDefinition): TileLayout {
   if (!layouts.length) return { x: 0, y: 0 };
   const sum = layouts.reduce((acc, layout) => ({ x: acc.x + layout.x, y: acc.y + layout.y }), { x: 0, y: 0 });
   return { x: sum.x / layouts.length, y: sum.y / layouts.length };
+}
+
+const COSMETIC_PREVIEW_SHOT = { position: [0, 0.2, 4.4] as [number, number, number], look: [0, -0.1, 0] as [number, number, number] };
+const COSMETIC_PREVIEW_CHARACTER = { id: "cosmetic-preview", name: "Vos", color: "#c9a24a", groom: false };
+
+/**
+ * Visor 3D de cosméticos: muestra un cosmético a la vez puesto sobre un muñeco,
+ * con cámara libre para girarlo/acercarlo. Sirve para revisarlos y ajustarlos.
+ */
+function CosmeticGalleryOverlay({ cosmetics, onClose }: { cosmetics: CosmeticDef[]; onClose: () => void }) {
+  const [selectedId, setSelectedId] = useState(cosmetics[0]?.id ?? "");
+  const [catalogOpen, setCatalogOpen] = useState(true);
+  const index = Math.max(0, cosmetics.findIndex((cosmetic) => cosmetic.id === selectedId));
+  const current = cosmetics[index];
+  const step = (delta: number) => {
+    if (!cosmetics.length) return;
+    setSelectedId(cosmetics[(index + delta + cosmetics.length) % cosmetics.length].id);
+  };
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#2a3550_0%,#141b2b_55%,#0a0e17_100%)]">
+      <Canvas camera={{ position: [0, 0.5, 3], fov: 34, near: 0.1, far: 40 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: true }} className="absolute inset-0">
+        <FreeOrbitCamera overview={COSMETIC_PREVIEW_SHOT} />
+        <ambientLight intensity={0.74} color="#fff8e1" />
+        <directionalLight position={[3, 5, 4]} intensity={2.4} />
+        <directionalLight position={[-3, 2, -3]} intensity={0.6} color="#b3d4ff" />
+        <group position={TOKEN_PREVIEW_GROUP_POSITION} scale={TOKEN_PREVIEW_GROUP_SCALE}>
+          <PlayerTokenPawn character={COSMETIC_PREVIEW_CHARACTER} cosmeticIds={current ? [current.id] : []} />
+        </group>
+        <mesh position={[0, -0.72, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[1.5, 40]} />
+          <meshStandardMaterial color="#101728" roughness={0.9} transparent opacity={0.7} />
+        </mesh>
+      </Canvas>
+
+      <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col justify-between p-3 sm:p-5">
+        <header className="pointer-events-auto flex flex-wrap items-start justify-between gap-3">
+          <div className="rounded-lg border border-white/15 bg-slate-950/60 px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <p className="text-[0.65rem] font-black uppercase tracking-[0.24em] text-fuchsia-200">Galería de cosméticos</p>
+            <h2 className="mt-1 text-2xl font-black text-white">{current ? current.name : "Sin cosméticos"}</h2>
+            <p className="mt-2 text-xs font-bold text-fuchsia-100/80">Arrastrá para orbitar · rueda para zoom · click derecho o Shift+arrastrar para desplazar</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
+            Close
+          </button>
+        </header>
+
+        <section className="pointer-events-auto w-full rounded-lg border border-white/15 bg-slate-950/65 p-3 shadow-2xl shadow-black/35 backdrop-blur-md">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => step(-1)} className="builder-button compact" aria-label="Anterior">◀</button>
+              <span className="min-w-[4rem] text-center text-xs font-bold text-slate-300">{cosmetics.length ? index + 1 : 0} / {cosmetics.length}</span>
+              <button type="button" onClick={() => step(1)} className="builder-button compact" aria-label="Siguiente">▶</button>
+              <button type="button" onClick={() => setCatalogOpen((open) => !open)} className="builder-button compact" aria-expanded={catalogOpen}>
+                {catalogOpen ? "Catálogo ▾" : "Catálogo ▸"}
+              </button>
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{current?.anchor ?? ""}</span>
+          </div>
+          {catalogOpen && (
+            <div className="mt-3 grid max-h-[30vh] grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-2 overflow-y-auto overscroll-contain pr-1">
+              {cosmetics.map((cosmetic) => (
+                <button
+                  key={cosmetic.id}
+                  type="button"
+                  onClick={() => setSelectedId(cosmetic.id)}
+                  aria-pressed={cosmetic.id === selectedId}
+                  className={`rounded-md border px-2 py-2 text-left text-xs font-bold transition ${
+                    cosmetic.id === selectedId
+                      ? "border-fuchsia-300/70 bg-fuchsia-400/20 text-fuchsia-100"
+                      : "border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/10"
+                  }`}
+                >
+                  <span className="block truncate">{cosmetic.name}</span>
+                  <span className="mt-0.5 block truncate text-[0.56rem] uppercase tracking-[0.08em] text-slate-500">{cosmetic.anchor}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
 }
 
 /**
