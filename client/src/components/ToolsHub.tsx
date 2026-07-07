@@ -25,11 +25,18 @@ const TOOL_LINKS = [
     icon: Gamepad2,
     accent: "cyan",
   },
+  {
+    href: "/cosmetic-builder",
+    title: "Cosmetic builder",
+    eyebrow: "Visual items",
+    body: "Anchored cosmetics, prices, previews",
+    icon: Palette,
+    accent: "fuchsia",
+  },
 ];
 
 const PLANNED_TOOLS = [
   { title: "Artifact builder", eyebrow: "Gameplay items", icon: Sparkles },
-  { title: "Cosmetic builder", eyebrow: "Visual items", icon: Palette },
 ];
 
 export default function ToolsHub() {
@@ -59,7 +66,9 @@ export default function ToolsHub() {
               ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
               : tool.accent === "amber"
                 ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
-                : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100";
+                : tool.accent === "fuchsia"
+                  ? "border-fuchsia-300/25 bg-fuchsia-300/10 text-fuchsia-100"
+                  : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100";
           return (
             <a
               key={tool.href}

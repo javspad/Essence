@@ -1729,6 +1729,10 @@ const COSMETIC_PREVIEW_CHARACTER = { id: "cosmetic-preview", name: "Vos", color:
 function CosmeticGalleryOverlay({ cosmetics, onClose }: { cosmetics: CosmeticDef[]; onClose: () => void }) {
   const [selectedId, setSelectedId] = useState(cosmetics[0]?.id ?? "");
   const [catalogOpen, setCatalogOpen] = useState(true);
+  const cosmeticCatalog = useMemo<Record<string, CosmeticDef>>(
+    () => Object.fromEntries(cosmetics.map((cosmetic) => [cosmetic.id, cosmetic])),
+    [cosmetics]
+  );
   const index = Math.max(0, cosmetics.findIndex((cosmetic) => cosmetic.id === selectedId));
   const current = cosmetics[index];
   const step = (delta: number) => {
@@ -1743,7 +1747,7 @@ function CosmeticGalleryOverlay({ cosmetics, onClose }: { cosmetics: CosmeticDef
         <directionalLight position={[3, 5, 4]} intensity={2.4} />
         <directionalLight position={[-3, 2, -3]} intensity={0.6} color="#b3d4ff" />
         <group position={TOKEN_PREVIEW_GROUP_POSITION} scale={TOKEN_PREVIEW_GROUP_SCALE}>
-          <PlayerTokenPawn character={COSMETIC_PREVIEW_CHARACTER} cosmeticIds={current ? [current.id] : []} />
+          <PlayerTokenPawn character={COSMETIC_PREVIEW_CHARACTER} cosmeticIds={current ? [current.id] : []} cosmeticCatalog={cosmeticCatalog} />
         </group>
         <mesh position={[0, -0.72, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[1.5, 40]} />

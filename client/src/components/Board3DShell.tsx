@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
+  BufferGeometry,
   CircleGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
   Euler,
+  Float32BufferAttribute,
   OctahedronGeometry,
   Quaternion,
   SphereGeometry,
@@ -18,7 +20,8 @@ import {
   type PointLight,
   type Texture,
 } from "three";
-import type { FaceAnchor, FacePhotoAlignment, MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
+import type { CosmeticDef, FaceAnchor, FacePhotoAlignment, MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
+import { cosmeticAnchorRefs, cosmeticAssetKind, normalizeCosmeticDef } from "@essence/shared/cosmetics";
 import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
 import { defaultTokenAnchor, tokenAnchorSurface } from "../characterTokenRig";
 import {
@@ -67,6 +70,7 @@ interface Board3DShellProps {
   routes?: MapRoute[];
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
+  cosmetics?: Record<string, CosmeticDef>;
   boardShape?: MapBoardShape;
   /** mesetas de relieve; sin terrazas el tablero queda plano como siempre */
   terraces?: MapTerrace[];
@@ -93,6 +97,7 @@ export default function Board3DShell({
   routes = [],
   artifacts = [],
   assetCatalog = [],
+  cosmetics = {},
   boardShape,
   terraces,
   activeId,
@@ -261,6 +266,7 @@ export default function Board3DShell({
             motionKind={motionKind}
             motionNonce={motionNonce}
             focused={player.id === focusedPlayerId}
+            cosmeticCatalog={cosmetics}
             onSelect={onPlayerFocus}
             trackRef={player.id === trackedId ? trackedTokenRef : undefined}
           />
@@ -1013,51 +1019,88 @@ function SlotDecalMesh({
 const TOKEN_BASE_GEOMETRY = new CylinderGeometry(0.2, 0.23, 0.07, 24);
 const TOKEN_BODY_GEOMETRY = new SphereGeometry(0.19, 24, 18);
 const TOKEN_HEAD_GEOMETRY = new SphereGeometry(0.135, 24, 18);
-/** Placa facial: pad redondo + decal frontal para que la foto no quede hundida en la cabeza. */
-const TOKEN_FACE_BACKING_GEOMETRY = new CylinderGeometry(0.122, 0.116, 0.028, 40);
-const TOKEN_FACE_DECAL_GEOMETRY = new CircleGeometry(0.108, 40);
+/** Calcomania facial enorme, casi impresa sobre la cabeza. */
+const TOKEN_FACE_DECAL_GEOMETRY = makeCurvedTokenFaceGeometry();
 const TOKEN_CROWN_GEOMETRY = new CylinderGeometry(0.05, 0.07, 0.05, 6);
 const TOKEN_SHADOW_GEOMETRY = new CircleGeometry(0.2, 20);
 const TOKEN_MARKER_GEOMETRY = new OctahedronGeometry(0.085);
-const TOKEN_FACE_ROTATION: [number, number, number] = [Math.PI / 2 - 0.18, 0, 0];
 const TOKEN_GOGGLE_RING_GEOMETRY = new TorusGeometry(0.035, 0.006, 10, 24);
 const TOKEN_GOGGLE_LENS_GEOMETRY = new CircleGeometry(0.029, 24);
 const TOKEN_GOGGLE_BRIDGE_GEOMETRY = new CylinderGeometry(0.006, 0.006, 0.09, 12);
 const TOKEN_MUSTACHE_LOBE_GEOMETRY = new SphereGeometry(0.04, 18, 12);
+const TOKEN_BEARD_LOBE_GEOMETRY = new SphereGeometry(0.036, 18, 12);
 const TOKEN_HAT_GEOMETRY = new ConeGeometry(0.085, 0.18, 24);
 const TOKEN_HAT_BRIM_GEOMETRY = new CylinderGeometry(0.092, 0.1, 0.025, 24);
+const TOKEN_PIERCING_GEOMETRY = new TorusGeometry(0.026, 0.0045, 10, 18);
+const TOKEN_TATTOO_GEOMETRY = new CircleGeometry(0.038, 5);
 
 /**
- * Placa facial del token: recibe cualquier THREE.Texture y la proyecta sobre
- * el disco achatado que mira a +Z. Puede mostrar iniciales o una textura
+ * Cara del token: recibe cualquier THREE.Texture y la proyecta como una
+ * calcomania curvada sobre la cabeza. Puede mostrar iniciales o una textura
  * circular creada desde la foto del jugador.
  */
 function AvatarFace({ texture, opacity }: { texture: Texture; opacity: number }) {
   return (
-    <group position={[0, 0.502, 0.138]} rotation={TOKEN_FACE_ROTATION}>
-      <mesh castShadow receiveShadow geometry={TOKEN_FACE_BACKING_GEOMETRY} dispose={null}>
-        <meshStandardMaterial color="#fff1d5" roughness={0.42} metalness={0.02} transparent opacity={opacity} />
-      </mesh>
-      <mesh
-        position={[0, 0.0155, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        geometry={TOKEN_FACE_DECAL_GEOMETRY}
-        dispose={null}
-        renderOrder={4}
-      >
-        <meshBasicMaterial
-          map={texture}
-          transparent
-          opacity={opacity}
-          toneMapped={false}
-          depthWrite={false}
-          side={DoubleSide}
-          polygonOffset
-          polygonOffsetFactor={-4}
-        />
-      </mesh>
-    </group>
+    <mesh geometry={TOKEN_FACE_DECAL_GEOMETRY} dispose={null} renderOrder={4}>
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        opacity={opacity}
+        toneMapped={false}
+        depthWrite={false}
+        side={DoubleSide}
+        polygonOffset
+        polygonOffsetFactor={-4}
+      />
+    </mesh>
   );
+}
+
+function makeCurvedTokenFaceGeometry(): BufferGeometry {
+  const headCenterY = 0.5;
+  const headRadius = 0.135;
+  const faceCenterY = 0.505;
+  const faceRadius = 0.132;
+  const surfaceLift = 0.004;
+  const radialSegments = 24;
+  const angularSegments = 80;
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  for (let ring = 0; ring <= radialSegments; ring += 1) {
+    const radius = (faceRadius * ring) / radialSegments;
+    for (let segment = 0; segment <= angularSegments; segment += 1) {
+      const angle = (segment / angularSegments) * Math.PI * 2;
+      const x = Math.cos(angle) * radius;
+      const vertical = Math.sin(angle) * radius;
+      const y = faceCenterY + vertical;
+      const dy = y - headCenterY;
+      const z = Math.sqrt(Math.max(0, headRadius * headRadius - x * x - dy * dy)) + surfaceLift;
+      positions.push(x, y, z);
+      uvs.push(0.5 + x / (faceRadius * 2), 0.5 + vertical / (faceRadius * 2));
+    }
+  }
+
+  for (let ring = 0; ring < radialSegments; ring += 1) {
+    const row = ring * (angularSegments + 1);
+    const nextRow = (ring + 1) * (angularSegments + 1);
+    for (let segment = 0; segment < angularSegments; segment += 1) {
+      const a = row + segment;
+      const b = row + segment + 1;
+      const c = nextRow + segment;
+      const d = nextRow + segment + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  return geometry;
 }
 
 type TokenCharacter = Pick<Player, "id" | "name" | "color" | "groom">;
@@ -1069,6 +1112,7 @@ export function PlayerTokenPawn({
   faceAnchors,
   bodyAnchors,
   cosmeticIds = [],
+  cosmeticCatalog = {},
   opacity = 1,
   focused = false,
 }: {
@@ -1078,6 +1122,7 @@ export function PlayerTokenPawn({
   faceAnchors?: Record<string, FaceAnchor>;
   bodyAnchors?: Record<string, FaceAnchor>;
   cosmeticIds?: string[];
+  cosmeticCatalog?: Record<string, CosmeticDef>;
   opacity?: number;
   focused?: boolean;
 }) {
@@ -1155,7 +1200,7 @@ export function PlayerTokenPawn({
           <meshStandardMaterial color="#facc15" emissive="#f59e0b" emissiveIntensity={0.35} roughness={0.35} metalness={0.4} transparent opacity={opacity} />
         </mesh>
       )}
-      <TokenCosmetics cosmeticIds={cosmeticIds} faceAnchors={faceAnchors} bodyAnchors={bodyAnchors} opacity={opacity} />
+      <TokenCosmetics cosmeticIds={cosmeticIds} cosmetics={cosmeticCatalog} faceAnchors={faceAnchors} bodyAnchors={bodyAnchors} opacity={opacity} />
       {focused && (
         <group position={[0, 0.11, 0]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -1175,17 +1220,6 @@ export function PlayerTokenPawn({
     </>
   );
 }
-
-type CosmeticAnchors = {
-  leftEye: Vec3;
-  rightEye: Vec3;
-  mouth: Vec3;
-  head: Vec3;
-  chest: Vec3;
-  leftHand: Vec3;
-  rightHand: Vec3;
-  back: Vec3;
-};
 
 /** Ids de cosméticos conocidos, para el catálogo/galería. */
 export const COSMETIC_IDS = [
@@ -1208,340 +1242,525 @@ export const COSMETIC_IDS = [
 
 function TokenCosmetics({
   cosmeticIds,
+  cosmetics,
   faceAnchors,
   bodyAnchors,
   opacity,
 }: {
   cosmeticIds: string[];
+  cosmetics: Record<string, CosmeticDef>;
   faceAnchors?: Record<string, FaceAnchor>;
   bodyAnchors?: Record<string, FaceAnchor>;
   opacity: number;
 }) {
-  const selected = useMemo(() => new Set(cosmeticIds), [cosmeticIds]);
-  const anchors = useMemo<CosmeticAnchors>(() => {
-    const face = (id: string) => tokenAnchorSurface({ id, scope: "face" }, faceAnchors?.[id] ?? defaultTokenAnchor(id)).position;
-    const body = (id: string) => tokenAnchorSurface({ id, scope: "body" }, bodyAnchors?.[id] ?? defaultTokenAnchor(id)).position;
-    return {
-      leftEye: face("leftEye"),
-      rightEye: face("rightEye"),
-      mouth: face("mouth"),
-      head: body("head"),
-      chest: body("chest"),
-      leftHand: body("leftHand"),
-      rightHand: body("rightHand"),
-      back: body("back"),
-    };
-  }, [faceAnchors, bodyAnchors]);
-  if (selected.size === 0) return null;
+  const equipped = useMemo(
+    () =>
+      cosmeticIds
+        .map((id) => cosmetics[id] ?? normalizeCosmeticDef({ id, name: id, assetId: id }))
+        .sort((a, b) => (a.preview?.order ?? 0) - (b.preview?.order ?? 0) || a.name.localeCompare(b.name)),
+    [cosmeticIds, cosmetics]
+  );
+
+  if (!equipped.length) return null;
+
   return (
     <>
-      {[...selected].map((id) => (
-        <CosmeticPiece key={id} id={id} a={anchors} opacity={opacity} />
+      {equipped.map((cosmetic) => (
+        <TokenCosmetic
+          key={cosmetic.id}
+          cosmetic={cosmetic}
+          faceAnchors={faceAnchors}
+          bodyAnchors={bodyAnchors}
+          opacity={opacity}
+        />
       ))}
     </>
   );
 }
 
-function CosmeticPiece({ id, a, opacity }: { id: string; a: CosmeticAnchors; opacity: number }) {
-  const black = "#111827";
-  const gold = "#f5c542";
-  const hatBase: Vec3 = [0, a.head[1] + 0.02, 0];
-  switch (id) {
-    case "party-goggles":
-    case "goggles":
-      return (
-        <group>
-          {[a.leftEye, a.rightEye].map((position, index) => (
-            <group key={index} position={[position[0], position[1], position[2] + 0.026]}>
-              <mesh geometry={TOKEN_GOGGLE_LENS_GEOMETRY} dispose={null}>
-                <meshBasicMaterial color="#67e8f9" transparent opacity={opacity * 0.45} side={DoubleSide} toneMapped={false} />
-              </mesh>
-              <mesh geometry={TOKEN_GOGGLE_RING_GEOMETRY} dispose={null}>
-                <meshStandardMaterial color="#111827" roughness={0.32} metalness={0.18} transparent opacity={opacity} />
-              </mesh>
-            </group>
-          ))}
-          <mesh
-            position={[(a.leftEye[0] + a.rightEye[0]) / 2, (a.leftEye[1] + a.rightEye[1]) / 2, Math.max(a.leftEye[2], a.rightEye[2]) + 0.026]}
-            rotation={[0, 0, Math.PI / 2]}
-            geometry={TOKEN_GOGGLE_BRIDGE_GEOMETRY}
-            dispose={null}
+function TokenCosmetic({
+  cosmetic,
+  faceAnchors,
+  bodyAnchors,
+  opacity,
+}: {
+  cosmetic: CosmeticDef;
+  faceAnchors?: Record<string, FaceAnchor>;
+  bodyAnchors?: Record<string, FaceAnchor>;
+  opacity: number;
+}) {
+  const kind = cosmeticAssetKind(cosmetic);
+  const primary = cosmeticColor(cosmetic, "color", defaultCosmeticColor(kind));
+  const secondary = cosmeticColor(cosmetic, "secondaryColor", kind === "goggles" ? "#67e8f9" : primary);
+  const rotation = cosmeticRotation(cosmetic);
+  const scale = cosmeticScale(cosmetic);
+
+  if (kind === "goggles") {
+    const anchorRefs = cosmeticAnchorRefs(cosmetic);
+    const firstRef = anchorRefs[0] ?? { anchorType: "face" as const, anchorId: "leftEye" };
+    const secondRef = anchorRefs[1] ?? { anchorType: "face" as const, anchorId: firstRef.anchorId === "leftEye" ? "rightEye" : firstRef.anchorId };
+    const leftEye = anchorSurfaceForRef(firstRef, faceAnchors, bodyAnchors);
+    const rightEye = anchorSurfaceForRef(secondRef, faceAnchors, bodyAnchors);
+    const z = Math.max(leftEye[2], rightEye[2]) + 0.026 + (cosmetic.transform?.z ?? 0);
+    return (
+      <group rotation={[0, 0, rotation]}>
+        {[leftEye, rightEye].map((position, index) => (
+          <group
+            key={index}
+            position={[
+              position[0] + (cosmetic.transform?.x ?? 0),
+              position[1] + (cosmetic.transform?.y ?? 0),
+              position[2] + 0.026 + (cosmetic.transform?.z ?? 0),
+            ]}
+            scale={scale}
           >
-            <meshStandardMaterial color="#111827" roughness={0.35} metalness={0.15} transparent opacity={opacity} />
-          </mesh>
-        </group>
-      );
-    case "big-mustache":
-    case "mustache":
-      return (
-        <group position={[a.mouth[0], a.mouth[1] - 0.02, a.mouth[2] + 0.032]}>
-          <mesh position={[-0.035, 0, 0]} rotation={[0, 0, -0.25]} scale={[1.35, 0.42, 0.25]} geometry={TOKEN_MUSTACHE_LOBE_GEOMETRY} dispose={null}>
-            <meshStandardMaterial color={black} roughness={0.58} metalness={0.02} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0.035, 0, 0]} rotation={[0, 0, 0.25]} scale={[1.35, 0.42, 0.25]} geometry={TOKEN_MUSTACHE_LOBE_GEOMETRY} dispose={null}>
-            <meshStandardMaterial color={black} roughness={0.58} metalness={0.02} transparent opacity={opacity} />
-          </mesh>
-        </group>
-      );
-    case "mustache-handlebar":
-      return (
-        <group position={[a.mouth[0], a.mouth[1] - 0.005, a.mouth[2] + 0.03]}>
-          <mesh scale={[1.3, 0.34, 0.3]}>
-            <sphereGeometry args={[0.045, 12, 8]} />
-            <meshStandardMaterial color="#3a2416" roughness={0.6} transparent opacity={opacity} />
-          </mesh>
-          {[-1, 1].map((s) => (
-            <mesh key={s} position={[s * 0.06, 0.02, 0.006]} rotation={[Math.PI / 2, 0, s * 0.9]}>
-              <torusGeometry args={[0.02, 0.008, 6, 12, Math.PI * 1.3]} />
-              <meshStandardMaterial color="#3a2416" roughness={0.6} transparent opacity={opacity} />
+            <mesh geometry={TOKEN_GOGGLE_LENS_GEOMETRY} dispose={null}>
+              <meshBasicMaterial color={secondary} transparent opacity={opacity * 0.45} side={DoubleSide} toneMapped={false} />
             </mesh>
-          ))}
-        </group>
-      );
-    case "mustache-pencil":
-      return (
-        <group position={[a.mouth[0], a.mouth[1] + 0.005, a.mouth[2] + 0.03]}>
-          <mesh scale={[1, 0.16, 0.22]}>
-            <boxGeometry args={[0.11, 0.02, 0.02]} />
-            <meshStandardMaterial color={black} roughness={0.5} transparent opacity={opacity} />
+            <mesh geometry={TOKEN_GOGGLE_RING_GEOMETRY} dispose={null}>
+              <meshStandardMaterial color={primary} roughness={0.32} metalness={0.18} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        ))}
+        <mesh
+          position={[(leftEye[0] + rightEye[0]) / 2 + (cosmetic.transform?.x ?? 0), (leftEye[1] + rightEye[1]) / 2 + (cosmetic.transform?.y ?? 0), z]}
+          rotation={[0, 0, Math.PI / 2]}
+          scale={[scale[0], scale[1], scale[2]]}
+          geometry={TOKEN_GOGGLE_BRIDGE_GEOMETRY}
+          dispose={null}
+        >
+          <meshStandardMaterial color={primary} roughness={0.35} metalness={0.15} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "mustache") {
+    const mouth = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: -0.02, z: 0.032 });
+    return (
+      <group position={mouth} rotation={[0, 0, rotation]}>
+        <mesh position={[-0.035, 0, 0]} rotation={[0, 0, -0.25]} scale={[1.35 * scale[0], 0.42 * scale[1], 0.25 * scale[2]]} geometry={TOKEN_MUSTACHE_LOBE_GEOMETRY} dispose={null}>
+          <meshStandardMaterial color={primary} roughness={0.58} metalness={0.02} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0.035, 0, 0]} rotation={[0, 0, 0.25]} scale={[1.35 * scale[0], 0.42 * scale[1], 0.25 * scale[2]]} geometry={TOKEN_MUSTACHE_LOBE_GEOMETRY} dispose={null}>
+          <meshStandardMaterial color={primary} roughness={0.58} metalness={0.02} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "mustache-handlebar") {
+    const mouth = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: -0.005, z: 0.03 });
+    return (
+      <group position={mouth} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh scale={[1.3, 0.34, 0.3]}>
+          <sphereGeometry args={[0.045, 12, 8]} />
+          <meshStandardMaterial color={primary} roughness={0.6} transparent opacity={opacity} />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.06, 0.02, 0.006]} rotation={[Math.PI / 2, 0, side * 0.9]}>
+            <torusGeometry args={[0.02, 0.008, 6, 12, Math.PI * 1.3]} />
+            <meshStandardMaterial color={primary} roughness={0.6} transparent opacity={opacity} />
           </mesh>
-        </group>
-      );
-    case "party-hat":
-    case "hat":
-      return (
-        <group position={[a.head[0], a.head[1] + 0.035, Math.max(0.015, a.head[2] - 0.025)]} rotation={[0.12, 0, -0.08]}>
-          <mesh position={[0, 0.085, 0]} geometry={TOKEN_HAT_GEOMETRY} dispose={null}>
-            <meshStandardMaterial color="#a855f7" emissive="#4c1d95" emissiveIntensity={0.12} roughness={0.5} transparent opacity={opacity} />
+        ))}
+      </group>
+    );
+  }
+
+  if (kind === "mustache-pencil") {
+    const mouth = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.005, z: 0.03 });
+    return (
+      <group position={mouth} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh scale={[1, 0.16, 0.22]}>
+          <boxGeometry args={[0.11, 0.02, 0.02]} />
+          <meshStandardMaterial color={primary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "beard") {
+    const mouth = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: -0.065, z: 0.032 });
+    return (
+      <group position={mouth} rotation={[0, 0, rotation]} scale={scale}>
+        {[-0.05, 0, 0.05].map((x, index) => (
+          <mesh key={index} position={[x, index === 1 ? -0.014 : 0.006, 0]} scale={[1.12, 0.8, 0.35]} geometry={TOKEN_BEARD_LOBE_GEOMETRY} dispose={null}>
+            <meshStandardMaterial color={primary} roughness={0.7} metalness={0.01} transparent opacity={opacity} />
           </mesh>
-          <mesh position={[0, 0.005, 0]} geometry={TOKEN_HAT_BRIM_GEOMETRY} dispose={null}>
-            <meshStandardMaterial color="#22d3ee" roughness={0.38} metalness={0.08} transparent opacity={opacity} />
-          </mesh>
-        </group>
-      );
-    case "top-hat":
-      return (
-        <group position={hatBase}>
-          <mesh position={[0, 0.012, 0]}>
-            <cylinderGeometry args={[0.13, 0.13, 0.016, 20]} />
-            <meshStandardMaterial color={black} roughness={0.4} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, 0.12, 0]}>
-            <cylinderGeometry args={[0.085, 0.09, 0.2, 20]} />
-            <meshStandardMaterial color={black} roughness={0.4} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, 0.045, 0]}>
-            <cylinderGeometry args={[0.092, 0.092, 0.03, 20]} />
-            <meshStandardMaterial color="#7f1d1d" roughness={0.5} transparent opacity={opacity} />
-          </mesh>
-        </group>
-      );
-    case "cap":
-      return (
-        <group position={hatBase}>
-          <mesh position={[0, 0.03, 0]}>
-            <sphereGeometry args={[0.1, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial color="#2563eb" roughness={0.55} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, 0.02, 0.11]} rotation={[-0.25, 0, 0]}>
-            <cylinderGeometry args={[0.09, 0.09, 0.016, 16, 1, false, 0, Math.PI]} />
-            <meshStandardMaterial color="#1d4ed8" roughness={0.55} side={DoubleSide} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, 0.11, 0]}>
-            <sphereGeometry args={[0.014, 8, 6]} />
-            <meshStandardMaterial color="#1d4ed8" roughness={0.5} transparent opacity={opacity} />
-          </mesh>
-        </group>
-      );
-    case "field-hat":
-      return (
-        <group position={hatBase}>
-          <mesh position={[0, 0.012, 0]}>
-            <cylinderGeometry args={[0.16, 0.16, 0.012, 20]} />
-            <meshStandardMaterial color="#c69a5b" roughness={0.7} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, 0.065, 0]}>
-            <cylinderGeometry args={[0.072, 0.09, 0.1, 16]} />
-            <meshStandardMaterial color="#c69a5b" roughness={0.7} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, 0.035, 0]}>
-            <cylinderGeometry args={[0.092, 0.092, 0.022, 16]} />
-            <meshStandardMaterial color="#7a4a24" roughness={0.75} transparent opacity={opacity} />
-          </mesh>
-        </group>
-      );
-    case "coin-crown":
-      return (
-        <group position={hatBase}>
-          <mesh position={[0, 0.03, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.1, 0.016, 8, 20]} />
-            <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
-          </mesh>
-          {[0, 1, 2, 3, 4, 5].map((i) => {
-            const ang = (i / 6) * Math.PI * 2;
-            return (
-              <mesh key={i} position={[Math.cos(ang) * 0.1, 0.075, Math.sin(ang) * 0.1]} rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[0.026, 0.026, 0.008, 14]} />
-                <meshStandardMaterial color={gold} metalness={0.85} roughness={0.22} transparent opacity={opacity} />
-              </mesh>
-            );
-          })}
-        </group>
-      );
-    case "gold-chain":
-      return (
-        <group position={[a.chest[0], a.chest[1] + 0.07, a.chest[2] - 0.02]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 0.68]}>
-            <torusGeometry args={[0.12, 0.013, 8, 26]} />
-            <meshStandardMaterial color={gold} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
-          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  if (kind === "top-hat") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.02 });
+    return (
+      <group position={head} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh position={[0, 0.012, 0]}>
+          <cylinderGeometry args={[0.13, 0.13, 0.016, 20]} />
+          <meshStandardMaterial color={primary} roughness={0.4} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.085, 0.09, 0.2, 20]} />
+          <meshStandardMaterial color={primary} roughness={0.4} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.045, 0]}>
+          <cylinderGeometry args={[0.092, 0.092, 0.03, 20]} />
+          <meshStandardMaterial color={secondary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "cap") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.02 });
+    return (
+      <group position={head} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh position={[0, 0.03, 0]}>
+          <sphereGeometry args={[0.1, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color={primary} roughness={0.55} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.02, 0.11]} rotation={[-0.25, 0, 0]}>
+          <cylinderGeometry args={[0.09, 0.09, 0.016, 16, 1, false, 0, Math.PI]} />
+          <meshStandardMaterial color={secondary} roughness={0.55} side={DoubleSide} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.11, 0]}>
+          <sphereGeometry args={[0.014, 8, 6]} />
+          <meshStandardMaterial color={secondary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "field-hat") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.02 });
+    return (
+      <group position={head} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh position={[0, 0.012, 0]}>
+          <cylinderGeometry args={[0.16, 0.16, 0.012, 20]} />
+          <meshStandardMaterial color={primary} roughness={0.7} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.065, 0]}>
+          <cylinderGeometry args={[0.072, 0.09, 0.1, 16]} />
+          <meshStandardMaterial color={primary} roughness={0.7} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.035, 0]}>
+          <cylinderGeometry args={[0.092, 0.092, 0.022, 16]} />
+          <meshStandardMaterial color={secondary} roughness={0.75} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "coin-crown") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.02 });
+    return (
+      <group position={head} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh position={[0, 0.03, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.1, 0.016, 8, 20]} />
+          <meshStandardMaterial color={primary} metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+        </mesh>
+        {[0, 1, 2, 3, 4, 5].map((index) => {
+          const angle = (index / 6) * Math.PI * 2;
+          return (
+            <mesh key={index} position={[Math.cos(angle) * 0.1, 0.075, Math.sin(angle) * 0.1]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.026, 0.026, 0.008, 14]} />
+              <meshStandardMaterial color={primary} metalness={0.85} roughness={0.22} transparent opacity={opacity} />
+            </mesh>
+          );
+        })}
+      </group>
+    );
+  }
+
+  if (kind === "hat") {
+    const head = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { z: -0.025 });
+    return (
+      <group position={head} rotation={[0.12, 0, -0.08 + rotation]} scale={scale}>
+        <mesh position={[0, 0.072, 0]} geometry={TOKEN_HAT_GEOMETRY} dispose={null}>
+          <meshStandardMaterial color={primary} emissive={primary} emissiveIntensity={0.12} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, -0.006, 0]} geometry={TOKEN_HAT_BRIM_GEOMETRY} dispose={null}>
+          <meshStandardMaterial color={secondary} roughness={0.38} metalness={0.08} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "gold-chain" || kind === "dice-necklace") {
+    const chest = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.07, z: -0.02 });
+    const isDice = kind === "dice-necklace";
+    return (
+      <group position={chest} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 0.68]}>
+          <torusGeometry args={[0.12, isDice ? 0.009 : 0.013, 8, 26]} />
+          <meshStandardMaterial color={primary} metalness={0.8} roughness={0.24} transparent opacity={opacity} />
+        </mesh>
+        {isDice ? (
+          <>
+            <mesh position={[0, -0.08, 0.045]} rotation={[0.2, 0.4, 0]}>
+              <boxGeometry args={[0.05, 0.05, 0.05]} />
+              <meshStandardMaterial color={secondary} roughness={0.4} transparent opacity={opacity} />
+            </mesh>
+            <mesh position={[0, -0.08, 0.072]}>
+              <sphereGeometry args={[0.007, 6, 6]} />
+              <meshStandardMaterial color="#111827" transparent opacity={opacity} />
+            </mesh>
+          </>
+        ) : (
           <mesh position={[0, -0.07, 0.03]}>
             <sphereGeometry args={[0.022, 10, 8]} />
-            <meshStandardMaterial color={gold} metalness={0.85} roughness={0.22} transparent opacity={opacity} />
+            <meshStandardMaterial color={primary} metalness={0.85} roughness={0.22} transparent opacity={opacity} />
           </mesh>
-        </group>
-      );
-    case "dice-necklace":
-      return (
-        <group position={[a.chest[0], a.chest[1] + 0.07, a.chest[2] - 0.02]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 0.68]}>
-            <torusGeometry args={[0.12, 0.009, 8, 26]} />
-            <meshStandardMaterial color="#cbd5e1" metalness={0.7} roughness={0.3} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, -0.08, 0.045]} rotation={[0.2, 0.4, 0]}>
-            <boxGeometry args={[0.05, 0.05, 0.05]} />
-            <meshStandardMaterial color="#f8fafc" roughness={0.4} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, -0.08, 0.072]}>
-            <sphereGeometry args={[0.007, 6, 6]} />
-            <meshStandardMaterial color={black} transparent opacity={opacity} />
-          </mesh>
-        </group>
-      );
-    case "wristwatch":
-      return (
-        <group position={[a.rightHand[0], a.rightHand[1], a.rightHand[2] + 0.008]}>
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.032, 0.032, 0.022, 14, 1, true]} />
-            <meshStandardMaterial color="#3a2416" roughness={0.6} side={DoubleSide} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, 0, 0.03]}>
-            <cylinderGeometry args={[0.026, 0.026, 0.012, 16]} />
-            <meshStandardMaterial color="#475569" metalness={0.6} roughness={0.3} transparent opacity={opacity} />
-          </mesh>
-          <mesh position={[0, 0, 0.037]}>
-            <cylinderGeometry args={[0.02, 0.02, 0.003, 16]} />
-            <meshStandardMaterial color="#f8fafc" roughness={0.4} transparent opacity={opacity} />
-          </mesh>
-        </group>
-      );
-    case "tuxedo":
-      return (
-        <group>
-          {/* saco negro cubriendo el torso */}
-          <mesh position={[0, 0.235, 0]} scale={[1.06, 1.12, 1.06]}>
-            <sphereGeometry args={[0.19, 20, 14]} />
-            <meshStandardMaterial color="#0f1115" roughness={0.5} transparent opacity={opacity} />
-          </mesh>
-          {/* pechera blanca */}
-          <mesh position={[0, 0.24, 0.18]}>
-            <boxGeometry args={[0.07, 0.22, 0.02]} />
-            <meshStandardMaterial color="#f8fafc" roughness={0.5} transparent opacity={opacity} />
-          </mesh>
-          {/* solapas */}
-          {[-1, 1].map((s) => (
-            <mesh key={s} position={[s * 0.055, 0.31, 0.185]} rotation={[0, 0, s * 0.5]}>
-              <boxGeometry args={[0.035, 0.12, 0.01]} />
-              <meshStandardMaterial color="#1f2937" roughness={0.5} transparent opacity={opacity} />
-            </mesh>
-          ))}
-          {/* moño */}
-          {[-1, 1].map((s) => (
-            <mesh key={`bow-${s}`} position={[s * 0.028, 0.4, 0.17]} rotation={[0, 0, s * 0.5]} scale={[1.5, 0.85, 0.4]}>
-              <sphereGeometry args={[0.03, 10, 8]} />
-              <meshStandardMaterial color={black} roughness={0.5} transparent opacity={opacity} />
-            </mesh>
-          ))}
-          {/* botones dorados */}
-          {[0.29, 0.23].map((y) => (
-            <mesh key={y} position={[0, y, 0.2]}>
-              <sphereGeometry args={[0.008, 6, 6]} />
-              <meshStandardMaterial color={gold} metalness={0.8} roughness={0.25} transparent opacity={opacity} />
-            </mesh>
-          ))}
-        </group>
-      );
-    case "pet-dog":
-      return <PetCompanion opacity={opacity} kind="dog" />;
-    case "pet-cat":
-      return <PetCompanion opacity={opacity} kind="cat" />;
-    default:
-      return null;
+        )}
+      </group>
+    );
   }
+
+  if (kind === "wristwatch") {
+    const hand = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { z: 0.008 });
+    return (
+      <group position={hand} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.032, 0.032, 0.022, 14, 1, true]} />
+          <meshStandardMaterial color={primary} roughness={0.6} side={DoubleSide} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0, 0.03]}>
+          <cylinderGeometry args={[0.026, 0.026, 0.012, 16]} />
+          <meshStandardMaterial color={secondary} metalness={0.6} roughness={0.3} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0, 0.037]}>
+          <cylinderGeometry args={[0.02, 0.02, 0.003, 16]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.4} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "tuxedo") {
+    return (
+      <group
+        position={[cosmetic.transform?.x ?? 0, cosmetic.transform?.y ?? 0, cosmetic.transform?.z ?? 0]}
+        rotation={[0, 0, rotation]}
+        scale={scale}
+      >
+        <mesh position={[0, 0.235, 0]} scale={[1.06, 1.12, 1.06]}>
+          <sphereGeometry args={[0.19, 20, 14]} />
+          <meshStandardMaterial color={primary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+        <mesh position={[0, 0.24, 0.18]}>
+          <boxGeometry args={[0.07, 0.22, 0.02]} />
+          <meshStandardMaterial color={secondary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.055, 0.31, 0.185]} rotation={[0, 0, side * 0.5]}>
+            <boxGeometry args={[0.035, 0.12, 0.01]} />
+            <meshStandardMaterial color="#1f2937" roughness={0.5} transparent opacity={opacity} />
+          </mesh>
+        ))}
+        {[-1, 1].map((side) => (
+          <mesh key={`bow-${side}`} position={[side * 0.028, 0.4, 0.17]} rotation={[0, 0, side * 0.5]} scale={[1.5, 0.85, 0.4]}>
+            <sphereGeometry args={[0.03, 10, 8]} />
+            <meshStandardMaterial color="#111827" roughness={0.5} transparent opacity={opacity} />
+          </mesh>
+        ))}
+        {[0.29, 0.23].map((y) => (
+          <mesh key={y} position={[0, y, 0.2]}>
+            <sphereGeometry args={[0.008, 6, 6]} />
+            <meshStandardMaterial color="#f5c542" metalness={0.8} roughness={0.25} transparent opacity={opacity} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  if (kind === "pet-dog" || kind === "pet-cat") {
+    return (
+      <PetCompanion
+        opacity={opacity}
+        kind={kind === "pet-dog" ? "dog" : "cat"}
+        color={primary}
+        secondaryColor={secondary}
+      />
+    );
+  }
+
+  if (kind === "piercing") {
+    const chest = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { z: 0.04 });
+    return (
+      <group position={chest} rotation={[0, 0, rotation]} scale={scale}>
+        {[-0.045, 0.045].map((x) => (
+          <mesh key={x} position={[x, 0, 0]} geometry={TOKEN_PIERCING_GEOMETRY} dispose={null}>
+            <meshStandardMaterial color={primary} roughness={0.25} metalness={0.65} transparent opacity={opacity} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  if (kind === "tattoo") {
+    const chest = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { z: 0.04 });
+    return (
+      <group position={chest} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh rotation={[0, 0, Math.PI / 4]} geometry={TOKEN_TATTOO_GEOMETRY} dispose={null}>
+          <meshBasicMaterial color={primary} transparent opacity={opacity * 0.85} side={DoubleSide} toneMapped={false} />
+        </mesh>
+        <mesh position={[0.012, -0.03, 0.001]} rotation={[0, 0, Math.PI / 4]} scale={[0.7, 1.15, 1]} geometry={TOKEN_TATTOO_GEOMETRY} dispose={null}>
+          <meshBasicMaterial color={primary} transparent opacity={opacity * 0.85} side={DoubleSide} toneMapped={false} />
+        </mesh>
+      </group>
+    );
+  }
+
+  const anchor = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { z: 0.04 });
+  return (
+    <group position={anchor} rotation={[0, 0, rotation]} scale={scale}>
+      <mesh geometry={TOKEN_TATTOO_GEOMETRY} dispose={null}>
+        <meshBasicMaterial color={primary} transparent opacity={opacity * 0.9} side={DoubleSide} toneMapped={false} />
+      </mesh>
+    </group>
+  );
 }
 
-/** Mascota que acompaña al jugador saltando al lado suyo. */
-function PetCompanion({ opacity, kind }: { opacity: number; kind: "dog" | "cat" }) {
+function PetCompanion({
+  opacity,
+  kind,
+  color,
+  secondaryColor,
+}: {
+  opacity: number;
+  kind: "dog" | "cat";
+  color: string;
+  secondaryColor: string;
+}) {
   const hop = useRef<Group | null>(null);
   useFrame((state) => {
     if (!hop.current) return;
-    const t = state.clock.elapsedTime;
-    hop.current.position.y = Math.abs(Math.sin(t * 3.4)) * 0.09;
-    hop.current.rotation.x = Math.sin(t * 3.4) * 0.12;
+    const time = state.clock.elapsedTime;
+    hop.current.position.y = Math.abs(Math.sin(time * 3.4)) * 0.09;
+    hop.current.rotation.x = Math.sin(time * 3.4) * 0.12;
   });
-  const fur = kind === "dog" ? "#a9702f" : "#7c8794";
-  const furDark = kind === "dog" ? "#7c4f22" : "#5b6673";
+
   return (
     <group position={[0.42, 0, 0.06]}>
       <group ref={hop}>
-        {/* cuerpo */}
         <mesh castShadow position={[0, 0.08, 0]} scale={[1, 0.85, 1.35]}>
           <sphereGeometry args={[0.08, 12, 10]} />
-          <meshStandardMaterial color={fur} roughness={0.65} transparent opacity={opacity} />
+          <meshStandardMaterial color={color} roughness={0.65} transparent opacity={opacity} />
         </mesh>
-        {/* cabeza */}
         <mesh castShadow position={[0, 0.14, 0.09]}>
           <sphereGeometry args={[0.06, 12, 10]} />
-          <meshStandardMaterial color={fur} roughness={0.65} transparent opacity={opacity} />
+          <meshStandardMaterial color={color} roughness={0.65} transparent opacity={opacity} />
         </mesh>
-        {/* orejas */}
-        {[-1, 1].map((s) => (
-          <mesh key={s} position={[s * 0.035, 0.19, 0.08]} scale={kind === "cat" ? [0.55, 1.1, 0.4] : [0.75, 0.7, 0.45]}>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.035, 0.19, 0.08]} scale={kind === "cat" ? [0.55, 1.1, 0.4] : [0.75, 0.7, 0.45]}>
             <sphereGeometry args={[0.026, 8, 6]} />
-            <meshStandardMaterial color={furDark} roughness={0.7} transparent opacity={opacity} />
+            <meshStandardMaterial color={secondaryColor} roughness={0.7} transparent opacity={opacity} />
           </mesh>
         ))}
-        {/* hocico + nariz */}
         <mesh position={[0, 0.115, 0.14]}>
           <sphereGeometry args={[0.03, 8, 6]} />
-          <meshStandardMaterial color={furDark} roughness={0.65} transparent opacity={opacity} />
+          <meshStandardMaterial color={secondaryColor} roughness={0.65} transparent opacity={opacity} />
         </mesh>
         <mesh position={[0, 0.12, 0.17]}>
           <sphereGeometry args={[0.011, 8, 6]} />
           <meshStandardMaterial color="#111827" roughness={0.5} transparent opacity={opacity} />
         </mesh>
-        {/* ojos */}
-        {[-1, 1].map((s) => (
-          <mesh key={`eye-${s}`} position={[s * 0.022, 0.15, 0.135]}>
+        {[-1, 1].map((side) => (
+          <mesh key={`eye-${side}`} position={[side * 0.022, 0.15, 0.135]}>
             <sphereGeometry args={[0.008, 6, 6]} />
             <meshStandardMaterial color="#111827" roughness={0.4} transparent opacity={opacity} />
           </mesh>
         ))}
-        {/* patas */}
-        {([[-0.04, -0.05], [0.04, -0.05], [-0.04, 0.06], [0.04, 0.06]] as [number, number][]).map(([x, z], i) => (
-          <mesh key={`leg-${i}`} position={[x, 0.02, z]}>
+        {([[-0.04, -0.05], [0.04, -0.05], [-0.04, 0.06], [0.04, 0.06]] as [number, number][]).map(([x, z], index) => (
+          <mesh key={index} position={[x, 0.02, z]}>
             <cylinderGeometry args={[0.015, 0.015, 0.06, 6]} />
-            <meshStandardMaterial color={furDark} roughness={0.7} transparent opacity={opacity} />
+            <meshStandardMaterial color={secondaryColor} roughness={0.7} transparent opacity={opacity} />
           </mesh>
         ))}
-        {/* cola */}
         <mesh position={[0, 0.12, -0.09]} rotation={[0.7, 0, 0]}>
           <cylinderGeometry args={[0.01, 0.016, 0.11, 6]} />
-          <meshStandardMaterial color={fur} roughness={0.65} transparent opacity={opacity} />
+          <meshStandardMaterial color={color} roughness={0.65} transparent opacity={opacity} />
         </mesh>
       </group>
     </group>
   );
+}
+
+function anchorSurface(
+  anchorType: "face" | "body" | "token",
+  anchorId: string,
+  faceAnchors?: Record<string, FaceAnchor>,
+  bodyAnchors?: Record<string, FaceAnchor>
+): Vec3 {
+  if (anchorType === "face") {
+    return tokenAnchorSurface({ id: anchorId, scope: "face" }, faceAnchors?.[anchorId] ?? defaultTokenAnchor(anchorId)).position;
+  }
+  if (anchorType === "body") {
+    return tokenAnchorSurface({ id: anchorId, scope: "body" }, bodyAnchors?.[anchorId] ?? defaultTokenAnchor(anchorId)).position;
+  }
+  return [0, 0.2, 0.2];
+}
+
+function anchorSurfaceForRef(
+  anchor: { anchorType: "face" | "body" | "token"; anchorId: string },
+  faceAnchors?: Record<string, FaceAnchor>,
+  bodyAnchors?: Record<string, FaceAnchor>
+): Vec3 {
+  return anchorSurface(anchor.anchorType, anchor.anchorId, faceAnchors, bodyAnchors);
+}
+
+function transformedAnchor(
+  cosmetic: CosmeticDef,
+  faceAnchors: Record<string, FaceAnchor> | undefined,
+  bodyAnchors: Record<string, FaceAnchor> | undefined,
+  defaults: { x?: number; y?: number; z?: number }
+): Vec3 {
+  const base = anchorSurfaceForRef(cosmeticAnchorRefs(cosmetic)[0] ?? { anchorType: "body", anchorId: "chest" }, faceAnchors, bodyAnchors);
+  return [
+    base[0] + (defaults.x ?? 0) + (cosmetic.transform?.x ?? 0),
+    base[1] + (defaults.y ?? 0) + (cosmetic.transform?.y ?? 0),
+    base[2] + (defaults.z ?? 0) + (cosmetic.transform?.z ?? 0),
+  ];
+}
+
+function cosmeticScale(cosmetic: CosmeticDef): [number, number, number] {
+  const base = cosmetic.transform?.scale ?? 1;
+  return [
+    base * (cosmetic.transform?.scaleX ?? 1),
+    base * (cosmetic.transform?.scaleY ?? 1),
+    base * (cosmetic.transform?.scaleZ ?? 1),
+  ];
+}
+
+function cosmeticRotation(cosmetic: CosmeticDef): number {
+  return (((cosmetic.transform?.rotationZ ?? cosmetic.transform?.rotation ?? 0) * Math.PI) / 180);
+}
+
+function cosmeticColor(cosmetic: CosmeticDef, key: "color" | "secondaryColor", fallback: string): string {
+  const previewValue = cosmetic.preview?.[key];
+  if (previewValue) return previewValue;
+  if (typeof cosmetic.asset !== "string") return cosmetic.asset[key] ?? fallback;
+  return fallback;
+}
+
+function defaultCosmeticColor(kind: string): string {
+  if (kind === "mustache-handlebar") return "#3a2416";
+  if (kind === "mustache-pencil") return "#111827";
+  if (kind === "top-hat") return "#111827";
+  if (kind === "cap") return "#2563eb";
+  if (kind === "field-hat") return "#c69a5b";
+  if (kind === "coin-crown" || kind === "gold-chain") return "#f5c542";
+  if (kind === "dice-necklace") return "#cbd5e1";
+  if (kind === "wristwatch") return "#3a2416";
+  if (kind === "tuxedo") return "#0f1115";
+  if (kind === "pet-dog") return "#a9702f";
+  if (kind === "pet-cat") return "#7c8794";
+  if (kind === "hat") return "#a855f7";
+  if (kind === "piercing") return "#e5e7eb";
+  if (kind === "tattoo") return "#111827";
+  if (kind === "beard") return "#4b2a12";
+  return "#111827";
 }
 
 function PlayerToken({
@@ -1552,6 +1771,7 @@ function PlayerToken({
   motionKind,
   motionNonce,
   focused,
+  cosmeticCatalog,
   onSelect,
   trackRef,
 }: {
@@ -1562,6 +1782,7 @@ function PlayerToken({
   motionKind: BoardMotionKind;
   motionNonce: string;
   focused: boolean;
+  cosmeticCatalog: Record<string, CosmeticDef>;
   onSelect?: (playerId: string) => void;
   /** la cámara lee de acá la posición viva del muñeco seguido */
   trackRef?: { current: Vector3 | null };
@@ -1659,6 +1880,7 @@ function PlayerToken({
         faceAnchors={player.faceAnchors}
         bodyAnchors={player.bodyAnchors}
         cosmeticIds={player.cosmeticIds}
+        cosmeticCatalog={cosmeticCatalog}
         opacity={opacity}
         focused={focused}
       />

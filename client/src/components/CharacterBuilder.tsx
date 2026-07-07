@@ -1,128 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
-import { Crosshair, Download, Home, ImagePlus, Plus, Rotate3D, RotateCcw, Trash2, Upload, Wrench } from "lucide-react";
-import { Euler, Matrix4, Quaternion, Vector3 } from "three";
-import type { CharacterDef, CharacterSetDef, CosmeticDef, FaceAnchor, FacePhotoAlignment, GameContent } from "@essence/shared";
+import { Crosshair, Download, Home, ImagePlus, Plus, Rotate3D, RotateCcw, Save, Trash2, Upload, Wrench } from "lucide-react";
+import type { CharacterDef, CosmeticDef, FaceAnchor, FacePhotoAlignment, GameContent } from "@essence/shared";
 import { characterDisplayName } from "@essence/shared/characters";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import seedContent from "@shared/content.json";
+import { defaultTokenAnchor, type TokenAnchorHandle } from "../characterTokenRig";
 import {
-  TOKEN_PREVIEW_GROUP_POSITION,
-  TOKEN_PREVIEW_GROUP_SCALE,
-  defaultTokenAnchor,
-  tokenAnchorSurface,
-  type TokenAnchorHandle,
-} from "../characterTokenRig";
-import { PlayerTokenPawn } from "./Board3DShell";
+  TokenPreviewCanvas,
+  TokenPreviewMoveBadge,
+  TokenPreviewViewControls,
+  sameProjectedTokenAnchors,
+  tokenPreviewAnchorLabel,
+  useTokenPreviewRotation,
+  type ProjectedTokenAnchor,
+} from "./TokenPreviewer";
+import { contentWithCharacterList } from "./builderContent";
+import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 
-const EXAMPLE_COSMETICS: Record<string, CosmeticDef> = {
-  "party-goggles": {
-    id: "party-goggles",
-    name: "Party goggles",
-    description: "Round party goggles mounted to the eye anchors.",
-    assetId: "goggles",
-    anchor: "leftEye",
-  },
-  "big-mustache": {
-    id: "big-mustache",
-    name: "Big mustache",
-    description: "A bold mustache mounted to the mouth anchor.",
-    assetId: "mustache",
-    anchor: "mouth",
-  },
-  "party-hat": {
-    id: "party-hat",
-    name: "Party hat",
-    description: "A cone hat mounted to the head anchor.",
-    assetId: "hat",
-    anchor: "head",
-  },
-  "mustache-handlebar": {
-    id: "mustache-handlebar",
-    name: "Bigote manubrio",
-    description: "Bigote con las puntas paraditas.",
-    anchor: "mouth",
-  },
-  "mustache-pencil": {
-    id: "mustache-pencil",
-    name: "Bigote finito",
-    description: "Bigote fino tipo lápiz.",
-    anchor: "mouth",
-  },
-  "top-hat": {
-    id: "top-hat",
-    name: "Galera",
-    description: "Galera negra elegante.",
-    anchor: "head",
-  },
-  "cap": {
-    id: "cap",
-    name: "Gorra",
-    description: "Gorra con visera.",
-    anchor: "head",
-  },
-  "field-hat": {
-    id: "field-hat",
-    name: "Sombrero de campo",
-    description: "Sombrero de ala ancha.",
-    anchor: "head",
-  },
-  "coin-crown": {
-    id: "coin-crown",
-    name: "Corona de monedas",
-    description: "Corona dorada de monedas.",
-    anchor: "head",
-  },
-  "gold-chain": {
-    id: "gold-chain",
-    name: "Cadena de oro",
-    description: "Cadena de oro al cuello.",
-    anchor: "chest",
-  },
-  "dice-necklace": {
-    id: "dice-necklace",
-    name: "Collar de dados",
-    description: "Collar con un dado colgante.",
-    anchor: "chest",
-  },
-  "wristwatch": {
-    id: "wristwatch",
-    name: "Reloj de muñeca",
-    description: "Reloj en la muñeca.",
-    anchor: "rightHand",
-  },
-  "tuxedo": {
-    id: "tuxedo",
-    name: "Smoking",
-    description: "Traje de smoking negro con moño.",
-    anchor: "chest",
-  },
-  "pet-dog": {
-    id: "pet-dog",
-    name: "Perrito",
-    description: "Perrito que salta al lado tuyo.",
-    anchor: "back",
-  },
-  "pet-cat": {
-    id: "pet-cat",
-    name: "Gatito",
-    description: "Gatito que salta al lado tuyo.",
-    anchor: "back",
-  },
-};
-
-const BASE_CONTENT = withExampleCosmetics(normalizeContentSchema(seedContent));
+const BASE_CONTENT = normalizeContentSchema(seedContent);
 const STORAGE_KEY = "essence:character-builder:draft:v1";
 const FACE_ANCHORS = ["leftEye", "rightEye", "mouth"] as const;
 const BODY_ANCHORS = ["head", "chest", "leftHand", "rightHand", "back"] as const;
 const DEFAULT_FACE_ALIGNMENT: FacePhotoAlignment = { x: 0.5, y: 0.5, scale: 1.08, angle: 0 };
-const DEFAULT_PREVIEW_ROTATION = { yaw: 0, pitch: 0 };
-const PREVIEW_VIEWS = [
-  { id: "front", label: "Front", yaw: 0, pitch: 0 },
-  { id: "left", label: "Left", yaw: Math.PI / 2, pitch: 0 },
-  { id: "back", label: "Back", yaw: Math.PI, pitch: 0 },
-  { id: "right", label: "Right", yaw: -Math.PI / 2, pitch: 0 },
-] as const;
 const ANCHOR_COLORS: Record<string, string> = {
   leftEye: "#38bdf8",
   rightEye: "#38bdf8",
@@ -135,7 +34,6 @@ const ANCHOR_COLORS: Record<string, string> = {
 };
 
 type AnchorScope = "face" | "body";
-type PreviewRotation = typeof DEFAULT_PREVIEW_ROTATION;
 type PreviewTool = "view" | "anchors";
 
 interface AnchorHandle extends TokenAnchorHandle {
@@ -144,40 +42,27 @@ interface AnchorHandle extends TokenAnchorHandle {
   scope: AnchorScope;
 }
 
-interface ProjectedAnchor {
-  x: number;
-  y: number;
-  visible: boolean;
-}
-
 const ANCHOR_HANDLES: AnchorHandle[] = [
-  ...FACE_ANCHORS.map((id) => ({ id, label: anchorLabel(id), scope: "face" as const })),
-  ...BODY_ANCHORS.map((id) => ({ id, label: anchorLabel(id), scope: "body" as const })),
+  ...FACE_ANCHORS.map((id) => ({ id, label: tokenPreviewAnchorLabel(id), scope: "face" as const })),
+  ...BODY_ANCHORS.map((id) => ({ id, label: tokenPreviewAnchorLabel(id), scope: "body" as const })),
 ];
 
 export default function CharacterBuilder() {
   const [content, setContent] = useState<GameContent>(() => loadInitialContent());
   const characterIds = useMemo(() => Object.keys(content.characters ?? {}), [content.characters]);
-  const setIds = useMemo(() => Object.keys(content.characterSets ?? {}), [content.characterSets]);
   const [selectedCharacterId, setSelectedCharacterId] = useState(characterIds[0] ?? "");
-  const [selectedSetId, setSelectedSetId] = useState(setIds[0] ?? "");
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
 
   const selectedCharacter = selectedCharacterId ? content.characters?.[selectedCharacterId] : undefined;
-  const selectedSet = selectedSetId ? content.characterSets?.[selectedSetId] : undefined;
-  const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(content), null, 2), [content]);
+  const exportContent = useMemo(() => contentWithCharacterList(content, BASE_CONTENT), [content]);
+  const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
 
   useEffect(() => {
     if (selectedCharacterId && characterIds.includes(selectedCharacterId)) return;
     setSelectedCharacterId(characterIds[0] ?? "");
   }, [characterIds, selectedCharacterId]);
-
-  useEffect(() => {
-    if (selectedSetId && setIds.includes(selectedSetId)) return;
-    setSelectedSetId(setIds[0] ?? "");
-  }, [selectedSetId, setIds]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, exportJson);
@@ -195,16 +80,6 @@ export default function CharacterBuilder() {
       characters: {
         ...(current.characters ?? {}),
         [id]: updater(current.characters?.[id] ?? emptyCharacter(id)),
-      },
-    }));
-  };
-
-  const updateSet = (id: string, updater: (set: CharacterSetDef) => CharacterSetDef) => {
-    setContent((current) => ({
-      ...current,
-      characterSets: {
-        ...(current.characterSets ?? {}),
-        [id]: updater(current.characterSets?.[id] ?? emptySet(id)),
       },
     }));
   };
@@ -228,41 +103,7 @@ export default function CharacterBuilder() {
     if (!window.confirm(`Delete "${characterDisplayName(character)}"?`)) return;
     setContent((current) => {
       const { [id]: _deleted, ...characters } = current.characters ?? {};
-      return {
-        ...current,
-        characters,
-        characterSets: Object.fromEntries(
-          Object.entries(current.characterSets ?? {}).map(([setId, set]) => [
-            setId,
-            { ...set, characterIds: set.characterIds.filter((characterId) => characterId !== id) },
-          ])
-        ),
-      };
-    });
-    setSaveStatus("Deleted");
-  };
-
-  const createSet = () => {
-    const id = nextId("set", content.characterSets ?? {});
-    setContent((current) => ({
-      ...current,
-      characterSets: {
-        ...(current.characterSets ?? {}),
-        [id]: { id, name: "New character set", characterIds: Object.keys(current.characters ?? {}).slice(0, 4) },
-      },
-    }));
-    setSelectedSetId(id);
-    setSaveStatus("Created");
-  };
-
-  const deleteSet = (id: string) => {
-    if (setIds.length <= 1) return;
-    const set = content.characterSets?.[id];
-    if (!set) return;
-    if (!window.confirm(`Delete "${set.name}"?`)) return;
-    setContent((current) => {
-      const { [id]: _deleted, ...characterSets } = current.characterSets ?? {};
-      return { ...current, characterSets };
+      return { ...current, characters };
     });
     setSaveStatus("Deleted");
   };
@@ -270,6 +111,18 @@ export default function CharacterBuilder() {
   const copyJson = async () => {
     await navigator.clipboard?.writeText(exportJson);
     setSaveStatus("Copied");
+  };
+
+  const saveDraft = async () => {
+    localStorage.setItem(STORAGE_KEY, exportJson);
+    setSaveStatus("Saving...");
+    try {
+      await saveContentJsonToDisk(exportJson);
+      setSaveStatus("Saved to PC");
+    } catch (error) {
+      console.error("Unable to save content.json", error);
+      setSaveStatus("Draft only");
+    }
   };
 
   const downloadJson = () => {
@@ -286,10 +139,9 @@ export default function CharacterBuilder() {
   const importJson = () => {
     try {
       const parsed = JSON.parse(importText);
-      const next = withExampleCosmetics(normalizeContentSchema(isFullContent(parsed) ? parsed : { ...BASE_CONTENT, ...parsed }));
+      const next = contentWithCharacterList(isFullContent(parsed) ? parsed : { ...BASE_CONTENT, ...parsed }, BASE_CONTENT);
       setContent(next);
       setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
-      setSelectedSetId(Object.keys(next.characterSets ?? {})[0] ?? "");
       setImportText("");
       setJsonModalOpen(false);
       setSaveStatus("Imported");
@@ -300,22 +152,12 @@ export default function CharacterBuilder() {
 
   const resetDraft = () => {
     localStorage.removeItem(STORAGE_KEY);
-    setContent(BASE_CONTENT);
-    setSelectedCharacterId(Object.keys(BASE_CONTENT.characters ?? {})[0] ?? "");
-    setSelectedSetId(Object.keys(BASE_CONTENT.characterSets ?? {})[0] ?? "");
+    const next = contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+    setContent(next);
+    setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
     setImportText("");
     setJsonModalOpen(false);
     setSaveStatus("Reset");
-  };
-
-  const toggleCharacterInSelectedSet = (characterId: string) => {
-    if (!selectedSet) return;
-    updateSet(selectedSet.id, (current) => {
-      const characterIds = current.characterIds.includes(characterId)
-        ? current.characterIds.filter((id) => id !== characterId)
-        : [...current.characterIds, characterId];
-      return { ...current, characterIds };
-    });
   };
 
   return (
@@ -326,6 +168,10 @@ export default function CharacterBuilder() {
           <h1 className="truncate text-xl font-black tracking-normal text-white">Character builder</h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <button onClick={saveDraft} className="builder-button preview gap-2">
+            <Save className="h-4 w-4" />
+            Save
+          </button>
           <button onClick={() => setJsonModalOpen(true)} className="builder-button preview gap-2">
             <Upload className="h-4 w-4" />
             Import/export
@@ -349,62 +195,17 @@ export default function CharacterBuilder() {
       <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:overflow-hidden lg:grid-cols-[18rem_minmax(0,1fr)]">
         <aside className="flex flex-col border-b border-white/10 bg-[#101722] p-3 lg:min-h-0 lg:border-b-0 lg:border-r">
           <PanelHeader eyebrow={`${characterIds.length} characters`} title="Characters" action={createCharacter} />
-          {selectedSet && (
-            <section className="mt-3 rounded-md border border-cyan-200/20 bg-cyan-300/[0.055] p-2">
-              <div className="flex items-center gap-2">
-                <select
-                  aria-label="Character set"
-                  value={selectedSetId}
-                  onChange={(event) => setSelectedSetId(event.target.value)}
-                  className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-xs font-black text-white outline-none focus:border-cyan-300"
-                >
-                  {setIds.map((id) => (
-                    <option key={id} value={id}>
-                      {content.characterSets?.[id]?.name ?? id}
-                    </option>
-                  ))}
-                </select>
-                <button type="button" onClick={createSet} className="builder-button compact" aria-label="Create character set">
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteSet(selectedSet.id)}
-                  disabled={setIds.length <= 1}
-                  className="builder-button danger compact disabled:opacity-40"
-                  aria-label="Delete character set"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <input
-                aria-label="Set name"
-                value={selectedSet.name}
-                onChange={(event) => updateSet(selectedSet.id, (current) => ({ ...current, name: event.target.value }))}
-                className="mt-2 w-full rounded-md border border-white/10 bg-black/20 px-2 py-1.5 text-xs font-black text-white outline-none focus:border-cyan-300"
-              />
-            </section>
-          )}
           <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-y-auto pr-1 lg:min-h-0 lg:max-h-none lg:flex-1">
             {characterIds.map((id) => {
               const character = content.characters?.[id];
               if (!character) return null;
-              const inSelectedSet = Boolean(selectedSet?.characterIds.includes(id));
               return (
                 <div
                   key={id}
-                  className={`grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border p-2 transition ${
+                  className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border p-2 transition ${
                     id === selectedCharacterId ? "border-amber-200/70 bg-amber-300/12" : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
                   }`}
                 >
-                  <input
-                    aria-label={`${characterDisplayName(character)} in selected set`}
-                    type="checkbox"
-                    checked={inSelectedSet}
-                    disabled={!selectedSet}
-                    onChange={() => toggleCharacterInSelectedSet(id)}
-                    className="size-4 accent-cyan-300 disabled:opacity-40"
-                  />
                   <button
                     type="button"
                     onClick={() => setSelectedCharacterId(id)}
@@ -431,6 +232,7 @@ export default function CharacterBuilder() {
         <section className="bg-[#151c27] p-3 lg:min-h-0 lg:overflow-y-auto">
           {selectedCharacter ? (
             <CharacterEditor
+              key={selectedCharacter.id}
               character={selectedCharacter}
               cosmetics={content.cosmetics ?? {}}
               onChange={(updater) => updateCharacter(selectedCharacter.id, updater)}
@@ -558,16 +360,14 @@ function CharacterPreviewer({
   onFacePhotoUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onChange: (patch: Partial<CharacterDef>) => void;
 }) {
-  const previewRef = useRef<HTMLDivElement | null>(null);
+  const { previewRef, previewRotation, setPreviewRotation, beginPreviewDrag, movePreviewDrag, endPreviewDrag } = useTokenPreviewRotation();
   const cropRef = useRef<HTMLDivElement | null>(null);
   const [sourceDraft, setSourceDraft] = useState("");
-  const [previewRotation, setPreviewRotation] = useState<PreviewRotation>(DEFAULT_PREVIEW_ROTATION);
   const [previewTool, setPreviewTool] = useState<PreviewTool>("view");
-  const [projectedAnchors, setProjectedAnchors] = useState<Record<string, ProjectedAnchor>>({});
+  const [projectedAnchors, setProjectedAnchors] = useState<Record<string, ProjectedTokenAnchor>>({});
   const [drag, setDrag] = useState<
     | { type: "image"; pointerId: number; startX: number; startY: number; alignment: FacePhotoAlignment }
     | { type: "anchor"; pointerId: number; anchor: AnchorHandle; startX: number; startY: number; anchorStart: FaceAnchor }
-    | { type: "view"; pointerId: number; startX: number; startY: number; rotation: PreviewRotation }
     | null
   >(null);
   const alignment = character.facePhotoAlignment ?? DEFAULT_FACE_ALIGNMENT;
@@ -575,8 +375,6 @@ function CharacterPreviewer({
   const selectedAnchor = anchorFor(character, selectedHandle);
   const uploadId = `face-photo-upload-${character.id}`;
   const hasFacePhoto = Boolean(character.facePhoto);
-  const cosmeticEntries = useMemo(() => Object.values(cosmetics).sort((a, b) => a.name.localeCompare(b.name)), [cosmetics]);
-  const selectedCosmeticIds = character.defaultLoadout?.cosmeticIds ?? [];
   const anchorProjectionInput = useMemo(
     () =>
       ANCHOR_HANDLES.map((handle) => ({
@@ -585,8 +383,8 @@ function CharacterPreviewer({
       })),
     [character.faceAnchors, character.bodyAnchors]
   );
-  const updateProjectedAnchors = useCallback((next: Record<string, ProjectedAnchor>) => {
-    setProjectedAnchors((current) => (sameProjectedAnchors(current, next) ? current : next));
+  const updateProjectedAnchors = useCallback((next: Record<string, ProjectedTokenAnchor>) => {
+    setProjectedAnchors((current) => (sameProjectedTokenAnchors(current, next) ? current : next));
   }, []);
 
   useEffect(() => {
@@ -603,6 +401,11 @@ function CharacterPreviewer({
       return;
     }
     onChange({ bodyAnchors: { ...(character.bodyAnchors ?? {}), [handle.id]: clampAnchor(anchor) } });
+  };
+
+  const resetAnchors = () => {
+    setPreviewTool("anchors");
+    onChange({ faceAnchors: defaultFaceAnchors(), bodyAnchors: defaultBodyAnchors() });
   };
 
   const beginImageDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -635,19 +438,6 @@ function CharacterPreviewer({
     });
   };
 
-  const beginPreviewDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    previewRef.current?.setPointerCapture(event.pointerId);
-    setDrag({
-      type: "view",
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      rotation: previewRotation,
-    });
-  };
-
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!drag || drag.pointerId !== event.pointerId) return;
     const rect = (drag.type === "image" ? cropRef.current : previewRef.current)?.getBoundingClientRect();
@@ -656,13 +446,6 @@ function CharacterPreviewer({
       updateAlignment({
         x: drag.alignment.x + (event.clientX - drag.startX) / rect.width,
         y: drag.alignment.y + (event.clientY - drag.startY) / rect.height,
-      });
-      return;
-    }
-    if (drag.type === "view") {
-      setPreviewRotation({
-        yaw: drag.rotation.yaw + (event.clientX - drag.startX) * 0.012,
-        pitch: clamp(drag.rotation.pitch + (event.clientY - drag.startY) * 0.008, -0.55, 0.55),
       });
       return;
     }
@@ -686,19 +469,6 @@ function CharacterPreviewer({
     const facePhoto = sourceDraft.trim();
     if (!facePhoto) return;
     onChange({ facePhoto, facePhotoAlignment: character.facePhotoAlignment ?? DEFAULT_FACE_ALIGNMENT });
-  };
-
-  const toggleCosmetic = (cosmeticId: string) => {
-    const selected = new Set(selectedCosmeticIds);
-    if (selected.has(cosmeticId)) selected.delete(cosmeticId);
-    else selected.add(cosmeticId);
-    onChange({
-      defaultLoadout: {
-        ...(character.defaultLoadout ?? {}),
-        cosmeticIds: [...selected],
-      },
-      defaultCosmetics: undefined,
-    });
   };
 
   return (
@@ -734,33 +504,7 @@ function CharacterPreviewer({
                 Anchors
               </button>
             </div>
-            <div className="flex overflow-hidden rounded-md border border-white/10 bg-black/20">
-              {PREVIEW_VIEWS.map((view) => (
-                <button
-                  key={view.id}
-                  type="button"
-                  data-preview-view={view.id}
-                  onClick={() => {
-                    setPreviewTool("view");
-                    setPreviewRotation({ yaw: view.yaw, pitch: view.pitch });
-                  }}
-                  className="border-r border-white/10 px-2 py-1 text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-300 transition last:border-r-0 hover:bg-white/10 hover:text-white"
-                >
-                  {view.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setPreviewTool("view");
-                setPreviewRotation(DEFAULT_PREVIEW_ROTATION);
-              }}
-              className="builder-button compact"
-              aria-label="Reset preview rotation"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
+            <TokenPreviewViewControls setPreviewRotation={setPreviewRotation} onViewChange={() => setPreviewTool("view")} />
           </div>
         </div>
 
@@ -768,23 +512,32 @@ function CharacterPreviewer({
           ref={previewRef}
           data-character-preview="true"
           onPointerDown={beginPreviewDrag}
-          onPointerMove={moveDrag}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
+          onPointerMove={(event) => {
+            movePreviewDrag(event);
+            moveDrag(event);
+          }}
+          onPointerUp={(event) => {
+            endPreviewDrag(event);
+            endDrag(event);
+          }}
+          onPointerCancel={(event) => {
+            endPreviewDrag(event);
+            endDrag(event);
+          }}
           className={`relative mt-3 h-[32rem] cursor-grab overflow-hidden rounded-md border border-white/15 bg-[radial-gradient(circle_at_50%_20%,rgba(103,232,249,0.14),rgba(15,23,42,0.95)_48%,rgba(2,6,23,1))] touch-none active:cursor-grabbing lg:h-[36rem] ${
             drag?.type === "anchor" ? "cursor-default active:cursor-default" : ""
           }`}
         >
-          <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[0.58rem] font-black uppercase tracking-[0.12em] text-slate-300">
-            <Rotate3D className="h-3.5 w-3.5 text-cyan-200" />
-            {previewTool === "view" ? "Move" : selectedHandle.label}
-          </div>
+          <TokenPreviewMoveBadge label={previewTool === "view" ? "Move" : selectedHandle.label} />
 
-          <CharacterTokenCanvas
+          <TokenPreviewCanvas
             character={character}
+            cosmetics={cosmetics}
+            cosmeticIds={character.defaultLoadout?.cosmeticIds}
             previewRotation={previewRotation}
             anchorProjectionInput={anchorProjectionInput}
             onAnchorsProjected={updateProjectedAnchors}
+            facePhotoAlignmentFallback={DEFAULT_FACE_ALIGNMENT}
           />
 
           {ANCHOR_HANDLES.map((handle) => {
@@ -807,7 +560,7 @@ function CharacterPreviewer({
                   opacity: projected?.visible === false ? 0 : undefined,
                   pointerEvents: projected?.visible === false ? "none" : undefined,
                   background: ANCHOR_COLORS[handle.id] ?? "#f5d547",
-                  transform: `translate(-50%, -50%) rotate(${anchor.angle ?? 0}deg)`,
+                  transform: "translate(-50%, -50%)",
                 }}
                 aria-label={handle.label}
               >
@@ -909,11 +662,17 @@ function CharacterPreviewer({
         </section>
 
         <section className="rounded-md border border-white/10 bg-black/15 p-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-emerald-200">Anchors</p>
-            <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-400">
-              {selectedHandle.label}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-400">
+                {selectedHandle.label}
+              </span>
+              <button type="button" onClick={resetAnchors} className="builder-button compact gap-2" aria-label="Reset anchors">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </button>
+            </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {ANCHOR_HANDLES.map((handle) => (
@@ -938,156 +697,17 @@ function CharacterPreviewer({
             <NumberInput label="X" value={selectedAnchor.x} step={0.01} onChange={(x) => updateAnchor(selectedHandle, { ...selectedAnchor, x })} />
             <NumberInput label="Y" value={selectedAnchor.y} step={0.01} onChange={(y) => updateAnchor(selectedHandle, { ...selectedAnchor, y })} />
             <NumberInput
-              label="Angle"
-              value={selectedAnchor.angle ?? 0}
-              step={1}
-              onChange={(angle) => updateAnchor(selectedHandle, { ...selectedAnchor, angle })}
+              label="Z"
+              value={selectedAnchor.z ?? 0}
+              step={0.01}
+              onChange={(z) => updateAnchor(selectedHandle, { ...selectedAnchor, z })}
             />
           </div>
         </section>
 
-        <section className="rounded-md border border-white/10 bg-black/15 p-3">
-          <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-fuchsia-200">Accessories</p>
-          <div className="mt-3 grid gap-2">
-            {cosmeticEntries.map((cosmetic) => {
-              const active = selectedCosmeticIds.includes(cosmetic.id);
-              return (
-                <button
-                  key={cosmetic.id}
-                  type="button"
-                  onClick={() => toggleCosmetic(cosmetic.id)}
-                  className={`rounded-md border px-2 py-1.5 text-left text-[0.68rem] font-black transition ${
-                    active ? "border-fuchsia-200/80 bg-fuchsia-300/16 text-white" : "border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.07]"
-                  }`}
-                >
-                  <span className="block">{cosmetic.name}</span>
-                  <span className="mt-0.5 block truncate text-[0.56rem] uppercase tracking-[0.08em] text-slate-500">
-                    {cosmetic.anchor ?? cosmetic.assetId ?? cosmetic.id}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
       </div>
     </div>
   );
-}
-
-function CharacterTokenCanvas({
-  character,
-  previewRotation,
-  anchorProjectionInput,
-  onAnchorsProjected,
-}: {
-  character: CharacterDef;
-  previewRotation: PreviewRotation;
-  anchorProjectionInput: Array<{ handle: AnchorHandle; anchor: FaceAnchor }>;
-  onAnchorsProjected: (anchors: Record<string, ProjectedAnchor>) => void;
-}) {
-  const tokenCharacter = useMemo(
-    () => ({
-      id: character.id,
-      name: characterDisplayName(character),
-      color: character.color ?? "#888888",
-      groom: Boolean(character.groom),
-    }),
-    [character.color, character.groom, character.id, character.displayName, character.name]
-  );
-
-  return (
-    <Canvas
-      camera={{ position: [0, 1.05, 3.4], fov: 32, near: 0.1, far: 20 }}
-      className="pointer-events-none absolute inset-0"
-      dpr={[1, 2]}
-      gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-      shadows
-    >
-      <PreviewCamera />
-      <ambientLight intensity={0.72} color="#fff8e1" />
-      <directionalLight position={[3, 5, 4]} intensity={2.7} castShadow />
-      <directionalLight position={[-3, 2, -3]} intensity={0.65} color="#b3d4ff" />
-      <PreviewAnchorProjector
-        anchors={anchorProjectionInput}
-        previewRotation={previewRotation}
-        onProject={onAnchorsProjected}
-      />
-      <group
-        position={TOKEN_PREVIEW_GROUP_POSITION}
-        rotation={[previewRotation.pitch, previewRotation.yaw, 0]}
-        scale={TOKEN_PREVIEW_GROUP_SCALE}
-      >
-        <PlayerTokenPawn
-          character={tokenCharacter}
-          facePhoto={character.facePhoto}
-          facePhotoAlignment={character.facePhotoAlignment ?? DEFAULT_FACE_ALIGNMENT}
-          faceAnchors={character.faceAnchors}
-          bodyAnchors={character.bodyAnchors}
-          cosmeticIds={character.defaultLoadout?.cosmeticIds}
-          focused
-        />
-      </group>
-      <mesh position={[0, -0.84, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[1.24, 56]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.72} transparent opacity={0.58} />
-      </mesh>
-    </Canvas>
-  );
-}
-
-function PreviewAnchorProjector({
-  anchors,
-  previewRotation,
-  onProject,
-}: {
-  anchors: Array<{ handle: AnchorHandle; anchor: FaceAnchor }>;
-  previewRotation: PreviewRotation;
-  onProject: (anchors: Record<string, ProjectedAnchor>) => void;
-}) {
-  const { camera } = useThree();
-  const anchorKey = useMemo(
-    () => anchors.map(({ handle, anchor }) => `${handle.id}:${anchor.x}:${anchor.y}:${anchor.angle ?? 0}`).join("|"),
-    [anchors]
-  );
-
-  useEffect(() => {
-    camera.updateMatrixWorld();
-    const rotation = new Euler(previewRotation.pitch, previewRotation.yaw, 0);
-    const rotationQuaternion = new Quaternion().setFromEuler(rotation);
-    const tokenMatrix = new Matrix4().compose(
-      new Vector3(...TOKEN_PREVIEW_GROUP_POSITION),
-      rotationQuaternion,
-      new Vector3(TOKEN_PREVIEW_GROUP_SCALE, TOKEN_PREVIEW_GROUP_SCALE, TOKEN_PREVIEW_GROUP_SCALE)
-    );
-    const projected: Record<string, ProjectedAnchor> = {};
-
-    for (const { handle, anchor } of anchors) {
-      const surface = tokenAnchorSurface(handle, anchor);
-      const worldPoint = new Vector3(...surface.position).applyMatrix4(tokenMatrix);
-      const normal = new Vector3(...surface.normal).applyQuaternion(rotationQuaternion).normalize();
-      const viewDirection = new Vector3().subVectors(camera.position, worldPoint).normalize();
-      const clipPoint = worldPoint.clone().project(camera);
-      projected[handle.id] = {
-        x: ((clipPoint.x + 1) / 2) * 100,
-        y: ((1 - clipPoint.y) / 2) * 100,
-        visible: clipPoint.z >= -1 && clipPoint.z <= 1 && normal.dot(viewDirection) > -0.05,
-      };
-    }
-
-    onProject(projected);
-  }, [anchorKey, anchors, camera, onProject, previewRotation.pitch, previewRotation.yaw]);
-
-  return null;
-}
-
-function PreviewCamera() {
-  const { camera } = useThree();
-  useEffect(() => {
-    camera.position.set(0, 1.05, 3.4);
-    camera.lookAt(0, 0.16, 0);
-    camera.updateProjectionMatrix();
-  }, [camera]);
-  return null;
 }
 
 function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: string; action: () => void }) {
@@ -1222,7 +842,7 @@ function JsonModal({
               <textarea
                 value={importText}
                 onChange={(event) => setImportText(event.target.value)}
-                placeholder="Paste a content JSON or a characters/characterSets fragment"
+                placeholder="Paste a content JSON or a characters fragment"
                 className="mt-1 h-72 w-full resize-none rounded-md border border-white/10 bg-[#0d1218] p-2 font-mono text-xs text-slate-100 outline-none focus:border-amber-300"
               />
             </label>
@@ -1272,21 +892,11 @@ function EmptyState({ label }: { label: string }) {
 function loadInitialContent(): GameContent {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return BASE_CONTENT;
-    return withExampleCosmetics(normalizeContentSchema(JSON.parse(saved)));
+    if (!saved) return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+    return contentWithCharacterList(JSON.parse(saved), BASE_CONTENT);
   } catch {
-    return BASE_CONTENT;
+    return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
   }
-}
-
-function withExampleCosmetics(content: GameContent): GameContent {
-  return {
-    ...content,
-    cosmetics: {
-      ...EXAMPLE_COSMETICS,
-      ...(content.cosmetics ?? {}),
-    },
-  };
 }
 
 function emptyCharacter(id: string): CharacterDef {
@@ -1295,25 +905,11 @@ function emptyCharacter(id: string): CharacterDef {
     displayName: "New character",
     color: "#f5d547",
     facePhotoAlignment: DEFAULT_FACE_ALIGNMENT,
-    faceAnchors: {
-      leftEye: { x: 0.42, y: 0.38, angle: 0 },
-      rightEye: { x: 0.58, y: 0.38, angle: 0 },
-      mouth: { x: 0.5, y: 0.62, angle: 0 },
-    },
-    bodyAnchors: {
-      head: { x: 0.5, y: 0.16, angle: 0 },
-      chest: { x: 0.5, y: 0.44, angle: 0 },
-      leftHand: { x: 0.28, y: 0.46, angle: 0 },
-      rightHand: { x: 0.72, y: 0.46, angle: 0 },
-      back: { x: 0.5, y: 0.48, angle: 0 },
-    },
+    faceAnchors: defaultFaceAnchors(),
+    bodyAnchors: defaultBodyAnchors(),
     defaultLoadout: { cosmeticIds: [] },
     defaultTraits: [],
   };
-}
-
-function emptySet(id: string): CharacterSetDef {
-  return { id, name: "New character set", characterIds: [] };
 }
 
 function nextId(prefix: string, records: Record<string, unknown>): string {
@@ -1333,10 +929,6 @@ function csv(value: string): string[] {
     .filter(Boolean);
 }
 
-function anchorLabel(id: string): string {
-  return id.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
-}
-
 function isFullContent(value: unknown): value is GameContent {
   return Boolean(value && typeof value === "object" && "board" in value && "players" in value);
 }
@@ -1344,6 +936,14 @@ function isFullContent(value: unknown): value is GameContent {
 function anchorFor(character: CharacterDef, handle: AnchorHandle): FaceAnchor {
   const anchors = handle.scope === "face" ? character.faceAnchors : character.bodyAnchors;
   return anchors?.[handle.id] ?? defaultAnchorFor(handle.id);
+}
+
+function defaultFaceAnchors(): Record<string, FaceAnchor> {
+  return Object.fromEntries(FACE_ANCHORS.map((id) => [id, defaultAnchorFor(id)]));
+}
+
+function defaultBodyAnchors(): Record<string, FaceAnchor> {
+  return Object.fromEntries(BODY_ANCHORS.map((id) => [id, defaultAnchorFor(id)]));
 }
 
 function defaultAnchorFor(id: string): FaceAnchor {
@@ -1354,7 +954,7 @@ function clampAnchor(anchor: FaceAnchor): FaceAnchor {
   return {
     x: clamp(anchor.x, 0, 1),
     y: clamp(anchor.y, 0, 1),
-    angle: Number.isFinite(anchor.angle ?? 0) ? anchor.angle : 0,
+    z: clamp(Number.isFinite(anchor.z ?? 0) ? anchor.z ?? 0 : 0, -0.5, 0.5),
   };
 }
 
@@ -1370,20 +970,4 @@ function clampAlignment(alignment: FacePhotoAlignment): FacePhotoAlignment {
 function clamp(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, value));
-}
-
-function sameProjectedAnchors(a: Record<string, ProjectedAnchor>, b: Record<string, ProjectedAnchor>): boolean {
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) return false;
-  return bKeys.every((key) => {
-    const left = a[key];
-    const right = b[key];
-    return Boolean(
-      left &&
-        Math.abs(left.x - right.x) < 0.05 &&
-        Math.abs(left.y - right.y) < 0.05 &&
-        left.visible === right.visible
-    );
-  });
 }

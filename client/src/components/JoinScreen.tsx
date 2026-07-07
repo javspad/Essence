@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Check, LogIn, RefreshCw, Users, Wrench } from "lucide-react";
-import type { CharacterSetSummary, CharacterSlot, RoomSummary } from "@essence/shared";
+import type { CharacterSlot, RoomSummary } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/8bit/input";
 
 interface Props {
   error: string | null;
-  onCreate: (name: string, roomName: string, characterSetId?: string, characterId?: string) => void;
+  onCreate: (name: string, roomName: string, characterId?: string) => void;
   onJoin: (code: string, name: string, characterId?: string) => void;
 }
 
@@ -91,43 +91,32 @@ function CreateView({
 }: {
   name: string;
   error: string | null;
-  onCreate: (name: string, roomName: string, characterSetId?: string, characterId?: string) => void;
+  onCreate: (name: string, roomName: string, characterId?: string) => void;
   onBack: () => void;
 }) {
   const [roomName, setRoomName] = useState("");
-  const [sets, setSets] = useState<CharacterSetSummary[] | null>(null);
-  const [characterSetId, setCharacterSetId] = useState("");
+  const [characters, setCharacters] = useState<CharacterSlot[] | null>(null);
   const [characterId, setCharacterId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/character-sets")
+    fetch("/api/characters")
       .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data: { characterSets: CharacterSetSummary[] }) => {
+      .then((data: { characters: CharacterSlot[] }) => {
         if (cancelled) return;
-        setSets(data.characterSets);
-        const firstSet = data.characterSets[0];
-        if (firstSet) {
-          setCharacterSetId((current) => current || firstSet.id);
-          setCharacterId((current) => current || firstSet.characters[0]?.id || "");
-        }
+        setCharacters(data.characters);
+        setCharacterId((current) => current || data.characters[0]?.id || "");
       })
       .catch(() => {
-        if (!cancelled) setSets([]);
+        if (!cancelled) setCharacters([]);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const selectedSet = sets?.find((set) => set.id === characterSetId) ?? sets?.[0] ?? null;
-  const selectedCharacter = selectedSet?.characters.find((slot) => slot.id === characterId) ?? selectedSet?.characters[0] ?? null;
+  const selectedCharacter = characters?.find((slot) => slot.id === characterId) ?? characters?.[0] ?? null;
   const createName = name.trim() || selectedCharacter?.displayName || "";
-
-  const selectSet = (set: CharacterSetSummary) => {
-    setCharacterSetId(set.id);
-    setCharacterId(set.characters[0]?.id ?? "");
-  };
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -141,41 +130,16 @@ function CreateView({
         className="h-14 w-full bg-[#100b1a] text-center text-lg font-black text-[#fff8d6]"
       />
       <div className="space-y-2">
-        <p className="retro text-[10px] uppercase text-[#c7bddc]">Set de personajes</p>
-        {sets === null ? (
+        <p className="retro text-[10px] uppercase text-[#c7bddc]">Tu personaje</p>
+        {characters === null ? (
           <p className="text-center text-sm font-bold text-[#c7bddc]">Cargando personajes...</p>
-        ) : sets.length === 0 ? (
+        ) : characters.length === 0 ? (
           <p className="border-2 border-dashed border-[#fff4bf]/20 bg-[#0d1829] p-3 text-center text-sm font-black text-[#fff8d6]">
-            No hay sets disponibles
+            No hay personajes disponibles
           </p>
         ) : (
-          <div className="grid gap-2">
-            {sets.map((set) => (
-              <button
-                key={set.id}
-                type="button"
-                onClick={() => selectSet(set)}
-                className={`grid grid-cols-[1fr_auto] items-center gap-2 border-2 p-3 text-left transition ${
-                  set.id === selectedSet?.id
-                    ? "border-[#f5d547] bg-[#2a210b]"
-                    : "border-[#fff4bf]/20 bg-[#0d1829] hover:border-[#f5d547]/70"
-                }`}
-              >
-                <span className="min-w-0 truncate font-black text-[#fff8d6]">{set.name}</span>
-                <Badge className="border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]">
-                  <Users data-icon="inline-start" />
-                  {set.characters.length}
-                </Badge>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      {selectedSet && (
-        <div className="space-y-2">
-          <p className="retro text-[10px] uppercase text-[#c7bddc]">Tu personaje</p>
           <div className="grid grid-cols-2 gap-2">
-            {selectedSet.characters.map((slot) => (
+            {characters.map((slot) => (
               <CharacterSlotButton
                 key={slot.id}
                 slot={slot}
@@ -184,17 +148,16 @@ function CreateView({
               />
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
       <Button
         type="button"
         onClick={() =>
           roomName.trim() &&
-          selectedSet &&
           selectedCharacter &&
-          onCreate(createName, roomName.trim(), selectedSet.id, selectedCharacter.id)
+          onCreate(createName, roomName.trim(), selectedCharacter.id)
         }
-        disabled={!roomName.trim() || !selectedSet || !selectedCharacter}
+        disabled={!roomName.trim() || !selectedCharacter}
         className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
       >
         <Users data-icon="inline-start" />
@@ -282,7 +245,7 @@ function JoinView({
                       </Badge>
                     </span>
                     <span className="mt-0.5 block truncate text-[11px] text-[#c7bddc]">
-                      {r.characterSetName ?? "Personajes"} · {r.host ? `Host: ${r.host}` : "Sin host"}
+                      {r.host ? `Host: ${r.host}` : "Sin host"}
                     </span>
                   </span>
                   <Badge className="border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]">

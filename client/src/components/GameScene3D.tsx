@@ -5,6 +5,7 @@ import {
   Dice5,
   LogOut,
   Map as MapIcon,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -14,6 +15,7 @@ import { applyCameraIntent, supportsWebGL, type BoardCameraState, type CameraInt
 import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import Board3DShell from "./Board3DShell";
+import CosmeticShop from "./CosmeticShop";
 import EventCard from "./EventCard";
 import Reveal from "./Reveal";
 import Scoreboard from "./Scoreboard";
@@ -33,6 +35,8 @@ interface GameScene3DProps {
   rollBlocked?: boolean;
   statusLabel?: string | null;
   onRoll: () => void;
+  onBuyCosmetic: (cosmeticId: string, onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => void;
+  onEquipCosmetic: (cosmeticId: string, equipped: boolean, onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => void;
   onNext: () => void;
   onLeave: () => void;
 }
@@ -53,12 +57,15 @@ export default function GameScene3D({
   rollBlocked = false,
   statusLabel,
   onRoll,
+  onBuyCosmetic,
+  onEquipCosmetic,
   onNext,
   onLeave,
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
   const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [cosmeticShopOpen, setCosmeticShopOpen] = useState(false);
   const canAdvance = isHost || isMyTurn;
   const editMode = useMemo(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("sceneEdit"),
@@ -118,6 +125,7 @@ export default function GameScene3D({
         routes={state.routes}
         artifacts={state.artifacts}
         assetCatalog={state.assetCatalog}
+        cosmetics={state.cosmetics}
         boardShape={state.boardShape}
         terraces={state.terraces}
         players={state.players}
@@ -148,9 +156,20 @@ export default function GameScene3D({
         onCameraIntent={dispatchCameraIntent}
         onFocusPlayer={focusPlayer}
         onRoll={onRoll}
+        onOpenCosmeticShop={() => setCosmeticShopOpen(true)}
         onNext={onNext}
         onLeave={requestLeave}
       />
+
+      {cosmeticShopOpen && (
+        <CosmeticShop
+          state={state}
+          me={me}
+          onClose={() => setCosmeticShopOpen(false)}
+          onBuyCosmetic={onBuyCosmetic}
+          onEquipCosmetic={onEquipCosmetic}
+        />
+      )}
 
       {leaveConfirmOpen && (
         <LeaveConfirmationOverlay
@@ -183,6 +202,7 @@ function SceneChrome({
   onCameraIntent,
   onFocusPlayer,
   onRoll,
+  onOpenCosmeticShop,
   onNext,
   onLeave,
 }: {
@@ -200,6 +220,7 @@ function SceneChrome({
   onCameraIntent: (intent: CameraIntent) => void;
   onFocusPlayer: (playerId: string) => void;
   onRoll: () => void;
+  onOpenCosmeticShop: () => void;
   onNext: () => void;
   onLeave: () => void;
 }) {
@@ -228,6 +249,7 @@ function SceneChrome({
         </div>
         {state.phase !== "finished" && (
           <div className="relative z-30 ml-0 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
+            <ShopButton onOpen={onOpenCosmeticShop} />
             <MapToggleButton cameraMode={cameraState.mode} onCameraIntent={onCameraIntent} />
             <LeaveButton onLeave={onLeave} />
           </div>
@@ -347,6 +369,22 @@ function ScorePanel({
         </CardContent>
       </aside>
     </Card>
+  );
+}
+
+function ShopButton({ onOpen }: { onOpen: () => void }) {
+  return (
+    <Button
+      type="button"
+      aria-label="Abrir shop"
+      title="Abrir shop"
+      data-testid="cosmetic-shop-open"
+      onClick={onOpen}
+      className="pointer-events-auto flex h-9 items-center gap-1.5 border border-[#6ee7b7]/40 bg-[#052e16]/82 px-3 text-[10px] font-black uppercase tracking-wider text-[#a7f3d0] shadow-[0_0_0_1px_rgba(110,231,183,0.1),0_8px_24px_rgb(0_0_0/0.4)] backdrop-blur-xl transition-colors hover:bg-[#10b981]/25 hover:text-white"
+    >
+      <ShoppingBag data-icon="inline-start" className="size-3.5" />
+      Shop
+    </Button>
   );
 }
 
