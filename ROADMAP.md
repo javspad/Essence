@@ -72,8 +72,8 @@ Every slice must leave the project in a state that can be inspected by a human.
 | Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
 | Character Builder | Existing | `/character-builder` | Edit characters, face photos, anchors, sets, and traits. |
 | Artifact Builder | Planned | `/artifact-builder` | Edit artifact rules, rarity, effects, visuals, animations, and shop simulation. |
-| Cosmetic Builder | Planned | `/cosmetic-builder` | Edit visual-only items and anchor placement. |
-| Shop UI | Planned | In-game button beside roll button and shop-cell flow | Buy/equip cosmetics and roll/buy/use artifacts. |
+| Cosmetic Builder | Existing | `/cosmetic-builder` | Edit visual-only items, prices, anchor placement, transforms, compatibility, and previews. |
+| Shop UI | Partial | In-game shop button on the 3D board | Buy/equip cosmetics now; artifact shop tab remains planned for `S4`. |
 
 ## Progress Tracker
 
@@ -88,7 +88,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S2` Character identity and character sets | [x] | `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright character flow QA; `git diff --check`. |
 | `S3` Reusable consequences and effects | [ ] | `S1`, `S-CAM` | Effect-engine tests and one configured duration effect. |
 | `S4` Artifact catalog, builder, and shop | [ ] | `S3`, `S-CAM` | Artifact builder route plus in-game shop purchase/use flow. |
-| `S5` Cosmetics and face anchors | [ ] | `S2` | Cosmetic builder route plus anchored preview on multiple characters. |
+| `S5` Cosmetics and face anchors | [x] | `S2` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright S5 builder/shop QA; `git diff --check`. |
 | `S6` Character traits | [ ] | `S2`, `S3` | Character builder trait config plus live trait trigger. |
 | `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Coin-source tests plus in-game spending flow. |
 | `S8` Authoring skills and content bank | [ ] | `S7` | Docs/skills can add example content and validation passes. |
@@ -381,15 +381,37 @@ Goal: support visual-only purchases and character attachment positioning.
 
 Tasks:
 
-- [ ] `S5-01` Add `CosmeticDef` with id, name, price, asset, anchor type, transform, compatibility, and preview metadata.
-- [ ] `S5-02` Add cosmetic ownership/equipped loadout to player or character state.
-- [ ] `S5-03` Build Cosmetic Builder for previewing and adjusting visuals per character.
-- [ ] `S5-04` Make the Cosmetic Builder reachable from `/cosmetic-builder` and the tools surface.
-- [ ] `S5-05` Use face anchors to place glasses, moustaches, hats, beards, and similar face cosmetics.
-- [ ] `S5-06` Support flexible object positioning relative to eyes, mouth, head, chest, arms, or custom anchors.
-- [ ] `S5-07` Add cosmetic shop UI as a separate tab from artifacts.
-- [ ] `S5-08` Allow players to buy any affordable cosmetics and select which ones are equipped.
-- [ ] `S5-09` Guarantee cosmetics have no gameplay effect.
+- [x] `S5-01` Add `CosmeticDef` with id, name, price, asset, anchor type, transform, compatibility, and preview metadata.
+- [x] `S5-02` Add cosmetic ownership/equipped loadout to player or character state.
+- [x] `S5-03` Build Cosmetic Builder for previewing and adjusting visuals per character.
+- [x] `S5-04` Make the Cosmetic Builder reachable from `/cosmetic-builder` and the tools surface.
+- [x] `S5-05` Use face anchors to place glasses, moustaches, hats, beards, and similar face cosmetics.
+- [x] `S5-06` Support flexible object positioning relative to eyes, mouth, head, chest, arms, or custom anchors.
+- [x] `S5-07` Add cosmetic shop UI as a separate tab from artifacts.
+- [x] `S5-08` Allow players to buy any affordable cosmetics and select which ones are equipped.
+- [x] `S5-09` Guarantee cosmetics have no gameplay effect.
+
+Verification notes:
+
+- Expanded shared cosmetic contracts and Zod-backed content validation with legacy `characterCosmetics` normalization into `content.cosmetics`.
+- Added `shared/cosmetics.ts` as the shared module for anchor inference, compatibility, pricing, ID normalization, and default visual semantics.
+- Seeded configurable cosmetics for glasses, moustache, hat, beard, and chest tattoo/piercing-style body attachments with prices, anchors, transforms, and preview metadata.
+- Room state now exposes `cosmetics`, `ownedCosmeticIds`, and equipped `cosmeticIds`; default character loadouts start owned/equipped, and socket actions buy/equip cosmetics for the current room/session.
+- Added `/cosmetic-builder` with catalog editing, anchor/transform controls, compatibility controls, JSON import/export, and preview across multiple characters.
+- Follow-up Cosmetic Builder QA added ordered `anchors[]` support for two-anchor cosmetics such as goggles, an anchor visibility toggle, and anchor-relative placement labels.
+- Updated Character Builder previews/default loadouts to render from the shared cosmetic catalog.
+- Removed Character Builder's duplicated accessory catalog/editor surface so cosmetics are authored from the shared catalog in Cosmetic Builder.
+- Removed the character set authoring/runtime path; saved `content.characters` is now the single character list used by the builder, room creation, and room slots, while legacy `characterSets` imports are stripped during normalization.
+- Updated 3D token rendering so cosmetics are data-driven and anchored to face/body anchors without affecting movement, events, minigames, artifacts, effects, scoring, or camera behavior.
+- Added an in-game shop button with a Cosmetics tab for buy/equip and a separate Artifacts tab stub for future `S4` integration.
+- Manual/Playwright QA screenshots: `/tmp/essence-s5-tools.png`, `/tmp/essence-s5-cosmetic-builder.png`, `/tmp/essence-s5-character-builder.png`, `/tmp/essence-s5-shop.png`, `/tmp/essence-s5-cosmetic-builder-desktop.png`, `/tmp/essence-s5-cosmetic-builder-mobile.png`, `/tmp/essence-s5-board-canvas.png`.
+- Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing large chunk warning only); content load smoke via `npx tsx`; Playwright S5 builder/shop QA against the built app on `PORT=3002`; Playwright follow-up QA on `http://localhost:5174/cosmetic-builder` and `/character-builder`; desktop/mobile canvas screenshot pixel checks; `git diff --check`.
+
+Merge notes:
+
+- Later `S3` work may touch `shared/types.ts`, `shared/contentValidation.ts`, `server/src/room.ts`, and server tests; S5 changes are intentionally scoped to visual cosmetic ownership/equip state.
+- Later `S4` artifact shop should reuse the visible shop tab placement but keep artifact purchase/use logic separate from visual-only cosmetics.
+- Later `S7` economy balancing should revisit cosmetic prices; S5 keeps one free cosmetic so the buy/equip flow is testable with a new room.
 
 Acceptance:
 

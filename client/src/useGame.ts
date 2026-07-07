@@ -87,9 +87,9 @@ export function useGame() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ code, name, playerId: pid, characterId }));
   };
 
-  const create = useCallback((name: string, roomName: string, characterSetId?: string, characterId?: string) => {
+  const create = useCallback((name: string, roomName: string, characterId?: string) => {
     setError(null);
-    socket.emit("room:create", { name, roomName, characterSetId, characterId }, (res) => {
+    socket.emit("room:create", { name, roomName, characterId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
         persist(res.code, name, res.playerId, characterId ?? res.playerId);
@@ -114,6 +114,24 @@ export function useGame() {
     setState(null);
   }, []);
 
+  const buyCosmetic = useCallback((cosmeticId: string, onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => {
+    socket.emit("cosmetic:buy", { cosmeticId }, (res) => {
+      if (!res.ok) setError(res.error);
+      onResult?.(res);
+    });
+  }, []);
+
+  const equipCosmetic = useCallback((
+    cosmeticId: string,
+    equipped: boolean,
+    onResult?: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => {
+    socket.emit("cosmetic:equip", { cosmeticId, equipped }, (res) => {
+      if (!res.ok) setError(res.error);
+      onResult?.(res);
+    });
+  }, []);
+
   const me = state?.players.find((p) => p.id === playerId) ?? null;
   const activeId = state?.turnOrder[state.activeIndex] ?? null;
   const isMyTurn = !!me && me.id === activeId;
@@ -136,6 +154,8 @@ export function useGame() {
       start: () => socket.emit("game:start"),
       roll: () => socket.emit("turn:roll"),
       next: () => socket.emit("turn:next"),
+      buyCosmetic,
+      equipCosmetic,
       forceResolve: () => socket.emit("minigame:force"),
       submitResult: (score: number, payload: unknown, outcome?: "win" | "loss") =>
         socket.emit("minigame:result", { score, payload, outcome }),
