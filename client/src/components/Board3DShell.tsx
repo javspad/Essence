@@ -10,6 +10,7 @@ import {
   OctahedronGeometry,
   Quaternion,
   SphereGeometry,
+  Spherical,
   TorusGeometry,
   Vector3,
   type Group,
@@ -78,6 +79,8 @@ interface Board3DShellProps {
   className?: string;
   interactive?: boolean;
   cameraMode?: CameraMode;
+  /** Cámara de órbita libre (arrastrar/zoom/pan): sólo para inspeccionar en el builder. */
+  freeCamera?: boolean;
   focusedPlayerId?: FocusedPlayerId;
   onPlayerFocus?: (playerId: string) => void;
 }
@@ -99,6 +102,7 @@ export default function Board3DShell({
   className,
   interactive = false,
   cameraMode = "followActivePlayer",
+  freeCamera = false,
   focusedPlayerId = null,
   onPlayerFocus,
 }: Board3DShellProps) {
@@ -190,16 +194,20 @@ export default function Board3DShell({
         shadows={renderSettings.shadows}
       >
         <WebGLContextGuard onLost={disableWebGL} />
-        <CinematicCamera
-          mode={cameraMode}
-          target={trackedSlot}
-          tokenRef={trackedTokenRef}
-          motion={motion}
-          walking={activeMotion !== null}
-          dice={Boolean(diceCue)}
-          turnKey={activeId ?? ""}
-          overview={overviewShot}
-        />
+        {freeCamera ? (
+          <FreeOrbitCamera overview={overviewShot} />
+        ) : (
+          <CinematicCamera
+            mode={cameraMode}
+            target={trackedSlot}
+            tokenRef={trackedTokenRef}
+            motion={motion}
+            walking={activeMotion !== null}
+            dice={Boolean(diceCue)}
+            turnKey={activeId ?? ""}
+            overview={overviewShot}
+          />
+        )}
         <ambientLight intensity={0.62} color="#fff8e1" />
         <directionalLight
           position={[5, 10, 7]}
@@ -609,6 +617,131 @@ function CinematicCamera({
     camera.position.lerp(desired.current, frameLerp(delta, speed));
     look.current.lerp(desiredLook.current, frameLerp(delta, speed * 1.2));
     camera.lookAt(look.current);
+  });
+
+  return null;
+}
+
+/**
+ * Cámara de órbita libre para el Map Builder: arrastrar orbita alrededor del punto
+ * de mira, la rueda hace zoom y click derecho (o Shift+arrastrar) desplaza el punto
+ * de mira sobre el piso. Pensada para inspeccionar props de cerca y desde cualquier
+ * ángulo mientras se editan; no se usa en la partida real.
+ */
+function FreeOrbitCamera({ overview }: { overview: BoardCameraShot }) {
+  const { camera, gl, invalidate } = useThree();
+  const target = useRef(new Vector3(...overview.look));
+  const desiredTarget = useRef(new Vector3(...overview.look));
+  const spherical = useRef(new Spherical());
+  const desired = useRef(new Spherical());
+  const dragging = useRef<"orbit" | "pan" | null>(null);
+  const last = useRef({ x: 0, y: 0 });
+  const scratch = useRef(new Vector3());
+
+  // Encuadre inicial desde la toma general; se fija una sola vez porque el overview
+  // del builder es estable mientras el preview está abierto (no queremos que la
+  // cámara vuelva al centro cada vez que se mueve un prop).
+  useLayoutEffect(() => {
+    const look = scratch.current.set(...overview.look);
+    const offset = new Vector3(...overview.position).sub(look);
+    spherical.current.setFromVector3(offset);
+    spherical.current.makeSafe();
+    desired.current.copy(spherical.current);
+    target.current.set(...overview.look);
+    desiredTarget.current.set(...overview.look);
+    camera.position.set(...overview.position);
+    camera.lookAt(target.current);
+    camera.updateProjectionMatrix();
+    invalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const el = gl.domElement;
+    const MIN_PHI = 0.1;
+    const MAX_PHI = 1.5;
+    const MIN_RADIUS = 1.4;
+    const MAX_RADIUS = 80;
+
+    const onPointerDown = (event: PointerEvent) => {
+      dragging.current = event.button === 2 || event.shiftKey ? "pan" : "orbit";
+      last.current = { x: event.clientX, y: event.clientY };
+      el.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (!dragging.current) return;
+      const dx = event.clientX - last.current.x;
+      const dy = event.clientY - last.current.y;
+      last.current = { x: event.clientX, y: event.clientY };
+      if (dragging.current === "orbit") {
+        desired.current.theta -= dx * 0.005;
+        desired.current.phi = clampNumber(desired.current.phi - dy * 0.005, MIN_PHI, MAX_PHI);
+      } else {
+        // Pan sobre el plano del piso, relativo al azimut actual (estilo "agarrar el mapa").
+        const theta = desired.current.theta;
+        const forwardX = -Math.sin(theta);
+        const forwardZ = -Math.cos(theta);
+        const rightX = -forwardZ;
+        const rightZ = forwardX;
+        const panScale = desired.current.radius * 0.0018;
+        desiredTarget.current.x += (-rightX * dx - forwardX * dy) * panScale;
+        desiredTarget.current.z += (-rightZ * dx - forwardZ * dy) * panScale;
+      }
+      invalidate();
+    };
+    const stop = (event: PointerEvent) => {
+      if (!dragging.current) return;
+      dragging.current = null;
+      try {
+        el.releasePointerCapture(event.pointerId);
+      } catch {
+        // el puntero ya se soltó
+      }
+    };
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      desired.current.radius = clampNumber(desired.current.radius * Math.exp(event.deltaY * 0.0015), MIN_RADIUS, MAX_RADIUS);
+      invalidate();
+    };
+    const onContextMenu = (event: Event) => event.preventDefault();
+
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", stop);
+    el.addEventListener("pointercancel", stop);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("contextmenu", onContextMenu);
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", stop);
+      el.removeEventListener("pointercancel", stop);
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, [gl, invalidate]);
+
+  useFrame((_, delta) => {
+    const s = spherical.current;
+    const d = desired.current;
+    const k = frameLerp(delta, 14);
+    s.phi += (d.phi - s.phi) * k;
+    s.theta += (d.theta - s.theta) * k;
+    s.radius += (d.radius - s.radius) * k;
+    s.makeSafe();
+    target.current.lerp(desiredTarget.current, k);
+    const offset = scratch.current.setFromSpherical(s);
+    camera.position.copy(target.current).add(offset);
+    camera.lookAt(target.current);
+    // En modo "demand" hay que pedir el próximo frame mientras la cámara aún se
+    // acerca a su objetivo; si no, el amortiguado se congela a mitad de camino.
+    const settled =
+      Math.abs(d.phi - s.phi) < 1e-4 &&
+      Math.abs(d.theta - s.theta) < 1e-4 &&
+      Math.abs(d.radius - s.radius) < 1e-3 &&
+      target.current.distanceToSquared(desiredTarget.current) < 1e-6;
+    if (!settled) invalidate();
   });
 
   return null;
@@ -1540,6 +1673,10 @@ function playersByPosition(players: Player[]): Map<number, Player[]> {
 
 function easeOut(t: number): number {
   return 1 - Math.pow(1 - t, 3);
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 /** Iniciales para la placa facial por defecto (1-2 letras, ej. "Juan Pérez" → "JP"). */

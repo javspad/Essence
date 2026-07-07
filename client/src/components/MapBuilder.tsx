@@ -217,6 +217,7 @@ export default function MapBuilder() {
   const [importText, setImportText] = useState("");
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const exportContent = useMemo(() => builderContentToGameContent(BASE_CONTENT, state.content), [state.content]);
   const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
 
@@ -264,6 +265,13 @@ export default function MapBuilder() {
     setPlaytest3DOpen(true);
   };
 
+  // Coloca en el mapa el prop que se estaba viendo en la galería 3D y lo deja seleccionado.
+  const placePropFromGallery = (galleryAssetId: string) => {
+    dispatch({ type: "add_artifact", assetId: galleryAssetId, point: mapCenterPoint(activeMap) });
+    setAssetId(galleryAssetId);
+    setGalleryOpen(false);
+  };
+
   const createMap = () => {
     dispatch({ type: "create_map" });
     setMapDetailsOpen(true);
@@ -293,6 +301,7 @@ export default function MapBuilder() {
           onDownload={downloadJson}
           onReset={resetDraft}
           onOpen3D={open3DPlaytest}
+          onOpenGallery={() => setGalleryOpen(true)}
           testMode={testMode}
           onToggleTest={() => setTestMode((value) => !value)}
         />
@@ -312,14 +321,18 @@ export default function MapBuilder() {
               onTestCellChange={setTestCellId}
             />
 
-            <Floating3DPreview
-              map={activeMap}
-              assetCatalog={state.content.assetCatalog}
-              players={previewPlayers}
-              testMode={testMode}
-              testCellId={testCellId}
-              onOpen={open3DPlaytest}
-            />
+            {/* Mientras un overlay 3D a pantalla completa está abierto (playtest o galería),
+                desmontamos el preview chico: así hay un solo canvas WebGL activo. */}
+            {!playtest3DOpen && !galleryOpen && (
+              <Floating3DPreview
+                map={activeMap}
+                assetCatalog={state.content.assetCatalog}
+                players={previewPlayers}
+                testMode={testMode}
+                testCellId={testCellId}
+                onOpen={open3DPlaytest}
+              />
+            )}
 
             <FloatingToolBar
               state={state}
@@ -375,6 +388,15 @@ export default function MapBuilder() {
           onClose={() => setPlaytest3DOpen(false)}
         />
       )}
+
+      {galleryOpen && (
+        <PropGalleryOverlay
+          assetCatalog={state.content.assetCatalog}
+          initialAssetId={assetId}
+          onPlace={placePropFromGallery}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </main>
   );
 }
@@ -390,6 +412,7 @@ function MapTopBar({
   onDownload,
   onReset,
   onOpen3D,
+  onOpenGallery,
   testMode,
   onToggleTest,
 }: {
@@ -403,6 +426,7 @@ function MapTopBar({
   onDownload: () => void;
   onReset: () => void;
   onOpen3D: () => void;
+  onOpenGallery: () => void;
   testMode: boolean;
   onToggleTest: () => void;
 }) {
@@ -443,6 +467,9 @@ function MapTopBar({
       </button>
       <button type="button" onClick={onOpen3D} className="builder-button preview">
         3D playtest
+      </button>
+      <button type="button" onClick={onOpenGallery} className="builder-button preview">
+        Props 3D
       </button>
       <button type="button" onClick={onToggleTest} className={`builder-button ${testMode ? "active" : ""}`}>
         {testMode ? "Stop test" : "Test map"}
@@ -1480,6 +1507,7 @@ function Playtest3DOverlay({
   const outgoing = current ? outgoingRoutes(map, current.id) : [];
   const start = map.board.find((tile) => tile.type === "start") ?? map.board[0];
   const finish = map.board.find((tile) => tile.type === "finish") ?? map.board[map.board.length - 1];
+  const [freeCamera, setFreeCamera] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-[#101510]">
@@ -1493,6 +1521,7 @@ function Playtest3DOverlay({
         players={players}
         activeId="test-player"
         interactive
+        freeCamera={freeCamera}
         className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
       />
 
@@ -1502,10 +1531,27 @@ function Playtest3DOverlay({
             <p className="text-[0.65rem] font-black uppercase tracking-[0.24em] text-cyan-200">3D playtest</p>
             <h2 className="mt-1 text-2xl font-black text-white">{map.name}</h2>
             <p className="mt-1 text-sm font-bold text-emerald-100/85">{current ? cellSummary(current) : "No cells"}</p>
+            {freeCamera && (
+              <p className="mt-2 text-xs font-bold text-cyan-100/80">Arrastrá para orbitar · rueda para zoom · click derecho o Shift+arrastrar para desplazar</p>
+            )}
           </div>
-          <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
-            Close
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <button
+              type="button"
+              onClick={() => setFreeCamera((value) => !value)}
+              aria-pressed={freeCamera}
+              className={`rounded-md border px-4 py-3 text-sm font-black shadow-2xl backdrop-blur-md transition ${
+                freeCamera
+                  ? "border-cyan-300/60 bg-cyan-400/20 text-cyan-100 hover:bg-cyan-400/30"
+                  : "border-white/20 bg-slate-950/60 text-white hover:bg-white/10"
+              }`}
+            >
+              {freeCamera ? "🎥 Cámara libre: ON" : "🎥 Cámara libre"}
+            </button>
+            <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
+              Close
+            </button>
+          </div>
         </header>
 
         <section className="pointer-events-auto ml-auto w-[min(25rem,calc(100vw-1.5rem))] rounded-lg border border-white/15 bg-slate-950/65 p-3 shadow-2xl shadow-black/35 backdrop-blur-md">
@@ -1552,6 +1598,135 @@ function Playtest3DOverlay({
               </button>
             ))}
             {outgoing.length === 0 && <p className="rounded-md border border-white/10 bg-black/25 p-3 text-sm font-bold text-slate-400">No outgoing routes from this cell.</p>}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/** Medio ancho (en celdas) del piso de la galería: define el encuadre inicial del prop. */
+const PROP_PREVIEW_HALF = 2.5;
+
+/** Mini-mapa de un solo prop centrado, para mostrarlo aislado en el visor 3D. */
+function buildPropPreviewMap(assetId: string, asset?: MapAssetDef): {
+  board: Tile[];
+  artifacts: MapArtifact[];
+  boardShape: MapBoardShape;
+} {
+  const boardShape: MapBoardShape = {
+    minX: -PROP_PREVIEW_HALF,
+    minY: -PROP_PREVIEW_HALF,
+    maxX: PROP_PREVIEW_HALF,
+    maxY: PROP_PREVIEW_HALF,
+    blockedCells: [],
+    borderEdges: [],
+  };
+  const artifacts: MapArtifact[] = assetId
+    ? [{ id: "prop-preview", assetId, position: { x: 0, y: 0 }, scale: asset?.defaultScale ?? 1 }]
+    : [];
+  return { board: [], artifacts, boardShape };
+}
+
+/** Punto central del mapa activo, usado para dejar caer ahí el prop elegido en la galería. */
+function mapCenterPoint(map: MapDefinition): TileLayout {
+  const shape = map.boardShape;
+  if (shape) return { x: (shape.minX + shape.maxX) / 2, y: (shape.minY + shape.maxY) / 2 };
+  const layouts = map.board.map((tile) => tile.layout).filter((layout): layout is TileLayout => Boolean(layout));
+  if (!layouts.length) return { x: 0, y: 0 };
+  const sum = layouts.reduce((acc, layout) => ({ x: acc.x + layout.x, y: acc.y + layout.y }), { x: 0, y: 0 });
+  return { x: sum.x / layouts.length, y: sum.y / layouts.length };
+}
+
+/**
+ * Visor 3D de props: muestra un prop a la vez, aislado y en grande sobre un piso,
+ * con cámara libre para girarlo/acercarlo. Se puede recorrer todo el catálogo y
+ * colocar en el mapa el que se está viendo.
+ */
+function PropGalleryOverlay({
+  assetCatalog,
+  initialAssetId,
+  onPlace,
+  onClose,
+}: {
+  assetCatalog: MapAssetDef[];
+  initialAssetId: string;
+  onPlace: (assetId: string) => void;
+  onClose: () => void;
+}) {
+  const [selectedId, setSelectedId] = useState(
+    assetCatalog.some((asset) => asset.id === initialAssetId) ? initialAssetId : assetCatalog[0]?.id ?? ""
+  );
+  const selectedIndex = Math.max(0, assetCatalog.findIndex((asset) => asset.id === selectedId));
+  const selectedAsset = assetCatalog[selectedIndex];
+  const preview = useMemo(() => buildPropPreviewMap(selectedAsset?.id ?? "", selectedAsset), [selectedAsset]);
+
+  const step = (delta: number) => {
+    if (!assetCatalog.length) return;
+    const next = (selectedIndex + delta + assetCatalog.length) % assetCatalog.length;
+    setSelectedId(assetCatalog[next].id);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-[#101510]">
+      <Board3DShell
+        tiles={preview.board}
+        routes={[]}
+        artifacts={preview.artifacts}
+        terraces={[]}
+        assetCatalog={assetCatalog}
+        boardShape={preview.boardShape}
+        players={[]}
+        freeCamera
+        interactive
+        className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
+      />
+
+      <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col justify-between p-3 sm:p-5">
+        <header className="pointer-events-auto flex flex-wrap items-start justify-between gap-3">
+          <div className="rounded-lg border border-white/15 bg-slate-950/60 px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <p className="text-[0.65rem] font-black uppercase tracking-[0.24em] text-cyan-200">Galería de props</p>
+            <h2 className="mt-1 text-2xl font-black text-white">{selectedAsset ? assetOptionLabel(selectedAsset) : "Sin props"}</h2>
+            <p className="mt-2 text-xs font-bold text-cyan-100/80">Arrastrá para orbitar · rueda para zoom · click derecho o Shift+arrastrar para desplazar</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
+            Close
+          </button>
+        </header>
+
+        <section className="pointer-events-auto w-full rounded-lg border border-white/15 bg-slate-950/65 p-3 shadow-2xl shadow-black/35 backdrop-blur-md">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => step(-1)} className="builder-button compact" aria-label="Prop anterior">◀</button>
+              <span className="min-w-[4rem] text-center text-xs font-bold text-slate-300">{assetCatalog.length ? selectedIndex + 1 : 0} / {assetCatalog.length}</span>
+              <button type="button" onClick={() => step(1)} className="builder-button compact" aria-label="Prop siguiente">▶</button>
+            </div>
+            <button
+              type="button"
+              onClick={() => selectedAsset && onPlace(selectedAsset.id)}
+              disabled={!selectedAsset}
+              className="rounded-md border border-emerald-300/60 bg-emerald-400/20 px-4 py-2 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/30 disabled:opacity-40"
+            >
+              Colocar en el mapa
+            </button>
+          </div>
+          <div className="mt-3 grid max-h-[34vh] grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto overscroll-contain pr-1">
+            {assetCatalog.map((asset) => (
+              <button
+                key={asset.id}
+                type="button"
+                onClick={() => setSelectedId(asset.id)}
+                aria-pressed={asset.id === selectedId}
+                className={`flex items-center gap-2 rounded-md border px-2 py-2 text-left text-xs font-bold transition ${
+                  asset.id === selectedId
+                    ? "border-cyan-300/70 bg-cyan-400/20 text-cyan-100"
+                    : "border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/10"
+                }`}
+              >
+                <span className="text-base leading-none">{ASSET_EMOJI[asset.id] ?? KIND_EMOJI[asset.kind] ?? KIND_EMOJI.custom}</span>
+                <span className="truncate">{asset.name}</span>
+              </button>
+            ))}
           </div>
         </section>
       </div>
