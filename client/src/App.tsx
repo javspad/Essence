@@ -113,10 +113,9 @@ function ConnectedGame({
   const boardMe = boardState.players.find((player) => player.id === me.id) ?? me;
   const boardActiveId = boardState.turnOrder[boardState.activeIndex] ?? activeId ?? undefined;
   const boardIsMyTurn = boardMe.id === boardActiveId;
-  const skipMinigamesForDev = Boolean(state.devSettings?.skipMinigames);
 
   const boardPhaseVisible = ["turn", "moving", "event", "reveal", "finished"].includes(boardState.phase);
-  const holdingMinigameForBoard = state.phase === "minigame" && (!presentation.showMinigame || skipMinigamesForDev);
+  const holdingMinigameForBoard = state.phase === "minigame" && !presentation.showMinigame;
 
   if (boardPhaseVisible || holdingMinigameForBoard) {
     return (
@@ -142,8 +141,6 @@ function ConnectedGame({
           onNext={actions.next}
           onLeave={actions.leave}
           onDebugApplyEffect={actions.debugApplyEffect}
-          onDebugSetSkipMinigames={actions.debugSetSkipMinigames}
-          onDebugChooseMinigameWinner={actions.debugChooseMinigameWinner}
         />
       </Suspense>
     );
@@ -155,7 +152,7 @@ function ConnectedGame({
 
       {state.phase === "lobby" && <Lobby state={state} isHost={isHost} onStart={actions.start} onLeave={actions.leave} />}
 
-      {presentation.showMinigame && !skipMinigamesForDev && (
+      {presentation.showMinigame && (
         <MinigameHost
           state={state}
           me={me}

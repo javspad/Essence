@@ -64,7 +64,7 @@ export function effectHooksFor(effect: EffectDef): EffectLifecycleHook[] {
 
 export function effectConsequencesFor(effect: EffectDef): EventAction[] {
   if (effect.consequences?.length) return effect.consequences.map(effectBodyAction);
-  return [...(effect.actions ?? []), ...(effect.modifiers ?? []).flatMap(effectModifierToConsequences)];
+  return [...(effect.actions ?? []), ...(effect.modifiers ?? []).flatMap(effectModifierToConsequences)].map(effectBodyAction);
 }
 
 export function timedConsequenceEffectDef(action: EventAction, id: string): EffectDef {
@@ -88,7 +88,7 @@ export function defaultDurationForConsequence(_action: EventAction): EffectDurat
 
 export function effectBodyAction(action: EventAction): EventAction {
   const { duration: _duration, ...body } = action;
-  return body as EventAction;
+  return withCanonicalModifierHook(body as EventAction);
 }
 
 export function isPersistentModifier(action: EventAction): boolean {
@@ -112,6 +112,13 @@ export function defaultHookForConsequence(type: EventAction["type"]): EffectLife
   if (type === "applyEffect") return "onActivityResult";
   if (type === "offlineAction") return "onActivityResult";
   return "onTurnEnd";
+}
+
+export function withCanonicalModifierHook(action: EventAction): EventAction {
+  if (action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias") {
+    return { ...action, hook: defaultHookForConsequence(action.type) } as EventAction;
+  }
+  return action;
 }
 
 export function effectRemainingLabel(remaining: EffectDurationState): string {

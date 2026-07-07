@@ -337,7 +337,10 @@ assert.deepEqual(
 assert.deepEqual(durationStateFromDef({ mode: "rounds", value: 2 }), { mode: "rounds", remaining: 2 });
 assert.equal(effectRemainingLabel({ mode: "untilTriggered" }), "until triggered");
 assert.deepEqual(effectConsequencesFor({ id: "half", name: "Half", duration: { mode: "rounds", value: 2 }, consequences: [{ type: "movementMultiplier", multiplier: 0.5 }] }), [
-  { type: "movementMultiplier", multiplier: 0.5 },
+  { type: "movementMultiplier", multiplier: 0.5, hook: "beforeMovement" },
+]);
+assert.deepEqual(effectConsequencesFor({ id: "legacy-action-half", name: "Legacy action half", duration: { mode: "rounds", value: 2 }, actions: [{ type: "movementMultiplier", hook: "beforeRoll", multiplier: 0.5 }] }), [
+  { type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5 },
 ]);
 assert.deepEqual(
   effectConsequencesFor({

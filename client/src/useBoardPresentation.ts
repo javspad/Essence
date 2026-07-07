@@ -35,6 +35,7 @@ export function useBoardPresentation(authoritativeState: GameState): BoardPresen
   const jumping = snapshot.matches("jumping");
   const busyOnBoard = rolling || revealing || moving || eventReading || jumping;
   const diceValue = snapshot.context.diceCue?.value ?? null;
+  const baseDiceValue = snapshot.context.diceCue?.baseValue ?? diceValue;
 
   return {
     displayState: snapshot.context.displayState,
@@ -47,7 +48,9 @@ export function useBoardPresentation(authoritativeState: GameState): BoardPresen
       ? "Tirando dado..."
       : revealing
         ? diceValue
-          ? `¡Salió ${diceValue}!`
+          ? baseDiceValue && baseDiceValue !== diceValue
+            ? `¡Salió ${baseDiceValue} → ${diceValue}!`
+            : `¡Salió ${diceValue}!`
           : "Tirando dado..."
         : moving
           ? "Avanzando..."

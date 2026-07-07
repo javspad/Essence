@@ -1521,8 +1521,10 @@ function FloatingDice({ cue, position, motion }: { cue: BoardDiceCue; position: 
   const group = useRef<Group | null>(null);
   const cubeRef = useRef<Group | null>(null);
   const rollValue = cue.value ?? 1;
-  const value = Math.max(1, Math.min(6, rollValue));
-  const modifiedValue = rollValue !== value;
+  const hasBaseValue = typeof cue.baseValue === "number" && Number.isFinite(cue.baseValue);
+  const baseRollValue = hasBaseValue ? cue.baseValue! : rollValue;
+  const value = Math.max(1, Math.min(6, baseRollValue));
+  const modifiedValue = hasBaseValue ? baseRollValue !== rollValue : rollValue !== value;
   const DICE_SIZE = 0.64;
   const animated = motion.tokenStepSeconds !== 0;
   // Cuánto pasó desde que arrancó el tiro actual (nonce), para animar en función

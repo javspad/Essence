@@ -1255,8 +1255,9 @@ function ConsequenceActionEditor({
             <div className="rounded-md border border-cyan-200/15 bg-cyan-300/10 p-2">
               <SelectInput
                 label="Runs"
-                value={action.hook ?? defaultHookForConsequence(action.type)}
-                options={hookOptions}
+                value={hookValueForAction(action)}
+                disabled={isModifierEffectAction(action)}
+                options={hookOptionsForAction(action)}
                 onChange={(hook) => onChange({ ...action, hook: hook as EffectLifecycleHook })}
               />
               <DurationEditor duration={action.duration ?? defaultInlineDuration(action)} onChange={(duration) => onChange({ ...action, duration })} />
@@ -1473,8 +1474,9 @@ function EffectConsequenceRow({
       )}
       <SelectInput
         label="Runs"
-        value={editable.hook ?? defaultHookForEffectAction(editable)}
-        options={hookOptions}
+        value={hookValueForAction(editable)}
+        disabled={isModifierEffectAction(editable)}
+        options={hookOptionsForAction(editable)}
         onChange={(hook) => onChange({ ...editable, hook: hook as EventAction["hook"] })}
       />
       {"target" in editable && editable.target && typeof editable.target !== "string" && "playerId" in editable.target && (
@@ -2222,11 +2224,21 @@ function effectEditableAction(action: EventAction): EventAction {
   if (action.type === "applyEffect" || action.type === "offlineAction" || action.type === "text") {
     return { type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil" };
   }
-  return action;
+  return isModifierEffectAction(action) ? ensureModifierTiming(action) : action;
 }
 
 function defaultHookForEffectAction(action: EventAction): NonNullable<EventAction["hook"]> {
   return defaultHookForConsequence(action.type);
+}
+
+function hookValueForAction(action: EventAction): NonNullable<EventAction["hook"]> {
+  return isModifierEffectAction(action) ? defaultHookForConsequence(action.type) : action.hook ?? defaultHookForEffectAction(action);
+}
+
+function hookOptionsForAction(action: EventAction): { value: EffectLifecycleHook; label: string }[] {
+  if (!isModifierEffectAction(action)) return hookOptions;
+  const hook = defaultHookForConsequence(action.type);
+  return hookOptions.filter((option) => option.value === hook);
 }
 
 function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" }>, amount: number): EventAction {
@@ -2249,6 +2261,12 @@ function consequenceTimingMode(action: EventAction): ConsequenceTimingMode {
 }
 
 function setConsequenceTimingMode(action: EventAction, mode: ConsequenceTimingMode): EventAction {
+  if (isModifierEffectAction(action)) {
+    return ensureModifierTiming({
+      ...action,
+      duration: action.duration ?? defaultInlineDuration(action),
+    } as EventAction);
+  }
   if (mode === "attached") {
     return {
       ...action,
@@ -2256,7 +2274,6 @@ function setConsequenceTimingMode(action: EventAction, mode: ConsequenceTimingMo
       duration: action.duration ?? defaultInlineDuration(action),
     } as EventAction;
   }
-  if (isModifierEffectAction(action)) return ensureModifierTiming(action);
   const { duration: _duration, hook: _hook, ...rest } = action;
   return rest as EventAction;
 }
@@ -2281,7 +2298,7 @@ function ensureModifierTiming(action: EventAction): EventAction {
   if (!isModifierEffectAction(action)) return action;
   return {
     ...action,
-    hook: action.hook ?? defaultHookForConsequence(action.type),
+    hook: defaultHookForConsequence(action.type),
     duration: action.duration ?? defaultInlineDuration(action),
   } as EventAction;
 }
@@ -2474,6 +2491,7 @@ function createTestState(
     activeIndex: 0,
     round: runKey,
     boardLength: 0,
+    lastBaseRoll: null,
     lastRoll: null,
     activeMinigame: {
       id: eventId,

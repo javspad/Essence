@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { EffectDef, EffectInstance, EventAction, GameContent, GameState, Player } from "@essence/shared";
+import type { EffectDef, EffectDuration, EffectInstance, EffectLifecycleHook, EventAction, GameContent, GameState, Player } from "@essence/shared";
 import { consequenceLabel, durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import seedContent from "@shared/content.json";
@@ -8,10 +8,14 @@ import {
   Dice5,
   LogOut,
   Map as MapIcon,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
   ShoppingBag,
   Sparkles,
-  Trophy,
-  Wrench,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -46,13 +50,12 @@ interface GameScene3DProps {
   onNext: () => void;
   onLeave: () => void;
   onDebugApplyEffect: (playerId: string, effect: EffectDef) => void;
-  onDebugSetSkipMinigames: (enabled: boolean) => void;
-  onDebugChooseMinigameWinner: (playerId: string) => void;
 }
 
 const DICE = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
 const DEFAULT_CAMERA_STATE: BoardCameraState = { mode: "followActivePlayer", focusedPlayerId: null };
 const EVENT_BUILDER_STORAGE_KEY = "essence:event-builder:draft:v1";
+const DEV_TOOLS_HIDDEN_EFFECTS_KEY = "essence:dev-tools:hidden-effects:v1";
 const SEED_EFFECTS = (seedContent as unknown as GameContent).effects ?? {};
 const BUILT_IN_DEBUG_EFFECTS: EffectDef[] = [
   {
@@ -104,14 +107,6 @@ const BUILT_IN_DEBUG_EFFECTS: EffectDef[] = [
     consequences: [{ type: "extraTurn", hook: "onTurnEnd", text: "Play an extra turn.", icon: "🔁" }],
   },
   {
-    id: "debug-consequence-half-movement",
-    name: "Half movement",
-    description: "For 2 rounds, move half of the die roll.",
-    icon: "½",
-    duration: { mode: "rounds", value: 2 },
-    consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll.", icon: "½" }],
-  },
-  {
     id: "debug-consequence-double-movement",
     name: "Double movement",
     description: "For 2 rounds, double movement from the die roll.",
@@ -128,6 +123,28 @@ const BUILT_IN_DEBUG_EFFECTS: EffectDef[] = [
     consequences: [{ type: "diceBias", hook: "beforeRoll", face: 5, chanceDeltaPercent: 25, text: "+25% chance to roll five.", icon: "⚄" }],
   },
 ];
+
+const EFFECT_HOOK_OPTIONS: { value: EffectLifecycleHook; label: string }[] = [
+  { value: "beforeRoll", label: "Before roll" },
+  { value: "afterRoll", label: "After roll" },
+  { value: "beforeMovement", label: "Before movement" },
+  { value: "afterMovement", label: "After movement" },
+  { value: "onCellEnter", label: "On cell enter" },
+  { value: "onActivityResult", label: "On activity result" },
+  { value: "onTurnEnd", label: "On turn end" },
+];
+
+const EFFECT_ACTION_TYPE_OPTIONS: { value: EventAction["type"]; label: string }[] = [
+  { value: "movementMultiplier", label: "Movement multiplier" },
+  { value: "diceBias", label: "Dice bias" },
+  { value: "coins", label: "Coins" },
+  { value: "move", label: "Move cells" },
+  { value: "skipTurn", label: "Skip turn" },
+  { value: "extraTurn", label: "Extra turn" },
+];
+
+type EditableEffectAction = Extract<EventAction, { type: "movementMultiplier" | "diceBias" | "coins" | "move" | "skipTurn" | "extraTurn" }>;
+type DraftContent = Partial<GameContent> & { effects?: Record<string, EffectDef> };
 
 export default function GameScene3D({
   connected,
@@ -147,8 +164,6 @@ export default function GameScene3D({
   onNext,
   onLeave,
   onDebugApplyEffect,
-  onDebugSetSkipMinigames,
-  onDebugChooseMinigameWinner,
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
   const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
@@ -249,8 +264,6 @@ export default function GameScene3D({
         onNext={onNext}
         onLeave={requestLeave}
         onDebugApplyEffect={onDebugApplyEffect}
-        onDebugSetSkipMinigames={onDebugSetSkipMinigames}
-        onDebugChooseMinigameWinner={onDebugChooseMinigameWinner}
       />
 
       {cosmeticShopOpen && (
@@ -299,8 +312,6 @@ function SceneChrome({
   onNext,
   onLeave,
   onDebugApplyEffect,
-  onDebugSetSkipMinigames,
-  onDebugChooseMinigameWinner,
 }: {
   connected: boolean;
   state: GameState;
@@ -321,8 +332,6 @@ function SceneChrome({
   onNext: () => void;
   onLeave: () => void;
   onDebugApplyEffect: (playerId: string, effect: EffectDef) => void;
-  onDebugSetSkipMinigames: (enabled: boolean) => void;
-  onDebugChooseMinigameWinner: (playerId: string) => void;
 }) {
   const active = state.players.find((player) => player.id === activeId);
   const sorted = rankPlayersByProgress(state.players);
@@ -353,11 +362,10 @@ function SceneChrome({
           <div className="relative z-30 ml-0 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
             <ShopButton onOpen={onOpenCosmeticShop} />
             {isHost && debugToolsEnabled && (
-              <DevToolsMenu
-                state={state}
-                onApplyEffect={onDebugApplyEffect}
-                onSkipMinigamesChange={onDebugSetSkipMinigames}
-                onChooseMinigameWinner={onDebugChooseMinigameWinner}
+              <DebugEffectTool
+                players={state.players}
+                effects={state.effects}
+                onApply={onDebugApplyEffect}
               />
             )}
             <MapToggleButton cameraMode={cameraState.mode} onCameraIntent={onCameraIntent} />
@@ -548,41 +556,33 @@ function EffectStackDetails({ effects }: { effects: EffectInstance[] }) {
   );
 }
 
-function DevToolsMenu({
-  state,
-  onApplyEffect,
-  onSkipMinigamesChange,
-  onChooseMinigameWinner,
+function DebugEffectTool({
+  players,
+  effects,
+  onApply,
 }: {
-  state: GameState;
-  onApplyEffect: (playerId: string, effect: EffectDef) => void;
-  onSkipMinigamesChange: (enabled: boolean) => void;
-  onChooseMinigameWinner: (playerId: string) => void;
+  players: Player[];
+  effects?: Record<string, EffectDef>;
+  onApply: (playerId: string, effect: EffectDef) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [draftVersion, setDraftVersion] = useState(0);
-  const players = state.players;
-  const effects = state.effects;
-  const activeMinigame = state.activeMinigame;
-  const skipMinigames = Boolean(state.devSettings?.skipMinigames);
-  const winnerOptions = useMemo(() => {
-    const minigameWinnerIds = activeMinigame ? (activeMinigame.subjects?.length ? activeMinigame.subjects : activeMinigame.participants) : [];
-    return minigameWinnerIds
-      .map((id) => players.find((player) => player.id === id))
-      .filter((player): player is Player => Boolean(player));
-  }, [activeMinigame, players]);
+  const draftEffects = useMemo(() => loadEventBuilderDraftEffects(), [draftVersion]);
+  const hiddenEffectIds = useMemo(() => loadHiddenEffectIds(), [draftVersion]);
   const effectOptions = useMemo(
-    () => mergedEffectCatalog(SEED_EFFECTS, effects, loadEventBuilderDraftEffects(), keyedEffects(BUILT_IN_DEBUG_EFFECTS)),
-    [effects, draftVersion]
+    () => mergedEffectCatalog(keyedEffects(BUILT_IN_DEBUG_EFFECTS), SEED_EFFECTS, effects, draftEffects).filter((effect) => !hiddenEffectIds.has(effect.id)),
+    [draftEffects, effects, hiddenEffectIds]
   );
   const [selectedPlayerId, setSelectedPlayerId] = useState(players[0]?.id ?? "");
   const [selectedEffectId, setSelectedEffectId] = useState(effectOptions[0]?.id ?? "");
-  const [selectedWinnerId, setSelectedWinnerId] = useState(winnerOptions[0]?.id ?? "");
+  const [editingEffect, setEditingEffect] = useState<EffectDef | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const selectedEffect = effectOptions.find((effect) => effect.id === selectedEffectId);
+  const selectedEffectIsDraft = Boolean(selectedEffect && draftEffects[selectedEffect.id]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === EVENT_BUILDER_STORAGE_KEY) setDraftVersion((version) => version + 1);
+      if (event.key === EVENT_BUILDER_STORAGE_KEY || event.key === DEV_TOOLS_HIDDEN_EFFECTS_KEY) setDraftVersion((version) => version + 1);
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -598,21 +598,53 @@ function DevToolsMenu({
     setSelectedEffectId(effectOptions[0]?.id ?? "");
   }, [effectOptions, selectedEffectId]);
 
-  useEffect(() => {
-    if (selectedWinnerId && winnerOptions.some((player) => player.id === selectedWinnerId)) return;
-    setSelectedWinnerId(winnerOptions[0]?.id ?? "");
-  }, [selectedWinnerId, winnerOptions]);
-
   const apply = () => {
     if (!selectedPlayerId || !selectedEffect) return;
-    onApplyEffect(selectedPlayerId, selectedEffect);
+    onApply(selectedPlayerId, selectedEffect);
+    setMessage(`${selectedEffect.name} added. Roll/turn timing depends on its hook.`);
     setOpen(false);
   };
 
-  const chooseWinner = () => {
-    if (!selectedWinnerId) return;
-    onChooseMinigameWinner(selectedWinnerId);
-    setOpen(false);
+  const createEffect = () => {
+    const effect = defaultDevToolEffect(nextDraftEffectId({ ...draftEffects, ...keyedEffects(BUILT_IN_DEBUG_EFFECTS), ...SEED_EFFECTS, ...(effects ?? {}) }));
+    setSelectedEffectId(effect.id);
+    setEditingEffect(effect);
+    setMessage(null);
+  };
+
+  const editEffect = () => {
+    if (!selectedEffect) return;
+    setEditingEffect(cloneEffect(selectedEffect));
+    setMessage(null);
+  };
+
+  const saveEffect = () => {
+    if (!editingEffect) return;
+    const normalized = normalizeEditableEffect(editingEffect);
+    saveDraftEffect(normalized);
+    setSelectedEffectId(normalized.id);
+    setEditingEffect(null);
+    setDraftVersion((version) => version + 1);
+    setMessage(`${normalized.name} saved.`);
+  };
+
+  const removeEffect = () => {
+    if (!selectedEffect) return;
+    if (draftEffects[selectedEffect.id]) {
+      deleteDraftEffect(selectedEffect.id);
+      setMessage(`${selectedEffect.name} removed from saved effects.`);
+    } else {
+      saveHiddenEffectIds(new Set([...hiddenEffectIds, selectedEffect.id]));
+      setMessage(`${selectedEffect.name} hidden from Dev tools.`);
+    }
+    setEditingEffect(null);
+    setDraftVersion((version) => version + 1);
+  };
+
+  const restoreHiddenEffects = () => {
+    saveHiddenEffectIds(new Set());
+    setDraftVersion((version) => version + 1);
+    setMessage("Hidden effects restored.");
   };
 
   return (
@@ -622,7 +654,7 @@ function DevToolsMenu({
         aria-label="Abrir dev tools"
         aria-expanded={open}
         title="Dev tools"
-        data-testid="dev-tools-toggle"
+        data-testid="debug-effects-toggle"
         onClick={() => {
           setDraftVersion((version) => version + 1);
           setOpen((current) => !current);
@@ -632,124 +664,345 @@ function DevToolsMenu({
           open ? "bg-[#34d399]/24 ring-1 ring-[#a7f3d0]/60" : "bg-[#052e1a]/82"
         )}
       >
-        <Wrench data-icon="inline-start" className="size-3.5" />
+        <Bug data-icon="inline-start" className="size-3.5" />
         <span className="hidden sm:inline">Dev tools</span>
       </Button>
 
       {open && (
         <section
           aria-label="Development tools"
-          data-testid="dev-tools-panel"
-          className="absolute right-0 top-11 max-h-[calc(100vh-5rem)] w-[min(21rem,calc(100vw-1.5rem))] overflow-y-auto rounded-sm border border-[#a7f3d0]/35 bg-[#07140f]/96 p-3 text-[#ecfdf5] shadow-[0_0_0_1px_rgba(167,243,208,0.08),0_18px_50px_rgb(0_0_0/0.55)] backdrop-blur-xl"
+          data-testid="debug-effects-panel"
+          className="absolute right-0 top-11 max-h-[calc(100vh-5rem)] w-[min(24rem,calc(100vw-1.5rem))] overflow-y-auto rounded-sm border border-[#a7f3d0]/35 bg-[#07140f]/96 p-3 text-[#ecfdf5] shadow-[0_0_0_1px_rgba(167,243,208,0.08),0_18px_50px_rgb(0_0_0/0.55)] backdrop-blur-xl"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="retro text-[8px] uppercase tracking-widest text-[#86efac]">Development</p>
               <h2 className="mt-1 text-sm font-black text-[#f0fdf4]">Dev tools</h2>
             </div>
-            <Bug className="mt-0.5 size-4 shrink-0 text-[#f5d547]" />
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-[#f5d547]" />
           </div>
 
-          <div className="mt-3 rounded-sm border border-white/10 bg-white/[0.04] p-2.5">
-            <div className="flex items-center gap-2">
-              <Sparkles className="size-3.5 text-[#f5d547]" />
-              <h3 className="text-[10px] font-black uppercase tracking-wider text-[#bbf7d0]">Effects</h3>
-            </div>
-            <div className="mt-2 grid gap-2">
-              <DevToolSelect
-                label="Player"
-                value={selectedPlayerId}
-                disabled={!players.length}
-                options={players.map((player) => ({ value: player.id, label: player.name }))}
-                testId="debug-effect-player"
-                onChange={setSelectedPlayerId}
-              />
-              <DevToolSelect
-                label="Effect type"
-                value={selectedEffectId}
-                disabled={!effectOptions.length}
-                options={effectOptions.length ? effectOptions.map((effect) => ({ value: effect.id, label: `${effectIcon(effect)} ${effect.name}` })) : [{ value: "", label: "No effects" }]}
-                testId="debug-effect-effect"
-                onChange={setSelectedEffectId}
-              />
-            </div>
+          <div className="mt-3 grid gap-2">
+            <DevToolSelect
+              label="Player"
+              value={selectedPlayerId}
+              disabled={!players.length}
+              options={players.map((player) => ({ value: player.id, label: player.name }))}
+              testId="debug-effect-player"
+              onChange={setSelectedPlayerId}
+            />
+            <DevToolSelect
+              label="Effect type"
+              value={selectedEffectId}
+              disabled={!effectOptions.length}
+              options={effectOptions.length ? effectOptions.map((effect) => ({ value: effect.id, label: `${effectIcon(effect)} ${effect.name}` })) : [{ value: "", label: "No effects" }]}
+              testId="debug-effect-effect"
+              onChange={setSelectedEffectId}
+            />
+          </div>
 
-            {selectedEffect ? (
-              <div className="mt-3 rounded-sm border border-white/10 bg-black/25 p-2">
-                <p className="truncate text-xs font-black text-[#f0fdf4]">
-                  <span className="mr-1">{effectIcon(selectedEffect)}</span>
-                  {selectedEffect.name}
-                </p>
-                <p className="mt-1 line-clamp-2 text-[10px] font-bold leading-4 text-[#bbf7d0]/75">
-                  {selectedEffect.description ?? "Custom effect from the active catalog."}
-                </p>
-                <p className="mt-2 w-fit rounded-sm border border-[#a7f3d0]/25 bg-[#34d399]/12 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-[#bbf7d0]">
-                  {effectRemainingLabel(durationStateFromDef(selectedEffect.duration))}
-                </p>
-              </div>
-            ) : (
-              <p className="mt-3 rounded-sm border border-dashed border-white/15 p-2 text-xs font-bold text-[#bbf7d0]/70">
-                Create and save an effect in Event Builder, or add effects to content.json.
+          {selectedEffect ? (
+            <div className="mt-3 rounded-sm border border-white/10 bg-black/25 p-2">
+              <p className="truncate text-xs font-black text-[#f0fdf4]">
+                <span className="mr-1">{effectIcon(selectedEffect)}</span>
+                {selectedEffect.name}
               </p>
-            )}
+              <p className="mt-1 line-clamp-2 text-[10px] font-bold leading-4 text-[#bbf7d0]/75">
+                {selectedEffect.description ?? "Custom effect from the active catalog."}
+              </p>
+              <p className="mt-2 w-fit rounded-sm border border-[#a7f3d0]/25 bg-[#34d399]/12 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-[#bbf7d0]">
+                {effectRemainingLabel(durationStateFromDef(selectedEffect.duration))}
+              </p>
+              <p className="mt-2 text-[9px] font-bold uppercase tracking-wide text-[#86efac]/80">
+                {selectedEffectIsDraft ? "Saved custom effect" : "Base catalog effect"}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-sm border border-dashed border-white/15 p-2 text-xs font-bold text-[#bbf7d0]/70">
+              Create and save an effect here, in Event Builder, or add effects to content.json.
+            </p>
+          )}
 
-            <Button
-              type="button"
-              data-testid="debug-effect-apply"
-              disabled={!selectedPlayerId || !selectedEffect}
-              onClick={apply}
-              className="mt-3 h-10 w-full bg-[#34d399] px-4 text-xs font-black uppercase tracking-wider text-[#052e1a] hover:bg-[#6ee7b7] disabled:bg-white/15 disabled:text-white/50"
-            >
-              Apply to player
+          <div className="mt-3 grid grid-cols-3 gap-1.5">
+            <Button type="button" onClick={createEffect} className="h-8 bg-white/10 px-2 text-[9px] font-black uppercase tracking-wide text-[#d9f99d] hover:bg-white/15">
+              <Plus data-icon="inline-start" className="size-3" />
+              New
+            </Button>
+            <Button type="button" disabled={!selectedEffect} onClick={editEffect} className="h-8 bg-white/10 px-2 text-[9px] font-black uppercase tracking-wide text-[#d9f99d] hover:bg-white/15 disabled:opacity-45">
+              <Pencil data-icon="inline-start" className="size-3" />
+              Edit
+            </Button>
+            <Button type="button" disabled={!selectedEffect} onClick={removeEffect} className="h-8 bg-[#451a1a]/80 px-2 text-[9px] font-black uppercase tracking-wide text-[#fecaca] hover:bg-[#7f1d1d] disabled:opacity-45">
+              <Trash2 data-icon="inline-start" className="size-3" />
+              Remove
             </Button>
           </div>
 
-          <div className="mt-3 rounded-sm border border-white/10 bg-white/[0.04] p-2.5">
-            <div className="flex items-center gap-2">
-              <Trophy className="size-3.5 text-[#f5d547]" />
-              <h3 className="text-[10px] font-black uppercase tracking-wider text-[#bbf7d0]">Minigames</h3>
-            </div>
-            <label className="mt-2 flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-black/25 px-2 py-2 text-xs font-black text-[#f0fdf4]">
-              <span>Skip minigames</span>
-              <input
-                type="checkbox"
-                checked={skipMinigames}
-                data-testid="debug-skip-minigames"
-                onChange={(event) => onSkipMinigamesChange(event.currentTarget.checked)}
-                className="h-4 w-4 accent-[#34d399]"
-              />
-            </label>
+          {hiddenEffectIds.size > 0 && (
+            <Button type="button" onClick={restoreHiddenEffects} className="mt-2 h-8 w-full bg-white/8 px-2 text-[9px] font-black uppercase tracking-wide text-[#bfdbfe] hover:bg-white/15">
+              <RotateCcw data-icon="inline-start" className="size-3" />
+              Restore hidden effects
+            </Button>
+          )}
 
-            {activeMinigame ? (
-              <div className="mt-3 grid gap-2">
-                <DevToolSelect
-                  label="Winner"
-                  value={selectedWinnerId}
-                  disabled={!winnerOptions.length}
-                  options={winnerOptions.length ? winnerOptions.map((player) => ({ value: player.id, label: player.name })) : [{ value: "", label: "No players" }]}
-                  testId="debug-minigame-winner"
-                  onChange={setSelectedWinnerId}
-                />
-                <Button
-                  type="button"
-                  data-testid="debug-minigame-choose-winner"
-                  disabled={!selectedWinnerId}
-                  onClick={chooseWinner}
-                  className="h-10 w-full bg-[#f5d547] px-4 text-xs font-black uppercase tracking-wider text-[#201507] hover:bg-[#ffe96c] disabled:bg-white/15 disabled:text-white/50"
-                >
-                  <Trophy data-icon="inline-start" className="size-3.5" />
-                  Choose winner
-                </Button>
-              </div>
-            ) : (
-              <p className="mt-3 rounded-sm border border-dashed border-white/15 p-2 text-xs font-bold text-[#bbf7d0]/70">
-                No active minigame.
-              </p>
-            )}
-          </div>
+          {editingEffect && (
+            <EffectComposer
+              effect={editingEffect}
+              onChange={setEditingEffect}
+              onSave={saveEffect}
+              onCancel={() => setEditingEffect(null)}
+            />
+          )}
+
+          {message && <p className="mt-2 rounded-sm border border-[#86efac]/20 bg-[#34d399]/10 p-2 text-[10px] font-bold leading-4 text-[#bbf7d0]">{message}</p>}
+
+          {selectedEffect && !editingEffect && (
+            <p className="mt-2 rounded-sm border border-white/10 bg-black/20 p-2 text-[10px] font-bold leading-4 text-[#bbf7d0]/75">
+              Movement and dice modifiers apply on the next matching roll. Turn-end effects apply when the turn advances.
+            </p>
+          )}
+
+          <Button
+            type="button"
+            data-testid="debug-effect-apply"
+            disabled={!selectedPlayerId || !selectedEffect || Boolean(editingEffect)}
+            onClick={apply}
+            className="mt-3 h-10 w-full bg-[#34d399] px-4 text-xs font-black uppercase tracking-wider text-[#052e1a] hover:bg-[#6ee7b7] disabled:bg-white/15 disabled:text-white/50"
+          >
+            Apply to player
+          </Button>
         </section>
       )}
     </div>
+  );
+}
+
+function EffectComposer({
+  effect,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  effect: EffectDef;
+  onChange: (effect: EffectDef) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const actions = editableEffectActions(effect);
+  const duration = effect.duration;
+  const needsCount = duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses";
+
+  const updateAction = (index: number, action: EditableEffectAction) => {
+    onChange({ ...effect, consequences: actions.map((current, actionIndex) => (actionIndex === index ? action : current)) });
+  };
+
+  const removeAction = (index: number) => {
+    const nextActions = actions.filter((_, actionIndex) => actionIndex !== index);
+    onChange({ ...effect, consequences: nextActions.length ? nextActions : [defaultEditableEffectAction("movementMultiplier")] });
+  };
+
+  return (
+    <section className="mt-3 rounded-sm border border-[#86efac]/25 bg-[#06140f]/80 p-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-xs font-black text-[#f0fdf4]">Effect builder</h3>
+          <p className="mt-1 text-[10px] font-bold leading-4 text-[#bbf7d0]/70">Saved effects appear in this list and in Event Builder.</p>
+        </div>
+        <Button type="button" onClick={onCancel} className="h-7 bg-white/8 px-2 text-[9px] font-black uppercase text-[#f0fdf4] hover:bg-white/15">
+          <X data-icon="inline-start" className="size-3" />
+          Close
+        </Button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_4rem] gap-2">
+        <DevTextInput label="Name" value={effect.name} onChange={(name) => onChange({ ...effect, name })} />
+        <DevTextInput label="Icon" value={effect.icon ?? ""} onChange={(icon) => onChange({ ...effect, icon })} />
+      </div>
+      <DevTextInput label="Effect id" value={effect.id} onChange={(id) => onChange({ ...effect, id: effectIdFromName(id) })} />
+      <DevTextArea label="Description" value={effect.description ?? ""} onChange={(description) => onChange({ ...effect, description })} />
+
+      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_5rem] gap-2">
+        <DevCompactSelect
+          label="Duration"
+          value={duration.mode}
+          options={[
+            { value: "uses", label: "Uses" },
+            { value: "rounds", label: "Rounds" },
+            { value: "turns", label: "Turns" },
+            { value: "untilTriggered", label: "Until triggered" },
+            { value: "game", label: "Whole game" },
+          ]}
+          onChange={(mode) => onChange({ ...effect, duration: durationForMode(mode as EffectDuration["mode"], duration) })}
+        />
+        {needsCount ? <DevNumberInput label="Count" value={duration.value} onChange={(value) => onChange({ ...effect, duration: { ...duration, value: Math.max(1, Math.round(value)) } })} /> : <div />}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <h4 className="text-[10px] font-black uppercase tracking-wider text-[#86efac]">Consequences</h4>
+        <Button
+          type="button"
+          onClick={() => onChange({ ...effect, consequences: [...actions, defaultEditableEffectAction("movementMultiplier")] })}
+          className="h-7 bg-white/8 px-2 text-[9px] font-black uppercase text-[#d9f99d] hover:bg-white/15"
+        >
+          <Plus data-icon="inline-start" className="size-3" />
+          Add
+        </Button>
+      </div>
+
+      <div className="mt-2 grid gap-2">
+        {actions.map((action, index) => (
+          <EffectActionComposer
+            key={`${index}-${action.type}`}
+            action={action}
+            canRemove={actions.length > 1}
+            onChange={(nextAction) => updateAction(index, nextAction)}
+            onRemove={() => removeAction(index)}
+          />
+        ))}
+      </div>
+
+      <Button type="button" onClick={onSave} className="mt-3 h-9 w-full bg-[#f5d547] px-3 text-xs font-black uppercase tracking-wider text-[#201507] hover:bg-[#ffe96c]">
+        <Save data-icon="inline-start" className="size-3.5" />
+        Save effect
+      </Button>
+    </section>
+  );
+}
+
+function EffectActionComposer({
+  action,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  action: EditableEffectAction;
+  canRemove: boolean;
+  onChange: (action: EditableEffectAction) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <section className="rounded-sm border border-white/10 bg-black/25 p-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_2rem] gap-2">
+        <DevCompactSelect
+          label="Type"
+          value={action.type}
+          options={EFFECT_ACTION_TYPE_OPTIONS}
+          onChange={(type) => onChange(convertEditableEffectAction(action, type as EditableEffectAction["type"]))}
+        />
+        <Button type="button" disabled={!canRemove} onClick={onRemove} className="mt-5 h-8 bg-[#451a1a]/80 p-0 text-[#fecaca] hover:bg-[#7f1d1d] disabled:opacity-35">
+          <Trash2 className="size-3.5" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <DevCompactSelect
+          label="Hook"
+          value={editableActionHookValue(action)}
+          disabled={hasFixedHookForEditableAction(action.type)}
+          options={hookOptionsForEditableAction(action.type)}
+          onChange={(hook) => onChange({ ...action, hook: hook as EffectLifecycleHook })}
+        />
+        {"icon" in action && <DevTextInput label="Icon" value={action.icon ?? ""} onChange={(icon) => onChange({ ...action, icon })} />}
+      </div>
+
+      {action.type === "movementMultiplier" && (
+        <div className="grid grid-cols-2 gap-2">
+          <DevNumberInput label="Multiplier" value={action.multiplier} onChange={(multiplier) => onChange({ ...action, multiplier })} />
+          <DevCompactSelect
+            label="Rounding"
+            value={action.rounding ?? "round"}
+            options={[
+              { value: "round", label: "Round" },
+              { value: "ceil", label: "Ceil" },
+              { value: "floor", label: "Floor" },
+            ]}
+            onChange={(rounding) => onChange({ ...action, rounding: rounding as "floor" | "ceil" | "round" })}
+          />
+        </div>
+      )}
+      {action.type === "diceBias" && (
+        <div className="grid grid-cols-2 gap-2">
+          <DevNumberInput label="Face" value={action.face} onChange={(face) => onChange({ ...action, face: Math.max(1, Math.round(face)) })} />
+          <DevNumberInput label="Chance %" value={action.chanceDeltaPercent} onChange={(chanceDeltaPercent) => onChange({ ...action, chanceDeltaPercent })} />
+        </div>
+      )}
+      {action.type === "coins" && <DevNumberInput label="Coins" value={action.value} onChange={(value) => onChange({ ...action, value })} />}
+      {action.type === "move" && <DevNumberInput label="Cells" value={action.delta} onChange={(delta) => onChange({ ...action, delta })} />}
+
+      <DevTextInput label="Display text" value={action.text ?? ""} onChange={(text) => onChange({ ...action, text })} />
+    </section>
+  );
+}
+
+function DevTextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block text-[9px] font-black uppercase tracking-wider text-[#86efac]">
+      {label}
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-8 w-full rounded-sm border border-white/15 bg-[#0e0a1a] px-2 text-xs font-black normal-case tracking-normal text-[#f0fdf4] outline-none focus:border-[#86efac]"
+      />
+    </label>
+  );
+}
+
+function DevTextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="mt-2 block text-[9px] font-black uppercase tracking-wider text-[#86efac]">
+      {label}
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 min-h-16 w-full resize-y rounded-sm border border-white/15 bg-[#0e0a1a] px-2 py-2 text-xs font-bold normal-case leading-4 tracking-normal text-[#f0fdf4] outline-none focus:border-[#86efac]"
+      />
+    </label>
+  );
+}
+
+function DevNumberInput({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return (
+    <label className="block text-[9px] font-black uppercase tracking-wider text-[#86efac]">
+      {label}
+      <input
+        type="number"
+        value={Number.isFinite(value) ? value : 0}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-1 h-8 w-full rounded-sm border border-white/15 bg-[#0e0a1a] px-2 text-xs font-black normal-case tracking-normal text-[#f0fdf4] outline-none focus:border-[#86efac]"
+      />
+    </label>
+  );
+}
+
+function DevCompactSelect({
+  label,
+  value,
+  disabled,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block text-[9px] font-black uppercase tracking-wider text-[#86efac]">
+      {label}
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-8 w-full rounded-sm border border-white/15 bg-[#0e0a1a] px-2 text-xs font-black normal-case tracking-normal text-[#f0fdf4] outline-none focus:border-[#86efac] disabled:opacity-45"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value} className="bg-[#0e0a1a] text-[#f0fdf4]">
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -863,7 +1116,7 @@ function TurnPanel({
                 aria-label={state.lastRoll ? `Dado ${state.lastRoll}` : "Sin dado"}
                 style={{ textShadow: state.lastRoll ? "0 0 20px rgba(253,212,95,0.6)" : "none" }}
               >
-                {state.lastRoll ? DICE[state.lastRoll] : "--"}
+                {diceDisplay(state.lastRoll, state.lastBaseRoll)}
               </p>
             </div>
           </div>
@@ -890,6 +1143,12 @@ function TurnPanel({
       </section>
     </Card>
   );
+}
+
+function diceDisplay(value: number | null | undefined, baseValue?: number | null): string {
+  if (!value) return "--";
+  if (baseValue && baseValue !== value) return `${DICE[baseValue] ?? baseValue}→${value}`;
+  return DICE[value] ?? String(value);
 }
 
 function EventOverlay({
@@ -1129,6 +1388,124 @@ function SceneEditHint({ active }: { active?: Player }) {
   );
 }
 
+function defaultDevToolEffect(id: string): EffectDef {
+  return {
+    id,
+    name: "New effect",
+    description: "Custom effect for playtesting.",
+    icon: "✦",
+    duration: { mode: "uses", value: 1 },
+    consequences: [defaultEditableEffectAction("movementMultiplier")],
+  };
+}
+
+function defaultEditableEffectAction(type: EditableEffectAction["type"]): EditableEffectAction {
+  if (type === "movementMultiplier") return { type, hook: "beforeMovement", multiplier: 2, rounding: "round", text: "Double movement.", icon: "×2" };
+  if (type === "diceBias") return { type, hook: "beforeRoll", face: 5, chanceDeltaPercent: 25, text: "+25% chance to roll five.", icon: "⚄" };
+  if (type === "coins") return { type, hook: "onTurnEnd", value: 1, text: "Gain 1 coin.", icon: "🪙" };
+  if (type === "move") return { type, hook: "onTurnEnd", delta: 1, text: "Move 1 cell forward.", icon: "➜" };
+  if (type === "skipTurn") return { type, hook: "onTurnEnd", text: "Skip next turn.", icon: "⏭" };
+  return { type, hook: "onTurnEnd", text: "Play an extra turn.", icon: "🔁" };
+}
+
+function defaultHookForEditableAction(type: EditableEffectAction["type"]): EffectLifecycleHook {
+  if (type === "movementMultiplier") return "beforeMovement";
+  if (type === "diceBias") return "beforeRoll";
+  return "onTurnEnd";
+}
+
+function convertEditableEffectAction(action: EditableEffectAction, type: EditableEffectAction["type"]): EditableEffectAction {
+  if (action.type === type) return action;
+  const next = defaultEditableEffectAction(type);
+  return {
+    ...next,
+    hook: hasFixedHookForEditableAction(type) ? defaultHookForEditableAction(type) : action.hook ?? next.hook,
+    text: action.text ?? next.text,
+    icon: action.icon ?? next.icon,
+  } as EditableEffectAction;
+}
+
+function editableEffectActions(effect: EffectDef): EditableEffectAction[] {
+  const actions = (effect.consequences ?? effect.actions ?? []).filter(isEditableEffectAction);
+  return actions.length ? actions.map((action) => ({ ...action })) : [defaultEditableEffectAction("movementMultiplier")];
+}
+
+function isEditableEffectAction(action: EventAction): action is EditableEffectAction {
+  return action.type === "movementMultiplier" || action.type === "diceBias" || action.type === "coins" || action.type === "move" || action.type === "skipTurn" || action.type === "extraTurn";
+}
+
+function normalizeEditableEffect(effect: EffectDef): EffectDef {
+  const id = effectIdFromName(effect.id || effect.name || "effect-custom");
+  const name = effect.name.trim() || "New effect";
+  return {
+    id,
+    name,
+    description: effect.description?.trim() || "Custom effect for playtesting.",
+    icon: effect.icon?.trim() || effectIcon(effect),
+    duration: normalizeEffectDuration(effect.duration),
+    consequences: editableEffectActions(effect).map(normalizeEditableAction),
+  };
+}
+
+function normalizeEditableAction(action: EditableEffectAction): EditableEffectAction {
+  const text = action.text?.trim();
+  const icon = action.icon?.trim();
+  return {
+    ...action,
+    hook: editableActionHookValue(action),
+    ...(text ? { text } : { text: undefined }),
+    ...(icon ? { icon } : { icon: undefined }),
+  } as EditableEffectAction;
+}
+
+function editableActionHookValue(action: EditableEffectAction): EffectLifecycleHook {
+  return hasFixedHookForEditableAction(action.type) ? defaultHookForEditableAction(action.type) : action.hook ?? defaultHookForEditableAction(action.type);
+}
+
+function hasFixedHookForEditableAction(type: EditableEffectAction["type"]): boolean {
+  return type === "movementMultiplier" || type === "diceBias";
+}
+
+function hookOptionsForEditableAction(type: EditableEffectAction["type"]): { value: EffectLifecycleHook; label: string }[] {
+  if (!hasFixedHookForEditableAction(type)) return EFFECT_HOOK_OPTIONS;
+  const hook = defaultHookForEditableAction(type);
+  return EFFECT_HOOK_OPTIONS.filter((option) => option.value === hook);
+}
+
+function normalizeEffectDuration(duration: EffectDuration): EffectDuration {
+  if (duration.mode === "game" || duration.mode === "untilTriggered") return { mode: duration.mode };
+  return { mode: duration.mode, value: Math.max(1, Math.round(duration.value || 1)) };
+}
+
+function durationForMode(mode: EffectDuration["mode"], previous: EffectDuration): EffectDuration {
+  if (mode === "game" || mode === "untilTriggered") return { mode };
+  const value = previous.mode === "turns" || previous.mode === "rounds" || previous.mode === "uses" ? previous.value : 1;
+  return { mode, value };
+}
+
+function cloneEffect(effect: EffectDef): EffectDef {
+  return JSON.parse(JSON.stringify(effect)) as EffectDef;
+}
+
+function nextDraftEffectId(catalog: Record<string, EffectDef>): string {
+  let index = Object.keys(catalog).length + 1;
+  let id = `effect-custom-${index}`;
+  while (catalog[id]) {
+    index += 1;
+    id = `effect-custom-${index}`;
+  }
+  return id;
+}
+
+function effectIdFromName(value: string): string {
+  const id = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return id || "effect-custom";
+}
+
 function keyedEffects(effects: EffectDef[]): Record<string, EffectDef> {
   return Object.fromEntries(effects.map((effect) => [effect.id, effect]));
 }
@@ -1171,16 +1548,64 @@ function effectTooltip(effect: EffectInstance): string {
 function loadEventBuilderDraftEffects(): Record<string, EffectDef> {
   if (typeof window === "undefined") return {};
   try {
-    const saved = window.localStorage.getItem(EVENT_BUILDER_STORAGE_KEY);
-    if (!saved) return {};
-    const parsed = JSON.parse(saved);
-    if (!isRecord(parsed) || !isRecord(parsed.effects)) return {};
+    const parsed = loadEventBuilderDraftContent();
+    if (!isRecord(parsed.effects)) return {};
     return Object.fromEntries(
       Object.entries(parsed.effects).filter((entry): entry is [string, EffectDef] => isEffectDef(entry[1]))
     );
   } catch {
     return {};
   }
+}
+
+function loadEventBuilderDraftContent(): DraftContent {
+  if (typeof window === "undefined") return {};
+  try {
+    const saved = window.localStorage.getItem(EVENT_BUILDER_STORAGE_KEY);
+    if (!saved) return {};
+    const parsed = JSON.parse(saved);
+    return isRecord(parsed) ? (parsed as DraftContent) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveEventBuilderDraftContent(content: DraftContent) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(EVENT_BUILDER_STORAGE_KEY, JSON.stringify(content));
+}
+
+function saveDraftEffect(effect: EffectDef) {
+  const draft = loadEventBuilderDraftContent();
+  saveEventBuilderDraftContent({
+    ...draft,
+    effects: {
+      ...(draft.effects ?? {}),
+      [effect.id]: effect,
+    },
+  });
+}
+
+function deleteDraftEffect(effectId: string) {
+  const draft = loadEventBuilderDraftContent();
+  const { [effectId]: _deleted, ...effects } = draft.effects ?? {};
+  saveEventBuilderDraftContent({ ...draft, effects });
+}
+
+function loadHiddenEffectIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const saved = window.localStorage.getItem(DEV_TOOLS_HIDDEN_EFFECTS_KEY);
+    const parsed = saved ? JSON.parse(saved) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenEffectIds(effectIds: Set<string>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(DEV_TOOLS_HIDDEN_EFFECTS_KEY, JSON.stringify([...effectIds]));
 }
 
 function isEffectDef(value: unknown): value is EffectDef {

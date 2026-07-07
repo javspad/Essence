@@ -23,3 +23,4 @@ const normalized = normalizeGameState(legacyState);
 
 assert.deepEqual(normalized.activeEffects, []);
 assert.deepEqual(normalized.effects, {});
+assert.equal(normalized.lastBaseRoll, null);

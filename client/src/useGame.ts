@@ -157,8 +157,6 @@ export function useGame() {
       roll: () => socket.emit("turn:roll"),
       next: () => socket.emit("turn:next"),
       debugApplyEffect: (playerId: string, effect: EffectDef) => socket.emit("debug:applyEffect", { playerId, effectId: effect.id, effect }),
-      debugSetSkipMinigames: (enabled: boolean) => socket.emit("debug:setSkipMinigames", { enabled }),
-      debugChooseMinigameWinner: (playerId: string) => socket.emit("debug:chooseMinigameWinner", { playerId }),
       buyCosmetic,
       equipCosmetic,
       forceResolve: () => socket.emit("minigame:force"),

@@ -425,7 +425,7 @@ const effectContent: GameContent = normalizeGameContentEvents({
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 
-await withRolls([1, 6], async () => {
+await withRolls([1, 5], async () => {
   const { io, events } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "EFF1", "Effects", effectContent);
 
@@ -447,7 +447,8 @@ await withRolls([1, 6], async () => {
 
   room.roll("socket-alice");
   assert.equal(room.getState().lastRoll, 3, "half movement changes the effective dice roll");
-  assert.equal(room.getState().players[0].position, 4, "half movement rounds a roll of 6 down to three cells of movement");
+  assert.equal(room.getState().lastBaseRoll, 5, "half movement keeps the original physical die face for UI presentation");
+  assert.equal(room.getState().players[0].position, 4, "half movement applies ceiling after multiplying a roll of 5");
   assert.equal(room.getState().phase, "event");
   assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "movementMultiplier"), true);
   assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction"), false);
@@ -498,6 +499,7 @@ await withRolls([5], async () => {
   room.debugApplyEffect("socket-alice", { playerId: "alice", effectId: "double-movement" });
   room.roll("socket-alice");
 
+  assert.equal(room.getState().lastBaseRoll, 5, "double movement keeps the original physical die face for UI presentation");
   assert.equal(room.getState().lastRoll, 10, "double movement changes a rolled five into an effective ten");
   assert.equal(room.getState().players[0].position, 10, "double movement moves directly to the effective dice target");
   assert.equal(room.getState().activeEffects.length, 0, "use-based movement modifiers expire after the modified roll");
@@ -544,71 +546,61 @@ await withRolls([5], async () => {
   assert.equal(room.getState().activeEffects[1].consequences[0].type, "diceBias");
 }
 
-{
+await withRolls([4], async () => {
   const { io } = createIoRecorder();
-  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DBG2", "Debug settings", content);
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DBG4", "Draft movement modifier", {
+    ...doubleMovementContent,
+    effects: {},
+  });
 
   room.join("socket-alice", "Alice");
-  room.join("socket-bob", "Bob");
-
-  room.debugSetSkipMinigames("socket-bob", { enabled: true });
-  assert.equal(room.getState().devSettings?.skipMinigames, false, "non-hosts cannot change debug minigame settings");
-
-  room.debugSetSkipMinigames("socket-alice", { enabled: true });
-  assert.equal(room.getState().devSettings?.skipMinigames, true);
-
-  room.debugSetSkipMinigames("socket-alice", { enabled: false });
-  assert.equal(room.getState().devSettings?.skipMinigames, false);
-}
-
-const debugMinigameContent: GameContent = normalizeGameContentEvents({
-  board: [
-    { id: 0, type: "start" },
-    { id: 1, type: "minigame", eventId: "debug-race" },
-    { id: 2, type: "finish" },
-  ],
-  events: {
-    "debug-race": {
-      name: "Debug race",
-      kind: "activity",
-      story: { title: "Debug race", prompt: "Pick a winner without playing." },
-      activity: { type: "timing", participants: "everyone", subjects: "everyone" },
-      outcomes: [{ when: "winner", actions: [{ type: "coins", value: 9, target: "winner" }] }],
-    },
-  },
-  minigames: {},
-  dares: {},
-  fates: {},
-  players: [
-    { id: "alice", name: "Alice", color: "#f87171" },
-    { id: "bob", name: "Bob", color: "#60a5fa" },
-    { id: "carla", name: "Carla", color: "#34d399" },
-  ],
-});
-
-await withRolls([1], async () => {
-  const { io } = createIoRecorder();
-  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DBG3", "Debug minigame", debugMinigameContent);
-
-  room.join("socket-alice", "Alice");
-  room.join("socket-bob", "Bob");
-  room.join("socket-carla", "Carla");
   room.startGame("socket-alice");
-  room.debugSetSkipMinigames("socket-alice", { enabled: true });
+  room.debugApplyEffect("socket-alice", {
+    playerId: "alice",
+    effectId: "draft-double-rounds",
+    effect: {
+      id: "draft-double-rounds",
+      name: "Draft double rounds",
+      duration: { mode: "rounds", value: 2 },
+      consequences: [{ type: "movementMultiplier", hook: "beforeRoll", multiplier: 2, rounding: "round" }],
+    },
+  });
+
+  assert.equal(room.getState().activeEffects[0].hooks[0], "beforeMovement", "movement multipliers are normalized to the movement hook");
   room.roll("socket-alice");
 
-  assert.equal(room.getState().phase, "minigame");
-  assert.deepEqual(room.getState().activeMinigame?.subjects, ["alice", "bob", "carla"]);
+  assert.equal(room.getState().lastBaseRoll, 4, "draft movement multiplier stores the original physical die face");
+  assert.equal(room.getState().lastRoll, 8, "draft movement multiplier changes the effective dice roll");
+  assert.equal(room.getState().players[0].position, 8, "draft movement multiplier moves directly to the effective dice target");
+  assert.deepEqual(room.getState().activeEffects[0].remaining, { mode: "rounds", remaining: 2 }, "round-based movement modifiers do not expire on first use");
+});
 
-  await room.debugChooseMinigameWinner("socket-bob", { playerId: "carla" });
-  assert.equal(room.getState().phase, "minigame", "non-hosts cannot choose the debug winner");
+await withRolls([5], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "DBG5", "Draft half movement", {
+    ...doubleMovementContent,
+    effects: {},
+  });
 
-  await room.debugChooseMinigameWinner("socket-alice", { playerId: "carla" });
-  assert.equal(room.getState().phase, "reveal");
-  assert.deepEqual(room.getState().reveal?.ranking, ["carla", "alice", "bob"]);
-  assert.equal(room.getState().players.find((player) => player.id === "carla")?.coins, 19);
-  assert.equal(room.getState().reveal?.entries[0].playerId, "carla");
-  assert.equal(room.getState().reveal?.entries[0].rank, 1);
+  room.join("socket-alice", "Alice");
+  room.startGame("socket-alice");
+  room.debugApplyEffect("socket-alice", {
+    playerId: "alice",
+    effectId: "draft-half-rounds",
+    effect: {
+      id: "draft-half-rounds",
+      name: "Draft half rounds",
+      duration: { mode: "rounds", value: 2 },
+      consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil" }],
+    },
+  });
+
+  room.roll("socket-alice");
+
+  assert.equal(room.getState().lastBaseRoll, 5, "draft half movement stores the original physical die face");
+  assert.equal(room.getState().lastRoll, 3, "draft half movement changes the effective dice roll");
+  assert.equal(room.getState().players[0].position, 3, "draft half movement moves by the rounded half roll");
+  assert.deepEqual(room.getState().activeEffects[0].remaining, { mode: "rounds", remaining: 2 }, "round-based half movement does not expire on first use");
 });
 
 const timedConsequenceContent: GameContent = normalizeGameContentEvents({

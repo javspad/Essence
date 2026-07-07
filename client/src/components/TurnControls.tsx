@@ -34,7 +34,7 @@ export default function TurnControls({ state, me, isMyTurn, onRoll }: Props) {
 
         {state.lastRoll && (
           <div className="mt-4 text-5xl animate-pop" aria-label={`Dado: ${state.lastRoll}`}>
-            {DICE[state.lastRoll]}
+            {diceDisplay(state.lastRoll, state.lastBaseRoll)}
           </div>
         )}
 
@@ -55,4 +55,9 @@ export default function TurnControls({ state, me, isMyTurn, onRoll }: Props) {
       </CardContent>
     </Card>
   );
+}
+
+function diceDisplay(value: number, baseValue?: number | null): string {
+  if (baseValue && baseValue !== value) return `${DICE[baseValue] ?? baseValue}→${value}`;
+  return DICE[value] ?? String(value);
 }

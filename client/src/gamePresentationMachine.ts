@@ -13,6 +13,7 @@ export interface BoardActiveMotion {
 export interface BoardDiceCue {
   playerId: string;
   value: number | null;
+  baseValue: number | null;
   rolling: boolean;
   nonce: string;
 }
@@ -45,6 +46,7 @@ export type BoardPresentationEvent =
 
 interface RollPlan {
   playerId: string;
+  baseRoll: number | null;
   roll: number | null;
   landingState: GameState;
   pendingAfterMoveState: GameState | null;
@@ -114,6 +116,7 @@ const startLocalDice = presentationSetup.assign(({ context }) => {
     diceCue: {
       playerId,
       value: null,
+      baseValue: null,
       rolling: true,
       nonce: `dice-${run}`,
     },
@@ -145,6 +148,7 @@ const captureRollUpdate = presentationSetup.assign(({ context, event }) => {
     diceCue: {
       playerId: plan.playerId,
       value: plan.roll,
+      baseValue: plan.baseRoll,
       rolling: true,
       nonce: `dice-${run}`,
     },
@@ -159,6 +163,7 @@ const capturePendingServerState = presentationSetup.assign(({ context, event }) 
     ? {
         ...context.diceCue,
         value: event.state.lastRoll ?? context.diceCue.value,
+        baseValue: event.state.lastBaseRoll ?? context.diceCue.baseValue,
       }
     : context.diceCue;
 
@@ -431,6 +436,7 @@ function createRollPlan(previous: GameState, next: GameState): RollPlan | null {
 
   return {
     playerId,
+    baseRoll: next.lastBaseRoll ?? next.lastRoll,
     roll: next.lastRoll,
     landingState,
     pendingAfterMoveState: next.phase === "moving" ? null : next,

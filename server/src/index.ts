@@ -142,8 +142,6 @@ io.on("connection", (socket) => {
   );
   socket.on("minigame:force", () => withRoom((r) => void r.forceResolve(socket.id)));
   socket.on("debug:applyEffect", (payload) => withRoom((r) => r.debugApplyEffect(socket.id, payload)));
-  socket.on("debug:setSkipMinigames", (payload) => withRoom((r) => r.debugSetSkipMinigames(socket.id, payload)));
-  socket.on("debug:chooseMinigameWinner", (payload) => withRoom((r) => void r.debugChooseMinigameWinner(socket.id, payload)));
 
   socket.on("disconnect", () => {
     withRoom((r) => r.disconnect(socket.id));
