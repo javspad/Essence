@@ -5145,30 +5145,36 @@ function RainTent({ position, rotationY = 0, scale = 1 }: AssetProps) {
         <coneGeometry args={[W / 2 + 0.03, H, 3, 1]} />
         <meshStandardMaterial color={shade(blue, 0.85)} roughness={0.72} side={DoubleSide} />
       </mesh>
-      {/* interior oscuro (entrada al frente) */}
-      <mesh position={[0, H / 2 - 0.02, L / 2 - 0.03]}>
-        <coneGeometry args={[W / 2 - 0.08, H - 0.06, 3, 1]} />
-        <meshStandardMaterial color="#0b1220" roughness={0.9} side={DoubleSide} />
-      </mesh>
-      {/* nubecita gris adentro, arriba */}
-      {[[-0.05, 0], [0.06, 0.02], [0, -0.04]].map(([x, z], i) => (
-        <mesh key={`cloud-${i}`} position={[x, H - 0.09, z]} scale={[1.4, 0.7, 1]}>
-          <sphereGeometry args={[0.08, 10, 8]} />
-          <meshStandardMaterial color="#94a3b8" roughness={0.9} />
+      {/* nube gris cargada bajo el techo */}
+      {[[-0.14, 0.5, 0], [0.14, 0.5, 0], [0, 0.54, 0.04], [-0.06, 0.47, -0.06], [0.08, 0.48, 0.05], [0, 0.45, -0.02]].map(([x, y, z], i) => (
+        <mesh key={`cloud-${i}`} position={[x, y, z]} scale={[1.35, 0.8, 1.1]}>
+          <sphereGeometry args={[0.1, 12, 10]} />
+          <meshStandardMaterial color={i < 2 ? "#5b6473" : "#8b94a3"} roughness={0.95} />
         </mesh>
       ))}
-      {/* gotas cayendo adentro */}
-      {[[-0.1, 0.34, 0.1], [0.08, 0.24, -0.05], [0.0, 0.14, 0.18], [-0.13, 0.2, -0.15], [0.12, 0.38, 0.02], [-0.02, 0.28, -0.22]].map(([x, y, z], i) => (
-        <mesh key={`drop-${i}`} position={[x, y, z]}>
-          <cylinderGeometry args={[0.012, 0.004, 0.08, 6]} />
-          <meshStandardMaterial color={rain} roughness={0.2} transparent opacity={0.8} />
-        </mesh>
-      ))}
-      {/* charco adentro */}
-      <mesh position={[0, 0.03, 0.05]} scale={[1.4, 0.2, 1.2]}>
-        <sphereGeometry args={[0.14, 14, 10]} />
+      {/* cortina densa de lluvia cayendo de la nube */}
+      {Array.from({ length: 18 }).map((_, i) => {
+        const gx = ((i % 5) - 2) * 0.08;
+        const gz = (Math.floor(i / 5) - 1.5) * 0.1;
+        const gy = 0.42 - ((i * 7) % 10) * 0.032;
+        return (
+          <mesh key={`drop-${i}`} position={[gx, gy, gz]}>
+            <cylinderGeometry args={[0.008, 0.008, 0.13, 5]} />
+            <meshStandardMaterial color={rain} emissive={rain} emissiveIntensity={0.25} roughness={0.2} transparent opacity={0.9} />
+          </mesh>
+        );
+      })}
+      {/* charco grande con ondas */}
+      <mesh position={[0, 0.035, 0]} scale={[1.7, 0.2, 1.4]}>
+        <sphereGeometry args={[0.16, 16, 10]} />
         <meshStandardMaterial color={rain} roughness={0.3} transparent opacity={0.7} />
       </mesh>
+      {[0.1, 0.17].map((r) => (
+        <mesh key={`ripple-${r}`} position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[r, 0.006, 6, 24]} />
+          <meshStandardMaterial color={rain} transparent opacity={0.5} />
+        </mesh>
+      ))}
     </group>
   );
 }
