@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, Crosshair, Download, Home, Plus, Save, Trash2, Upload, Wrench } from "lucide-react";
+import { Copy, Crosshair, Download, Home, Plus, Rotate3D, Save, Trash2, Upload, Wrench } from "lucide-react";
 import type {
   CharacterDef,
   CosmeticAnchorRef,
@@ -34,12 +34,35 @@ import {
 } from "./TokenPreviewer";
 import { contentWithCharacterList } from "./builderContent";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
+import CosmeticGalleryOverlay from "./CosmeticGalleryOverlay";
 
 const STORAGE_KEY = "essence:cosmetic-builder:draft:v1";
+const KNOWN_BASE_COSMETICS_STORAGE_KEY = "essence:cosmetic-builder:known-base-cosmetics:v1";
 const CHARACTER_BUILDER_STORAGE_KEY = "essence:character-builder:draft:v1";
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 const DEFAULT_FACE_ALIGNMENT: FacePhotoAlignment = { x: 0.5, y: 0.5, scale: 1.08, angle: 0 };
-const ASSET_KINDS = ["goggles", "mustache", "hat", "beard", "piercing", "tattoo", "badge", "custom"] as const;
+const DEFAULT_ASSET_KINDS = [
+  "goggles",
+  "mustache",
+  "mustache-handlebar",
+  "mustache-pencil",
+  "hat",
+  "top-hat",
+  "cap",
+  "field-hat",
+  "coin-crown",
+  "beard",
+  "piercing",
+  "tattoo",
+  "badge",
+  "gold-chain",
+  "dice-necklace",
+  "wristwatch",
+  "tuxedo",
+  "pet-dog",
+  "pet-cat",
+  "custom",
+] as const;
 const ANCHOR_OPTIONS: Record<CosmeticAnchorType, string[]> = {
   face: [...FACE_COSMETIC_ANCHORS],
   body: [...BODY_COSMETIC_ANCHORS],
@@ -49,9 +72,14 @@ export default function CosmeticBuilder() {
   const [content, setContent] = useState<GameContent>(() => loadInitialContent());
   const cosmeticIds = useMemo(() => Object.keys(content.cosmetics ?? {}), [content.cosmetics]);
   const characterIds = useMemo(() => Object.keys(content.characters ?? {}), [content.characters]);
+  const assetKindOptions = useMemo(
+    () => uniqueStrings([...DEFAULT_ASSET_KINDS, ...Object.values(content.cosmetics ?? {}).map((cosmetic) => cosmeticAssetKind(cosmetic))]),
+    [content.cosmetics]
+  );
   const [selectedCosmeticId, setSelectedCosmeticId] = useState(cosmeticIds[0] ?? "");
   const [selectedCharacterId, setSelectedCharacterId] = useState(characterIds[0] ?? "");
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
   const selectedCosmetic = selectedCosmeticId ? content.cosmetics?.[selectedCosmeticId] : undefined;
@@ -70,6 +98,7 @@ export default function CosmeticBuilder() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, exportJson);
+    rememberBaseCosmeticIds();
   }, [exportJson]);
 
   useEffect(() => {
@@ -140,6 +169,7 @@ export default function CosmeticBuilder() {
   const resetDraft = () => {
     localStorage.removeItem(STORAGE_KEY);
     const next = cosmeticBuilderContentFrom(BASE_CONTENT);
+    rememberBaseCosmeticIds();
     setContent(next);
     setSelectedCosmeticId(Object.keys(next.cosmetics ?? {})[0] ?? "");
     setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
@@ -196,6 +226,10 @@ export default function CosmeticBuilder() {
             <Download className="h-4 w-4" />
             Download
           </button>
+          <button onClick={() => setGalleryOpen(true)} className="builder-button preview gap-2">
+            <Rotate3D className="h-4 w-4" />
+            3D gallery
+          </button>
           <span className="min-w-16 text-center text-xs font-black text-cyan-200">{saveStatus}</span>
           <a href="/tools" className="builder-button gap-2">
             <Wrench className="h-4 w-4" />
@@ -247,6 +281,7 @@ export default function CosmeticBuilder() {
               selectedCharacterId={selectedCharacterId}
               setSelectedCharacterId={setSelectedCharacterId}
               previewCharacter={selectedCharacter}
+              assetKindOptions={assetKindOptions}
               onChange={(updater) => updateCosmetic(selectedCosmetic.id, updater)}
               onDelete={() => deleteCosmetic(selectedCosmetic.id)}
             />
@@ -268,6 +303,18 @@ export default function CosmeticBuilder() {
           onClose={() => setJsonOpen(false)}
         />
       )}
+
+      {galleryOpen && (
+        <CosmeticGalleryOverlay
+          cosmetics={Object.values(content.cosmetics ?? {})}
+          characters={content.characters ?? {}}
+          selectedCosmeticId={selectedCosmeticId}
+          selectedCharacterId={selectedCharacterId}
+          onSelectCosmetic={setSelectedCosmeticId}
+          onSelectCharacter={setSelectedCharacterId}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </main>
   );
 }
@@ -278,6 +325,7 @@ function CosmeticEditor({
   selectedCharacterId,
   setSelectedCharacterId,
   previewCharacter,
+  assetKindOptions,
   onChange,
   onDelete,
 }: {
@@ -286,6 +334,7 @@ function CosmeticEditor({
   selectedCharacterId: string;
   setSelectedCharacterId: (id: string) => void;
   previewCharacter?: CharacterDef;
+  assetKindOptions: readonly string[];
   onChange: (updater: (cosmetic: CosmeticDef) => CosmeticDef) => void;
   onDelete: () => void;
 }) {
@@ -361,7 +410,7 @@ function CosmeticEditor({
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <TextInput label="Description" value={cosmetic.description ?? ""} onChange={(description) => update({ description })} />
           <NumberInput label="Price" value={cosmetic.price} step={1} onChange={(price) => update({ price: Math.max(0, price) })} />
-          <SelectInput label="Asset" value={cosmeticAssetKind(cosmetic)} options={ASSET_KINDS} onChange={updateAssetKind} />
+          <SelectInput label="Asset" value={cosmeticAssetKind(cosmetic)} options={assetKindOptions} onChange={updateAssetKind} />
           <TextInput label="Tags" value={(cosmetic.tags ?? []).join(", ")} onChange={(value) => update({ tags: csv(value) })} />
           <SelectInput
             label="Anchor A type"
@@ -744,25 +793,55 @@ function EmptyState({ label }: { label: string }) {
 function loadInitialContent(): GameContent {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return cosmeticBuilderContentFrom(BASE_CONTENT);
-    return cosmeticBuilderContentFrom(JSON.parse(saved));
+    return saved ? cosmeticBuilderContentFrom(JSON.parse(saved), { hydrateMissingBaseCosmetics: true }) : cosmeticBuilderContentFrom(BASE_CONTENT);
   } catch {
     return cosmeticBuilderContentFrom(BASE_CONTENT);
   }
 }
 
-function cosmeticBuilderContentFrom(input: unknown): GameContent {
+function cosmeticBuilderContentFrom(input: unknown, options: { hydrateMissingBaseCosmetics?: boolean } = {}): GameContent {
   const imported = normalizeContentSchema(input);
   const characterContent = currentCharacterContent();
   const characters = characterContent.characters ?? {};
   const characterIds = new Set(Object.keys(characters));
-  const cosmetics = cosmeticsForCurrentCharacters(imported.cosmetics ?? {}, characterIds);
+  const importedCosmetics = options.hydrateMissingBaseCosmetics
+    ? hydrateMissingBaseCosmetics(imported.cosmetics ?? {})
+    : imported.cosmetics ?? {};
+  const cosmetics = cosmeticsForCurrentCharacters(importedCosmetics, characterIds);
   return normalizeContentSchema({
     ...BASE_CONTENT,
     players: characterContent.players ?? BASE_CONTENT.players,
     characters: charactersForCosmetics(characters, cosmetics),
     cosmetics,
   });
+}
+
+function hydrateMissingBaseCosmetics(cosmetics: Record<string, CosmeticDef>): Record<string, CosmeticDef> {
+  const knownBaseIds = readKnownBaseCosmeticIds();
+  const next = { ...cosmetics };
+  for (const [id, cosmetic] of Object.entries(BASE_CONTENT.cosmetics ?? {})) {
+    if (next[id] || knownBaseIds.has(id)) continue;
+    next[id] = cosmetic;
+  }
+  return next;
+}
+
+function readKnownBaseCosmeticIds(): Set<string> {
+  try {
+    const saved = localStorage.getItem(KNOWN_BASE_COSMETICS_STORAGE_KEY);
+    const parsed = saved ? JSON.parse(saved) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function rememberBaseCosmeticIds() {
+  try {
+    localStorage.setItem(KNOWN_BASE_COSMETICS_STORAGE_KEY, JSON.stringify(Object.keys(BASE_CONTENT.cosmetics ?? {})));
+  } catch {
+    // The builder still works without the migration marker; old drafts may hydrate again.
+  }
 }
 
 function currentCharacterContent(): GameContent {
@@ -855,6 +934,10 @@ function nextId(prefix: string, records: Record<string, unknown>): string {
     id = `${prefix}-${index}`;
   }
   return id;
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function assetColor(cosmetic: CosmeticDef, key: "color" | "secondaryColor"): string | undefined {
