@@ -235,6 +235,7 @@ export default function CharacterBuilder() {
             <div className="pointer-events-none absolute left-4 top-4 rounded-md border border-white/15 bg-black/30 px-3 py-2 backdrop-blur">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#fbbf24]">Preview real del token</p>
               <p className="mt-1 text-sm font-black text-white">{selected.name}</p>
+              <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#38bdf8]">Caripela gigante</p>
             </div>
           </div>
 

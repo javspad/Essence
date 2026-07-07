@@ -881,8 +881,9 @@ function SlotDecalMesh({
 const TOKEN_BASE_GEOMETRY = new CylinderGeometry(0.2, 0.23, 0.07, 24);
 const TOKEN_BODY_GEOMETRY = new SphereGeometry(0.19, 24, 18);
 const TOKEN_HEAD_GEOMETRY = new SphereGeometry(0.135, 24, 18);
-/** Placa facial: cilindro bien achatado, cara plana mirando a +Z. */
-const TOKEN_FACE_GEOMETRY = new CylinderGeometry(0.1, 0.1, 0.02, 28);
+/** Placa facial: textura circular sobre un backing 3D tipo sticker grueso. */
+const TOKEN_FACE_GEOMETRY = new CircleGeometry(0.1, 32);
+const TOKEN_FACE_BACKING_GEOMETRY = new CylinderGeometry(0.112, 0.112, 0.028, 28);
 const TOKEN_CROWN_GEOMETRY = new CylinderGeometry(0.05, 0.07, 0.05, 6);
 const TOKEN_SHADOW_GEOMETRY = new CircleGeometry(0.2, 20);
 const TOKEN_MARKER_GEOMETRY = new OctahedronGeometry(0.085);
@@ -890,6 +891,7 @@ const TOKEN_LIMB_GEOMETRY = new CylinderGeometry(0.035, 0.04, 0.28, 12);
 const TOKEN_HAT_BRIM_GEOMETRY = new CylinderGeometry(0.18, 0.2, 0.025, 28);
 const TOKEN_HAT_TOP_GEOMETRY = new CylinderGeometry(0.115, 0.13, 0.12, 24);
 const TOKEN_MUSTACHE_GEOMETRY = new SphereGeometry(0.04, 12, 8);
+const TOKEN_CHAPLIN_MUSTACHE_GEOMETRY = new BoxGeometry(0.078, 0.032, 0.022);
 const TOKEN_PIERCING_GEOMETRY = new TorusGeometry(0.018, 0.005, 8, 14);
 const TOKEN_TATTOO_GEOMETRY = new BoxGeometry(0.075, 0.008, 0.045);
 const TOKEN_SHIRT_PANEL_GEOMETRY = new BoxGeometry(0.18, 0.16, 0.012);
@@ -903,19 +905,26 @@ const TOKEN_SHOE_GEOMETRY = new BoxGeometry(0.12, 0.045, 0.18);
 function AvatarFace({
   texture,
   opacity,
+  rimColor,
   position = [0, 0.505, 0.088],
   scale = 1,
 }: {
   texture: Texture;
   opacity: number;
+  rimColor: string;
   position?: [number, number, number];
   scale?: number;
 }) {
   return (
     // Levemente inclinada hacia arriba: la cámara mira desde arriba y así la cara se lee mejor
-    <mesh castShadow position={position} scale={scale} rotation={[Math.PI / 2 - 0.24, 0, 0]} geometry={TOKEN_FACE_GEOMETRY} dispose={null}>
-      <meshStandardMaterial map={texture} roughness={0.5} metalness={0.02} transparent opacity={opacity} />
-    </mesh>
+    <group position={position} scale={scale} rotation={[Math.PI / 2 - 0.24, 0, 0]}>
+      <mesh castShadow position={[0, -0.008, 0]} geometry={TOKEN_FACE_BACKING_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color={rimColor} roughness={0.42} metalness={0.1} transparent opacity={opacity} />
+      </mesh>
+      <mesh castShadow position={[0, 0.036, 0]} rotation={[-Math.PI / 2, 0, 0]} geometry={TOKEN_FACE_GEOMETRY} dispose={null}>
+        <meshBasicMaterial map={texture} transparent opacity={opacity} side={DoubleSide} toneMapped={false} />
+      </mesh>
+    </group>
   );
 }
 
@@ -1030,9 +1039,12 @@ function PlayerToken({
   const bodyY = ballOnly ? 0.285 * height : 0.235 * height;
   const headY = ballOnly ? bodyY + 0.012 : 0.5 * height;
   const facePosition: [number, number, number] = ballOnly
-    ? [0, bodyY + 0.03, 0.122 * girth]
-    : [0, headY + 0.005, 0.088 * girth];
-  const hatY = ballOnly ? bodyY + 0.25 * height : headY + 0.115;
+    ? [0, bodyY + 0.035, 0.15 * girth]
+    : [0, headY + 0.012, 0.105 * girth];
+  const faceScale = ballOnly ? 2.05 : 1.72;
+  const faceRadius = 0.1 * faceScale;
+  const hatY = Math.max(ballOnly ? bodyY + 0.25 * height : headY + 0.115, facePosition[1] + faceRadius + 0.03);
+  const faceFrontZ = facePosition[2] + 0.016 * faceScale;
   const equipped = character.equippedCosmeticIds ?? {};
   const mustacheId = equipped.mustache ?? "";
   const hasArgentinaShirt = equipped.shirt === "shirt-argentina-10";
@@ -1087,6 +1099,22 @@ function PlayerToken({
             </mesh>
           </>
         )}
+        {hasArgentinaShirt && ballOnly && (
+          <group position={[0, bodyY - 0.09 * height, 0.205 * girth]} scale={[1.18, 0.72, 1]}>
+            <mesh castShadow geometry={TOKEN_SHIRT_PANEL_GEOMETRY} dispose={null}>
+              <meshStandardMaterial color="#f8fafc" roughness={0.4} transparent opacity={opacity * 0.95} />
+            </mesh>
+            {[-0.06, 0.06].map((x) => (
+              <mesh key={x} castShadow position={[x, 0, 0.008]} scale={[0.35, 1.05, 1]} geometry={TOKEN_SHIRT_PANEL_GEOMETRY} dispose={null}>
+                <meshStandardMaterial color="#75c7f0" roughness={0.38} transparent opacity={opacity * 0.95} />
+              </mesh>
+            ))}
+            <mesh position={[0, 0.035, 0.017]}>
+              <circleGeometry args={[0.018, 12]} />
+              <meshStandardMaterial color="#facc15" roughness={0.35} transparent opacity={opacity} />
+            </mesh>
+          </group>
+        )}
         {hasArms && (
           <>
             <mesh castShadow position={[-0.22 * girth, 0.31 * height, 0]} rotation={[0, 0, -0.9]} geometry={TOKEN_LIMB_GEOMETRY} dispose={null}>
@@ -1097,19 +1125,19 @@ function PlayerToken({
             </mesh>
           </>
         )}
-        {/* Placa facial plana mirando a +Z (cámara): hoy iniciales, mañana la foto */}
-        <AvatarFace texture={faceTexture} opacity={opacity} position={facePosition} scale={ballOnly ? 1.08 : 1} />
+        {/* Caripela gigante: la foto sigue siendo una textura circular, pero ahora funciona como badge frontal. */}
+        <AvatarFace texture={faceTexture} opacity={opacity} rimColor={playerColor} position={facePosition} scale={faceScale} />
         {mustacheId === "mustache-chaplin" && (
-          <mesh castShadow position={[0, facePosition[1] - 0.037, facePosition[2] + 0.014]} scale={[0.78, 0.9, 0.52]} geometry={TOKEN_MUSTACHE_GEOMETRY} dispose={null}>
+          <mesh castShadow position={[0, facePosition[1] - 0.045 * faceScale, faceFrontZ + 0.052 * faceScale]} scale={[faceScale, faceScale, 1]} geometry={TOKEN_CHAPLIN_MUSTACHE_GEOMETRY} dispose={null}>
             <meshStandardMaterial color="#160b05" roughness={0.5} transparent opacity={opacity} />
           </mesh>
         )}
         {mustacheId && mustacheId !== "mustache-chaplin" && (
           <>
-            <mesh castShadow position={[-0.036, facePosition[1] - 0.035, facePosition[2] + 0.014]} scale={[1.5, 0.55, 0.55]} geometry={TOKEN_MUSTACHE_GEOMETRY} dispose={null}>
+            <mesh castShadow position={[-0.03 * faceScale, facePosition[1] - 0.034 * faceScale, faceFrontZ + 0.012 * faceScale]} scale={[0.95 * faceScale, 0.4 * faceScale, 0.42 * faceScale]} geometry={TOKEN_MUSTACHE_GEOMETRY} dispose={null}>
               <meshStandardMaterial color="#1f1307" roughness={0.5} transparent opacity={opacity} />
             </mesh>
-            <mesh castShadow position={[0.036, facePosition[1] - 0.035, facePosition[2] + 0.014]} scale={[1.5, 0.55, 0.55]} geometry={TOKEN_MUSTACHE_GEOMETRY} dispose={null}>
+            <mesh castShadow position={[0.03 * faceScale, facePosition[1] - 0.034 * faceScale, faceFrontZ + 0.012 * faceScale]} scale={[0.95 * faceScale, 0.4 * faceScale, 0.42 * faceScale]} geometry={TOKEN_MUSTACHE_GEOMETRY} dispose={null}>
               <meshStandardMaterial color="#1f1307" roughness={0.5} transparent opacity={opacity} />
             </mesh>
           </>
@@ -1124,12 +1152,12 @@ function PlayerToken({
             </mesh>
           </>
         )}
-        {equipped.nipplePiercing && !ballOnly && (
+        {equipped.nipplePiercing && (
           <>
-            <mesh castShadow position={[-0.065 * girth, bodyY + 0.035, 0.17 * girth]} rotation={[Math.PI / 2, 0, 0]} geometry={TOKEN_PIERCING_GEOMETRY} dispose={null}>
+            <mesh castShadow position={[-0.07 * girth, ballOnly ? bodyY - 0.035 * height : bodyY + 0.035, ballOnly ? 0.205 * girth : 0.17 * girth]} rotation={[Math.PI / 2, 0, 0]} geometry={TOKEN_PIERCING_GEOMETRY} dispose={null}>
               <meshStandardMaterial color="#e5e7eb" roughness={0.2} metalness={0.75} transparent opacity={opacity} />
             </mesh>
-            <mesh castShadow position={[0.065 * girth, bodyY + 0.035, 0.17 * girth]} rotation={[Math.PI / 2, 0, 0]} geometry={TOKEN_PIERCING_GEOMETRY} dispose={null}>
+            <mesh castShadow position={[0.07 * girth, ballOnly ? bodyY - 0.035 * height : bodyY + 0.035, ballOnly ? 0.205 * girth : 0.17 * girth]} rotation={[Math.PI / 2, 0, 0]} geometry={TOKEN_PIERCING_GEOMETRY} dispose={null}>
               <meshStandardMaterial color="#e5e7eb" roughness={0.2} metalness={0.75} transparent opacity={opacity} />
             </mesh>
           </>

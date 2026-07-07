@@ -143,13 +143,18 @@ export function makeFaceTexture(initials: string, color: string): CanvasTexture 
   // se usa la textura en algo que no recorte).
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const radius = canvas.width / 2 - 6;
+  const radius = canvas.width / 2 - 7;
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.fillStyle = "#fbf3df";
   ctx.fill();
-  ctx.lineWidth = 10;
+  ctx.lineWidth = 20;
   ctx.strokeStyle = color;
+  ctx.stroke();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "rgba(255,255,255,0.65)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 12, 0, Math.PI * 2);
   ctx.stroke();
   ctx.fillStyle = "#3a2f22";
   ctx.font = "900 118px Inter, ui-sans-serif, system-ui, sans-serif";
@@ -167,7 +172,7 @@ export function makePhotoFaceTexture(image: HTMLImageElement, color: string): Ca
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const radius = canvas.width / 2 - 6;
+  const radius = canvas.width / 2 - 7;
   const imageWidth = image.naturalWidth || image.width;
   const imageHeight = image.naturalHeight || image.height;
   const scale = Math.max(canvas.width / imageWidth, canvas.height / imageHeight);
@@ -184,10 +189,15 @@ export function makePhotoFaceTexture(image: HTMLImageElement, color: string): Ca
   ctx.clip();
   ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
   ctx.restore();
-  ctx.lineWidth = 10;
+  ctx.lineWidth = 20;
   ctx.strokeStyle = color;
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "rgba(255,255,255,0.65)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 12, 0, Math.PI * 2);
   ctx.stroke();
   return finishTexture(canvas);
 }
