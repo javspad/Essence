@@ -18,7 +18,7 @@ import {
   type Texture,
 } from "three";
 import type { CosmeticDef, FaceAnchor, FacePhotoAlignment, MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
-import { cosmeticAnchorId, cosmeticAnchorType, cosmeticAssetKind, normalizeCosmeticDef } from "@essence/shared/cosmetics";
+import { cosmeticAnchorRefs, cosmeticAssetKind, normalizeCosmeticDef } from "@essence/shared/cosmetics";
 import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
 import { defaultTokenAnchor, tokenAnchorSurface } from "../characterTokenRig";
 import {
@@ -1102,8 +1102,11 @@ function TokenCosmetic({
   const scale = cosmeticScale(cosmetic);
 
   if (kind === "goggles") {
-    const leftEye = anchorSurface("face", "leftEye", faceAnchors, bodyAnchors);
-    const rightEye = anchorSurface("face", "rightEye", faceAnchors, bodyAnchors);
+    const anchorRefs = cosmeticAnchorRefs(cosmetic);
+    const firstRef = anchorRefs[0] ?? { anchorType: "face" as const, anchorId: "leftEye" };
+    const secondRef = anchorRefs[1] ?? { anchorType: "face" as const, anchorId: firstRef.anchorId === "leftEye" ? "rightEye" : firstRef.anchorId };
+    const leftEye = anchorSurfaceForRef(firstRef, faceAnchors, bodyAnchors);
+    const rightEye = anchorSurfaceForRef(secondRef, faceAnchors, bodyAnchors);
     const z = Math.max(leftEye[2], rightEye[2]) + 0.026 + (cosmetic.transform?.z ?? 0);
     return (
       <group rotation={[0, 0, rotation]}>
@@ -1231,13 +1234,21 @@ function anchorSurface(
   return [0, 0.2, 0.2];
 }
 
+function anchorSurfaceForRef(
+  anchor: { anchorType: "face" | "body" | "token"; anchorId: string },
+  faceAnchors?: Record<string, FaceAnchor>,
+  bodyAnchors?: Record<string, FaceAnchor>
+): Vec3 {
+  return anchorSurface(anchor.anchorType, anchor.anchorId, faceAnchors, bodyAnchors);
+}
+
 function transformedAnchor(
   cosmetic: CosmeticDef,
   faceAnchors: Record<string, FaceAnchor> | undefined,
   bodyAnchors: Record<string, FaceAnchor> | undefined,
   defaults: { x?: number; y?: number; z?: number }
 ): Vec3 {
-  const base = anchorSurface(cosmeticAnchorType(cosmetic), cosmeticAnchorId(cosmetic), faceAnchors, bodyAnchors);
+  const base = anchorSurfaceForRef(cosmeticAnchorRefs(cosmetic)[0] ?? { anchorType: "body", anchorId: "chest" }, faceAnchors, bodyAnchors);
   return [
     base[0] + (defaults.x ?? 0) + (cosmetic.transform?.x ?? 0),
     base[1] + (defaults.y ?? 0) + (cosmetic.transform?.y ?? 0),

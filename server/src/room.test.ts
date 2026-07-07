@@ -66,7 +66,7 @@ const content: GameContent = normalizeGameContentEvents({
   ],
 });
 
-const characterSetContent: GameContent = normalizeGameContentEvents({
+const characterContent: GameContent = normalizeGameContentEvents({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "finish" },
@@ -91,9 +91,6 @@ const characterSetContent: GameContent = normalizeGameContentEvents({
       bodyAnchors: { head: { x: 0.5, y: 0.14, angle: 0 } },
       defaultLoadout: { cosmeticIds: ["party-goggles", "big-mustache"] },
     },
-  },
-  characterSets: {
-    duo: { id: "duo", name: "Duo", characterIds: ["groom", "guest"] },
   },
   cosmetics: {
     "party-goggles": {
@@ -249,15 +246,12 @@ const players = [
 
 {
   const { io } = createIoRecorder();
-  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "CHAR", "Characters", characterSetContent, {
-    characterSetId: "duo",
-  } as any);
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "CHAR", "Characters", characterContent);
 
   assert.deepEqual((room as any).join("socket-guest", "Whoever", { characterId: "guest" }), {
     ok: true,
     playerId: "guest",
   });
-  assert.equal(room.getState().characterSetId, "duo");
   assert.equal(room.getState().characterSlots?.find((slot) => slot.id === "guest")?.claimedByPlayerId, "guest");
   assert.equal(room.getState().players.find((player) => player.id === "guest")?.name, "Guest");
   assert.equal(room.getState().players.find((player) => player.id === "guest")?.color, "#38bdf8");
@@ -283,9 +277,7 @@ const players = [
 
 {
   const { io } = createIoRecorder();
-  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "COSM", "Cosmetics", characterSetContent, {
-    characterSetId: "duo",
-  } as any);
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "COSM", "Cosmetics", characterContent);
 
   room.join("socket-guest", "Guest", { characterId: "guest" } as any);
   const guest = room.getState().players.find((player) => player.id === "guest")!;

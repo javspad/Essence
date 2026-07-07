@@ -6,8 +6,8 @@ import { existsSync } from "node:fs";
 import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
-import type { CharacterSetSummary, ClientToServerEvents, RoomSummary, ServerToClientEvents } from "@essence/shared";
-import { characterSetSummaries } from "@essence/shared/characters";
+import type { CharacterSlot, ClientToServerEvents, RoomSummary, ServerToClientEvents } from "@essence/shared";
+import { characterSlotsForContent } from "@essence/shared/characters";
 import { content } from "./content.js";
 import { GameRoom } from "./room.js";
 
@@ -46,19 +46,19 @@ function listRooms(): RoomSummary[] {
   return out.sort((a, b) => Number(a.phase !== "lobby") - Number(b.phase !== "lobby"));
 }
 
-function listCharacterSets(): CharacterSetSummary[] {
-  return characterSetSummaries(content);
+function listCharacters(): CharacterSlot[] {
+  return characterSlotsForContent(content);
 }
 
 io.on("connection", (socket) => {
-  socket.on("room:create", ({ name, roomName, characterSetId, characterId }, ack) => {
+  socket.on("room:create", ({ name, roomName, characterId }, ack) => {
     const trimmedRoom = (roomName ?? "").trim();
     if (!trimmedRoom) {
       ack({ ok: false, error: "Poné un nombre a la sala" });
       return;
     }
     const code = genCode();
-    const room = new GameRoom(io, code, trimmedRoom.slice(0, 40), content, { characterSetId });
+    const room = new GameRoom(io, code, trimmedRoom.slice(0, 40), content);
     rooms.set(code, room);
     socket.join(code);
     socketIndex.set(socket.id, code);
@@ -162,8 +162,8 @@ app.get("/api/rooms", (_req, res) => {
   res.json({ rooms: listRooms() });
 });
 
-app.get("/api/character-sets", (_req, res) => {
-  res.json({ characterSets: listCharacterSets() });
+app.get("/api/characters", (_req, res) => {
+  res.json({ characters: listCharacters() });
 });
 
 const clientDist = resolve(__dirname, "../../client/dist");

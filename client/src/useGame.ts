@@ -87,9 +87,9 @@ export function useGame() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ code, name, playerId: pid, characterId }));
   };
 
-  const create = useCallback((name: string, roomName: string, characterSetId?: string, characterId?: string) => {
+  const create = useCallback((name: string, roomName: string, characterId?: string) => {
     setError(null);
-    socket.emit("room:create", { name, roomName, characterSetId, characterId }, (res) => {
+    socket.emit("room:create", { name, roomName, characterId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
         persist(res.code, name, res.playerId, characterId ?? res.playerId);

@@ -395,12 +395,6 @@ export interface CharacterDef {
   defaultTraits?: string[];
 }
 
-export interface CharacterSetDef {
-  id: string;
-  name: string;
-  characterIds: string[];
-}
-
 export interface CharacterSlot {
   id: string;
   displayName: string;
@@ -413,12 +407,6 @@ export interface CharacterSlot {
   defaultLoadout?: CharacterLoadout;
   claimedByPlayerId?: string;
   connected?: boolean;
-}
-
-export interface CharacterSetSummary {
-  id: string;
-  name: string;
-  characters: CharacterSlot[];
 }
 
 export type CosmeticAnchorType = "face" | "body" | "token";
@@ -437,6 +425,12 @@ export interface CosmeticAsset {
   color?: string;
   secondaryColor?: string;
   src?: string;
+  label?: string;
+}
+
+export interface CosmeticAnchorRef {
+  anchorType: CosmeticAnchorType;
+  anchorId: string;
   label?: string;
 }
 
@@ -475,6 +469,8 @@ export interface CosmeticDef {
   description?: string;
   price: number;
   asset: CosmeticAsset | string;
+  /** Ordered anchor placements. The first anchor is mirrored to anchorType/anchorId for older imports. */
+  anchors?: CosmeticAnchorRef[];
   anchorType: CosmeticAnchorType;
   anchorId: string;
   transform?: CosmeticTransform;
@@ -515,7 +511,6 @@ export interface GameContent {
   events?: Record<string, GameEventDef>;
   playerStories?: Record<string, PlayerStoryBank>;
   characters?: Record<string, CharacterDef>;
-  characterSets?: Record<string, CharacterSetDef>;
   cosmetics?: Record<string, CosmeticDef>;
   /** Legacy/import alias normalized into cosmetics. */
   characterCosmetics?: unknown[];
@@ -597,8 +592,6 @@ export interface GameState {
   /** nombre legible de la sala, elegido por el host al crearla */
   roomName: string;
   phase: Phase;
-  characterSetId?: string;
-  characterSetName?: string;
   characterSlots?: CharacterSlot[];
   mapId?: string;
   /** layout del tablero (tipos/labels); el contenido sensible no viaja */
@@ -679,8 +672,6 @@ export interface RoomSummary {
   code: string;
   name: string;
   phase: Phase;
-  characterSetId?: string;
-  characterSetName?: string;
   characterSlots?: CharacterSlot[];
   /** cantidad de jugadores conectados ahora */
   players: number;
@@ -700,7 +691,7 @@ export interface ClientToServerEvents {
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   "room:create": (
-    payload: { name?: string; roomName: string; characterSetId?: string; characterId?: string },
+    payload: { name?: string; roomName: string; characterId?: string },
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   /** El jugador abandona la sala voluntariamente. */

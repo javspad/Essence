@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { CosmeticDef, GameState, Player } from "@essence/shared";
-import { cosmeticAnchorId, cosmeticAssetKind, cosmeticPrice, isCosmeticCompatibleWithCharacter } from "@essence/shared/cosmetics";
+import { cosmeticAnchorRefs, cosmeticAssetKind, cosmeticPrice, isCosmeticCompatibleWithCharacter } from "@essence/shared/cosmetics";
 import { Check, Coins, Palette, Package, ShoppingBag, X } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { cn } from "@/lib/utils";
@@ -134,7 +134,7 @@ export default function CosmeticShop({
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-[#a89fc5]">
                       <span className="rounded-sm border border-white/10 bg-black/20 px-2 py-1">{cosmeticAssetKind(cosmetic)}</span>
-                      <span className="rounded-sm border border-white/10 bg-black/20 px-2 py-1">{cosmetic.anchorType}:{cosmeticAnchorId(cosmetic)}</span>
+                      <span className="rounded-sm border border-white/10 bg-black/20 px-2 py-1">{cosmeticAnchorSummary(cosmetic)}</span>
                       {isOwned && <span className="rounded-sm border border-[#6ee7b7]/40 bg-[#10b981]/15 px-2 py-1 text-[#6ee7b7]">Owned</span>}
                       {isEquipped && <span className="rounded-sm border border-[#67e8f9]/50 bg-[#0891b2]/20 px-2 py-1 text-[#a5f3fc]">Equipped</span>}
                     </div>
@@ -201,6 +201,12 @@ function tabClass(active: boolean): string {
       ? "border-white/15 border-b-[#0e0a1a] bg-[#0e0a1a] text-white"
       : "border-transparent text-[#a89fc5] hover:bg-white/5 hover:text-white"
   );
+}
+
+function cosmeticAnchorSummary(cosmetic: CosmeticDef): string {
+  return cosmeticAnchorRefs(cosmetic)
+    .map((anchor) => `${anchor.anchorType}:${anchor.anchorId}`)
+    .join(" + ");
 }
 
 function CosmeticSwatch({ cosmetic }: { cosmetic: CosmeticDef }) {

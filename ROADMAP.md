@@ -398,11 +398,14 @@ Verification notes:
 - Seeded configurable cosmetics for glasses, moustache, hat, beard, and chest tattoo/piercing-style body attachments with prices, anchors, transforms, and preview metadata.
 - Room state now exposes `cosmetics`, `ownedCosmeticIds`, and equipped `cosmeticIds`; default character loadouts start owned/equipped, and socket actions buy/equip cosmetics for the current room/session.
 - Added `/cosmetic-builder` with catalog editing, anchor/transform controls, compatibility controls, JSON import/export, and preview across multiple characters.
+- Follow-up Cosmetic Builder QA added ordered `anchors[]` support for two-anchor cosmetics such as goggles, an anchor visibility toggle, and anchor-relative placement labels.
 - Updated Character Builder previews/default loadouts to render from the shared cosmetic catalog.
+- Removed Character Builder's duplicated accessory catalog/editor surface so cosmetics are authored from the shared catalog in Cosmetic Builder.
+- Removed the character set authoring/runtime path; saved `content.characters` is now the single character list used by the builder, room creation, and room slots, while legacy `characterSets` imports are stripped during normalization.
 - Updated 3D token rendering so cosmetics are data-driven and anchored to face/body anchors without affecting movement, events, minigames, artifacts, effects, scoring, or camera behavior.
 - Added an in-game shop button with a Cosmetics tab for buy/equip and a separate Artifacts tab stub for future `S4` integration.
 - Manual/Playwright QA screenshots: `/tmp/essence-s5-tools.png`, `/tmp/essence-s5-cosmetic-builder.png`, `/tmp/essence-s5-character-builder.png`, `/tmp/essence-s5-shop.png`, `/tmp/essence-s5-cosmetic-builder-desktop.png`, `/tmp/essence-s5-cosmetic-builder-mobile.png`, `/tmp/essence-s5-board-canvas.png`.
-- Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing large chunk warning only); content load smoke via `npx tsx`; Playwright S5 builder/shop QA against the built app on `PORT=3002`; desktop/mobile canvas screenshot pixel checks; `git diff --check`.
+- Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing large chunk warning only); content load smoke via `npx tsx`; Playwright S5 builder/shop QA against the built app on `PORT=3002`; Playwright follow-up QA on `http://localhost:5174/cosmetic-builder` and `/character-builder`; desktop/mobile canvas screenshot pixel checks; `git diff --check`.
 
 Merge notes:
 

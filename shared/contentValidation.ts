@@ -1,7 +1,6 @@
 import type {
   ArtifactDef,
   CharacterDef,
-  CharacterSetDef,
   CosmeticDef,
   EffectDef,
   EventAction,
@@ -19,9 +18,10 @@ import type {
   Tile,
 } from "./types";
 import { EVENT_ACTIVITY_TYPES, normalizeGameContentEvents } from "./events";
-import { DEFAULT_CHARACTER_SET_ID, defaultCharacterSetForPlayers, playerDefToCharacter } from "./characters";
+import { playerDefToCharacter } from "./characters";
 import {
   cosmeticAnchorId,
+  cosmeticAnchorRefs,
   cosmeticAnchorType,
   cosmeticPrice,
   normalizeCosmeticCatalog,
@@ -85,14 +85,6 @@ const CharacterDefSchema = z
   })
   .passthrough();
 
-const CharacterSetDefSchema = z
-  .object({
-    id: z.string().min(1),
-    name: z.string().min(1),
-    characterIds: z.array(z.string().min(1)).min(1),
-  })
-  .passthrough();
-
 const CosmeticAssetSchema = z.union([
   z.string().min(1),
   z
@@ -122,6 +114,14 @@ const CosmeticTransformSchema = z
   })
   .passthrough();
 
+const CosmeticAnchorRefSchema = z
+  .object({
+    anchorType: z.enum(["face", "body", "token"]),
+    anchorId: z.string().min(1),
+    label: z.string().optional(),
+  })
+  .passthrough();
+
 const CosmeticCompatibilitySchema = z
   .object({
     characterIds: z.array(z.string().min(1)).optional(),
@@ -146,6 +146,7 @@ const CosmeticDefSchema = z
     description: z.string().optional(),
     price: z.number().finite().nonnegative(),
     asset: CosmeticAssetSchema,
+    anchors: z.array(CosmeticAnchorRefSchema).min(1).optional(),
     anchorType: z.enum(["face", "body", "token"]),
     anchorId: z.string().min(1),
     transform: CosmeticTransformSchema.optional(),
@@ -160,15 +161,17 @@ const CosmeticDefSchema = z
 export function normalizeContentSchema(input: unknown): GameContent {
   const content = input as GameContent;
   const normalized = normalizeGameContentEvents(content);
+  const { characterSets: _legacyCharacterSets, ...contentWithoutCharacterSets } = normalized as GameContent & {
+    characterSets?: unknown;
+  };
   const players = clonePlayers(normalized.players ?? []);
   const characters = normalizeCharacters(normalized.characters, players);
   const cosmetics = normalizeCosmeticCatalog(normalized.cosmetics, normalized.characterCosmetics);
   return {
-    ...normalized,
+    ...contentWithoutCharacterSets,
     players,
     characters,
     cosmetics: cloneCosmetics(cosmetics),
-    characterSets: normalizeCharacterSets(normalized.characterSets, characters, players),
     board: cloneTiles(normalized.board),
     maps: normalized.maps?.map((map) => normalizeMapDefinition(map as MapDefinitionImport)),
     assetCatalog: normalized.assetCatalog?.map((asset) => ({
@@ -194,7 +197,6 @@ export function validateGameContent(content: unknown): ContentValidationResult {
 
   const legacyPlayerIds = validatePlayers(normalized.players, error);
   const characterIds = validateCharacters(normalized.characters, error);
-  validateCharacterSets(normalized.characterSets, characterIds, error);
   const playerIds = new Set([...legacyPlayerIds, ...characterIds]);
   const assetIds = validateAssetCatalog(normalized, error);
 
@@ -285,25 +287,6 @@ function validateCharacters(
     if (character.id && character.id !== id) error(`characters.${id}.id`, `must match catalog key ${id}`);
   }
   return ids;
-}
-
-function validateCharacterSets(
-  characterSets: Record<string, CharacterSetDef> | undefined,
-  characterIds: Set<string>,
-  error: (path: string, message: string) => void
-) {
-  for (const [id, set] of Object.entries(characterSets ?? {})) {
-    const result = CharacterSetDefSchema.safeParse(set);
-    if (!result.success) {
-      for (const issue of result.error.issues) {
-        error(zodPath(`characterSets.${id}`, issue.path), issue.message);
-      }
-    }
-    if (set.id && set.id !== id) error(`characterSets.${id}.id`, `must match catalog key ${id}`);
-    for (const characterId of set.characterIds ?? []) {
-      if (!characterIds.has(characterId)) error(`characterSets.${id}.characterIds`, `references missing character ${characterId}`);
-    }
-  }
 }
 
 function validateAssetCatalog(content: GameContent, error: (path: string, message: string) => void): Set<string> {
@@ -550,8 +533,9 @@ function validateCosmetics(
         error(zodPath(`cosmetics.${id}`, issue.path), issue.message);
       }
     }
-    if (!cosmeticAnchorId(normalized)) error(`cosmetics.${id}.anchorId`, "must not be empty");
-    if (cosmeticAnchorType(normalized) === "token") {
+    const anchorRefs = cosmeticAnchorRefs(normalized);
+    if (!cosmeticAnchorId(normalized) || !anchorRefs.length) error(`cosmetics.${id}.anchorId`, "must not be empty");
+    if (anchorRefs.some((anchor) => anchor.anchorType === "token") || cosmeticAnchorType(normalized) === "token") {
       warning(`cosmetics.${id}.anchorType`, "token cosmetics are visual-only and render without face/body anchor checks");
     }
     for (const characterId of normalized.compatibility?.characterIds ?? []) {
@@ -568,12 +552,12 @@ function normalizeCharacters(
   players: PlayerDef[]
 ): Record<string, CharacterDef> {
   const normalized: Record<string, CharacterDef> = {};
-  for (const player of players) {
-    normalized[player.id] = cloneCharacter(playerDefToCharacter(player));
-  }
-  for (const [key, character] of Object.entries(characters ?? {})) {
+  const source = characters ?? Object.fromEntries(players.map((player) => [player.id, playerDefToCharacter(player)]));
+  for (const [key, character] of Object.entries(source)) {
     const id = stringValue(character.id) || key;
-    const displayName = stringValue(character.displayName) || stringValue(character.name) || normalized[id]?.displayName || id;
+    const legacyPlayer = players.find((player) => player.id === id);
+    const legacyCharacter = legacyPlayer ? playerDefToCharacter(legacyPlayer) : undefined;
+    const displayName = stringValue(character.displayName) || stringValue(character.name) || legacyCharacter?.displayName || id;
     const defaultLoadout = isRecord(character.defaultLoadout) ? character.defaultLoadout : undefined;
     const defaultCosmetics = stringArray(character.defaultCosmetics);
     const defaultTraits = stringArray(character.defaultTraits);
@@ -582,8 +566,8 @@ function normalizeCharacters(
       ...character,
       id,
       displayName,
-      color: character.color ?? normalized[id]?.color,
-      groom: character.groom ?? normalized[id]?.groom,
+      color: character.color ?? legacyCharacter?.color,
+      groom: character.groom ?? legacyCharacter?.groom,
       facePhotoAlignment: character.facePhotoAlignment ? { ...character.facePhotoAlignment } : undefined,
       faceAnchors: cloneAnchors(character.faceAnchors),
       bodyAnchors: cloneAnchors(character.bodyAnchors),
@@ -591,33 +575,6 @@ function normalizeCharacters(
       defaultCosmetics: defaultCosmetics.length ? defaultCosmetics : undefined,
       defaultTraits: defaultTraits.length ? defaultTraits : undefined,
     });
-  }
-  return normalized;
-}
-
-function normalizeCharacterSets(
-  characterSets: Record<string, CharacterSetDef> | undefined,
-  characters: Record<string, CharacterDef>,
-  players: PlayerDef[]
-): Record<string, CharacterSetDef> {
-  const source =
-    Object.keys(characterSets ?? {}).length > 0
-      ? characterSets ?? {}
-      : {
-          [DEFAULT_CHARACTER_SET_ID]: {
-            ...defaultCharacterSetForPlayers(players),
-            characterIds: Object.keys(characters).length ? Object.keys(characters) : players.map((player) => player.id),
-          },
-        };
-  const normalized: Record<string, CharacterSetDef> = {};
-  for (const [key, set] of Object.entries(source)) {
-    const id = stringValue(set.id) || key;
-    normalized[id] = {
-      ...set,
-      id,
-      name: stringValue(set.name) || id,
-      characterIds: stringArray(set.characterIds),
-    };
   }
   return normalized;
 }
@@ -650,6 +607,7 @@ function cloneCosmetics(cosmetics: Record<string, CosmeticDef>): Record<string, 
       {
         ...cosmetic,
         asset: typeof cosmetic.asset === "string" ? cosmetic.asset : { ...cosmetic.asset },
+        anchors: cosmetic.anchors?.map((anchor) => ({ ...anchor })),
         transform: cosmetic.transform ? { ...cosmetic.transform } : undefined,
         compatibility: cosmetic.compatibility
           ? {

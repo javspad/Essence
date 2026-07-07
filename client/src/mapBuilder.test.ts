@@ -63,9 +63,21 @@ const migratedCharacters = normalizeContentSchema({
 assert.deepEqual(Object.keys(migratedCharacters.characters ?? {}), ["javi", "nico"]);
 assert.equal(migratedCharacters.characters?.javi.displayName, "Javi");
 assert.equal(migratedCharacters.characters?.javi.groom, true);
-assert.deepEqual(migratedCharacters.characterSets?.default.characterIds, ["javi", "nico"]);
+assert.equal("characterSets" in migratedCharacters, false);
 
-const invalidCharacterSet = validateGameContent({
+const authoredCharactersAreSourceOfTruth = normalizeContentSchema({
+  ...content,
+  players: [
+    { id: "javi", name: "Javi", groom: true, color: "#f59e0b" },
+    { id: "nico", name: "Nico", color: "#ef4444" },
+  ],
+  characters: {
+    javi: { id: "javi", displayName: "Javi" },
+  },
+});
+assert.deepEqual(Object.keys(authoredCharactersAreSourceOfTruth.characters ?? {}), ["javi"]);
+
+const legacySetImport = normalizeContentSchema({
   ...content,
   characters: {
     p1: { id: "p1", displayName: "P1" },
@@ -73,8 +85,8 @@ const invalidCharacterSet = validateGameContent({
   characterSets: {
     bad: { id: "bad", name: "Bad set", characterIds: ["missing"] },
   },
-});
-assert.deepEqual(invalidCharacterSet.errors, ["characterSets.bad.characterIds references missing character missing"]);
+} as unknown);
+assert.equal("characterSets" in legacySetImport, false);
 
 let state = createInitialMapBuilderState(content);
 state = mapBuilderReducer(state, { type: "start_route", from: 0 });

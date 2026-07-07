@@ -1,26 +1,38 @@
-import { useEffect, useMemo, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { Copy, Download, Home, Plus, Trash2, Upload, Wrench } from "lucide-react";
-import type { CharacterDef, CosmeticAnchorType, CosmeticDef, CosmeticTransform, GameContent } from "@essence/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Copy, Crosshair, Download, Home, Plus, Save, Trash2, Upload, Wrench } from "lucide-react";
+import type { CharacterDef, CosmeticAnchorRef, CosmeticAnchorType, CosmeticDef, CosmeticTransform, FaceAnchor, GameContent } from "@essence/shared";
 import { characterDisplayName } from "@essence/shared/characters";
-import { cosmeticAnchorId, cosmeticAssetKind, normalizeCosmeticDef, uniqueCosmeticIds } from "@essence/shared/cosmetics";
+import {
+  BODY_COSMETIC_ANCHORS,
+  FACE_COSMETIC_ANCHORS,
+  cosmeticAnchorRefs,
+  cosmeticAssetKind,
+  defaultCosmeticAnchorsForKind,
+  normalizeCosmeticDef,
+} from "@essence/shared/cosmetics";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import seedContent from "@shared/content.json";
 import {
-  TOKEN_PREVIEW_GROUP_POSITION,
-  TOKEN_PREVIEW_GROUP_SCALE,
-} from "../characterTokenRig";
-import { PlayerTokenPawn } from "./Board3DShell";
+  TokenPreviewCanvas,
+  TokenPreviewMoveBadge,
+  TokenPreviewViewControls,
+  sameProjectedTokenAnchors,
+  tokenPreviewAnchorForCharacter,
+  tokenPreviewAnchorLabel,
+  useTokenPreviewRotation,
+  type ProjectedTokenAnchor,
+  type TokenPreviewAnchorHandle,
+} from "./TokenPreviewer";
+import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 
 const STORAGE_KEY = "essence:cosmetic-builder:draft:v1";
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 const ASSET_KINDS = ["goggles", "mustache", "hat", "beard", "piercing", "tattoo", "badge", "custom"] as const;
 const ANCHOR_OPTIONS: Record<CosmeticAnchorType, string[]> = {
-  face: ["leftEye", "rightEye", "mouth"],
-  body: ["head", "chest", "leftHand", "rightHand", "back"],
+  face: [...FACE_COSMETIC_ANCHORS],
+  body: [...BODY_COSMETIC_ANCHORS],
   token: ["center"],
 };
-
 export default function CosmeticBuilder() {
   const [content, setContent] = useState<GameContent>(() => loadInitialContent());
   const cosmeticIds = useMemo(() => Object.keys(content.cosmetics ?? {}), [content.cosmetics]);
@@ -128,6 +140,18 @@ export default function CosmeticBuilder() {
     setSaveStatus("Copied");
   };
 
+  const saveDraft = async () => {
+    localStorage.setItem(STORAGE_KEY, exportJson);
+    setSaveStatus("Saving...");
+    try {
+      await saveContentJsonToDisk(exportJson);
+      setSaveStatus("Saved to PC");
+    } catch (error) {
+      console.error("Unable to save content.json", error);
+      setSaveStatus("Draft only");
+    }
+  };
+
   const downloadJson = () => {
     const blob = new Blob([exportJson], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -147,6 +171,10 @@ export default function CosmeticBuilder() {
           <h1 className="truncate text-xl font-black tracking-normal text-white">Cosmetic builder</h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <button onClick={saveDraft} className="builder-button preview gap-2">
+            <Save className="h-4 w-4" />
+            Save
+          </button>
           <button onClick={() => setJsonOpen(true)} className="builder-button preview gap-2">
             <Upload className="h-4 w-4" />
             Import/export
@@ -188,7 +216,7 @@ export default function CosmeticBuilder() {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-white">{cosmetic.name}</span>
                     <span className="block truncate text-[0.56rem] font-black uppercase tracking-[0.08em] text-slate-500">
-                      {cosmetic.anchorType}:{cosmeticAnchorId(cosmetic)}
+                      {cosmeticAnchorSummary(cosmetic)}
                     </span>
                   </span>
                   <span className="font-mono text-[0.62rem] font-black text-amber-200">{cosmetic.price}</span>
@@ -248,14 +276,47 @@ function CosmeticEditor({
   onChange: (updater: (cosmetic: CosmeticDef) => CosmeticDef) => void;
   onDelete: () => void;
 }) {
+  const { previewRef, previewRotation, setPreviewRotation, beginPreviewDrag, movePreviewDrag, endPreviewDrag } = useTokenPreviewRotation();
   const characterIds = Object.keys(content.characters ?? {});
+  const [showAnchors, setShowAnchors] = useState(true);
+  const [projectedAnchors, setProjectedAnchors] = useState<Record<string, ProjectedTokenAnchor>>({});
+  const anchors = cosmeticAnchorRefs(cosmetic);
+  const primaryAnchor = anchors[0] ?? { anchorType: "body" as const, anchorId: "chest" };
+  const secondaryAnchor = anchors[1];
+  const cosmeticAnchorProjectionInput = useMemo(
+    () => (previewCharacter ? cosmeticAnchorProjectionAnchors(previewCharacter, anchors) : []),
+    [anchors, previewCharacter]
+  );
+  const updateProjectedAnchors = useCallback((next: Record<string, ProjectedTokenAnchor>) => {
+    setProjectedAnchors((current) => (sameProjectedTokenAnchors(current, next) ? current : next));
+  }, []);
   const update = (patch: Partial<CosmeticDef>) => onChange((current) => normalizeCosmeticDef({ ...current, ...patch }, current.id));
   const updateTransform = (patch: Partial<CosmeticTransform>) => update({ transform: { ...(cosmetic.transform ?? {}), ...patch } });
   const updateAssetKind = (kind: string) => {
     const asset = typeof cosmetic.asset === "string" ? { kind } : { ...cosmetic.asset, kind };
-    update({ asset, assetId: kind });
+    const nextAnchors = defaultCosmeticAnchorsForKind(kind);
+    const nextPrimary = nextAnchors[0] ?? primaryAnchor;
+    update({ asset, assetId: kind, anchors: nextAnchors, anchorType: nextPrimary.anchorType, anchorId: nextPrimary.anchorId, anchor: nextPrimary.anchorId });
   };
-  const updateAnchorType = (anchorType: CosmeticAnchorType) => update({ anchorType, anchorId: ANCHOR_OPTIONS[anchorType][0], anchor: ANCHOR_OPTIONS[anchorType][0] });
+  const updateAnchorList = (nextAnchors: CosmeticAnchorRef[]) => {
+    const nextPrimary = nextAnchors[0] ?? primaryAnchor;
+    update({ anchors: nextAnchors, anchorType: nextPrimary.anchorType, anchorId: nextPrimary.anchorId, anchor: nextPrimary.anchorId });
+  };
+  const updateAnchorAt = (index: number, patch: Partial<CosmeticAnchorRef>) => {
+    const current = anchors[index] ?? defaultAnchorForIndex(cosmeticAssetKind(cosmetic), index, primaryAnchor);
+    const nextType = patch.anchorType ?? current.anchorType;
+    const nextAnchorId = patch.anchorId ?? (patch.anchorType ? defaultAnchorId(nextType, current.anchorId) : current.anchorId);
+    const nextAnchors = [...anchors];
+    nextAnchors[index] = { ...current, ...patch, anchorType: nextType, anchorId: nextAnchorId };
+    updateAnchorList(nextAnchors.slice(0, Math.max(1, anchors.length, index + 1)));
+  };
+  const toggleSecondAnchor = (enabled: boolean) => {
+    if (!enabled) {
+      updateAnchorList([primaryAnchor]);
+      return;
+    }
+    updateAnchorList([primaryAnchor, secondaryAnchor ?? defaultAnchorForIndex(cosmeticAssetKind(cosmetic), 1, primaryAnchor)]);
+  };
   const toggleCompatibleCharacter = (characterId: string) => {
     const current = new Set(cosmetic.compatibility?.characterIds ?? []);
     if (current.has(characterId)) current.delete(characterId);
@@ -288,14 +349,39 @@ function CosmeticEditor({
           <TextInput label="Description" value={cosmetic.description ?? ""} onChange={(description) => update({ description })} />
           <NumberInput label="Price" value={cosmetic.price} step={1} onChange={(price) => update({ price: Math.max(0, price) })} />
           <SelectInput label="Asset" value={cosmeticAssetKind(cosmetic)} options={ASSET_KINDS} onChange={updateAssetKind} />
-          <SelectInput label="Anchor type" value={cosmetic.anchorType} options={["face", "body", "token"]} onChange={(value) => updateAnchorType(value as CosmeticAnchorType)} />
-          <SelectInput
-            label="Anchor"
-            value={cosmetic.anchorId}
-            options={ANCHOR_OPTIONS[cosmetic.anchorType] ?? ANCHOR_OPTIONS.body}
-            onChange={(anchorId) => update({ anchorId, anchor: anchorId })}
-          />
           <TextInput label="Tags" value={(cosmetic.tags ?? []).join(", ")} onChange={(value) => update({ tags: csv(value) })} />
+          <SelectInput
+            label="Anchor A type"
+            value={primaryAnchor.anchorType}
+            options={["face", "body", "token"]}
+            onChange={(value) => updateAnchorAt(0, { anchorType: value as CosmeticAnchorType })}
+          />
+          <SelectInput
+            label="Anchor A"
+            value={primaryAnchor.anchorId}
+            options={ANCHOR_OPTIONS[primaryAnchor.anchorType] ?? ANCHOR_OPTIONS.body}
+            onChange={(anchorId) => updateAnchorAt(0, { anchorId })}
+          />
+          <label className="flex min-h-16 items-center gap-2 rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-[0.58rem] font-black uppercase tracking-[0.1em] text-slate-300">
+            <input type="checkbox" checked={Boolean(secondaryAnchor)} onChange={(event) => toggleSecondAnchor(event.target.checked)} className="size-4 accent-cyan-300" />
+            <span>Second anchor</span>
+          </label>
+          {secondaryAnchor ? (
+            <>
+              <SelectInput
+                label="Anchor B type"
+                value={secondaryAnchor.anchorType}
+                options={["face", "body", "token"]}
+                onChange={(value) => updateAnchorAt(1, { anchorType: value as CosmeticAnchorType })}
+              />
+              <SelectInput
+                label="Anchor B"
+                value={secondaryAnchor.anchorId}
+                options={ANCHOR_OPTIONS[secondaryAnchor.anchorType] ?? ANCHOR_OPTIONS.body}
+                onChange={(anchorId) => updateAnchorAt(1, { anchorId })}
+              />
+            </>
+          ) : null}
           <ColorInput
             label="Primary"
             value={cosmetic.preview?.color ?? assetColor(cosmetic, "color") ?? "#f5d547"}
@@ -315,33 +401,84 @@ function CosmeticEditor({
             <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-cyan-200">Preview</p>
             <h2 className="mt-1 text-lg font-black text-white">Anchored token</h2>
           </div>
-          <select
-            aria-label="Preview character"
-            value={selectedCharacterId}
-            onChange={(event) => setSelectedCharacterId(event.target.value)}
-            className="rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-xs font-black text-white outline-none focus:border-cyan-300"
-          >
-            {characterIds.map((id) => (
-              <option key={id} value={id}>
-                {characterDisplayName(content.characters?.[id] ?? { id, displayName: id })}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <TokenPreviewViewControls setPreviewRotation={setPreviewRotation} />
+            <button
+              type="button"
+              aria-pressed={showAnchors}
+              onClick={() => setShowAnchors((value) => !value)}
+              className={`builder-button compact gap-2 ${showAnchors ? "preview" : ""}`}
+            >
+              <Crosshair className="h-3.5 w-3.5" />
+              Anchors
+            </button>
+            <select
+              aria-label="Preview character"
+              value={selectedCharacterId}
+              onChange={(event) => setSelectedCharacterId(event.target.value)}
+              className="rounded-md border border-white/10 bg-[#151922] px-2 py-1.5 text-xs font-black text-white outline-none focus:border-cyan-300"
+            >
+              {characterIds.map((id) => (
+                <option key={id} value={id}>
+                  {characterDisplayName(content.characters?.[id] ?? { id, displayName: id })}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="mt-3 h-[32rem] overflow-hidden rounded-md border border-white/15 bg-[radial-gradient(circle_at_50%_20%,rgba(34,211,238,0.13),rgba(15,23,42,0.95)_48%,rgba(2,6,23,1))]">
-          {previewCharacter ? <CosmeticPreviewCanvas character={previewCharacter} cosmetic={cosmetic} cosmetics={content.cosmetics ?? {}} /> : null}
+        <div
+          ref={previewRef}
+          data-cosmetic-preview="true"
+          onPointerDown={beginPreviewDrag}
+          onPointerMove={movePreviewDrag}
+          onPointerUp={endPreviewDrag}
+          onPointerCancel={endPreviewDrag}
+          className="relative mt-3 h-[32rem] cursor-grab overflow-hidden rounded-md border border-white/15 bg-[radial-gradient(circle_at_50%_20%,rgba(34,211,238,0.13),rgba(15,23,42,0.95)_48%,rgba(2,6,23,1))] touch-none active:cursor-grabbing"
+        >
+          <TokenPreviewMoveBadge />
+          {previewCharacter ? (
+            <TokenPreviewCanvas
+              character={previewCharacter}
+              cosmetics={content.cosmetics ?? {}}
+              cosmeticIds={[cosmetic.id]}
+              previewRotation={previewRotation}
+              anchorProjectionInput={showAnchors ? cosmeticAnchorProjectionInput : []}
+              onAnchorsProjected={updateProjectedAnchors}
+            />
+          ) : null}
+          {showAnchors
+            ? cosmeticAnchorProjectionInput.map((anchor, index) => {
+                const projected = projectedAnchors[anchor.handle.id];
+                return (
+                  <span
+                    key={`${anchor.handle.scope}:${anchor.handle.id}:${index}`}
+                    data-cosmetic-anchor-marker="true"
+                    className="pointer-events-none absolute z-10 grid size-7 place-items-center rounded-full border-2 border-[#0f172a] text-[0.56rem] font-black text-[#0f172a] shadow-lg shadow-black/40"
+                    style={{
+                      left: `${projected?.x ?? anchor.anchor.x * 100}%`,
+                      top: `${projected?.y ?? anchor.anchor.y * 100}%`,
+                      opacity: projected?.visible === false ? 0 : 0.9,
+                      background: index === 0 ? "#ff3ea5" : "#facc15",
+                      transform: "translate(-50%, -50%)",
+                    }}
+                  >
+                    {index + 1}
+                  </span>
+                );
+              })
+            : null}
         </div>
       </section>
 
       <section className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-emerald-200">Transform</p>
+        <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-emerald-200">Anchor placement</p>
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <NumberInput label="X" value={cosmetic.transform?.x ?? 0} step={0.01} onChange={(x) => updateTransform({ x })} />
-          <NumberInput label="Y" value={cosmetic.transform?.y ?? 0} step={0.01} onChange={(y) => updateTransform({ y })} />
-          <NumberInput label="Z" value={cosmetic.transform?.z ?? 0} step={0.01} onChange={(z) => updateTransform({ z })} />
+          <NumberInput label="Offset X" value={cosmetic.transform?.x ?? 0} step={0.01} onChange={(x) => updateTransform({ x })} />
+          <NumberInput label="Offset Y" value={cosmetic.transform?.y ?? 0} step={0.01} onChange={(y) => updateTransform({ y })} />
+          <NumberInput label="Depth" value={cosmetic.transform?.z ?? 0} step={0.01} onChange={(z) => updateTransform({ z })} />
           <NumberInput label="Scale" value={cosmetic.transform?.scale ?? 1} step={0.05} onChange={(scale) => updateTransform({ scale: Math.max(0.05, scale) })} />
-          <NumberInput label="Scale X" value={cosmetic.transform?.scaleX ?? 1} step={0.05} onChange={(scaleX) => updateTransform({ scaleX: Math.max(0.05, scaleX) })} />
-          <NumberInput label="Scale Y" value={cosmetic.transform?.scaleY ?? 1} step={0.05} onChange={(scaleY) => updateTransform({ scaleY: Math.max(0.05, scaleY) })} />
+          <NumberInput label="Stretch X" value={cosmetic.transform?.scaleX ?? 1} step={0.05} onChange={(scaleX) => updateTransform({ scaleX: Math.max(0.05, scaleX) })} />
+          <NumberInput label="Stretch Y" value={cosmetic.transform?.scaleY ?? 1} step={0.05} onChange={(scaleY) => updateTransform({ scaleY: Math.max(0.05, scaleY) })} />
           <NumberInput label="Rotation" value={cosmetic.transform?.rotation ?? 0} step={1} onChange={(rotation) => updateTransform({ rotation })} />
         </div>
       </section>
@@ -370,54 +507,42 @@ function CosmeticEditor({
   );
 }
 
-function CosmeticPreviewCanvas({
-  character,
-  cosmetic,
-  cosmetics,
-}: {
-  character: CharacterDef;
-  cosmetic: CosmeticDef;
-  cosmetics: Record<string, CosmeticDef>;
-}) {
-  const tokenCharacter = useMemo(
-    () => ({
-      id: character.id,
-      name: characterDisplayName(character),
-      color: character.color ?? "#888888",
-      groom: Boolean(character.groom),
-    }),
-    [character.color, character.groom, character.id, character.displayName, character.name]
-  );
-  const cosmeticIds = uniqueCosmeticIds([...(character.defaultLoadout?.cosmeticIds ?? []), cosmetic.id]);
+function cosmeticAnchorProjectionAnchors(
+  character: CharacterDef,
+  anchors: CosmeticAnchorRef[]
+): Array<{ handle: TokenPreviewAnchorHandle; anchor: FaceAnchor }> {
+  return anchors.flatMap((anchor) => {
+    if (anchor.anchorType === "token") return [];
+    const handle: TokenPreviewAnchorHandle = {
+      id: anchor.anchorId,
+      label: anchor.label ?? tokenPreviewAnchorLabel(anchor.anchorId),
+      scope: anchor.anchorType,
+    };
+    return [{ handle, anchor: tokenPreviewAnchorForCharacter(character, handle) }];
+  });
+}
 
-  return (
-    <Canvas
-      camera={{ position: [0, 1.05, 3.4], fov: 32, near: 0.1, far: 20 }}
-      dpr={[1, 2]}
-      gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-      shadows
-    >
-      <ambientLight intensity={0.72} color="#fff8e1" />
-      <directionalLight position={[3, 5, 4]} intensity={2.7} castShadow />
-      <directionalLight position={[-3, 2, -3]} intensity={0.65} color="#b3d4ff" />
-      <group position={TOKEN_PREVIEW_GROUP_POSITION} scale={TOKEN_PREVIEW_GROUP_SCALE}>
-        <PlayerTokenPawn
-          character={tokenCharacter}
-          facePhoto={character.facePhoto}
-          facePhotoAlignment={character.facePhotoAlignment}
-          faceAnchors={character.faceAnchors}
-          bodyAnchors={character.bodyAnchors}
-          cosmeticIds={cosmeticIds}
-          cosmeticCatalog={cosmetics}
-          focused
-        />
-      </group>
-      <mesh position={[0, -0.84, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[1.24, 56]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.72} transparent opacity={0.58} />
-      </mesh>
-    </Canvas>
-  );
+function defaultAnchorForIndex(kind: string, index: number, primary: CosmeticAnchorRef): CosmeticAnchorRef {
+  const defaults = defaultCosmeticAnchorsForKind(kind);
+  const defaultAnchor = defaults[index] ?? defaults.find((anchor) => !sameAnchorRef(anchor, primary));
+  if (defaultAnchor) return { ...defaultAnchor };
+  const options = ANCHOR_OPTIONS[primary.anchorType] ?? ANCHOR_OPTIONS.body;
+  return { anchorType: primary.anchorType, anchorId: options.find((anchorId) => anchorId !== primary.anchorId) ?? primary.anchorId };
+}
+
+function defaultAnchorId(anchorType: CosmeticAnchorType, currentAnchorId: string): string {
+  const options = ANCHOR_OPTIONS[anchorType] ?? ANCHOR_OPTIONS.body;
+  return options.includes(currentAnchorId) ? currentAnchorId : options[0] ?? "chest";
+}
+
+function cosmeticAnchorSummary(cosmetic: CosmeticDef): string {
+  return cosmeticAnchorRefs(cosmetic)
+    .map((anchor) => `${anchor.anchorType}:${anchor.anchorId}`)
+    .join(" + ");
+}
+
+function sameAnchorRef(a: CosmeticAnchorRef, b: CosmeticAnchorRef): boolean {
+  return a.anchorType === b.anchorType && a.anchorId === b.anchorId;
 }
 
 function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: string; action: () => void }) {
@@ -619,6 +744,7 @@ function emptyCosmetic(id: string): CosmeticDef {
     description: "",
     price: 0,
     asset: { kind: "badge", color: "#f5d547", secondaryColor: "#67e8f9" },
+    anchors: [{ anchorType: "body", anchorId: "chest" }],
     anchorType: "body",
     anchorId: "chest",
     transform: { z: 0.04, scale: 1 },

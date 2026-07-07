@@ -16,7 +16,7 @@ import type {
   ServerToClientEvents,
   Tile,
 } from "@essence/shared";
-import { characterDisplayName, characterSlotsForContent, resolveCharacterSet } from "@essence/shared/characters";
+import { characterDisplayName, characterSlotsForContent } from "@essence/shared/characters";
 import {
   eventTitle,
   resolveActivityParticipantIds,
@@ -33,10 +33,6 @@ import {
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
-
-interface GameRoomOptions {
-  characterSetId?: string;
-}
 
 interface JoinOptions {
   characterId?: string;
@@ -56,12 +52,11 @@ export class GameRoom {
   private skippedTurns = new Set<string>();
   private extraTurnPlayerId: string | null = null;
 
-  constructor(io: IO, code: string, name: string, content: GameContent, options: GameRoomOptions = {}) {
+  constructor(io: IO, code: string, name: string, content: GameContent) {
     this.io = io;
     this.code = code;
     this.name = name;
     this.content = content;
-    const characterSet = resolveCharacterSet(content, options.characterSetId);
     const activeMap =
       content.maps?.find((map) => map.id === content.activeMapId) ??
       content.maps?.[0];
@@ -69,9 +64,7 @@ export class GameRoom {
       code,
       roomName: name,
       phase: "lobby",
-      characterSetId: characterSet.id,
-      characterSetName: characterSet.name,
-      characterSlots: characterSlotsForContent(content, characterSet.id),
+      characterSlots: characterSlotsForContent(content),
       mapId: activeMap?.id,
       board: activeMap?.board ?? content.board,
       routes: activeMap?.routes,
@@ -111,8 +104,6 @@ export class GameRoom {
       code: this.code,
       name: this.name,
       phase: this.state.phase,
-      characterSetId: this.state.characterSetId,
-      characterSetName: this.state.characterSetName,
       characterSlots: this.state.characterSlots,
       players: connected.length,
       maxPlayers: this.state.characterSlots?.length ?? this.content.players.length,
@@ -182,14 +173,14 @@ export class GameRoom {
   }
 
   private refreshCharacterSlots() {
-    this.state.characterSlots = characterSlotsForContent(this.content, this.state.characterSetId, this.state.players);
+    this.state.characterSlots = characterSlotsForContent(this.content, this.state.players);
   }
 
   private claimableCharacter(
     trimmedName: string,
     requestedCharacterId?: string
   ): { ok: true; def: CharacterDef } | { ok: false; error: string } {
-    const slots = characterSlotsForContent(this.content, this.state.characterSetId, this.state.players);
+    const slots = characterSlotsForContent(this.content, this.state.players);
     const slotIds = new Set(slots.map((slot) => slot.id));
     const characters = Object.fromEntries(
       slots.map((slot) => [
