@@ -20,7 +20,7 @@ import type {
   ServerToClientEvents,
   Tile,
 } from "@essence/shared";
-import { characterDisplayName, characterSlotsForContent, resolveCharacterSet } from "@essence/shared/characters";
+import { characterDisplayName, characterSlotsForContent } from "@essence/shared/characters";
 import {
   consequenceMatchesHook,
   consequenceLabel,
@@ -38,13 +38,14 @@ import {
   resolveTileEventForPlayer,
   type ResolvedGameEvent,
 } from "@essence/shared/events";
+import {
+  cosmeticPrice,
+  isCosmeticCompatibleWithCharacter,
+  uniqueCosmeticIds,
+} from "@essence/shared/cosmetics";
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
-
-interface GameRoomOptions {
-  characterSetId?: string;
-}
 
 interface JoinOptions {
   characterId?: string;
@@ -66,12 +67,11 @@ export class GameRoom {
   private nextEffectInstanceId = 1;
   private pendingActivityPreludeActions: AppliedEventAction[] = [];
 
-  constructor(io: IO, code: string, name: string, content: GameContent, options: GameRoomOptions = {}) {
+  constructor(io: IO, code: string, name: string, content: GameContent) {
     this.io = io;
     this.code = code;
     this.name = name;
     this.content = content;
-    const characterSet = resolveCharacterSet(content, options.characterSetId);
     const activeMap =
       content.maps?.find((map) => map.id === content.activeMapId) ??
       content.maps?.[0];
@@ -79,14 +79,13 @@ export class GameRoom {
       code,
       roomName: name,
       phase: "lobby",
-      characterSetId: characterSet.id,
-      characterSetName: characterSet.name,
-      characterSlots: characterSlotsForContent(content, characterSet.id),
+      characterSlots: characterSlotsForContent(content),
       mapId: activeMap?.id,
       board: activeMap?.board ?? content.board,
       routes: activeMap?.routes,
       artifacts: activeMap?.artifacts,
       assetCatalog: content.assetCatalog,
+      cosmetics: content.cosmetics,
       boardShape: activeMap?.boardShape,
       terraces: activeMap?.terraces,
       players: [],
@@ -123,8 +122,6 @@ export class GameRoom {
       code: this.code,
       name: this.name,
       phase: this.state.phase,
-      characterSetId: this.state.characterSetId,
-      characterSetName: this.state.characterSetName,
       characterSlots: this.state.characterSlots,
       players: connected.length,
       maxPlayers: this.state.characterSlots?.length ?? this.content.players.length,
@@ -194,14 +191,14 @@ export class GameRoom {
   }
 
   private refreshCharacterSlots() {
-    this.state.characterSlots = characterSlotsForContent(this.content, this.state.characterSetId, this.state.players);
+    this.state.characterSlots = characterSlotsForContent(this.content, this.state.players);
   }
 
   private claimableCharacter(
     trimmedName: string,
     requestedCharacterId?: string
   ): { ok: true; def: CharacterDef } | { ok: false; error: string } {
-    const slots = characterSlotsForContent(this.content, this.state.characterSetId, this.state.players);
+    const slots = characterSlotsForContent(this.content, this.state.players);
     const slotIds = new Set(slots.map((slot) => slot.id));
     const characters = Object.fromEntries(
       slots.map((slot) => [
@@ -248,6 +245,7 @@ export class GameRoom {
   }
 
   private playerFromCharacter(character: CharacterDef, socketId: string): Player {
+    const defaultCosmeticIds = uniqueCosmeticIds(character.defaultLoadout?.cosmeticIds);
     const player: Player = {
       id: character.id,
       characterId: character.id,
@@ -259,13 +257,50 @@ export class GameRoom {
       isHost: this.state.players.length === 0,
       groom: Boolean(character.groom),
       color: character.color ?? "#888888",
+      ownedCosmeticIds: defaultCosmeticIds,
+      cosmeticIds: defaultCosmeticIds,
     };
     if (character.facePhoto) player.facePhoto = character.facePhoto;
     if (character.facePhotoAlignment) player.facePhotoAlignment = { ...character.facePhotoAlignment };
     if (character.faceAnchors) player.faceAnchors = { ...character.faceAnchors };
     if (character.bodyAnchors) player.bodyAnchors = { ...character.bodyAnchors };
-    if (character.defaultLoadout?.cosmeticIds?.length) player.cosmeticIds = [...character.defaultLoadout.cosmeticIds];
     return player;
+  }
+
+  buyCosmetic(socketId: string, cosmeticId: string): { ok: true } | { ok: false; error: string } {
+    const player = this.playerBySocket(socketId);
+    if (!player) return { ok: false, error: "No estás en esta sala" };
+    const cosmetic = this.content.cosmetics?.[cosmeticId];
+    if (!cosmetic) return { ok: false, error: "Ese cosmetic no existe" };
+    if (!isCosmeticCompatibleWithCharacter(cosmetic, player.characterId ?? player.id)) {
+      return { ok: false, error: "Ese cosmetic no es compatible con tu personaje" };
+    }
+    const owned = new Set(player.ownedCosmeticIds ?? []);
+    if (owned.has(cosmeticId)) return { ok: true };
+    const price = cosmeticPrice(cosmetic);
+    if (player.coins < price) return { ok: false, error: "No te alcanzan las monedas" };
+    player.coins -= price;
+    player.ownedCosmeticIds = uniqueCosmeticIds([...(player.ownedCosmeticIds ?? []), cosmeticId]);
+    this.broadcast();
+    return { ok: true };
+  }
+
+  equipCosmetic(socketId: string, cosmeticId: string, equipped: boolean): { ok: true } | { ok: false; error: string } {
+    const player = this.playerBySocket(socketId);
+    if (!player) return { ok: false, error: "No estás en esta sala" };
+    const cosmetic = this.content.cosmetics?.[cosmeticId];
+    if (!cosmetic) return { ok: false, error: "Ese cosmetic no existe" };
+    if (!isCosmeticCompatibleWithCharacter(cosmetic, player.characterId ?? player.id)) {
+      return { ok: false, error: "Ese cosmetic no es compatible con tu personaje" };
+    }
+    const owned = new Set(player.ownedCosmeticIds ?? []);
+    if (!owned.has(cosmeticId)) return { ok: false, error: "Primero comprá ese cosmetic" };
+    const equippedIds = new Set(player.cosmeticIds ?? []);
+    if (equipped) equippedIds.add(cosmeticId);
+    else equippedIds.delete(cosmeticId);
+    player.cosmeticIds = uniqueCosmeticIds([...equippedIds]);
+    this.broadcast();
+    return { ok: true };
   }
 
   // --- Inicio --------------------------------------------------------------

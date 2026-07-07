@@ -15,6 +15,7 @@ import {
   tokenWorldPosition,
 } from "./board3d";
 import { cameraFocus, movementPath, screenPosition } from "./boardView";
+import { defaultTokenAnchor, TOKEN_HEAD_DEFAULT_ANCHOR_Z, TOKEN_HEAD_TOP_ANCHOR_Y, tokenAnchorSurface } from "./characterTokenRig";
 
 const max = 6;
 
@@ -133,4 +134,19 @@ assert.equal(
     },
   }),
   false
+);
+
+assert.deepEqual(defaultTokenAnchor("head"), { x: 0.5, y: TOKEN_HEAD_TOP_ANCHOR_Y, z: TOKEN_HEAD_DEFAULT_ANCHOR_Z });
+assert.deepEqual(defaultTokenAnchor("leftEye"), { x: 0.431864730992268, y: 0.4324020724826389, z: 0 });
+assert.deepEqual(defaultTokenAnchor("rightEye"), { x: 0.5767096765139997, y: 0.43315039740668404, z: 0 });
+assert.deepEqual(defaultTokenAnchor("mouth"), { x: 0.5051432325818144, y: 0.5728030734592013, z: 0 });
+assert.deepEqual(defaultTokenAnchor("chest"), { x: 0.4975743086430109, y: 0.425696860742933, z: 0 });
+assert.deepEqual(defaultTokenAnchor("back"), { x: 0.4058921755725191, y: 0.5575799141221374, z: 0 });
+assert.ok(tokenAnchorSurface({ id: "head", scope: "body" }).position[1] > 0.63);
+assert.ok(
+  Math.abs(
+    tokenAnchorSurface({ id: "head", scope: "body" }, { x: 0.5, y: TOKEN_HEAD_TOP_ANCHOR_Y, z: 0.08 }).position[2] -
+      tokenAnchorSurface({ id: "head", scope: "body" }).position[2] -
+      (0.08 - TOKEN_HEAD_DEFAULT_ANCHOR_Z)
+  ) < 0.000001
 );

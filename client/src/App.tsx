@@ -11,6 +11,7 @@ const GameScene3D = lazy(() => import("./components/GameScene3D"));
 const MapBuilder = lazy(() => import("./components/MapBuilder"));
 const EventBuilder = lazy(() => import("./components/MinigameBuilder"));
 const CharacterBuilder = lazy(() => import("./components/CharacterBuilder"));
+const CosmeticBuilder = lazy(() => import("./components/CosmeticBuilder"));
 const ToolsHub = lazy(() => import("./components/ToolsHub"));
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
   const eventBuilderMode =
     path === "/event-builder" || path === "/minigame-builder" || search.has("eventBuilder") || search.has("minigameBuilder");
   const characterBuilderMode = path === "/character-builder" || search.has("characterBuilder");
+  const cosmeticBuilderMode = path === "/cosmetic-builder" || search.has("cosmeticBuilder");
   const toolsMode = path === "/tools";
 
   if (toolsMode) {
@@ -51,6 +53,14 @@ export default function App() {
     return (
       <Suspense fallback={<SceneLoading code="CHAR" />}>
         <CharacterBuilder />
+      </Suspense>
+    );
+  }
+
+  if (cosmeticBuilderMode) {
+    return (
+      <Suspense fallback={<SceneLoading code="COSM" />}>
+        <CosmeticBuilder />
       </Suspense>
     );
   }
@@ -127,6 +137,8 @@ function ConnectedGame({
             presentation.rollRequested();
             actions.roll();
           }}
+          onBuyCosmetic={actions.buyCosmetic}
+          onEquipCosmetic={actions.equipCosmetic}
           onNext={actions.next}
           onLeave={actions.leave}
           onDebugApplyEffect={actions.debugApplyEffect}

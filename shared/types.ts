@@ -434,6 +434,7 @@ export type EffectModifier =
 export interface FaceAnchor {
   x: number;
   y: number;
+  z?: number;
   angle?: number;
 }
 
@@ -466,12 +467,6 @@ export interface CharacterDef {
   defaultTraits?: string[];
 }
 
-export interface CharacterSetDef {
-  id: string;
-  name: string;
-  characterIds: string[];
-}
-
 export interface CharacterSlot {
   id: string;
   displayName: string;
@@ -486,18 +481,77 @@ export interface CharacterSlot {
   connected?: boolean;
 }
 
-export interface CharacterSetSummary {
-  id: string;
-  name: string;
-  characters: CharacterSlot[];
+export type CosmeticAnchorType = "face" | "body" | "token";
+export type CosmeticAssetKind =
+  | "goggles"
+  | "mustache"
+  | "hat"
+  | "beard"
+  | "piercing"
+  | "tattoo"
+  | "badge"
+  | "custom";
+
+export interface CosmeticAsset {
+  kind: CosmeticAssetKind | string;
+  color?: string;
+  secondaryColor?: string;
+  src?: string;
+  label?: string;
+}
+
+export interface CosmeticAnchorRef {
+  anchorType: CosmeticAnchorType;
+  anchorId: string;
+  label?: string;
+}
+
+export interface CosmeticTransform {
+  /** local offset in token/world preview units after anchor placement */
+  x?: number;
+  y?: number;
+  z?: number;
+  scale?: number;
+  scaleX?: number;
+  scaleY?: number;
+  scaleZ?: number;
+  /** rotation around the cosmetic's facing plane, in degrees */
+  rotation?: number;
+  rotationX?: number;
+  rotationY?: number;
+  rotationZ?: number;
+}
+
+export interface CosmeticCompatibility {
+  characterIds?: string[];
+  excludeCharacterIds?: string[];
+  tags?: string[];
+}
+
+export interface CosmeticPreviewMeta {
+  color?: string;
+  secondaryColor?: string;
+  label?: string;
+  order?: number;
 }
 
 export interface CosmeticDef {
   id: string;
   name: string;
   description?: string;
-  price?: number;
+  price: number;
+  asset: CosmeticAsset | string;
+  /** Ordered anchor placements. The first anchor is mirrored to anchorType/anchorId for older imports. */
+  anchors?: CosmeticAnchorRef[];
+  anchorType: CosmeticAnchorType;
+  anchorId: string;
+  transform?: CosmeticTransform;
+  compatibility?: CosmeticCompatibility;
+  preview?: CosmeticPreviewMeta;
+  tags?: string[];
+  /** Legacy/import alias normalized into asset. */
   assetId?: string;
+  /** Legacy/import alias normalized into anchorId. */
   anchor?: string;
 }
 
@@ -536,8 +590,9 @@ export interface GameContent {
   events?: Record<string, GameEventDef>;
   playerStories?: Record<string, PlayerStoryBank>;
   characters?: Record<string, CharacterDef>;
-  characterSets?: Record<string, CharacterSetDef>;
   cosmetics?: Record<string, CosmeticDef>;
+  /** Legacy/import alias normalized into cosmetics. */
+  characterCosmetics?: unknown[];
   artifacts?: Record<string, ArtifactDef>;
   effects?: Record<string, EffectDef>;
   minigames: Record<string, MinigameDef>;
@@ -567,6 +622,7 @@ export interface Player {
   facePhotoAlignment?: FacePhotoAlignment;
   faceAnchors?: Record<string, FaceAnchor>;
   bodyAnchors?: Record<string, FaceAnchor>;
+  ownedCosmeticIds?: string[];
   cosmeticIds?: string[];
 }
 
@@ -636,8 +692,6 @@ export interface GameState {
   /** nombre legible de la sala, elegido por el host al crearla */
   roomName: string;
   phase: Phase;
-  characterSetId?: string;
-  characterSetName?: string;
   characterSlots?: CharacterSlot[];
   mapId?: string;
   /** layout del tablero (tipos/labels); el contenido sensible no viaja */
@@ -645,6 +699,7 @@ export interface GameState {
   routes?: MapRoute[];
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
+  cosmetics?: Record<string, CosmeticDef>;
   boardShape?: MapBoardShape;
   terraces?: MapTerrace[];
   players: Player[];
@@ -724,8 +779,6 @@ export interface RoomSummary {
   code: string;
   name: string;
   phase: Phase;
-  characterSetId?: string;
-  characterSetName?: string;
   characterSlots?: CharacterSlot[];
   /** cantidad de jugadores conectados ahora */
   players: number;
@@ -745,7 +798,7 @@ export interface ClientToServerEvents {
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   "room:create": (
-    payload: { name?: string; roomName: string; characterSetId?: string; characterId?: string },
+    payload: { name?: string; roomName: string; characterId?: string },
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   /** El jugador abandona la sala voluntariamente. */
@@ -755,6 +808,14 @@ export interface ClientToServerEvents {
   "turn:next": () => void;
   "minigame:action": (payload: unknown) => void;
   "minigame:result": (payload: { score: number; payload: unknown; outcome?: "win" | "loss" }) => void;
+  "cosmetic:buy": (
+    payload: { cosmeticId: string },
+    ack: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => void;
+  "cosmetic:equip": (
+    payload: { cosmeticId: string; equipped: boolean },
+    ack: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => void;
   /** host fuerza el cierre del minijuego si alguien se colgó */
   "minigame:force": () => void;
   /** Development-only host tool: attach a catalog effect to a player for simulation/debugging. */

@@ -529,6 +529,48 @@ function MapArtifactMesh({
       return <Billboard position={position} rotationY={rotationY} scale={scale} label={artifact.label} />;
     case "bus":
       return <Bus position={position} rotationY={rotationY} scale={scale} tint={tint} />;
+    case "fallen-fernet":
+      return <FallenFernet position={position} rotationY={rotationY} scale={scale} />;
+    case "vomiting-person":
+      return <VomitingPerson position={position} rotationY={rotationY} scale={scale} />;
+    case "blue-ikea-bag":
+      return <BlueMarketBag position={position} rotationY={rotationY} scale={scale} />;
+    case "hockey-stick":
+      return <HockeyStick position={position} rotationY={rotationY} scale={scale} />;
+    case "condom-bolas":
+      return <CondomBolas position={position} rotationY={rotationY} scale={scale} />;
+    case "botherlands-disc":
+      return <BotherlandsDisc position={position} rotationY={rotationY} scale={scale} />;
+    case "hoodie-log":
+      return <HoodieLog position={position} rotationY={rotationY} scale={scale} />;
+    case "cut-branch-oak":
+      return <CutBranchOak position={position} rotationY={rotationY} scale={scale} />;
+    case "uade-building":
+      return <UadeBuilding position={position} rotationY={rotationY} scale={scale} />;
+    case "uba-building":
+      return <UbaBuilding position={position} rotationY={rotationY} scale={scale} />;
+    case "desk-chair-tower":
+      return <DeskChairTower position={position} rotationY={rotationY} scale={scale} />;
+    case "croissant":
+      return <Croissant position={position} rotationY={rotationY} scale={scale} />;
+    case "wedding-ring":
+      return <WeddingRing position={position} rotationY={rotationY} scale={scale} />;
+    case "ukulele":
+      return <Ukulele position={position} rotationY={rotationY} scale={scale} />;
+    case "rugby-ball":
+      return <SportsBall position={position} rotationY={rotationY} scale={scale} sport="rugby" />;
+    case "basketball":
+      return <SportsBall position={position} rotationY={rotationY} scale={scale} sport="basketball" />;
+    case "football-ball":
+      return <SportsBall position={position} rotationY={rotationY} scale={scale} sport="football" />;
+    case "tuna-can":
+      return <FoodCan position={position} rotationY={rotationY} scale={scale} label="ATUN" color="#6b7280" stripe="#60a5fa" />;
+    case "jardinera-can":
+      return <FoodCan position={position} rotationY={rotationY} scale={scale} label="JARD" color="#15803d" stripe="#f97316" />;
+    case "sunscreen":
+      return <Sunscreen position={position} rotationY={rotationY} scale={scale} />;
+    case "vodka-bottle":
+      return <VodkaBottle position={position} rotationY={rotationY} scale={scale} />;
     default:
       return <ProjectedAssetBlock artifact={artifact} asset={asset} position={position} rotationY={rotationY} scale={scale} />;
   }
@@ -1395,6 +1437,876 @@ function Bus({ position, rotationY = 0, scale = 1, tint }: AssetProps) {
           <meshStandardMaterial color="#fef9c3" emissive="#fde047" emissiveIntensity={0.5} />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+function MiniLabel({
+  text,
+  background,
+  color = "#ffffff",
+  width = 0.34,
+  height = 0.16,
+}: {
+  text: string;
+  background: string;
+  color?: string;
+  width?: number;
+  height?: number;
+}) {
+  const texture = useMemo(() => makeLabelTexture(text, background, color), [background, color, text]);
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  return (
+    <mesh>
+      <planeGeometry args={[width, height]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} side={DoubleSide} />
+    </mesh>
+  );
+}
+
+function MiniPlane({ color, width, height }: { color: string; width: number; height: number }) {
+  return (
+    <mesh>
+      <planeGeometry args={[width, height]} />
+      <meshStandardMaterial color={color} roughness={0.62} side={DoubleSide} />
+    </mesh>
+  );
+}
+
+function FallenFernet({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, -Math.PI / 2]} scale={[scale, scale, scale]}>
+      <mesh position={[-0.54, 0.014, 0.02]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.23, 0.1, 0.018, 20]} />
+        <meshStandardMaterial color="#4a2513" roughness={0.72} transparent opacity={0.78} />
+      </mesh>
+      <mesh position={[-0.34, 0.016, -0.13]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.12, 0.05, 0.014, 16]} />
+        <meshStandardMaterial color="#7c3f1d" roughness={0.68} transparent opacity={0.62} />
+      </mesh>
+      <mesh castShadow position={[0, 0.095, 0]}>
+        <cylinderGeometry args={[0.085, 0.1, 0.7, 16]} />
+        <meshStandardMaterial color="#1a120d" roughness={0.32} metalness={0.05} transparent opacity={0.88} />
+      </mesh>
+      <mesh position={[-0.1, 0.18, 0.035]} rotation={[0, 0, Math.PI / 2]}>
+        <boxGeometry args={[0.025, 0.42, 0.012]} />
+        <meshStandardMaterial color="#fef3c7" roughness={0.18} transparent opacity={0.52} />
+      </mesh>
+      <mesh position={[0, 0.08, 0.083]} rotation={[0, 0, Math.PI / 2]}>
+        <MiniLabel text="FERNET" background="#f5c542" color="#111827" width={0.34} height={0.18} />
+      </mesh>
+      <mesh position={[0.05, 0.08, -0.088]} rotation={[0, 0, Math.PI / 2]}>
+        <MiniLabel text="BRANCA" background="#f8fafc" color="#991b1b" width={0.24} height={0.08} />
+      </mesh>
+      <mesh castShadow position={[0.43, 0.095, 0]}>
+        <cylinderGeometry args={[0.045, 0.055, 0.22, 14]} />
+        <meshStandardMaterial color="#2d1a12" roughness={0.34} />
+      </mesh>
+      <mesh castShadow position={[0.58, 0.095, 0]}>
+        <cylinderGeometry args={[0.048, 0.048, 0.07, 14]} />
+        <meshStandardMaterial color="#b91c1c" roughness={0.38} metalness={0.12} />
+      </mesh>
+      <mesh position={[0.67, 0.03, -0.12]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.055, 0.055, 0.025, 14]} />
+        <meshStandardMaterial color="#b91c1c" roughness={0.5} metalness={0.18} />
+      </mesh>
+    </group>
+  );
+}
+
+function VomitingPerson({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow position={[-0.18, 0.34, -0.02]} rotation={[0.28, 0, -0.12]}>
+        <boxGeometry args={[0.26, 0.34, 0.17]} />
+        <meshStandardMaterial color="#7c3aed" roughness={0.72} />
+      </mesh>
+      <mesh castShadow position={[-0.3, 0.61, 0.13]} rotation={[0.5, 0, -0.14]}>
+        <sphereGeometry args={[0.12, 14, 10]} />
+        <meshStandardMaterial color="#f2c197" roughness={0.55} />
+      </mesh>
+      <mesh position={[-0.31, 0.72, 0.08]} rotation={[0.34, 0, -0.12]}>
+        <sphereGeometry args={[0.125, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#2f1d13" roughness={0.74} />
+      </mesh>
+      {[
+        [-0.28, -0.11, 0.72],
+        [0.04, 0.11, -0.55],
+      ].map(([x, z, r]) => (
+        <mesh key={`${x}:${z}`} castShadow position={[x, 0.12, z]} rotation={[r, 0, 0]}>
+          <boxGeometry args={[0.07, 0.25, 0.07]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.7} />
+        </mesh>
+      ))}
+      {[[-0.36, -0.08, -0.55], [-0.04, 0.1, 0.42]].map(([x, z, r]) => (
+        <mesh key={`shoe-${x}`} castShadow position={[x, 0.035, z]} rotation={[0, r, 0]}>
+          <boxGeometry args={[0.14, 0.05, 0.08]} />
+          <meshStandardMaterial color="#111827" roughness={0.72} />
+        </mesh>
+      ))}
+      {[[-0.31, 0.18], [-0.02, -0.13]].map(([x, z]) => (
+        <mesh key={`hand-${x}`} castShadow position={[x, 0.31, z]} rotation={[0.8, 0, 0.2]}>
+          <cylinderGeometry args={[0.026, 0.028, 0.28, 8]} />
+          <meshStandardMaterial color="#f2c197" roughness={0.55} />
+        </mesh>
+      ))}
+      <mesh position={[-0.1, 0.18, 0.39]} rotation={[-0.95, 0, -0.1]}>
+        <cylinderGeometry args={[0.025, 0.045, 0.55, 8]} />
+        <meshStandardMaterial color="#86efac" roughness={0.45} transparent opacity={0.84} />
+      </mesh>
+      <mesh position={[0.02, 0.024, 0.64]} scale={[1.65, 0.2, 0.78]}>
+        <sphereGeometry args={[0.15, 14, 8]} />
+        <meshStandardMaterial color="#65a30d" roughness={0.8} transparent opacity={0.82} />
+      </mesh>
+      {[0.23, 0.36, 0.49].map((z, index) => (
+        <mesh key={z} position={[-0.06 + index * 0.05, 0.032, z]} scale={[1, 0.28, 0.72]}>
+          <sphereGeometry args={[0.055, 10, 6]} />
+          <meshStandardMaterial color={index % 2 ? "#84cc16" : "#bef264"} roughness={0.72} transparent opacity={0.75} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function BlueMarketBag({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow receiveShadow position={[0, 0.23, 0]}>
+        <boxGeometry args={[0.68, 0.42, 0.36]} />
+        <meshStandardMaterial color="#0058a3" roughness={0.7} />
+      </mesh>
+      {[-0.34, 0.34].map((x) => (
+        <mesh key={x} position={[x, 0.25, 0]} rotation={[0, 0, x > 0 ? -0.08 : 0.08]}>
+          <boxGeometry args={[0.035, 0.38, 0.38]} />
+          <meshStandardMaterial color="#004982" roughness={0.78} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.45, 0]}>
+        <boxGeometry args={[0.58, 0.035, 0.28]} />
+        <meshStandardMaterial color="#0b4f8a" roughness={0.8} />
+      </mesh>
+      {[-0.18, 0.18].map((x) => (
+        <mesh key={`fold-${x}`} position={[x, 0.23, 0.19]}>
+          <boxGeometry args={[0.02, 0.32, 0.018]} />
+          <meshStandardMaterial color="#0b4f8a" roughness={0.78} />
+        </mesh>
+      ))}
+      {[-0.2, 0.2].map((x) => (
+        <mesh key={x} castShadow position={[x, 0.5, 0.02]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.14, 0.015, 8, 22, Math.PI]} />
+          <meshStandardMaterial color="#facc15" roughness={0.52} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.25, 0.185]}>
+        <MiniLabel text="IKEA" background="#facc15" color="#0058a3" width={0.32} height={0.15} />
+      </mesh>
+      <mesh castShadow position={[0.16, 0.52, -0.02]} rotation={[0, 0.4, 0]}>
+        <boxGeometry args={[0.18, 0.14, 0.08]} />
+        <meshStandardMaterial color="#e5e7eb" roughness={0.66} />
+      </mesh>
+    </group>
+  );
+}
+
+function HockeyStick({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0.18]} scale={[scale, scale, scale]}>
+      <mesh castShadow position={[0, 0.06, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.018, 0.018, 0.95, 8]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.45} metalness={0.08} />
+      </mesh>
+      <mesh castShadow position={[0.53, 0.055, -0.12]} rotation={[0, -0.58, Math.PI / 2]}>
+        <boxGeometry args={[0.12, 0.038, 0.32]} />
+        <meshStandardMaterial color="#111827" roughness={0.7} />
+      </mesh>
+      {[-0.25, -0.16, 0.12, 0.2].map((x) => (
+        <mesh key={x} position={[x, 0.06, 0.02]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.021, 0.021, 0.045, 8]} />
+          <meshStandardMaterial color={x < 0 ? "#ef4444" : "#0ea5e9"} roughness={0.55} />
+        </mesh>
+      ))}
+      <mesh position={[-0.5, 0.061, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.022, 0.022, 0.13, 8]} />
+        <meshStandardMaterial color="#111827" roughness={0.62} />
+      </mesh>
+      <mesh position={[0.44, 0.025, 0.14]} scale={[1, 0.22, 0.72]}>
+        <sphereGeometry args={[0.05, 10, 6]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.82} />
+      </mesh>
+    </group>
+  );
+}
+
+function CondomBolas({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh position={[0, 0.07, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.01, 0.01, 0.8, 6]} />
+        <meshStandardMaterial color="#c4b08d" roughness={0.72} />
+      </mesh>
+      <mesh position={[0, 0.09, 0]}>
+        <sphereGeometry args={[0.045, 10, 6]} />
+        <meshStandardMaterial color="#b79b70" roughness={0.7} />
+      </mesh>
+      {[
+        [-0.42, -0.12, -0.16],
+        [0.42, 0.12, 0.16],
+      ].map(([x, z, r]) => (
+        <group key={`${x}:${z}`} position={[x, 0.1, z]} rotation={[0, r, 0]}>
+          <mesh scale={[0.7, 1, 0.56]}>
+            <sphereGeometry args={[0.16, 18, 10]} />
+            <meshStandardMaterial color="#f7ead8" roughness={0.22} transparent opacity={0.66} />
+          </mesh>
+          <mesh scale={[0.46, 0.75, 0.36]}>
+            <sphereGeometry args={[0.16, 14, 8]} />
+            <meshStandardMaterial color="#6b3a1d" roughness={0.82} />
+          </mesh>
+          <mesh position={[0, 0.12, 0]}>
+            <torusGeometry args={[0.08, 0.01, 8, 16]} />
+            <meshStandardMaterial color="#d6c8ad" roughness={0.64} />
+          </mesh>
+          <mesh position={[0.02, 0.04, 0.06]} scale={[0.35, 0.08, 0.2]}>
+            <sphereGeometry args={[0.16, 10, 6]} />
+            <meshStandardMaterial color="#4a2414" roughness={0.9} transparent opacity={0.78} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function makeDiscTexture(): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#101827";
+  ctx.beginPath();
+  ctx.arc(256, 256, 246, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#22c55e";
+  ctx.lineWidth = 22;
+  ctx.beginPath();
+  ctx.arc(256, 256, 220, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#64748b";
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.arc(256, 256, 154, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "#facc15";
+  ctx.font = "900 54px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("BOTHER", 256, 214);
+  ctx.fillText("LANDS", 256, 278);
+  ctx.fillStyle = "#e5e7eb";
+  ctx.font = "800 30px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.fillText("XBOX 360", 256, 346);
+  ctx.fillStyle = "#111827";
+  ctx.beginPath();
+  ctx.arc(256, 256, 54, 0, Math.PI * 2);
+  ctx.fill();
+  return finishTexture(canvas);
+}
+
+function BotherlandsDisc({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  const texture = useMemo(makeDiscTexture, []);
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow receiveShadow position={[0.08, 0.025, -0.06]} rotation={[-Math.PI / 2, 0, -0.12]}>
+        <boxGeometry args={[0.74, 0.52, 0.035]} />
+        <meshStandardMaterial color="#16a34a" roughness={0.46} />
+      </mesh>
+      <mesh position={[0.08, 0.052, -0.315]} rotation={[-Math.PI / 2, 0, -0.12]}>
+        <MiniLabel text="XBOX 360" background="#f8fafc" color="#166534" width={0.68} height={0.12} />
+      </mesh>
+      <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.3, 0.3, 0.025, 40]} />
+        <meshStandardMaterial color="#d1d5db" metalness={0.32} roughness={0.26} />
+      </mesh>
+      <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.292, 40]} />
+        <meshBasicMaterial map={texture} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function HoodieLog({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, Math.PI / 2]} scale={[scale, scale, scale]}>
+      <mesh castShadow receiveShadow position={[0, 0.13, 0]}>
+        <cylinderGeometry args={[0.2, 0.22, 0.66, 16]} />
+        <meshStandardMaterial color="#8b5a2b" roughness={0.86} />
+      </mesh>
+      {[-0.34, 0.34].map((y) => (
+        <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.205, 0.205, 0.018, 18]} />
+          <meshStandardMaterial color="#d6b17c" roughness={0.8} />
+        </mesh>
+      ))}
+      {[-0.06, 0.02, 0.1].map((x) => (
+        <mesh key={x} position={[x, -0.342, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.1 + x * 0.5, 0.006, 6, 18]} />
+          <meshStandardMaterial color="#7a4a24" roughness={0.86} />
+        </mesh>
+      ))}
+      {[-0.2, 0.04, 0.24].map((y) => (
+        <mesh key={`bark-${y}`} position={[0.205, y, 0.04]} rotation={[0, 0, Math.PI / 2]}>
+          <boxGeometry args={[0.025, 0.28, 0.014]} />
+          <meshStandardMaterial color="#5f3519" roughness={0.9} />
+        </mesh>
+      ))}
+      <mesh position={[0.02, 0.03, 0.18]} rotation={[0, 0, -Math.PI / 2]}>
+        <boxGeometry args={[0.48, 0.06, 0.36]} />
+        <meshStandardMaterial color="#334155" roughness={0.82} />
+      </mesh>
+      <mesh position={[0.01, 0.18, 0.2]} rotation={[Math.PI / 2, 0, -Math.PI / 2]}>
+        <torusGeometry args={[0.12, 0.035, 8, 18, Math.PI]} />
+        <meshStandardMaterial color="#1f2937" roughness={0.85} />
+      </mesh>
+      {[-0.13, 0.13].map((z) => (
+        <mesh key={z} position={[0, 0.07, 0.39 + z]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.28, 6]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.64} />
+        </mesh>
+      ))}
+      {[-0.18, 0.18].map((y) => (
+        <mesh key={`sleeve-${y}`} position={[0.0, y, 0.2]} rotation={[0, 0, -Math.PI / 2]}>
+          <boxGeometry args={[0.22, 0.045, 0.11]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.86} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function CutBranchOak({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow position={[0, 0.38, 0]}>
+        <cylinderGeometry args={[0.09, 0.14, 0.76, 10]} />
+        <meshStandardMaterial color="#7a4a24" roughness={0.86} />
+      </mesh>
+      {[
+        [0, 0.86, 0, 0.38, "#3f7f3f"],
+        [-0.23, 0.76, 0.06, 0.28, "#4f8a42"],
+        [0.24, 0.8, -0.04, 0.3, "#2f6f35"],
+        [0.04, 1.02, 0.02, 0.26, "#5a9a47"],
+      ].map(([x, y, z, radius, color]) => (
+        <mesh key={`${x}:${y}`} castShadow position={[x as number, y as number, z as number]} scale={[1.25, 0.85, 1.05]}>
+          <sphereGeometry args={[radius as number, 12, 8]} />
+          <meshStandardMaterial color={color as string} roughness={0.78} flatShading />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0.24, 0.58, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.045, 0.06, 0.45, 9]} />
+        <meshStandardMaterial color="#7a4a24" roughness={0.86} />
+      </mesh>
+      <mesh position={[0.48, 0.58, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <cylinderGeometry args={[0.065, 0.065, 0.02, 14]} />
+        <meshStandardMaterial color="#d6b17c" roughness={0.8} />
+      </mesh>
+      <mesh castShadow position={[0.55, 0.08, 0.16]} rotation={[0.35, 0.55, Math.PI / 2]}>
+        <cylinderGeometry args={[0.04, 0.055, 0.78, 9]} />
+        <meshStandardMaterial color="#76451f" roughness={0.86} />
+      </mesh>
+      <mesh position={[0.82, 0.08, 0.1]} rotation={[0.2, 0.55, Math.PI / 2]}>
+        <cylinderGeometry args={[0.022, 0.032, 0.36, 7]} />
+        <meshStandardMaterial color="#76451f" roughness={0.86} />
+      </mesh>
+      {[0.2, 0.42, 0.62].map((x, index) => (
+        <mesh key={x} position={[x, 0.1, 0.4 + index * 0.05]} scale={[1.2, 0.42, 0.75]}>
+          <sphereGeometry args={[0.13, 10, 8]} />
+          <meshStandardMaterial color={index === 1 ? "#5a9a47" : "#4f8a42"} roughness={0.8} flatShading />
+        </mesh>
+      ))}
+      <mesh position={[0.32, 0.58, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[0.052, 0.005, 6, 14]} />
+        <meshStandardMaterial color="#8b5a2b" roughness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+function UadeBuilding({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow receiveShadow position={[0, 0.08, 0]}>
+        <boxGeometry args={[1.42, 0.16, 1.0]} />
+        <meshStandardMaterial color="#475569" roughness={0.5} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0, 0.95, 0]}>
+        <boxGeometry args={[1.25, 1.72, 0.82]} />
+        <meshStandardMaterial color="#7dd3fc" roughness={0.08} metalness={0.18} transparent opacity={0.72} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0.48, 0.74, -0.06]}>
+        <boxGeometry args={[0.28, 1.28, 0.9]} />
+        <meshStandardMaterial color="#bae6fd" roughness={0.12} metalness={0.12} transparent opacity={0.58} />
+      </mesh>
+      {[-0.48, -0.24, 0, 0.24, 0.48].map((x) => (
+        <mesh key={`mullion-${x}`} position={[x, 0.96, 0.422]}>
+          <boxGeometry args={[0.02, 1.58, 0.025]} />
+          <meshStandardMaterial color="#1e3a5f" roughness={0.32} metalness={0.42} />
+        </mesh>
+      ))}
+      {[0.38, 0.66, 0.94, 1.22, 1.5].map((y) => (
+        <mesh key={`floor-${y}`} position={[0, y, 0.424]}>
+          <boxGeometry args={[1.18, 0.018, 0.026]} />
+          <meshStandardMaterial color="#1e3a5f" roughness={0.34} metalness={0.36} />
+        </mesh>
+      ))}
+      {[-0.38, -0.13, 0.13, 0.38].map((x, index) =>
+        [0.52, 0.8, 1.08, 1.36].map((y) => (
+          <mesh key={`pane-${x}-${y}`} position={[x, y, 0.438]}>
+            <boxGeometry args={[0.16, 0.16, 0.012]} />
+            <meshStandardMaterial
+              color={index % 2 ? "#e0f7ff" : "#93e2ff"}
+              roughness={0.08}
+              metalness={0.05}
+              transparent
+              opacity={0.72}
+            />
+          </mesh>
+        ))
+      )}
+      <mesh castShadow position={[0, 0.22, 0.48]}>
+        <boxGeometry args={[0.62, 0.2, 0.08]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.36} metalness={0.25} />
+      </mesh>
+      <mesh position={[0, 0.25, 0.525]}>
+        <MiniLabel text="UADE" background="#062947" color="#7ff3ff" width={0.5} height={0.16} />
+      </mesh>
+      <mesh castShadow position={[0, 0.12, 0.64]}>
+        <boxGeometry args={[0.36, 0.18, 0.12]} />
+        <meshStandardMaterial color="#dbeafe" roughness={0.1} metalness={0.1} transparent opacity={0.75} />
+      </mesh>
+      {[-0.38, 0, 0.38].map((x) => (
+        <mesh key={`light-${x}`} position={[x, 1.72, 0.45]}>
+          <boxGeometry args={[0.032, 0.22, 0.032]} />
+          <meshStandardMaterial color="#e0f2fe" roughness={0.12} metalness={0.28} />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0.34, 1.9, 0.1]}>
+        <boxGeometry args={[0.28, 0.16, 0.22]} />
+        <meshStandardMaterial color="#94a3b8" roughness={0.58} />
+      </mesh>
+      <mesh position={[-0.26, 1.86, 0.16]} rotation={[0, 0, 0.2]}>
+        <boxGeometry args={[0.34, 0.025, 0.18]} />
+        <meshStandardMaterial color="#38bdf8" emissive="#0ea5e9" emissiveIntensity={0.32} roughness={0.2} />
+      </mesh>
+    </group>
+  );
+}
+
+function PoliticalPoster({ x, y, z, text, color }: { x: number; y: number; z: number; text: string; color: string }) {
+  return (
+    <group position={[x, y, z]}>
+      <MiniLabel text={text} background={color} color="#fff7ed" width={0.26} height={0.14} />
+    </group>
+  );
+}
+
+function UbaBuilding({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow receiveShadow position={[0, 0.62, 0]}>
+        <boxGeometry args={[1.5, 1.24, 0.82]} />
+        <meshStandardMaterial color="#9b948a" roughness={0.94} />
+      </mesh>
+      <mesh castShadow position={[0, 1.33, 0]}>
+        <boxGeometry args={[1.64, 0.18, 0.92]} />
+        <meshStandardMaterial color="#6f6861" roughness={0.92} />
+      </mesh>
+      <mesh castShadow position={[0, 0.1, 0.47]}>
+        <boxGeometry args={[1.66, 0.2, 0.12]} />
+        <meshStandardMaterial color="#5f5750" roughness={0.95} />
+      </mesh>
+      {[-0.56, -0.28, 0, 0.28, 0.56].map((x) => (
+        <mesh key={`column-${x}`} castShadow position={[x, 0.56, 0.45]}>
+          <boxGeometry args={[0.075, 0.88, 0.075]} />
+          <meshStandardMaterial color="#7c756d" roughness={0.94} />
+        </mesh>
+      ))}
+      {[-0.42, 0, 0.42].map((x, column) =>
+        [0.5, 0.86].map((y, row) => (
+          <mesh key={`${x}:${y}`} position={[x, y, 0.405]}>
+            <boxGeometry args={[0.2, 0.18, 0.025]} />
+            <meshStandardMaterial color={row === 0 && column === 1 ? "#3f3a34" : "#cbd5e1"} roughness={0.65} transparent opacity={0.72} />
+          </mesh>
+        ))
+      )}
+      {[-0.55, -0.18, 0.18, 0.55].map((x, index) => (
+        <mesh key={x} position={[x, 0.22, 0.415]}>
+          <boxGeometry args={[0.11, 0.44, 0.035]} />
+          <meshStandardMaterial color={index % 2 ? "#57534e" : "#44403c"} roughness={0.9} />
+        </mesh>
+      ))}
+      <PoliticalPoster x={-0.45} y={1.13} z={0.424} text="UBA" color="#dc2626" />
+      <PoliticalPoster x={-0.08} y={1.11} z={0.424} text="ASAM" color="#7c3aed" />
+      <PoliticalPoster x={0.31} y={1.13} z={0.424} text="LUCHA" color="#15803d" />
+      <PoliticalPoster x={0.55} y={0.72} z={0.424} text="NO" color="#0f766e" />
+      {[
+        [-0.2, 0.74, 0.42, 0.55],
+        [0.34, 0.7, 0.42, -0.45],
+        [0.02, 1.22, 0.42, 0.7],
+        [-0.58, 0.42, 0.42, -0.62],
+        [0.56, 1.02, 0.42, 0.48],
+      ].map(([x, y, z, r]) => (
+        <mesh key={`${x}:${y}`} position={[x, y, z]} rotation={[0, 0, r]}>
+          <boxGeometry args={[0.025, 0.38, 0.02]} />
+          <meshStandardMaterial color="#292524" roughness={0.95} />
+        </mesh>
+      ))}
+      {[
+        [-0.62, 1.34, 0.47],
+        [0.1, 0.68, 0.47],
+        [0.46, 0.36, 0.47],
+      ].map(([x, y, z]) => (
+        <mesh key={`patch-${x}`} position={[x, y, z]} rotation={[0, 0, -0.18]}>
+          <boxGeometry args={[0.18, 0.035, 0.018]} />
+          <meshStandardMaterial color="#4a433c" roughness={0.98} />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.48, 0.01]}>
+        <boxGeometry args={[1.3, 0.025, 0.72]} />
+        <meshStandardMaterial color="#3f3a34" roughness={0.94} />
+      </mesh>
+    </group>
+  );
+}
+
+function DeskChairTower({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  const layers = [
+    [-0.26, 0.13, 0.07, 0.1, "desk"],
+    [0.2, 0.28, -0.1, -0.35, "chair"],
+    [-0.02, 0.48, 0.05, 0.55, "desk"],
+    [-0.27, 0.67, -0.08, -0.65, "chair"],
+    [0.15, 0.86, 0.08, 0.42, "desk"],
+    [0.0, 1.05, -0.02, -0.25, "chair"],
+  ];
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh receiveShadow position={[0, 0.025, 0]}>
+        <cylinderGeometry args={[0.55, 0.62, 0.05, 18]} />
+        <meshStandardMaterial color="#e7d1a1" roughness={0.86} />
+      </mesh>
+      {layers.map(([x, y, z, r, kind], index) => (
+        <group key={index} position={[x as number, y as number, z as number]} rotation={[0, r as number, index % 2 ? 0.12 : -0.08]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={kind === "desk" ? [0.42, 0.045, 0.28] : [0.3, 0.045, 0.28]} />
+            <meshStandardMaterial color={kind === "desk" ? "#c08457" : "#b45309"} roughness={0.78} />
+          </mesh>
+          {[-0.14, 0.14].map((lx) =>
+            [-0.09, 0.09].map((lz) => (
+              <mesh key={`${lx}:${lz}`} position={[lx, -0.16, lz]}>
+                <boxGeometry args={[0.025, 0.32, 0.025]} />
+                <meshStandardMaterial color="#475569" roughness={0.55} metalness={0.25} />
+              </mesh>
+            ))
+          )}
+          {kind === "chair" ? (
+            <>
+              <mesh position={[0.04, 0.18, -0.13]} rotation={[-0.28, 0, 0]}>
+                <boxGeometry args={[0.28, 0.24, 0.04]} />
+                <meshStandardMaterial color="#92400e" roughness={0.76} />
+              </mesh>
+              <mesh position={[0.04, 0.03, 0.14]}>
+                <boxGeometry args={[0.22, 0.035, 0.05]} />
+                <meshStandardMaterial color="#78350f" roughness={0.78} />
+              </mesh>
+            </>
+          ) : (
+            <>
+              <mesh position={[0, 0.035, 0.0]}>
+                <boxGeometry args={[0.34, 0.012, 0.2]} />
+                <meshStandardMaterial color="#d6a06f" roughness={0.7} />
+              </mesh>
+              <mesh position={[-0.14, 0.07, 0.12]} rotation={[0, 0, 0.2]}>
+                <boxGeometry args={[0.16, 0.018, 0.1]} />
+                <meshStandardMaterial color="#f8fafc" roughness={0.62} />
+              </mesh>
+            </>
+          )}
+        </group>
+      ))}
+      <mesh position={[0.3, 0.52, 0.22]} rotation={[0.1, 0.38, -0.25]}>
+        <boxGeometry args={[0.16, 0.026, 0.24]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.7} />
+      </mesh>
+      <mesh position={[-0.35, 0.9, 0.18]} rotation={[0.2, -0.5, 0.35]}>
+        <boxGeometry args={[0.18, 0.03, 0.2]} />
+        <meshStandardMaterial color="#38bdf8" roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+function Croissant({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, -0.35]}>
+        <torusGeometry args={[0.22, 0.065, 12, 28, Math.PI * 1.45]} />
+        <meshStandardMaterial color="#d79538" roughness={0.66} />
+      </mesh>
+      {[-0.24, 0.24].map((x) => (
+        <mesh key={`tip-${x}`} castShadow position={[x, 0.08, 0.08]} rotation={[0, 0, x > 0 ? -0.7 : 0.7]}>
+          <coneGeometry args={[0.075, 0.17, 10]} />
+          <meshStandardMaterial color="#c47a25" roughness={0.7} />
+        </mesh>
+      ))}
+      {[-0.18, -0.06, 0.06, 0.18].map((x) => (
+        <mesh key={x} position={[x, 0.145, 0.03]} rotation={[0.2, 0, 0]}>
+          <boxGeometry args={[0.025, 0.035, 0.12]} />
+          <meshStandardMaterial color="#b86f24" roughness={0.7} />
+        </mesh>
+      ))}
+      <mesh position={[0.05, 0.165, -0.02]} rotation={[0.25, 0, 0.25]}>
+        <boxGeometry args={[0.2, 0.018, 0.05]} />
+        <meshStandardMaterial color="#f5c16c" roughness={0.38} transparent opacity={0.62} />
+      </mesh>
+    </group>
+  );
+}
+
+function WeddingRing({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh receiveShadow position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.28, 0.28, 0.05, 24]} />
+        <meshStandardMaterial color="#581c87" roughness={0.78} />
+      </mesh>
+      <mesh castShadow position={[0, 0.08, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.18, 0.035, 14, 30]} />
+        <meshStandardMaterial color="#facc15" metalness={0.85} roughness={0.18} />
+      </mesh>
+      <mesh position={[0, 0.082, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.11, 0.008, 8, 24]} />
+        <meshStandardMaterial color="#fff7ad" metalness={0.7} roughness={0.2} />
+      </mesh>
+      <mesh position={[0.0, 0.15, -0.18]}>
+        <octahedronGeometry args={[0.055, 0]} />
+        <meshStandardMaterial color="#e0f2fe" metalness={0.15} roughness={0.12} transparent opacity={0.86} />
+      </mesh>
+      {[-0.08, 0.08].map((x) => (
+        <mesh key={x} position={[x, 0.13, -0.16]} rotation={[0, 0, x > 0 ? -0.25 : 0.25]}>
+          <boxGeometry args={[0.08, 0.02, 0.028]} />
+          <meshStandardMaterial color="#fde68a" metalness={0.78} roughness={0.18} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Ukulele({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, -0.35]} scale={[scale, scale, scale]}>
+      <mesh castShadow position={[-0.1, 0.08, 0]} scale={[0.8, 0.24, 1.08]}>
+        <sphereGeometry args={[0.18, 14, 8]} />
+        <meshStandardMaterial color="#a16207" roughness={0.7} />
+      </mesh>
+      <mesh castShadow position={[0.1, 0.08, 0]} scale={[0.62, 0.2, 0.82]}>
+        <sphereGeometry args={[0.15, 14, 8]} />
+        <meshStandardMaterial color="#b7791f" roughness={0.7} />
+      </mesh>
+      <mesh position={[-0.04, 0.105, 0]}>
+        <cylinderGeometry args={[0.055, 0.055, 0.012, 16]} />
+        <meshStandardMaterial color="#2f1d13" roughness={0.75} />
+      </mesh>
+      <mesh castShadow position={[0.43, 0.08, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <boxGeometry args={[0.07, 0.54, 0.05]} />
+        <meshStandardMaterial color="#6b3f1d" roughness={0.74} />
+      </mesh>
+      {[-0.12, -0.02, 0.08, 0.18].map((x) => (
+        <mesh key={`fret-${x}`} position={[0.36 + x, 0.116, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <boxGeometry args={[0.008, 0.075, 0.058]} />
+          <meshStandardMaterial color="#e5e7eb" roughness={0.38} metalness={0.45} />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0.74, 0.08, 0]}>
+        <boxGeometry args={[0.14, 0.08, 0.12]} />
+        <meshStandardMaterial color="#4a2b16" roughness={0.74} />
+      </mesh>
+      {[[-0.03, -0.08], [0.03, -0.08], [-0.03, 0.08], [0.03, 0.08]].map(([x, z]) => (
+        <mesh key={`peg-${x}-${z}`} position={[0.78, 0.08 + x, z]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.018, 0.018, 0.07, 8]} />
+          <meshStandardMaterial color="#e5e7eb" metalness={0.42} roughness={0.36} />
+        </mesh>
+      ))}
+      {[-0.045, -0.015, 0.015, 0.045].map((z) => (
+        <mesh key={z} position={[0.38, 0.145, z]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.004, 0.004, 0.74, 5]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.35} metalness={0.35} />
+        </mesh>
+      ))}
+      <mesh position={[-0.19, 0.13, 0]}>
+        <boxGeometry args={[0.16, 0.018, 0.12]} />
+        <meshStandardMaterial color="#4a2b16" roughness={0.76} />
+      </mesh>
+    </group>
+  );
+}
+
+function SportsBall({ position, rotationY = 0, scale = 1, sport }: AssetProps & { sport: "rugby" | "basketball" | "football" }) {
+  if (sport === "rugby") {
+    return (
+      <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+        <mesh castShadow position={[0, 0.16, 0]} scale={[1.55, 0.78, 0.92]}>
+          <sphereGeometry args={[0.18, 18, 10]} />
+          <meshStandardMaterial color="#7c2d12" roughness={0.64} />
+        </mesh>
+        <mesh position={[0, 0.25, 0.01]} rotation={[0, 0, Math.PI / 2]}>
+          <boxGeometry args={[0.018, 0.26, 0.018]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.5} />
+        </mesh>
+        {[-0.06, 0, 0.06].map((x) => (
+          <mesh key={x} position={[x, 0.245, 0.035]} rotation={[0, 0, Math.PI / 2]}>
+            <boxGeometry args={[0.012, 0.075, 0.015]} />
+            <meshStandardMaterial color="#f8fafc" roughness={0.52} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  if (sport === "basketball") {
+    return (
+      <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+        <mesh castShadow position={[0, 0.18, 0]}>
+          <sphereGeometry args={[0.2, 22, 14]} />
+          <meshStandardMaterial color="#f97316" roughness={0.62} />
+        </mesh>
+        {[0, Math.PI / 2].map((r) => (
+          <mesh key={r} position={[0, 0.18, 0]} rotation={[Math.PI / 2, 0, r]}>
+            <torusGeometry args={[0.202, 0.006, 6, 28]} />
+            <meshStandardMaterial color="#111827" roughness={0.72} />
+          </mesh>
+        ))}
+        {[-0.1, 0.1].map((x) => (
+          <mesh key={x} position={[x, 0.18, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <torusGeometry args={[0.17, 0.005, 6, 24, Math.PI]} />
+            <meshStandardMaterial color="#111827" roughness={0.72} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow position={[0, 0.18, 0]}>
+        <sphereGeometry args={[0.2, 22, 14]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.58} />
+      </mesh>
+      <mesh position={[0, 0.181, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.16, 0.006, 6, 28]} />
+        <meshStandardMaterial color="#111827" roughness={0.75} />
+      </mesh>
+      {[0, 1, 2, 3, 4].map((index) => {
+        const angle = (index / 5) * Math.PI * 2;
+        return (
+          <mesh key={index} position={[Math.cos(angle) * 0.13, 0.22, Math.sin(angle) * 0.13]} rotation={[-Math.PI / 2, 0, -angle]}>
+            <circleGeometry args={[0.045, 5]} />
+            <meshStandardMaterial color="#111827" roughness={0.75} side={DoubleSide} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+function FoodCan({ position, rotationY = 0, scale = 1, label, color, stripe }: AssetProps & { label: string; color: string; stripe: string }) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow receiveShadow position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[0.16, 0.16, 0.24, 18]} />
+        <meshStandardMaterial color={color} metalness={0.28} roughness={0.42} />
+      </mesh>
+      <mesh position={[0, 0.12, 0.162]}>
+        <MiniLabel text={label} background={stripe} color="#ffffff" width={0.28} height={0.13} />
+      </mesh>
+      <mesh position={[0, 0.185, 0.164]}>
+        <boxGeometry args={[0.28, 0.018, 0.012]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.58} />
+      </mesh>
+      {[0.005, 0.235].map((y) => (
+        <mesh key={y} position={[0, y, 0]}>
+          <cylinderGeometry args={[0.166, 0.166, 0.012, 18]} />
+          <meshStandardMaterial color="#d1d5db" metalness={0.55} roughness={0.32} />
+        </mesh>
+      ))}
+      <mesh position={[0.035, 0.246, 0.02]} rotation={[Math.PI / 2, 0, 0.35]}>
+        <torusGeometry args={[0.045, 0.007, 6, 14, Math.PI * 1.5]} />
+        <meshStandardMaterial color="#f8fafc" metalness={0.55} roughness={0.28} />
+      </mesh>
+    </group>
+  );
+}
+
+function Sunscreen({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0.2]} scale={[scale, scale, scale]}>
+      <mesh castShadow receiveShadow position={[0, 0.18, 0]}>
+        <boxGeometry args={[0.24, 0.36, 0.12]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.38} />
+      </mesh>
+      <mesh position={[0, 0.18, 0.065]}>
+        <MiniLabel text="SPF" background="#f59e0b" color="#111827" width={0.18} height={0.16} />
+      </mesh>
+      <mesh position={[0, 0.275, 0.068]} rotation={[0, 0, Math.PI / 4]}>
+        <circleGeometry args={[0.045, 12]} />
+        <meshStandardMaterial color="#fde047" emissive="#facc15" emissiveIntensity={0.25} roughness={0.46} side={DoubleSide} />
+      </mesh>
+      {[-0.06, 0.06].map((x) => (
+        <mesh key={x} position={[x, 0.08, 0.066]}>
+          <boxGeometry args={[0.045, 0.05, 0.012]} />
+          <meshStandardMaterial color="#38bdf8" roughness={0.5} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.38, 0]}>
+        <cylinderGeometry args={[0.07, 0.07, 0.07, 14]} />
+        <meshStandardMaterial color="#38bdf8" roughness={0.45} />
+      </mesh>
+      <mesh position={[0, 0.435, 0]}>
+        <cylinderGeometry args={[0.055, 0.065, 0.04, 14]} />
+        <meshStandardMaterial color="#0ea5e9" roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+function VodkaBottle({ position, rotationY = 0, scale = 1 }: AssetProps) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <mesh castShadow position={[0, 0.25, 0]}>
+        <cylinderGeometry args={[0.115, 0.105, 0.5, 18]} />
+        <meshStandardMaterial color="#dbeafe" roughness={0.08} metalness={0.04} transparent opacity={0.55} />
+      </mesh>
+      <mesh position={[0, 0.17, 0]}>
+        <cylinderGeometry args={[0.095, 0.095, 0.22, 18]} />
+        <meshStandardMaterial color="#bfdbfe" roughness={0.18} transparent opacity={0.42} />
+      </mesh>
+      <mesh castShadow position={[0, 0.54, 0]}>
+        <cylinderGeometry args={[0.045, 0.06, 0.22, 14]} />
+        <meshStandardMaterial color="#dbeafe" roughness={0.08} transparent opacity={0.58} />
+      </mesh>
+      <mesh position={[0, 0.28, 0.112]}>
+        <MiniLabel text="VODKA" background="#e5e7eb" color="#111827" width={0.18} height={0.18} />
+      </mesh>
+      <mesh position={[0, 0.4, 0.067]}>
+        <MiniLabel text="ICE" background="#1d4ed8" color="#f8fafc" width={0.12} height={0.08} />
+      </mesh>
+      <mesh position={[0, 0.68, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.05, 14]} />
+        <meshStandardMaterial color="#1d4ed8" roughness={0.38} />
+      </mesh>
+      <mesh position={[0.06, 0.38, 0.05]} rotation={[0, 0, 0.1]}>
+        <boxGeometry args={[0.018, 0.28, 0.012]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.18} transparent opacity={0.55} />
+      </mesh>
     </group>
   );
 }

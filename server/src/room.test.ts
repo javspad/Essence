@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type { GameContent, ServerToClientEvents } from "@essence/shared";
+import { validateGameContent } from "@essence/shared/contentValidation";
 import { normalizeGameContentEvents } from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index";
 import { GameRoom } from "./room";
@@ -65,7 +66,7 @@ const content: GameContent = normalizeGameContentEvents({
   ],
 });
 
-const characterSetContent: GameContent = normalizeGameContentEvents({
+const characterContent: GameContent = normalizeGameContentEvents({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "finish" },
@@ -91,8 +92,31 @@ const characterSetContent: GameContent = normalizeGameContentEvents({
       defaultLoadout: { cosmeticIds: ["party-goggles", "big-mustache"] },
     },
   },
-  characterSets: {
-    duo: { id: "duo", name: "Duo", characterIds: ["groom", "guest"] },
+  cosmetics: {
+    "party-goggles": {
+      id: "party-goggles",
+      name: "Party goggles",
+      price: 3,
+      asset: { kind: "goggles", color: "#111827", secondaryColor: "#67e8f9" },
+      anchorType: "face",
+      anchorId: "leftEye",
+    },
+    "big-mustache": {
+      id: "big-mustache",
+      name: "Big mustache",
+      price: 0,
+      asset: { kind: "mustache", color: "#111827" },
+      anchorType: "face",
+      anchorId: "mouth",
+    },
+    "party-hat": {
+      id: "party-hat",
+      name: "Party hat",
+      price: 2,
+      asset: { kind: "hat", color: "#a855f7", secondaryColor: "#22d3ee" },
+      anchorType: "body",
+      anchorId: "head",
+    },
   },
 });
 
@@ -101,6 +125,31 @@ const players = [
   { id: "bob", name: "Bob", socketId: "socket-bob", connected: true, position: 0, coins: 0, isHost: false, groom: false, color: "#60a5fa" },
   { id: "carla", name: "Carla", socketId: "socket-carla", connected: true, position: 0, coins: 0, isHost: false, groom: false, color: "#34d399" },
 ];
+
+{
+  const result = validateGameContent({
+    board: [
+      { id: 0, type: "start", layout: { x: 0, y: 0 } },
+      { id: 1, type: "finish", layout: { x: 1, y: 0 } },
+    ],
+    minigames: {},
+    dares: {},
+    fates: {},
+    players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+    cosmetics: {
+      bad: {
+        id: "bad",
+        name: "Bad price",
+        price: -1,
+        asset: "badge",
+        anchorType: "body",
+        anchorId: "chest",
+      },
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.includes("cosmetics.bad.price")), "negative cosmetic prices are validation errors");
+}
 
 {
   const { io, events } = createIoRecorder();
@@ -197,15 +246,12 @@ const players = [
 
 {
   const { io } = createIoRecorder();
-  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "CHAR", "Characters", characterSetContent, {
-    characterSetId: "duo",
-  } as any);
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "CHAR", "Characters", characterContent);
 
   assert.deepEqual((room as any).join("socket-guest", "Whoever", { characterId: "guest" }), {
     ok: true,
     playerId: "guest",
   });
-  assert.equal(room.getState().characterSetId, "duo");
   assert.equal(room.getState().characterSlots?.find((slot) => slot.id === "guest")?.claimedByPlayerId, "guest");
   assert.equal(room.getState().players.find((player) => player.id === "guest")?.name, "Guest");
   assert.equal(room.getState().players.find((player) => player.id === "guest")?.color, "#38bdf8");
@@ -213,6 +259,7 @@ const players = [
   assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.facePhotoAlignment, { x: 0.42, y: 0.57, scale: 1.2 });
   assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.faceAnchors, { mouth: { x: 0.5, y: 0.64, angle: 0 } });
   assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.bodyAnchors, { head: { x: 0.5, y: 0.14, angle: 0 } });
+  assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.ownedCosmeticIds, ["party-goggles", "big-mustache"]);
   assert.deepEqual(room.getState().players.find((player) => player.id === "guest")?.cosmeticIds, ["party-goggles", "big-mustache"]);
 
   assert.deepEqual((room as any).join("socket-steal", "Steal", { characterId: "guest" }), {
@@ -226,6 +273,35 @@ const players = [
   });
   assert.equal(room.getState().players.find((player) => player.id === "groom")?.groom, true);
   assert.deepEqual((room as any).join("socket-full", "Full"), { ok: false, error: "La sala está llena" });
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "COSM", "Cosmetics", characterContent);
+
+  room.join("socket-guest", "Guest", { characterId: "guest" } as any);
+  const guest = room.getState().players.find((player) => player.id === "guest")!;
+  assert.deepEqual(room.buyCosmetic("socket-guest", "party-hat"), { ok: false, error: "No te alcanzan las monedas" });
+  assert.equal(guest.coins, 0);
+  assert.deepEqual(guest.ownedCosmeticIds, ["party-goggles", "big-mustache"]);
+  assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache"]);
+  assert.equal(guest.position, 0);
+  assert.equal(room.getState().phase, "lobby");
+
+  guest.coins = 2;
+  assert.deepEqual(room.buyCosmetic("socket-guest", "party-hat"), { ok: true });
+  assert.equal(guest.coins, 0);
+  assert.deepEqual(guest.ownedCosmeticIds, ["party-goggles", "big-mustache", "party-hat"]);
+  assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache"]);
+
+  assert.deepEqual(room.equipCosmetic("socket-guest", "party-hat", true), { ok: true });
+  assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache", "party-hat"]);
+  assert.equal(guest.position, 0);
+  assert.equal(room.getState().phase, "lobby");
+
+  assert.deepEqual(room.equipCosmetic("socket-guest", "party-hat", false), { ok: true });
+  assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache"]);
+  assert.deepEqual(room.equipCosmetic("socket-guest", "missing", true), { ok: false, error: "Ese cosmetic no existe" });
 }
 
 await withRolls([1, 1, 2], async () => {
@@ -370,7 +446,7 @@ await withRolls([1, 6], async () => {
   assert.deepEqual(room.getState().activeEffects[0].remaining, { mode: "rounds", remaining: 1 });
 
   room.roll("socket-alice");
-  assert.equal(room.getState().lastRoll, 6);
+  assert.equal(room.getState().lastRoll, 3, "half movement changes the effective dice roll");
   assert.equal(room.getState().players[0].position, 4, "half movement rounds a roll of 6 down to three cells of movement");
   assert.equal(room.getState().phase, "event");
   assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "movementMultiplier"), true);
@@ -379,6 +455,52 @@ await withRolls([1, 6], async () => {
   room.next("socket-alice");
   assert.equal(room.getState().activeEffects.length, 0);
   assert.equal(events.some((event) => event.event === "effect:ended" && (event.payload as { reason?: string }).reason === "expired"), true);
+});
+
+const doubleMovementContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "minigame" },
+    { id: 2, type: "minigame" },
+    { id: 3, type: "minigame" },
+    { id: 4, type: "minigame" },
+    { id: 5, type: "minigame" },
+    { id: 6, type: "minigame" },
+    { id: 7, type: "minigame" },
+    { id: 8, type: "minigame" },
+    { id: 9, type: "minigame" },
+    { id: 10, type: "minigame" },
+    { id: 11, type: "minigame" },
+    { id: 12, type: "finish" },
+  ],
+  events: {},
+  effects: {
+    "double-movement": {
+      id: "double-movement",
+      name: "Double movement",
+      description: "Double the effective dice roll.",
+      duration: { mode: "uses", value: 1 },
+      consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 2, rounding: "round", text: "Double movement." }],
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+});
+
+await withRolls([5], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "EFF2", "Double movement", doubleMovementContent);
+
+  room.join("socket-alice", "Alice");
+  room.startGame("socket-alice");
+  room.debugApplyEffect("socket-alice", { playerId: "alice", effectId: "double-movement" });
+  room.roll("socket-alice");
+
+  assert.equal(room.getState().lastRoll, 10, "double movement changes a rolled five into an effective ten");
+  assert.equal(room.getState().players[0].position, 10, "double movement moves directly to the effective dice target");
+  assert.equal(room.getState().activeEffects.length, 0, "use-based movement modifiers expire after the modified roll");
 });
 
 {
