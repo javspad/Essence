@@ -10,6 +10,7 @@ import type {
   EventOutcomeBranch,
   GameContent,
   GameState,
+  MinigameDef,
   MinigameResult,
   Player,
   RevealPayload,
@@ -26,8 +27,20 @@ import {
   type ResolvedGameEvent,
 } from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index.js";
+import {
+  applyDiceTraits,
+  applyMoveTraits,
+  applyPayoutTraits,
+  blocksExtraTurn,
+  orderWithTurnTraits,
+  roundEndCoinDelta,
+} from "./traits.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
+
+/** Trait del "amigo perseguido" y id del duelo que dispara al sacar un 1. */
+const UNDERDOG_TRAIT = "underdog";
+const UNDERDOG_DUEL_ID = "underdog-duel";
 
 interface GameRoomOptions {
   characterSetId?: string;
@@ -203,6 +216,7 @@ export class GameRoom {
                 cosmeticIds: slot.defaultLoadout.cosmeticIds ? [...slot.defaultLoadout.cosmeticIds] : undefined,
               }
             : undefined,
+          defaultTraits: slot.defaultTraits ? [...slot.defaultTraits] : undefined,
         } satisfies CharacterDef,
       ])
     );
@@ -247,6 +261,7 @@ export class GameRoom {
     if (character.faceAnchors) player.faceAnchors = { ...character.faceAnchors };
     if (character.bodyAnchors) player.bodyAnchors = { ...character.bodyAnchors };
     if (character.defaultLoadout?.cosmeticIds?.length) player.cosmeticIds = [...character.defaultLoadout.cosmeticIds];
+    if (character.defaultTraits?.length) player.traits = [...character.defaultTraits];
     return player;
   }
 
@@ -256,7 +271,7 @@ export class GameRoom {
     const p = this.playerBySocket(socketId);
     if (!p?.isHost) return;
     if (this.state.phase !== "lobby") return;
-    const order = this.connectedPlayers().map((x) => x.id);
+    const order = orderWithTurnTraits(this.connectedPlayers().map((x) => x.id), this.state.players);
     if (order.length === 0) return;
     this.state.turnOrder = order;
     this.state.activeIndex = 0;
@@ -278,8 +293,19 @@ export class GameRoom {
     const p = this.playerBySocket(socketId);
     if (!active || !p || p.id !== active.id) return;
 
-    const roll = 1 + Math.floor(Math.random() * 6);
+    const rawRoll = 1 + Math.floor(Math.random() * 6);
+    const roll = applyDiceTraits(rawRoll, active, {
+      turnIndex: this.state.activeIndex,
+      players: this.connectedPlayers(),
+    });
     this.state.lastRoll = roll;
+
+    // "Todos contra uno": si el perseguido saca un 1, en vez de moverse abre un
+    // duelo rápido contra el resto. Gana = vuelve a tirar; pierde = retrocede 1.
+    if (roll === 1 && active.traits?.includes(UNDERDOG_TRAIT) && this.connectedPlayers().length > 1) {
+      this.startUnderdogDuel(active);
+      return;
+    }
 
     const finish = this.state.boardLength - 1;
     active.position = Math.min(active.position + roll, finish);
@@ -375,6 +401,46 @@ export class GameRoom {
     return resolveActivitySubjectIds(activity, this.connectedPlayers(), active, participants);
   }
 
+  /** Duelo "todos contra uno": el perseguido tap-race contra el resto de la mesa. */
+  private startUnderdogDuel(active: Player) {
+    this.pendingResults.clear();
+    this.pendingJudgeVotes.clear();
+    this.pendingJudgeSubmissionOwners.clear();
+    this.pendingEvent = null;
+    const participants = this.connectedPlayers().map((p) => p.id);
+    const story = {
+      title: "Todos contra uno",
+      setup: `${active.name} sacó un 1. Tiene que ganarle a todos para volver a tirar.`,
+      reward: "Gana → vuelve a tirar · Pierde → retrocede 1 casillero",
+    };
+    const mg: ActiveMinigame = {
+      id: UNDERDOG_DUEL_ID,
+      eventId: UNDERDOG_DUEL_ID,
+      protagonistId: active.id,
+      type: "tapduel",
+      special: "underdog",
+      content: {
+        label: `¡Todos contra ${active.name}!`,
+        protagonistId: active.id,
+        protagonistName: active.name,
+        durationMs: 5000,
+      },
+      story,
+      participants,
+      subjects: participants,
+      submitted: [],
+    };
+    this.state.activeMinigame = mg;
+    this.state.phase = "minigame";
+    this.broadcast();
+    this.io.to(this.code).emit("minigame:start", {
+      id: mg.id,
+      type: mg.type,
+      content: mg.content,
+      participants,
+    });
+  }
+
   minigameAction(socketId: string, data: unknown) {
     const p = this.playerBySocket(socketId);
     if (!p || !this.state.activeMinigame) return;
@@ -449,7 +515,10 @@ export class GameRoom {
     this.resolving = true;
     try {
       const event = this.pendingEvent;
-      const def = event?.activity ?? this.content.minigames[mg.id];
+      const underdog = mg.special === "underdog";
+      const def: MinigameDef | EventActivity | undefined = underdog
+        ? { type: "tapduel", content: mg.content }
+        : event?.activity ?? this.content.minigames[mg.id];
       if (!def) {
         this.advanceTurn();
         return;
@@ -465,28 +534,33 @@ export class GameRoom {
         participants: mg.participants,
         subjects: mg.subjects,
         players: this.state.players,
-        coinPayout: mg.type === "prompt" ? [] : this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0],
+        coinPayout: underdog || mg.type === "prompt" ? [] : this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0],
         story: mg.story,
       });
 
-      // Aplicar monedas (y consecuencias configuradas en el evento).
-      for (const [id, c] of Object.entries(reveal.coins)) {
-        const pl = this.state.players.find((x) => x.id === id);
-        if (pl) pl.coins = Math.max(0, pl.coins + c);
+      // Aplicar monedas (con traits de pago) y luego las consecuencias del evento.
+      for (const entry of reveal.entries) {
+        const pl = this.state.players.find((x) => x.id === entry.playerId);
+        const adjusted = !underdog && pl ? applyPayoutTraits(entry.coins, entry.rank, pl) : entry.coins;
+        entry.coins = adjusted;
+        reveal.coins[entry.playerId] = adjusted;
+        if (pl) pl.coins = Math.max(0, pl.coins + adjusted);
       }
       const landingPlayerId = mg.protagonistId ?? reveal.ranking[0];
       const promptConfirmed = mg.type !== "prompt" || promptConfirmationComplete(reveal);
-      const actions = event
-        ? [
-            ...(mg.type === "prompt" && promptConfirmed
-              ? this.applyActions(event.actions ?? [], {
-                  landingPlayerId,
-                  ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
-                })
-              : []),
-            ...(promptConfirmed ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId) : []),
-          ]
-        : [];
+      const actions = underdog
+        ? this.applyUnderdogOutcome(mg.protagonistId ?? "", reveal.ranking)
+        : event
+          ? [
+              ...(mg.type === "prompt" && promptConfirmed
+                ? this.applyActions(event.actions ?? [], {
+                    landingPlayerId,
+                    ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
+                  })
+                : []),
+              ...(promptConfirmed ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId) : []),
+            ]
+          : [];
       this.state.reveal = { ...reveal, actions };
       this.state.activeMinigame = null;
       this.state.phase = "reveal";
@@ -584,10 +658,41 @@ export class GameRoom {
     }
     if (advancedRound) {
       this.state.round += 1;
+      // Cierre de ronda: traits de economía (interés compuesto, manos rotas, diezmo).
+      for (const pl of this.connectedPlayers()) {
+        const delta = roundEndCoinDelta(pl);
+        if (delta) pl.coins = Math.max(0, pl.coins + delta);
+      }
     }
     this.state.activeIndex = nextIndex;
     this.state.phase = "turn";
     this.broadcast();
+  }
+
+  /** Resuelve el duelo "todos contra uno": 1° = vuelve a tirar; si no, retrocede 1. */
+  private applyUnderdogOutcome(protagonistId: string, ranking: string[]): AppliedEventAction[] {
+    const player = this.state.players.find((p) => p.id === protagonistId);
+    if (!player) return [];
+    if (ranking[0] === protagonistId) {
+      this.extraTurnPlayerId = protagonistId;
+      return [
+        {
+          type: "extraTurn",
+          targetPlayerIds: [protagonistId],
+          text: `${player.name} les ganó a todos: ¡vuelve a tirar!`,
+        },
+      ];
+    }
+    const delta = applyMoveTraits(-1, player);
+    player.position = clamp(player.position + delta, 0, this.state.boardLength - 1);
+    return [
+      {
+        type: "move",
+        targetPlayerIds: [protagonistId],
+        text: `${player.name} perdió el duelo y retrocede ${Math.abs(delta)} casillero(s).`,
+        value: delta,
+      },
+    ];
   }
 
   private applyOutcomeActions(branches: EventOutcomeBranch[], ranking: string[], landingPlayerId?: string): AppliedEventAction[] {
@@ -633,7 +738,7 @@ export class GameRoom {
     if (action.type === "move") {
       for (const id of targetPlayerIds) {
         const player = this.state.players.find((p) => p.id === id);
-        if (player) player.position = clamp(player.position + action.delta, 0, this.state.boardLength - 1);
+        if (player) player.position = clamp(player.position + applyMoveTraits(action.delta, player), 0, this.state.boardLength - 1);
       }
       this.recordFinishWinner(targetPlayerIds);
       return { type: action.type, targetPlayerIds, text: action.text ?? moveSummary(targetPlayerIds, this.state.players, action.delta), value: action.delta };
@@ -650,7 +755,11 @@ export class GameRoom {
       for (const id of targetPlayerIds) this.skippedTurns.add(id);
       return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} pierde su próximo turno` };
     }
-    for (const id of targetPlayerIds) this.extraTurnPlayerId = id;
+    for (const id of targetPlayerIds) {
+      const player = this.state.players.find((p) => p.id === id);
+      if (blocksExtraTurn(player)) continue; // "peso muerto" ignora los turnos extra
+      this.extraTurnPlayerId = id;
+    }
     return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} juega otro turno` };
   }
 

@@ -216,7 +216,7 @@
         "back": { "x": 0.5, "y": 0.48, "angle": 0 }
       },
       "defaultLoadout": { "cosmeticIds": [] },
-      "defaultTraits": []
+      "defaultTraits": ["underdog"]
     },
     "frang": {
       "id": "frang",
@@ -342,6 +342,520 @@
       "description": "A cone hat mounted to the head anchor.",
       "assetId": "hat",
       "anchor": "head"
+    }
+  },
+  "effects": {
+    "underdog": {
+      "id": "underdog",
+      "name": "Todos contra uno",
+      "description": "Cuando saca un 1, se abre un duelo rápido contra todos. Si gana, vuelve a tirar; si pierde, retrocede un casillero.",
+      "category": "dado",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "numero-de-la-suerte": {
+      "id": "numero-de-la-suerte",
+      "name": "Número de la suerte",
+      "description": "Elegís un número; 10% de tus tiradas caen justo en el casillero que marcaste.",
+      "polarity": "ventaja",
+      "category": "dado",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "cargado-a-favor": {
+      "id": "cargado-a-favor",
+      "name": "Cargado a favor",
+      "description": "Nunca sacás 1: cada 1 se convierte en 2.",
+      "polarity": "ventaja",
+      "category": "dado",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "dado-pesado": {
+      "id": "dado-pesado",
+      "name": "Dado pesado",
+      "description": "Una vez por partida podés volver a tirar si no te gusta el número.",
+      "polarity": "ventaja",
+      "category": "dado",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "impulso-de-remonte": {
+      "id": "impulso-de-remonte",
+      "name": "Impulso de remonte",
+      "description": "Si vas último en el mapa, +2 a cada tirada hasta dejar de serlo.",
+      "polarity": "ventaja",
+      "category": "dado",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "doble-o-nada": {
+      "id": "doble-o-nada",
+      "name": "Doble o nada",
+      "description": "Una vez por ronda podés duplicar tu tirada, a tu propio riesgo.",
+      "polarity": "ventaja",
+      "category": "dado",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "atajo-del-segundo": {
+      "id": "atajo-del-segundo",
+      "name": "Atajo del segundo",
+      "description": "Si vas segundo en el orden, nunca te sale un 1.",
+      "polarity": "ventaja",
+      "category": "dado",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "ancla": {
+      "id": "ancla",
+      "name": "Ancla",
+      "description": "Sos inmune al primer efecto que te haga retroceder en la partida.",
+      "polarity": "ventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "pasos-livianos": {
+      "id": "pasos-livianos",
+      "name": "Pasos livianos",
+      "description": "Cada vez que pasás por encima de otro jugador, +1 casillero.",
+      "polarity": "ventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "teletransporte-amistoso": {
+      "id": "teletransporte-amistoso",
+      "name": "Teletransporte amistoso",
+      "description": "Una vez por partida te movés al casillero de cualquier jugador.",
+      "polarity": "ventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "recuperacion": {
+      "id": "recuperacion",
+      "name": "Recuperación",
+      "description": "Cualquier retroceso que sufras se reduce a la mitad.",
+      "polarity": "ventaja",
+      "category": "mapa",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "sombra": {
+      "id": "sombra",
+      "name": "Sombra",
+      "description": "Si caés en el casillero de otro, elegís: le robás 2 monedas o avanzás 1.",
+      "polarity": "ventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "billetera-compartida": {
+      "id": "billetera-compartida",
+      "name": "Billetera compartida",
+      "description": "Al comprar un cosmético podés gastar las monedas de todos.",
+      "polarity": "ventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "interes-compuesto": {
+      "id": "interes-compuesto",
+      "name": "Interés compuesto",
+      "description": "Al cerrar cada ronda ganás 1 moneda por cada 10 que tengas.",
+      "polarity": "ventaja",
+      "category": "monedas",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "peaje": {
+      "id": "peaje",
+      "name": "Peaje",
+      "description": "Cuando alguien cae en tu casillero, te paga 1 moneda.",
+      "polarity": "ventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "ahorrista": {
+      "id": "ahorrista",
+      "name": "Ahorrista",
+      "description": "Los cosméticos te cuestan 20% menos.",
+      "polarity": "ventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "cobrador-de-podios": {
+      "id": "cobrador-de-podios",
+      "name": "Cobrador de podios",
+      "description": "+2 monedas extra cada vez que salís primero en un minijuego.",
+      "polarity": "ventaja",
+      "category": "minijuegos",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "ventaja-de-casa": {
+      "id": "ventaja-de-casa",
+      "name": "Ventaja de casa",
+      "description": "En los arcade arrancás con una pequeña ventaja.",
+      "polarity": "ventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "segundo-aire": {
+      "id": "segundo-aire",
+      "name": "Segundo aire",
+      "description": "Una vez por minijuego de eliminación, revivís tras caer.",
+      "polarity": "ventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "apostador": {
+      "id": "apostador",
+      "name": "Apostador",
+      "description": "Antes de un minijuego podés apostar monedas: ganás cobrás doble, perdés no cobrás.",
+      "polarity": "ventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "nunca-ultimo": {
+      "id": "nunca-ultimo",
+      "name": "Nunca último",
+      "description": "En minijuegos tu peor pago posible nunca es 0.",
+      "polarity": "ventaja",
+      "category": "minijuegos",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "puntos-dobles": {
+      "id": "puntos-dobles",
+      "name": "Puntos dobles",
+      "description": "Una vez por partida duplicás las monedas ganadas en un minijuego.",
+      "polarity": "ventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "mente-veloz": {
+      "id": "mente-veloz",
+      "name": "Mente veloz",
+      "description": "En minijuegos de tiempo o reacción tu ventana de acierto es más grande.",
+      "polarity": "ventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "turno-extra": {
+      "id": "turno-extra",
+      "name": "Turno extra",
+      "description": "Una vez por partida jugás dos veces seguidas.",
+      "polarity": "ventaja",
+      "category": "turnos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "carismatico": {
+      "id": "carismatico",
+      "name": "Carismático",
+      "description": "En minijuegos de voto, cada voto a tu favor vale doble.",
+      "polarity": "ventaja",
+      "category": "turnos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "amo-del-dado": {
+      "id": "amo-del-dado",
+      "name": "Amo del dado",
+      "description": "Una vez por ronda elegís el número exacto de tu tirada.",
+      "polarity": "ventaja",
+      "category": "dado",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "manos-largas": {
+      "id": "manos-largas",
+      "name": "Manos largas",
+      "description": "Cada vez que caés en el casillero de otro, le robás la mitad de sus monedas.",
+      "polarity": "ventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "fortuna": {
+      "id": "fortuna",
+      "name": "Fortuna",
+      "description": "Todas las monedas que ganás durante la partida valen el doble.",
+      "polarity": "ventaja",
+      "category": "monedas",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "corona": {
+      "id": "corona",
+      "name": "Corona",
+      "description": "Mientras vas primero en el mapa, los demás sacan -1 en cada tirada.",
+      "polarity": "ventaja",
+      "category": "mapa",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "efecto-domino": {
+      "id": "efecto-domino",
+      "name": "Efecto dominó",
+      "description": "Si a cualquiera le sale un 6, vos retrocedés 1 casillero.",
+      "polarity": "desventaja",
+      "category": "dado",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "dado-timido": {
+      "id": "dado-timido",
+      "name": "Dado tímido",
+      "description": "Nunca sacás 6: cada 6 se convierte en 3.",
+      "polarity": "desventaja",
+      "category": "dado",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "nervios": {
+      "id": "nervios",
+      "name": "Nervios",
+      "description": "Tu primera tirada de cada ronda cuenta 1 menos (mínimo 1).",
+      "polarity": "desventaja",
+      "category": "dado",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "mala-racha": {
+      "id": "mala-racha",
+      "name": "Mala racha",
+      "description": "Si sacás el mismo número dos veces seguidas, perdés el próximo turno.",
+      "polarity": "desventaja",
+      "category": "dado",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "distraido": {
+      "id": "distraido",
+      "name": "Distraído",
+      "description": "10% de probabilidad de perder el turno al tirar.",
+      "polarity": "desventaja",
+      "category": "dado",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "rezagado": {
+      "id": "rezagado",
+      "name": "Rezagado",
+      "description": "Empezás la partida 2 casilleros más atrás.",
+      "polarity": "desventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "pies-de-plomo": {
+      "id": "pies-de-plomo",
+      "name": "Pies de plomo",
+      "description": "Cada 3 tiradas, una cuenta la mitad.",
+      "polarity": "desventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "envidia": {
+      "id": "envidia",
+      "name": "Envidia",
+      "description": "Cuando otro jugador te sobrepasa en el mapa, perdés 1 moneda.",
+      "polarity": "desventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "vertigo": {
+      "id": "vertigo",
+      "name": "Vértigo",
+      "description": "No podés pasarte de la meta: necesitás el número justo para ganar.",
+      "polarity": "desventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "sonambulo": {
+      "id": "sonambulo",
+      "name": "Sonámbulo",
+      "description": "Una vez por partida, en un turno al azar te movés para atrás.",
+      "polarity": "desventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "blanco-facil": {
+      "id": "blanco-facil",
+      "name": "Blanco fácil",
+      "description": "Los efectos de elegir un jugador de otros te apuntan a vos por defecto.",
+      "polarity": "desventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "manos-rotas": {
+      "id": "manos-rotas",
+      "name": "Manos rotas",
+      "description": "Perdés 1 moneda al cerrar cada ronda.",
+      "polarity": "desventaja",
+      "category": "monedas",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "generoso-a-la-fuerza": {
+      "id": "generoso-a-la-fuerza",
+      "name": "Generoso a la fuerza",
+      "description": "Cuando ganás un minijuego, regalás 2 monedas al último.",
+      "polarity": "desventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "deudor": {
+      "id": "deudor",
+      "name": "Deudor",
+      "description": "Empezás la partida con 3 monedas de deuda.",
+      "polarity": "desventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "impuesto": {
+      "id": "impuesto",
+      "name": "Impuesto",
+      "description": "Los cosméticos te cuestan 25% más.",
+      "polarity": "desventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "peaje-ajeno": {
+      "id": "peaje-ajeno",
+      "name": "Peaje ajeno",
+      "description": "Cada vez que caés en el casillero de otro, le pagás 2 monedas.",
+      "polarity": "desventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "torpe": {
+      "id": "torpe",
+      "name": "Torpe",
+      "description": "En los arcade arrancás con una pequeña desventaja.",
+      "polarity": "desventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "miedo-escenico": {
+      "id": "miedo-escenico",
+      "name": "Miedo escénico",
+      "description": "En minijuegos de voto o juez arrancás con 1 voto en contra.",
+      "polarity": "desventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "cobarde": {
+      "id": "cobarde",
+      "name": "Cobarde",
+      "description": "Si salís primero en un minijuego, no cobrás monedas.",
+      "polarity": "desventaja",
+      "category": "minijuegos",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "manos-frias": {
+      "id": "manos-frias",
+      "name": "Manos frías",
+      "description": "En minijuegos de reacción o tiempo tu ventana de acierto es más chica.",
+      "polarity": "desventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "sin-revancha": {
+      "id": "sin-revancha",
+      "name": "Sin revancha",
+      "description": "Tras ser eliminado no podés espectar; vas directo a la pantalla de espera.",
+      "polarity": "desventaja",
+      "category": "minijuegos",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "ultimo-siempre": {
+      "id": "ultimo-siempre",
+      "name": "Último siempre",
+      "description": "Vas siempre al final del orden de turnos.",
+      "polarity": "desventaja",
+      "category": "turnos",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "peso-muerto": {
+      "id": "peso-muerto",
+      "name": "Peso muerto",
+      "description": "No podés recibir turnos extra: los ignorás.",
+      "polarity": "desventaja",
+      "category": "turnos",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "fragil": {
+      "id": "fragil",
+      "name": "Frágil",
+      "description": "Los retrocesos que sufras cuentan doble.",
+      "polarity": "desventaja",
+      "category": "mapa",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "diezmo": {
+      "id": "diezmo",
+      "name": "Diezmo",
+      "description": "Al cerrar cada ronda perdés el 25% de tus monedas.",
+      "polarity": "desventaja",
+      "category": "monedas",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "mecenas-forzado": {
+      "id": "mecenas-forzado",
+      "name": "Mecenas forzado",
+      "description": "Cada vez que ganás monedas, la mitad se reparte entre los rivales.",
+      "polarity": "desventaja",
+      "category": "monedas",
+      "status": "soon",
+      "duration": { "mode": "game" }
+    },
+    "ancla-de-plomo": {
+      "id": "ancla-de-plomo",
+      "name": "Ancla de plomo",
+      "description": "Tus tiradas nunca superan 4.",
+      "polarity": "desventaja",
+      "category": "dado",
+      "status": "live",
+      "duration": { "mode": "game" }
+    },
+    "pararrayos": {
+      "id": "pararrayos",
+      "name": "Pararrayos",
+      "description": "Todo efecto malo de un evento del mapa te golpea a vos también.",
+      "polarity": "desventaja",
+      "category": "mapa",
+      "status": "soon",
+      "duration": { "mode": "game" }
     }
   },
   "board": [

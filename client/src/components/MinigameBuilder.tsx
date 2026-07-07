@@ -1087,6 +1087,7 @@ function activityLabel(type: EventActivityType): string {
   if (type === "snake") return "Snake";
   if (type === "horserace") return "Carrera de caballos";
   if (type === "redlight") return "Luz roja, luz verde";
+  if (type === "tapduel") return "Todos contra uno";
   return type;
 }
 
@@ -1721,6 +1722,8 @@ function defaultContentForActivity(type: EventActivityType, story?: GameEventDef
       return { label: prompt || "Apretá la flecha indicada lo más rápido posible", trackLength: 40, durationMs: 45000 };
     case "redlight":
       return { label: prompt || "Avanzá con ESPACIO, solo en verde", trackLength: 45, durationMs: 60000 };
+    case "tapduel":
+      return { label: prompt || "Tocá lo más rápido posible", durationMs: 5000 };
     case "prompt":
     default:
       return { prompt, label: story?.title ?? "Evento" };

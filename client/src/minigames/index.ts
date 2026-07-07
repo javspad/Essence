@@ -16,6 +16,7 @@ import Flappy from "./Flappy";
 import Snake from "./Snake";
 import HorseRace from "./HorseRace";
 import RedLight from "./RedLight";
+import TapDuel from "./TapDuel";
 
 /** Registro de motores: type → Component que corre LOCAL en cada compu. */
 export const ENGINES: Partial<Record<EventActivityType, FC<MinigameProps>>> = {
@@ -34,6 +35,7 @@ export const ENGINES: Partial<Record<EventActivityType, FC<MinigameProps>>> = {
   snake: Snake,
   horserace: HorseRace,
   redlight: RedLight,
+  tapduel: TapDuel,
 };
 
 /**
