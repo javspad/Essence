@@ -848,7 +848,7 @@
     },
     {
       "id": "hockey-stick",
-      "name": "Palo de hockey",
+      "name": "Palo con vidrios",
       "kind": "decor",
       "defaultScale": 1,
       "footprint": { "width": 1.05, "height": 0.25, "shape": "rect" },
@@ -856,7 +856,7 @@
     },
     {
       "id": "condom-bolas",
-      "name": "Boleadoras raras",
+      "name": "Boleadora de caca",
       "kind": "decor",
       "defaultScale": 1,
       "footprint": { "width": 0.9, "height": 0.45, "shape": "ellipse" },
@@ -989,6 +989,96 @@
       "defaultScale": 1,
       "footprint": { "width": 0.35, "height": 0.45, "shape": "circle" },
       "tags": ["fiesta", "decor"]
+    },
+    {
+      "id": "classroom-giant-log",
+      "name": "Tronco gigante (aula)",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "split-tree-trunk",
+      "name": "Árbol roto",
+      "kind": "tree",
+      "defaultScale": 1
+    },
+    {
+      "id": "bleach-sound-bomb",
+      "name": "Frasco de cloro",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "firecracker-box",
+      "name": "Caja de petardos",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "upd-noose-chair",
+      "name": "Silla con soga UPD",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "vinchuca-jar",
+      "name": "Frasco con vinchuca",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "broken-window-frame",
+      "name": "Marco de ventana roto",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "school-locker-hiding",
+      "name": "Locker con Willy",
+      "kind": "house",
+      "defaultScale": 1
+    },
+    {
+      "id": "locker-row",
+      "name": "Lockers para esconderse",
+      "kind": "house",
+      "defaultScale": 1
+    },
+    {
+      "id": "steamy-taxi",
+      "name": "Taxi caldeado",
+      "kind": "vehicle",
+      "defaultScale": 1
+    },
+    {
+      "id": "just-dance-kinect",
+      "name": "Kinect + pista Just Dance",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "school-desk-pupitre",
+      "name": "Pupitre",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "city-barricade-peed",
+      "name": "Coso amarillo meado",
+      "kind": "sign",
+      "defaultScale": 1
+    },
+    {
+      "id": "crumpled-exam-ausente",
+      "name": "Examen AUSENTE",
+      "kind": "decor",
+      "defaultScale": 1
+    },
+    {
+      "id": "martina-impact-ball",
+      "name": "Pelota del pelotazo",
+      "kind": "decor",
+      "defaultScale": 1
     }
   ],
   "maps": [
