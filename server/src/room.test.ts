@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
-import type { GameContent, ServerToClientEvents } from "@essence/shared";
+import type { GameContent, Player, ServerToClientEvents } from "@essence/shared";
 import { normalizeGameContentEvents } from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index";
 import { GameRoom } from "./room";
+import {
+  applyDiceTraits,
+  applyMoveTraits,
+  applyPayoutTraits,
+  blocksExtraTurn,
+  orderWithTurnTraits,
+  roundEndCoinDelta,
+} from "./traits";
 
 type EmittedEvent = {
   room: string;
@@ -518,4 +526,104 @@ await withRolls([1], async () => {
   room.next("socket-q");
   assert.equal(room.getState().phase, "turn");
   assert.equal(room.getState().turnOrder[room.getState().activeIndex], "ana", "losing the duel passes the turn on");
+});
+
+// --- Motor de ventajas/desventajas (traits) --------------------------------
+
+function tp(id: string, traits: string[], position = 0, coins = 0): Player {
+  return { id, name: id, socketId: null, connected: true, position, coins, isHost: false, groom: false, color: "#ffffff", traits };
+}
+
+{
+  const board = [tp("a", []), tp("b", [])];
+  // dado: transformaciones propias
+  assert.equal(applyDiceTraits(1, tp("a", ["cargado-a-favor"]), { turnIndex: 0, players: board }), 2);
+  assert.equal(applyDiceTraits(3, tp("a", ["cargado-a-favor"]), { turnIndex: 0, players: board }), 3);
+  assert.equal(applyDiceTraits(6, tp("a", ["dado-timido"]), { turnIndex: 0, players: board }), 3);
+  assert.equal(applyDiceTraits(6, tp("a", ["ancla-de-plomo"]), { turnIndex: 0, players: board }), 4);
+  assert.equal(applyDiceTraits(4, tp("a", ["ancla-de-plomo"]), { turnIndex: 0, players: board }), 4);
+  assert.equal(applyDiceTraits(1, tp("a", ["atajo-del-segundo"]), { turnIndex: 1, players: board }), 2);
+  assert.equal(applyDiceTraits(1, tp("a", ["atajo-del-segundo"]), { turnIndex: 0, players: board }), 1);
+
+  // impulso de remonte: solo si va estrictamente último
+  const last = tp("a", ["impulso-de-remonte"], 0);
+  const leader = tp("b", [], 5);
+  assert.equal(applyDiceTraits(3, last, { turnIndex: 0, players: [last, leader] }), 5);
+  const tied = tp("c", ["impulso-de-remonte"], 5);
+  assert.equal(applyDiceTraits(3, tied, { turnIndex: 0, players: [tied, leader] }), 3);
+
+  // corona: un rival líder con corona hace que el resto saque -1
+  const king = tp("k", ["corona"], 8);
+  const me = tp("m", [], 2);
+  assert.equal(applyDiceTraits(4, me, { turnIndex: 0, players: [king, me] }), 3);
+  assert.equal(applyDiceTraits(4, king, { turnIndex: 0, players: [king, me] }), 4, "el dueño de la corona no se penaliza");
+}
+
+{
+  // retrocesos
+  assert.equal(applyMoveTraits(-3, tp("a", ["recuperacion"])), -1);
+  assert.equal(applyMoveTraits(-1, tp("a", ["recuperacion"])), 0);
+  assert.equal(applyMoveTraits(-3, tp("a", ["fragil"])), -6);
+  assert.equal(applyMoveTraits(3, tp("a", ["fragil"])), 3, "los avances no se tocan");
+
+  // economía de fin de ronda
+  assert.equal(roundEndCoinDelta(tp("a", ["interes-compuesto"], 0, 25)), 2);
+  assert.equal(roundEndCoinDelta(tp("a", ["manos-rotas"], 0, 25)), -1);
+  assert.equal(roundEndCoinDelta(tp("a", ["diezmo"], 0, 25)), -6);
+  assert.equal(roundEndCoinDelta(tp("a", [], 0, 25)), 0);
+
+  // pago de minijuegos
+  assert.equal(applyPayoutTraits(5, 3, tp("a", ["fortuna"])), 10);
+  assert.equal(applyPayoutTraits(5, 1, tp("a", ["cobrador-de-podios"])), 7);
+  assert.equal(applyPayoutTraits(5, 2, tp("a", ["cobrador-de-podios"])), 5);
+  assert.equal(applyPayoutTraits(5, 1, tp("a", ["cobarde"])), 0);
+  assert.equal(applyPayoutTraits(0, 4, tp("a", ["nunca-ultimo"])), 1);
+
+  // turnos
+  assert.deepEqual(
+    orderWithTurnTraits(["a", "b", "c"], [tp("a", []), tp("b", ["ultimo-siempre"]), tp("c", [])]),
+    ["a", "c", "b"]
+  );
+  assert.equal(blocksExtraTurn(tp("a", ["peso-muerto"])), true);
+  assert.equal(blocksExtraTurn(tp("a", [])), false);
+}
+
+const traitContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "minigame" },
+    { id: 2, type: "minigame" },
+    { id: 3, type: "minigame" },
+    { id: 4, type: "minigame" },
+    { id: 5, type: "finish" },
+  ],
+  events: {},
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "timido", name: "Timido", color: "#f87171" },
+    { id: "otro", name: "Otro", color: "#60a5fa" },
+  ],
+  characters: {
+    timido: { id: "timido", displayName: "Timido", color: "#f87171", defaultTraits: ["dado-timido"] },
+    otro: { id: "otro", displayName: "Otro", color: "#60a5fa" },
+  },
+  characterSets: {
+    s: { id: "s", name: "S", characterIds: ["timido", "otro"] },
+  },
+});
+
+// Integración: el trait aplica en room.roll() sobre la tirada real.
+await withRolls([6], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TRT", "Traits", traitContent, {
+    characterSetId: "s",
+  } as any);
+  room.join("s-t", "Timido", { characterId: "timido" });
+  room.join("s-o", "Otro", { characterId: "otro" });
+  room.startGame("s-t");
+  room.roll("s-t");
+  // El 6 se convierte en 3, así que avanza 3 casilleros (si no aplicara, caería en la meta=5).
+  assert.equal(room.getState().players.find((player) => player.id === "timido")?.position, 3, "dado-timido convierte un 6 en 3 en la tirada real");
 });

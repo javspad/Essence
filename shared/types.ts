@@ -432,12 +432,22 @@ export interface CosmeticDef {
   anchor?: string;
 }
 
+/** ventaja = beneficio, desventaja = penalización. Se eligen 3 + 3 por personaje. */
+export type EffectPolarity = "ventaja" | "desventaja";
+
+/** Agrupación temática para el selector del builder. */
+export type EffectCategory = "dado" | "mapa" | "monedas" | "minijuegos" | "turnos";
+
 export interface EffectDef {
   id: string;
   name: string;
   description?: string;
   duration: EffectDuration;
   actions?: EventAction[];
+  polarity?: EffectPolarity;
+  category?: EffectCategory;
+  /** "live" = ya funciona en el motor; "soon" = catalogado, todavía sin efecto. */
+  status?: "live" | "soon";
 }
 
 export interface ArtifactDef {

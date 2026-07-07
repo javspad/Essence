@@ -27,6 +27,14 @@ import {
   type ResolvedGameEvent,
 } from "@essence/shared/events";
 import { resolveMinigame } from "./minigames/index.js";
+import {
+  applyDiceTraits,
+  applyMoveTraits,
+  applyPayoutTraits,
+  blocksExtraTurn,
+  orderWithTurnTraits,
+  roundEndCoinDelta,
+} from "./traits.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -263,7 +271,7 @@ export class GameRoom {
     const p = this.playerBySocket(socketId);
     if (!p?.isHost) return;
     if (this.state.phase !== "lobby") return;
-    const order = this.connectedPlayers().map((x) => x.id);
+    const order = orderWithTurnTraits(this.connectedPlayers().map((x) => x.id), this.state.players);
     if (order.length === 0) return;
     this.state.turnOrder = order;
     this.state.activeIndex = 0;
@@ -285,7 +293,11 @@ export class GameRoom {
     const p = this.playerBySocket(socketId);
     if (!active || !p || p.id !== active.id) return;
 
-    const roll = 1 + Math.floor(Math.random() * 6);
+    const rawRoll = 1 + Math.floor(Math.random() * 6);
+    const roll = applyDiceTraits(rawRoll, active, {
+      turnIndex: this.state.activeIndex,
+      players: this.connectedPlayers(),
+    });
     this.state.lastRoll = roll;
 
     // "Todos contra uno": si el perseguido saca un 1, en vez de moverse abre un
@@ -526,10 +538,13 @@ export class GameRoom {
         story: mg.story,
       });
 
-      // Aplicar monedas (y consecuencias configuradas en el evento).
-      for (const [id, c] of Object.entries(reveal.coins)) {
-        const pl = this.state.players.find((x) => x.id === id);
-        if (pl) pl.coins = Math.max(0, pl.coins + c);
+      // Aplicar monedas (con traits de pago) y luego las consecuencias del evento.
+      for (const entry of reveal.entries) {
+        const pl = this.state.players.find((x) => x.id === entry.playerId);
+        const adjusted = !underdog && pl ? applyPayoutTraits(entry.coins, entry.rank, pl) : entry.coins;
+        entry.coins = adjusted;
+        reveal.coins[entry.playerId] = adjusted;
+        if (pl) pl.coins = Math.max(0, pl.coins + adjusted);
       }
       const landingPlayerId = mg.protagonistId ?? reveal.ranking[0];
       const promptConfirmed = mg.type !== "prompt" || promptConfirmationComplete(reveal);
@@ -643,6 +658,11 @@ export class GameRoom {
     }
     if (advancedRound) {
       this.state.round += 1;
+      // Cierre de ronda: traits de economía (interés compuesto, manos rotas, diezmo).
+      for (const pl of this.connectedPlayers()) {
+        const delta = roundEndCoinDelta(pl);
+        if (delta) pl.coins = Math.max(0, pl.coins + delta);
+      }
     }
     this.state.activeIndex = nextIndex;
     this.state.phase = "turn";
@@ -663,13 +683,14 @@ export class GameRoom {
         },
       ];
     }
-    player.position = clamp(player.position - 1, 0, this.state.boardLength - 1);
+    const delta = applyMoveTraits(-1, player);
+    player.position = clamp(player.position + delta, 0, this.state.boardLength - 1);
     return [
       {
         type: "move",
         targetPlayerIds: [protagonistId],
-        text: `${player.name} perdió el duelo y retrocede 1 casillero.`,
-        value: -1,
+        text: `${player.name} perdió el duelo y retrocede ${Math.abs(delta)} casillero(s).`,
+        value: delta,
       },
     ];
   }
@@ -717,7 +738,7 @@ export class GameRoom {
     if (action.type === "move") {
       for (const id of targetPlayerIds) {
         const player = this.state.players.find((p) => p.id === id);
-        if (player) player.position = clamp(player.position + action.delta, 0, this.state.boardLength - 1);
+        if (player) player.position = clamp(player.position + applyMoveTraits(action.delta, player), 0, this.state.boardLength - 1);
       }
       this.recordFinishWinner(targetPlayerIds);
       return { type: action.type, targetPlayerIds, text: action.text ?? moveSummary(targetPlayerIds, this.state.players, action.delta), value: action.delta };
@@ -734,7 +755,11 @@ export class GameRoom {
       for (const id of targetPlayerIds) this.skippedTurns.add(id);
       return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} pierde su próximo turno` };
     }
-    for (const id of targetPlayerIds) this.extraTurnPlayerId = id;
+    for (const id of targetPlayerIds) {
+      const player = this.state.players.find((p) => p.id === id);
+      if (blocksExtraTurn(player)) continue; // "peso muerto" ignora los turnos extra
+      this.extraTurnPlayerId = id;
+    }
     return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} juega otro turno` };
   }
 
