@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { EffectDef, GameState, RevealPayload } from "@essence/shared";
+import { normalizeGameState } from "./gameState";
 import { socket } from "./socket";
 
 interface MinigameStart {
@@ -49,9 +50,10 @@ export function useGame() {
     };
     const onDisconnect = () => setConnected(false);
     const onState = (s: GameState) => {
-      setState(s);
+      const nextState = normalizeGameState(s);
+      setState(nextState);
       // Limpiar la pantalla de minijuego local cuando ya no estamos jugando.
-      if (s.phase !== "minigame") setMinigameStart(null);
+      if (nextState.phase !== "minigame") setMinigameStart(null);
     };
     const onMinigameStart = (m: MinigameStart) => setMinigameStart(m);
     const onReveal = (_r: RevealPayload) => setMinigameStart(null);
