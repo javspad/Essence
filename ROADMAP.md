@@ -348,17 +348,19 @@ Verification notes:
 
 Manual validation checklist:
 
-- [ ] Open `/event-builder`, add a consequence, and verify one branch can contain multiple action/effect rows.
-- [ ] In `/event-builder`, choose target selectors for acting player, selected target, nearest ahead/behind, fixed player, winner/loser, and rank/range; verify the summary text stays readable.
-- [ ] In `/event-builder`, set an action's Timing to `Attach to user`, change Runs/Duration/Count, and verify the Advanced JSON shows `hook` and `duration`.
-- [ ] In `/event-builder`, create a new Effect builder entry, compose movement multiplier plus dice bias or another timed consequence, then verify the new effect appears by name in a consequence action's Type list.
-- [ ] Save, refresh, and verify the new effect type persists in the Effect builder and can still be selected from a consequence action.
-- [ ] As host in a live room, open the **Dev effects** tool beside the map button and verify built-in effects plus saved Event Builder draft effects appear in the Effect type list.
-- [ ] Apply an effect to a player from **Dev effects** and verify the score panel immediately shows that active effect with remaining duration.
-- [ ] In a room with content that applies `half-roll-2-rounds`, trigger the effect and verify the target's score row shows the active effect with remaining duration.
-- [ ] While the effect is active, roll and verify movement is halved without any take-shot prompt appearing from the effect itself.
-- [ ] Advance turns/rounds until expiration and verify the active effect disappears from the score UI.
-- [ ] Use the board focus controls and full-map overview only; verify no manual/free camera movement controls appear.
+- [x] Open `/event-builder`, add a consequence, and verify one branch can contain multiple action/effect rows.
+- [x] In `/event-builder`, choose target selectors for acting player, selected target, nearest ahead/behind, fixed player, winner/loser, and rank/range; verify the summary text stays readable.
+- [x] In `/event-builder`, set an action's Timing to `Attach to user`, change Runs/Duration/Count, and verify the Advanced JSON shows `hook` and `duration`.
+- [x] In `/event-builder`, create a new Effect builder entry, compose movement multiplier plus dice bias or another timed consequence, then verify the new effect appears by name in a consequence action's Type list.
+- [x] Save, refresh, and verify the new effect type persists in the Effect builder and can still be selected from a consequence action.
+- [x] As host in a live room, open the **Dev effects** tool beside the map button and verify built-in effects plus saved Event Builder draft effects appear in the Effect type list.
+- [x] Apply an effect to a player from **Dev effects** and verify the score panel immediately shows that active effect with remaining duration.
+- [x] In a room with content that applies `half-roll-2-rounds`, trigger the effect and verify the target's score row shows the active effect with remaining duration.
+- [x] While the effect is active, roll and verify movement is halved without any take-shot prompt appearing from the effect itself.
+- [x] Advance turns/rounds until expiration and verify the active effect disappears from the score UI.
+- [x] Use the board focus controls and full-map overview only; verify no manual/free camera movement controls appear.
+
+Manual QA completed by Facundo on 2026-07-07.
 
 ## Slice 4 (`S4`): Artifact Catalog, Builder, And Shop
 
