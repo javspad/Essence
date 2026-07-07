@@ -317,6 +317,76 @@ const promptConfirmationContent: GameContent = normalizeGameContentEvents({
   ],
 });
 
+const effectContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "fate", eventId: "apply-half-roll" },
+    { id: 2, type: "minigame" },
+    { id: 3, type: "minigame" },
+    { id: 4, type: "minigame" },
+    { id: 5, type: "finish" },
+  ],
+  events: {
+    "apply-half-roll": {
+      name: "Apply half roll",
+      kind: "story",
+      story: { title: "Apply half roll", prompt: "Alice is slowed down." },
+      actions: [{ type: "applyEffect", effectId: "half-roll-shot-on-six", target: "landing" }],
+    },
+  },
+  effects: {
+    "half-roll-shot-on-six": {
+      id: "half-roll-shot-on-six",
+      name: "Half Roll Dare",
+      description: "For 2 rounds, move half of the die roll and take a shot if you roll 6.",
+      duration: { mode: "rounds", value: 2 },
+      modifiers: [
+        { type: "halfMovement", hook: "beforeMovement", rounding: "ceil" },
+        {
+          type: "conditionalConsequences",
+          hook: "afterRoll",
+          when: { rollEquals: 6 },
+          consequences: [{ type: "offlineAction", action: "takeShot", target: "target", text: "Take a shot for rolling 6." }],
+        },
+      ],
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+});
+
+await withRolls([1, 6], async () => {
+  const { io, events } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "EFF1", "Effects", effectContent);
+
+  room.join("socket-alice", "Alice");
+  room.startGame("socket-alice");
+  room.roll("socket-alice");
+
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().players[0].position, 1);
+  assert.equal(room.getState().activeEffects.length, 1);
+  assert.equal(room.getState().activeEffects[0].name, "Half Roll Dare");
+  assert.deepEqual(room.getState().activeEvent?.actions?.[0].effectInstanceIds, [room.getState().activeEffects[0].id]);
+
+  room.next("socket-alice");
+  assert.equal(room.getState().phase, "turn");
+  assert.equal(room.getState().round, 2);
+  assert.deepEqual(room.getState().activeEffects[0].remaining, { mode: "rounds", remaining: 1 });
+
+  room.roll("socket-alice");
+  assert.equal(room.getState().lastRoll, 6);
+  assert.equal(room.getState().players[0].position, 4, "half movement rounds a roll of 6 down to three cells of movement");
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction" && action.offlineAction === "takeShot"), true);
+
+  room.next("socket-alice");
+  assert.equal(room.getState().activeEffects.length, 0);
+  assert.equal(events.some((event) => event.event === "effect:ended" && (event.payload as { reason?: string }).reason === "expired"), true);
+});
+
 await withRolls([1], async () => {
   const { io } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TST4", "Test room", promptConfirmationContent);

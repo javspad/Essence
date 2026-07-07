@@ -10,6 +10,7 @@ import type {
   PlayerEventOverride,
   Tile,
 } from "./types";
+import { resolveTargetPlayerIds } from "./consequences";
 
 export interface ResolvedGameEvent extends GameEventDef {
   id: string;
@@ -158,18 +159,9 @@ export function resolveTileEventForPlayer(content: GameContent, tile: Tile, play
 
 export function resolveEventActionTargetIds(
   target: EventActionTarget,
-  context: { landingPlayerId?: string; ranking?: string[]; connectedPlayerIds?: string[]; playerIds?: string[] }
+  context: Parameters<typeof resolveTargetPlayerIds>[1]
 ): string[] {
-  const ranking = context.ranking ?? [];
-  if (target === "landing") return context.landingPlayerId ? [context.landingPlayerId] : [];
-  if (target === "winner") return ranking[0] ? [ranking[0]] : [];
-  if (target === "loser") return ranking.length ? [ranking[ranking.length - 1]] : [];
-  if (target === "everyone") return context.connectedPlayerIds ?? [];
-  if ("playerId" in target) return !context.playerIds || context.playerIds.includes(target.playerId) ? [target.playerId] : [];
-  if ("rank" in target) return ranking[target.rank - 1] ? [ranking[target.rank - 1]] : [];
-  const from = Math.max(1, target.rankFrom);
-  const to = Math.max(from, target.rankTo);
-  return ranking.slice(from - 1, to);
+  return resolveTargetPlayerIds(target, context);
 }
 
 type ActivityPlayer = Pick<Player, "id" | "isHost">;

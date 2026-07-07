@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { GameState, Player } from "@essence/shared";
+import type { EffectInstance, GameState, Player } from "@essence/shared";
+import { effectRemainingLabel } from "@essence/shared/consequences";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import {
   Dice5,
@@ -222,6 +223,7 @@ function SceneChrome({
             connected={connected}
             phase={state.phase}
             round={state.round}
+            activeEffects={state.activeEffects}
             onFocusPlayer={onFocusPlayer}
           />
           {editMode && <SceneEditHint active={active} />}
@@ -263,6 +265,7 @@ function ScorePanel({
   connected,
   phase,
   round,
+  activeEffects,
   onFocusPlayer,
 }: {
   players: Player[];
@@ -272,6 +275,7 @@ function ScorePanel({
   connected: boolean;
   phase: GameState["phase"];
   round: number;
+  activeEffects: EffectInstance[];
   onFocusPlayer: (playerId: string) => void;
 }) {
   return (
@@ -306,6 +310,7 @@ function ScorePanel({
             {players.map((player, index) => {
               const isActive = player.id === activeId;
               const isFocused = player.id === focusedPlayerId;
+              const effects = activeEffects.filter((effect) => effect.targetPlayerId === player.id);
 
               return (
                 <li key={player.id}>
@@ -330,10 +335,25 @@ function ScorePanel({
                       className="size-3 rounded-[2px] shadow-[1px_1px_0_rgb(0_0_0/0.4),0_0_6px_var(--player-glow)]"
                       style={{ backgroundColor: player.color, ["--player-glow" as string]: `${player.color}66` }}
                     />
-                    <span className="min-w-0 truncate text-[11px] sm:text-xs">
-                      {isActive ? <span className="text-[#f5d547]">▶ </span> : ""}
-                      {player.name}
-                      {player.groom ? " 🤵" : ""}
+                    <span className="min-w-0 text-[11px] sm:text-xs">
+                      <span className="block min-w-0 truncate">
+                        {isActive ? <span className="text-[#f5d547]">▶ </span> : ""}
+                        {player.name}
+                        {player.groom ? " 🤵" : ""}
+                      </span>
+                      {effects.length > 0 && (
+                        <span className="mt-1 flex max-w-full flex-wrap gap-1">
+                          {effects.map((effect) => (
+                            <span
+                              key={effect.id}
+                              title={`${effect.name}: ${effect.description ?? "Active effect"} (${effectRemainingLabel(effect.remaining)})`}
+                              className="max-w-[9rem] truncate rounded-sm border border-cyan-200/30 bg-cyan-300/12 px-1.5 py-0.5 text-[8px] uppercase tracking-wide text-cyan-100"
+                            >
+                              {effect.name} · {effectRemainingLabel(effect.remaining)}
+                            </span>
+                          ))}
+                        </span>
+                      )}
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5 text-[10px]">
                       <span className="text-[#d4cfea]">#{player.position}</span>

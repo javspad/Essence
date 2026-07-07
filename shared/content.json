@@ -2631,6 +2631,39 @@
       ]
     }
   ],
+  "effects": {
+    "half-roll-shot-on-six": {
+      "id": "half-roll-shot-on-six",
+      "name": "Half Roll Dare",
+      "description": "For 2 rounds, move half of the die roll and take a shot if you roll 6.",
+      "duration": {
+        "mode": "rounds",
+        "value": 2
+      },
+      "modifiers": [
+        {
+          "type": "halfMovement",
+          "hook": "beforeMovement",
+          "rounding": "ceil"
+        },
+        {
+          "type": "conditionalConsequences",
+          "hook": "afterRoll",
+          "when": {
+            "rollEquals": 6
+          },
+          "consequences": [
+            {
+              "type": "offlineAction",
+              "action": "takeShot",
+              "target": "target",
+              "text": "Take a shot for rolling 6."
+            }
+          ]
+        }
+      ]
+    }
+  },
   "minigames": {
     "bostezo": {
       "type": "timing",

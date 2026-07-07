@@ -1,4 +1,5 @@
 import type { GameState } from "@essence/shared";
+import { effectRemainingLabel } from "@essence/shared/consequences";
 import { rankPlayersByProgress } from "@essence/shared/ranking";
 import { Badge } from "@/components/ui/8bit/badge";
 import { cn } from "@/lib/utils";
@@ -19,13 +20,29 @@ export default function Scoreboard({
     <div className="flex w-full flex-wrap justify-center gap-3">
       {sorted.map((p) => {
         const isFocused = p.id === focusedPlayerId;
+        const effects = state.activeEffects.filter((effect) => effect.targetPlayerId === p.id);
         const content = (
-          <>
-            <span className="mr-2 inline-block size-3 rounded-[2px] border border-black/35 align-middle" style={{ background: p.color }} />
-            <span className="font-semibold">{p.name}</span>
-            {p.groom && <span>🤵</span>}
-            <span className="ml-2 font-bold">🪙{p.coins}</span>
-          </>
+          <span className="inline-flex min-w-0 flex-col items-start gap-1">
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <span className="inline-block size-3 rounded-[2px] border border-black/35 align-middle" style={{ background: p.color }} />
+              <span className="truncate font-semibold">{p.name}</span>
+              {p.groom && <span>🤵</span>}
+              <span className="font-bold">🪙{p.coins}</span>
+            </span>
+            {effects.length > 0 && (
+              <span className="flex max-w-full flex-wrap gap-1">
+                {effects.map((effect) => (
+                  <span
+                    key={effect.id}
+                    title={`${effect.name}: ${effect.description ?? "Active effect"} (${effectRemainingLabel(effect.remaining)})`}
+                    className="max-w-[10rem] truncate rounded-sm border border-cyan-200/35 bg-cyan-300/15 px-1.5 py-0.5 text-[9px] font-black uppercase text-cyan-100"
+                  >
+                    {effect.name} · {effectRemainingLabel(effect.remaining)}
+                  </span>
+                ))}
+              </span>
+            )}
+          </span>
         );
         const className = cn(
           "border-[#fff4bf] px-3 py-2 text-xs text-[#fff8d6]",

@@ -86,7 +86,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S1` Domain language and schema hardening | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S-CAM` Map camera and character navigation | [x] | `S1` | `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright board-camera QA; `git diff --check`. |
 | `S2` Character identity and character sets | [x] | `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright character flow QA; `git diff --check`. |
-| `S3` Reusable consequences and effects | [ ] | `S1`, `S-CAM` | Effect-engine tests and one configured duration effect. |
+| `S3` Reusable consequences and effects | [x] | `S1`, `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright Event Builder QA; `git diff --check`. |
 | `S4` Artifact catalog, builder, and shop | [ ] | `S3`, `S-CAM` | Artifact builder route plus in-game shop purchase/use flow. |
 | `S5` Cosmetics and face anchors | [ ] | `S2` | Cosmetic builder route plus anchored preview on multiple characters. |
 | `S6` Character traits | [ ] | `S2`, `S3` | Character builder trait config plus live trait trigger. |
@@ -315,22 +315,43 @@ Goal: create one rule engine that can power minigames, prendas, artifacts, chara
 
 Tasks:
 
-- [ ] `S3-01` Promote current `EventAction` into a reusable action/consequence vocabulary.
-- [ ] `S3-02` Add target selectors needed by the notes: acting player, target player, nearest ahead, nearest behind, everyone, ranking winner/loser/range, and fixed player.
-- [ ] `S3-03` Add offline-action consequences such as "take a shot" as prompt/confirmation flows rather than hidden state changes.
-- [ ] `S3-04` Add duration-based `EffectDef` and live `EffectInstance`.
-- [ ] `S3-05` Add effect duration modes: turns, rounds, until triggered, and whole game.
-- [ ] `S3-06` Add effect lifecycle hooks: before roll, after roll, before movement, after movement, on cell enter, on activity result, and on turn end.
-- [ ] `S3-07` Add effect modifiers for half movement, skip turn, extra turn, conditional consequences, coin changes, position changes, swap positions, and move-to-nearest.
-- [ ] `S3-08` Add server-side application and expiration, with notifications when an effect ends.
-- [ ] `S3-09` Show active effects in the player position/score list with hover/tap detail and remaining duration.
-- [ ] `S3-10` Add builder controls for common consequences and effects, keeping advanced JSON escape hatches.
+- [x] `S3-01` Promote current `EventAction` into a reusable action/consequence vocabulary.
+- [x] `S3-02` Add target selectors needed by the notes: acting player, target player, nearest ahead, nearest behind, everyone, ranking winner/loser/range, and fixed player.
+- [x] `S3-03` Add offline-action consequences such as "take a shot" as prompt/confirmation flows rather than hidden state changes.
+- [x] `S3-04` Add duration-based `EffectDef` and live `EffectInstance`.
+- [x] `S3-05` Add effect duration modes: turns, rounds, until triggered, and whole game.
+- [x] `S3-06` Add effect lifecycle hooks: before roll, after roll, before movement, after movement, on cell enter, on activity result, and on turn end.
+- [x] `S3-07` Add effect modifiers for half movement, skip turn, extra turn, conditional consequences, coin changes, position changes, swap positions, and move-to-nearest.
+- [x] `S3-08` Add server-side application and expiration, with notifications when an effect ends.
+- [x] `S3-09` Show active effects in the player position/score list with hover/tap detail and remaining duration.
+- [x] `S3-10` Add builder controls for common consequences and effects, keeping advanced JSON escape hatches.
 
 Acceptance:
 
 - The current minigame consequence builder can express immediate rewards/punishments.
 - A duration effect like "for 2 rounds, move half of the die roll and take a shot if you roll 6" can be configured and playtested.
 - Effects can be configured in JSON and previewed through a builder/test surface.
+
+Verification notes:
+
+- Added `TargetSelector`/`ConsequenceDef` as the canonical shared vocabulary while keeping `EventActionTarget`/`EventAction` as compatibility aliases for existing event content.
+- Added shared target resolution for acting player, selected target, nearest ahead/behind, everyone, ranking winner/loser/range, and fixed player selectors.
+- Added reusable effect contracts: duration state, live `EffectInstance`, lifecycle hooks, and modifiers for half movement, skip/extra turn, conditional consequences, coin/move/move-to changes, swapping positions, and moving to the nearest player.
+- Seeded `shared/content.json` with `half-roll-shot-on-six`, a 2-round effect that halves movement and prompts a take-shot offline action when the target rolls 6.
+- Server now applies `applyEffect` consequences, runs effect lifecycle hooks during roll/movement/cell/activity/turn flow, expires turn/round/until-triggered effects, and emits `effect:ended`.
+- Active effects appear in the legacy score list and the 3D HUD score panel with names, remaining duration, and hover/tap detail text.
+- Event Builder now exposes common target selectors, common consequence controls, `applyEffect`, offline shot actions, an Effects panel, and the existing Content JSON import/export escape hatch.
+- Regression coverage: server tests for effect application, half movement, conditional offline action, duration ticking, and end notification; shared/client tests for target selectors, duration labels, and invalid effect references.
+- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright Event Builder QA with screenshot at `/tmp/essence-s3-event-builder.png`; `git diff --check`.
+
+Manual validation checklist:
+
+- [ ] Open `/event-builder`, add the half-roll shot effect, add a consequence, and verify `Apply effect` plus `Take shot` are available in the consequence type controls.
+- [ ] In `/event-builder`, choose target selectors for acting player, selected target, nearest ahead/behind, fixed player, winner/loser, and rank/range; verify the summary text stays readable.
+- [ ] In a room with content that applies `half-roll-shot-on-six`, trigger the effect and verify the target's score row shows the active effect with remaining duration.
+- [ ] While the effect is active, roll a 6 and verify movement is halved and a take-shot action is displayed instead of silently changing hidden state.
+- [ ] Advance turns/rounds until expiration and verify the active effect disappears from the score UI.
+- [ ] Use the board focus controls and full-map overview only; verify no manual/free camera movement controls appear.
 
 ## Slice 4 (`S4`): Artifact Catalog, Builder, And Shop
 
@@ -684,10 +705,9 @@ We should grill these one at a time before treating the roadmap as final.
 2. When a player lands on shop, should the first view be empty until reroll, or should four offers appear immediately?
 3. Should cosmetic ownership persist only within a room, inside imported character JSON, or in a future account/profile store?
 4. For future non-prompt offline actions, should confirmation reuse the prompt confirmer set exactly, or add consequence-specific confirmation rules?
-5. Should duration count by turns of the target player, full rounds, or global turns?
-6. Should character traits be visible to everyone before the game starts, or revealed only when triggered?
-7. Should shots/offline prompts award coins automatically, only after confirmation, or never by default?
-8. Should anecdotes be raw content titles only, or structured story beats with tags, safe display text, and allowed activity types?
+5. Should character traits be visible to everyone before the game starts, or revealed only when triggered?
+6. Should shots/offline prompts award coins automatically, only after confirmation, or never by default?
+7. Should anecdotes be raw content titles only, or structured story beats with tags, safe display text, and allowed activity types?
 
 Resolved:
 
@@ -695,7 +715,8 @@ Resolved:
 - Artifact language: **Artifact** means gameplay item; current decorative map objects are **Map Props** in product/UI language.
 - Prompt/prenda confirmation: defaults to the rest of the connected group and can be configured with `confirmation.mode` or `confirmation.playerIds`.
 - Manual camera movement is intentionally out of scope; map inspection uses player focus plus full-map overview.
+- Effect durations: `turns` tick when the target player's turn ends, `rounds` tick when the room round advances, `untilTriggered` expires on a matching trigger, and `game` lasts until the game ends.
 
 ## Next Review Step
 
-Start with `S2` Character Identity And Character Sets. `R-REF`, `S0`, `S1`, and `S-CAM` are complete, and character identity can now reuse the board focus/camera primitives.
+Start with `S4` Artifact Catalog, Builder, And Shop. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, and `S3` are complete, so the next dependency unlock is gameplay artifacts that reuse the shared consequence/effect engine.

@@ -124,9 +124,10 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   validateCharacterSets(normalized.characterSets, characterIds, error);
   const playerIds = new Set([...legacyPlayerIds, ...characterIds]);
   const assetIds = validateAssetCatalog(normalized, error);
+  const effectIds = new Set(Object.keys(normalized.effects ?? {}));
 
   for (const [id, event] of Object.entries(normalized.events ?? {})) {
-    validateEvent(`events.${id}`, event, playerIds, error);
+    validateEvent(`events.${id}`, event, playerIds, effectIds, error);
   }
 
   validateCatalogIds(normalized.cosmetics, "cosmetics", error);
@@ -250,6 +251,7 @@ function validateEvent(
   path: string,
   event: GameEventDef,
   playerIds: Set<string>,
+  effectIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
   if (!event.name?.trim()) error(`${path}.name`, "must not be empty");
@@ -259,30 +261,34 @@ function validateEvent(
   if (event.activity && !EVENT_ACTIVITY_TYPES.includes(event.activity.type)) {
     error(`${path}.activity.type`, `is not supported: ${event.activity.type}`);
   }
-  event.actions?.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, error));
-  event.outcomes?.forEach((outcome, index) => validateOutcome(`${path}.outcomes[${index}]`, outcome, playerIds, error));
+  event.actions?.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
+  event.outcomes?.forEach((outcome, index) => validateOutcome(`${path}.outcomes[${index}]`, outcome, playerIds, effectIds, error));
 }
 
 function validateOutcome(
   path: string,
   outcome: EventOutcomeBranch,
   playerIds: Set<string>,
+  effectIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
   validateTarget(`${path}.when`, outcome.when, playerIds, error);
-  outcome.actions.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, error));
+  outcome.actions.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
 }
 
 function validateAction(
   path: string,
   action: EventAction,
   playerIds: Set<string>,
+  effectIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
   if ("target" in action && action.target) validateTarget(`${path}.target`, action.target, playerIds, error);
   if (action.type === "coins" && !Number.isFinite(action.value)) error(`${path}.value`, "must be a finite number");
   if (action.type === "move" && !Number.isFinite(action.delta)) error(`${path}.delta`, "must be a finite number");
   if (action.type === "moveTo" && !Number.isInteger(action.tileId)) error(`${path}.tileId`, "must be an integer board cell id");
+  if (action.type === "applyEffect" && !effectIds.has(action.effectId)) error(`${path}.effectId`, `references missing effect ${action.effectId}`);
+  if (action.type === "offlineAction" && !action.action) error(`${path}.action`, "must not be empty");
 }
 
 function validateTarget(
@@ -298,6 +304,11 @@ function validateTarget(
   }
   if ("rank" in target) {
     if (!Number.isInteger(target.rank) || target.rank < 1) error(path, "rank must be a positive integer");
+    return;
+  }
+  if ("nearest" in target) {
+    if (target.nearest !== "ahead" && target.nearest !== "behind") error(path, "nearest must be ahead or behind");
+    if (typeof target.from === "object" && !playerIds.has(target.from.playerId)) error(`${path}.from`, `references missing player ${target.from.playerId}`);
     return;
   }
   if (!Number.isInteger(target.rankFrom) || !Number.isInteger(target.rankTo) || target.rankFrom < 1 || target.rankTo < target.rankFrom) {
@@ -439,10 +450,7 @@ function validateFutureCatalogReferences(
   }
   for (const [id, artifact] of Object.entries(content.artifacts ?? {}) as [string, ArtifactDef][]) {
     artifact.consequences?.forEach((action, index) => {
-      if (action.type === "skipTurn" || action.type === "extraTurn" || action.type === "coins" || action.type === "move" || action.type === "moveTo" || action.type === "text") {
-        return;
-      }
-      warning(`artifacts.${id}.consequences[${index}]`, "uses an unknown consequence action");
+      validateAction(`artifacts.${id}.consequences[${index}]`, action, new Set(Object.keys(content.characters ?? {})), effectIds, error);
     });
     for (const effectId of artifact.effects ?? []) {
       if (!effectIds.has(effectId)) error(`artifacts.${id}.effects`, `references missing effect ${effectId}`);
@@ -456,6 +464,15 @@ function validateFutureCatalogReferences(
     if ((effect.duration.mode === "turns" || effect.duration.mode === "rounds") && effect.duration.value < 1) {
       error(`effects.${id}.duration.value`, "must be at least 1");
     }
+    effect.actions?.forEach((action, index) => validateAction(`effects.${id}.actions[${index}]`, action, new Set(Object.keys(content.characters ?? {})), effectIds, error));
+    effect.modifiers?.forEach((modifier, index) => {
+      if (modifier.type === "conditionalConsequences") {
+        modifier.consequences.forEach((action, actionIndex) => {
+          validateAction(`effects.${id}.modifiers[${index}].consequences[${actionIndex}]`, action, new Set(Object.keys(content.characters ?? {})), effectIds, error);
+        });
+      }
+      if (modifier.type === "swapPositions") validateTarget(`effects.${id}.modifiers[${index}].target`, modifier.target, new Set(Object.keys(content.characters ?? {})), error);
+    });
   }
   for (const [id, cosmetic] of Object.entries(content.cosmetics ?? {}) as [string, CosmeticDef][]) {
     if (cosmetic.price !== undefined && cosmetic.price < 0) error(`cosmetics.${id}.price`, "must be non-negative");

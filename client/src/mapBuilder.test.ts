@@ -25,6 +25,7 @@ import {
   resolveEventForPlayer,
   resolveTileEventForPlayer,
 } from "@essence/shared/events";
+import { durationStateFromDef, effectRemainingLabel, resolveTargetPlayerIds } from "@essence/shared/consequences";
 import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";
 
 const board: Tile[] = [
@@ -229,6 +230,49 @@ assert.deepEqual(resolveEventActionTargetIds({ playerId: "p2" }, { playerIds: ["
 assert.deepEqual(resolveEventActionTargetIds("winner", { ranking: ["p1", "p2"] }), ["p1"]);
 assert.deepEqual(resolveEventActionTargetIds("loser", { ranking: ["p1", "p2"] }), ["p2"]);
 assert.deepEqual(resolveEventActionTargetIds({ rankFrom: 1, rankTo: 2 }, { ranking: ["p1", "p2", "p3"] }), ["p1", "p2"]);
+assert.deepEqual(resolveTargetPlayerIds("acting", { actingPlayerId: "p1" }), ["p1"]);
+assert.deepEqual(resolveTargetPlayerIds("target", { targetPlayerId: "p2" }), ["p2"]);
+assert.deepEqual(
+  resolveTargetPlayerIds(
+    { nearest: "ahead", from: "acting" },
+    {
+      actingPlayerId: "p1",
+      players: [
+        { id: "p1", position: 3, connected: true },
+        { id: "p2", position: 8, connected: true },
+        { id: "p3", position: 5, connected: true },
+      ],
+    }
+  ),
+  ["p3"]
+);
+assert.deepEqual(
+  resolveTargetPlayerIds(
+    { nearest: "behind", from: { playerId: "p2" } },
+    {
+      players: [
+        { id: "p1", position: 3, connected: true },
+        { id: "p2", position: 8, connected: true },
+        { id: "p3", position: 5, connected: true },
+      ],
+    }
+  ),
+  ["p3"]
+);
+assert.deepEqual(durationStateFromDef({ mode: "rounds", value: 2 }), { mode: "rounds", remaining: 2 });
+assert.equal(effectRemainingLabel({ mode: "untilTriggered" }), "until triggered");
+
+const invalidEffectReference = validateGameContent({
+  ...content,
+  events: {
+    "bad-effect-ref": {
+      name: "Bad effect ref",
+      story: { title: "Bad effect ref" },
+      actions: [{ type: "applyEffect", effectId: "missing-effect", target: "acting" }],
+    },
+  },
+});
+assert.deepEqual(invalidEffectReference.errors, ["events.bad-effect-ref.actions[0].effectId references missing effect missing-effect"]);
 
 const boundedContent: GameContent = {
   ...content,

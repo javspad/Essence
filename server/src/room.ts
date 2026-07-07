@@ -4,6 +4,10 @@ import type {
   AppliedEventAction,
   CharacterDef,
   ClientToServerEvents,
+  EffectDuration,
+  EffectInstance,
+  EffectLifecycleHook,
+  EffectModifier,
   EventAction,
   EventActionTarget,
   EventActivity,
@@ -17,6 +21,13 @@ import type {
   Tile,
 } from "@essence/shared";
 import { characterDisplayName, characterSlotsForContent, resolveCharacterSet } from "@essence/shared/characters";
+import {
+  consequenceLabel,
+  defaultHookForModifier,
+  durationStateFromDef,
+  effectConditionMatches,
+  effectHooksFor,
+} from "@essence/shared/consequences";
 import {
   eventTitle,
   resolveActivityParticipantIds,
@@ -50,6 +61,8 @@ export class GameRoom {
   private resolving = false;
   private skippedTurns = new Set<string>();
   private extraTurnPlayerId: string | null = null;
+  private nextEffectInstanceId = 1;
+  private pendingActivityPreludeActions: AppliedEventAction[] = [];
 
   constructor(io: IO, code: string, name: string, content: GameContent, options: GameRoomOptions = {}) {
     this.io = io;
@@ -84,6 +97,7 @@ export class GameRoom {
       activeEvent: null,
       reveal: null,
       winnerId: null,
+      activeEffects: [],
     };
   }
 
@@ -278,28 +292,72 @@ export class GameRoom {
     const p = this.playerBySocket(socketId);
     if (!active || !p || p.id !== active.id) return;
 
+    const beforeRollActions = this.applyEffectHook("beforeRoll", {
+      actingPlayerId: active.id,
+      landingPlayerId: active.id,
+      targetPlayerId: active.id,
+    });
     const roll = 1 + Math.floor(Math.random() * 6);
     this.state.lastRoll = roll;
+    const afterRollActions = this.applyEffectHook("afterRoll", {
+      actingPlayerId: active.id,
+      landingPlayerId: active.id,
+      targetPlayerId: active.id,
+      roll,
+    });
 
     const finish = this.state.boardLength - 1;
-    active.position = Math.min(active.position + roll, finish);
+    const movement = this.movementForRoll(active, roll);
+    const beforeMovementActions = this.applyEffectHook("beforeMovement", {
+      actingPlayerId: active.id,
+      landingPlayerId: active.id,
+      targetPlayerId: active.id,
+      roll,
+    });
+    active.position = Math.min(active.position + movement, finish);
     this.state.phase = "moving";
     this.broadcast();
 
     const tile = this.state.board[active.position];
+    const afterMovementActions = this.applyEffectHook("afterMovement", {
+      actingPlayerId: active.id,
+      landingPlayerId: active.id,
+      targetPlayerId: active.id,
+      roll,
+    });
+    const cellEnterActions = this.applyEffectHook("onCellEnter", {
+      actingPlayerId: active.id,
+      landingPlayerId: active.id,
+      targetPlayerId: active.id,
+      roll,
+    });
+    const lifecycleActions = [...beforeRollActions, ...afterRollActions, ...beforeMovementActions, ...afterMovementActions, ...cellEnterActions];
 
     // Llegó al final → fin del juego.
     if (tile.type === "finish") {
       this.endGame(active.id);
       return;
     }
-    this.triggerTile(tile, active);
+    this.triggerTile(tile, active, lifecycleActions);
   }
 
-  private triggerTile(tile: Tile, active: Player) {
+  private triggerTile(tile: Tile, active: Player, preludeActions: AppliedEventAction[] = []) {
     const event = resolveTileEventForPlayer(this.content, tile, active);
     if (event) {
-      this.startEvent(event, active);
+      this.startEvent(event, active, preludeActions);
+      return;
+    }
+    if (preludeActions.length) {
+      this.state.activeEvent = {
+        kind: "story",
+        title: "Active effects",
+        text: "Active effects triggered.",
+        story: { title: "Active effects", prompt: "Active effects triggered." },
+        playerId: active.id,
+        actions: preludeActions,
+      };
+      this.state.phase = "event";
+      this.broadcast();
       return;
     }
     // Casillero sin acción (start u otros): pasa el turno.
@@ -308,12 +366,14 @@ export class GameRoom {
 
   // --- Eventos / actividades ----------------------------------------------
 
-  private startEvent(event: ResolvedGameEvent, active: Player) {
+  private startEvent(event: ResolvedGameEvent, active: Player, preludeActions: AppliedEventAction[] = []) {
     this.pendingEvent = event;
     const activity = event.activity;
     if (!activity) {
       const actions = this.applyActions(event.actions ?? [], {
         landingPlayerId: active.id,
+        actingPlayerId: active.id,
+        targetPlayerId: active.id,
         ranking: [active.id],
       });
       this.state.activeEvent = {
@@ -323,12 +383,13 @@ export class GameRoom {
         text: eventText(event),
         story: event.story,
         playerId: active.id,
-        actions,
+        actions: [...preludeActions, ...actions],
       };
       this.state.phase = "event";
       this.broadcast();
       return;
     }
+    this.pendingActivityPreludeActions = preludeActions;
     this.startActivity(event, active, activity);
   }
 
@@ -476,11 +537,21 @@ export class GameRoom {
       }
       const landingPlayerId = mg.protagonistId ?? reveal.ranking[0];
       const promptConfirmed = mg.type !== "prompt" || promptConfirmationComplete(reveal);
+      const activityResultActions = this.applyEffectHook("onActivityResult", {
+        actingPlayerId: landingPlayerId,
+        landingPlayerId,
+        targetPlayerId: landingPlayerId,
+        ranking: reveal.ranking,
+      });
       const actions = event
         ? [
+            ...this.pendingActivityPreludeActions,
+            ...activityResultActions,
             ...(mg.type === "prompt" && promptConfirmed
               ? this.applyActions(event.actions ?? [], {
                   landingPlayerId,
+                  actingPlayerId: landingPlayerId,
+                  targetPlayerId: landingPlayerId,
                   ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
                 })
               : []),
@@ -494,6 +565,7 @@ export class GameRoom {
       this.pendingJudgeVotes.clear();
       this.pendingJudgeSubmissionOwners.clear();
       this.pendingEvent = null;
+      this.pendingActivityPreludeActions = [];
       this.broadcast();
       this.io.to(this.code).emit("minigame:reveal", this.state.reveal);
     } catch (err) {
@@ -542,9 +614,26 @@ export class GameRoom {
       this.endGame(this.state.winnerId);
       return;
     }
+    const endingPlayerId = this.activePlayer()?.id;
+    const turnEndActions = endingPlayerId
+      ? this.applyEffectHook("onTurnEnd", {
+          actingPlayerId: endingPlayerId,
+          landingPlayerId: endingPlayerId,
+          targetPlayerId: endingPlayerId,
+        })
+      : [];
 
     this.state.reveal = null;
-    this.state.activeEvent = null;
+    this.state.activeEvent = turnEndActions.length
+      ? {
+          kind: "story",
+          title: "Active effects",
+          text: "Active effects triggered.",
+          story: { title: "Active effects", prompt: "Active effects triggered." },
+          playerId: endingPlayerId ?? this.state.players[0]?.id ?? "",
+          actions: turnEndActions,
+        }
+      : null;
     this.pendingEvent = null;
     this.state.lastRoll = null;
 
@@ -563,6 +652,7 @@ export class GameRoom {
       const extraIndex = order.indexOf(this.extraTurnPlayerId);
       this.extraTurnPlayerId = null;
       if (extraIndex >= 0) {
+        if (endingPlayerId) this.tickEffectDurations(endingPlayerId, false);
         this.state.activeIndex = extraIndex;
         this.state.phase = "turn";
         this.broadcast();
@@ -585,8 +675,9 @@ export class GameRoom {
     if (advancedRound) {
       this.state.round += 1;
     }
+    if (endingPlayerId) this.tickEffectDurations(endingPlayerId, advancedRound);
     this.state.activeIndex = nextIndex;
-    this.state.phase = "turn";
+    this.state.phase = turnEndActions.length ? "event" : "turn";
     this.broadcast();
   }
 
@@ -597,6 +688,8 @@ export class GameRoom {
       actions.push(
         ...this.applyActions(branch.actions, {
           landingPlayerId,
+          actingPlayerId: landingPlayerId,
+          targetPlayerId: landingPlayerId,
           ranking,
           defaultTarget: branch.when,
         })
@@ -607,19 +700,29 @@ export class GameRoom {
 
   private applyActions(
     actions: EventAction[],
-    context: { landingPlayerId?: string; ranking?: string[]; defaultTarget?: EventActionTarget }
+    context: {
+      landingPlayerId?: string;
+      actingPlayerId?: string;
+      targetPlayerId?: string;
+      ranking?: string[];
+      defaultTarget?: EventActionTarget;
+    }
   ): AppliedEventAction[] {
     const applied: AppliedEventAction[] = [];
     for (const action of actions) {
       const target = action.target ?? context.defaultTarget ?? "landing";
       const targetPlayerIds = this.targetPlayerIds(target, context);
       if (action.type !== "text" && targetPlayerIds.length === 0) continue;
-      applied.push(this.applyAction(action, targetPlayerIds));
+      applied.push(this.applyAction(action, targetPlayerIds, context));
     }
     return applied;
   }
 
-  private applyAction(action: EventAction, targetPlayerIds: string[]): AppliedEventAction {
+  private applyAction(
+    action: EventAction,
+    targetPlayerIds: string[],
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string } = {}
+  ): AppliedEventAction {
     if (action.type === "text") {
       return { type: action.type, targetPlayerIds, text: action.text };
     }
@@ -650,17 +753,268 @@ export class GameRoom {
       for (const id of targetPlayerIds) this.skippedTurns.add(id);
       return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} pierde su próximo turno` };
     }
-    for (const id of targetPlayerIds) this.extraTurnPlayerId = id;
-    return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} juega otro turno` };
+    if (action.type === "extraTurn") {
+      for (const id of targetPlayerIds) this.extraTurnPlayerId = id;
+      return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} juega otro turno` };
+    }
+    if (action.type === "offlineAction") {
+      return {
+        type: action.type,
+        targetPlayerIds,
+        text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)}: ${consequenceLabel(action)}`,
+        offlineAction: action.action,
+        requiresConfirmation: true,
+      };
+    }
+    const effectInstanceIds = this.applyEffectToTargets(action.effectId, targetPlayerIds, {
+      sourcePlayerId: context.actingPlayerId ?? context.landingPlayerId,
+      duration: action.duration,
+    });
+    return {
+      type: action.type,
+      targetPlayerIds,
+      text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} receives ${this.content.effects?.[action.effectId]?.name ?? action.effectId}`,
+      effectId: action.effectId,
+      effectInstanceIds,
+    };
   }
 
-  private targetPlayerIds(target: EventActionTarget, context: { landingPlayerId?: string; ranking?: string[] }): string[] {
+  private targetPlayerIds(
+    target: EventActionTarget,
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string; ranking?: string[] }
+  ): string[] {
     return resolveEventActionTargetIds(target, {
       landingPlayerId: context.landingPlayerId,
+      actingPlayerId: context.actingPlayerId,
+      targetPlayerId: context.targetPlayerId,
       ranking: context.ranking,
       connectedPlayerIds: this.connectedPlayers().map((p) => p.id),
       playerIds: this.state.players.map((p) => p.id),
+      players: this.state.players,
     });
+  }
+
+  private applyEffectToTargets(
+    effectId: string,
+    targetPlayerIds: string[],
+    options: { sourcePlayerId?: string; duration?: EffectDuration } = {}
+  ): string[] {
+    const effect = this.content.effects?.[effectId];
+    if (!effect) return [];
+    const instanceIds: string[] = [];
+    for (const targetPlayerId of targetPlayerIds) {
+      const instance: EffectInstance = {
+        id: `${effectId}-${this.nextEffectInstanceId++}`,
+        effectId,
+        name: effect.name,
+        description: effect.description,
+        sourcePlayerId: options.sourcePlayerId,
+        targetPlayerId,
+        remaining: durationStateFromDef(options.duration ?? effect.duration),
+        hooks: effectHooksFor(effect),
+        modifiers: effect.modifiers ?? [],
+        visualAssetId: effect.visualAssetId,
+        startedRound: this.state.round,
+        startedTurnId: this.activePlayer()?.id,
+      };
+      this.state.activeEffects.push(instance);
+      instanceIds.push(instance.id);
+    }
+    return instanceIds;
+  }
+
+  private movementForRoll(active: Player, roll: number): number {
+    let movement = roll;
+    for (const instance of this.state.activeEffects) {
+      if (instance.targetPlayerId !== active.id) continue;
+      for (const modifier of instance.modifiers) {
+        const hook = modifier.hook ?? defaultHookForModifier(modifier.type);
+        if (modifier.type !== "halfMovement" || hook !== "beforeMovement") continue;
+        movement = halfMovement(movement, modifier.rounding);
+      }
+    }
+    return Math.max(0, movement);
+  }
+
+  private applyEffectHook(
+    hook: EffectLifecycleHook,
+    context: {
+      landingPlayerId?: string;
+      actingPlayerId?: string;
+      targetPlayerId?: string;
+      ranking?: string[];
+      roll?: number;
+    }
+  ): AppliedEventAction[] {
+    const applied: AppliedEventAction[] = [];
+    const expired = new Map<string, "expired" | "triggered">();
+    for (const instance of [...this.state.activeEffects]) {
+      if (!instance.hooks.includes(hook)) continue;
+      const targetPlayer = this.state.players.find((player) => player.id === instance.targetPlayerId);
+      if (!targetPlayer) continue;
+      const hookContext = {
+        ...context,
+        targetPlayerId: instance.targetPlayerId,
+      };
+      for (const modifier of instance.modifiers) {
+        const modifierHook = modifier.hook ?? defaultHookForModifier(modifier.type);
+        if (modifierHook !== hook) continue;
+        const result = this.applyEffectModifier(instance, modifier, hook, hookContext);
+        applied.push(...result.actions);
+        if (result.expire) expired.set(instance.id, result.expire);
+      }
+      if (hook === "onActivityResult") {
+        const effect = this.content.effects?.[instance.effectId];
+        applied.push(
+          ...this.applyActions(effect?.actions ?? [], {
+            ...hookContext,
+            defaultTarget: "target",
+          })
+        );
+      }
+    }
+    for (const [id, reason] of expired) this.expireEffect(id, reason);
+    return applied;
+  }
+
+  private applyEffectModifier(
+    instance: EffectInstance,
+    modifier: EffectModifier,
+    hook: EffectLifecycleHook,
+    context: {
+      landingPlayerId?: string;
+      actingPlayerId?: string;
+      targetPlayerId?: string;
+      ranking?: string[];
+      roll?: number;
+    }
+  ): { actions: AppliedEventAction[]; expire?: "triggered" } {
+    if (modifier.type === "halfMovement") {
+      if (hook !== "beforeMovement") return { actions: [] };
+      return {
+        actions: [
+          {
+            type: "text",
+            targetPlayerIds: [instance.targetPlayerId],
+            text: `${this.effectTargetName(instance)} moves half of the die roll because of ${instance.name}`,
+          },
+        ],
+      };
+    }
+    if (modifier.type === "conditionalConsequences") {
+      if (!effectConditionMatches(modifier.when, { hook, roll: context.roll, phase: this.state.phase })) return { actions: [] };
+      const actions = this.applyActions(modifier.consequences, {
+        ...context,
+        targetPlayerId: instance.targetPlayerId,
+        defaultTarget: "target",
+      });
+      return { actions, expire: modifier.expiresOnTrigger || instance.remaining.mode === "untilTriggered" ? "triggered" : undefined };
+    }
+    if (modifier.type === "skipTurn") {
+      return {
+        actions: this.applyActions([{ type: "skipTurn", target: "target", text: modifier.text }], {
+          ...context,
+          targetPlayerId: instance.targetPlayerId,
+        }),
+      };
+    }
+    if (modifier.type === "extraTurn") {
+      return {
+        actions: this.applyActions([{ type: "extraTurn", target: "target", text: modifier.text }], {
+          ...context,
+          targetPlayerId: instance.targetPlayerId,
+        }),
+      };
+    }
+    if (modifier.type === "coins") {
+      return {
+        actions: this.applyActions([{ type: "coins", value: modifier.value, target: "target", text: modifier.text }], {
+          ...context,
+          targetPlayerId: instance.targetPlayerId,
+        }),
+      };
+    }
+    if (modifier.type === "move") {
+      return {
+        actions: this.applyActions([{ type: "move", delta: modifier.delta, target: "target", text: modifier.text }], {
+          ...context,
+          targetPlayerId: instance.targetPlayerId,
+        }),
+      };
+    }
+    if (modifier.type === "moveTo") {
+      return {
+        actions: this.applyActions([{ type: "moveTo", tileId: modifier.tileId, target: "target", text: modifier.text }], {
+          ...context,
+          targetPlayerId: instance.targetPlayerId,
+        }),
+      };
+    }
+    if (modifier.type === "swapPositions") {
+      const otherIds = this.targetPlayerIds(modifier.target, { ...context, targetPlayerId: instance.targetPlayerId });
+      const target = this.state.players.find((player) => player.id === instance.targetPlayerId);
+      const other = this.state.players.find((player) => otherIds.includes(player.id));
+      if (!target || !other) return { actions: [] };
+      const targetPosition = target.position;
+      target.position = other.position;
+      other.position = targetPosition;
+      this.recordFinishWinner([target.id, other.id]);
+      return {
+        actions: [
+          {
+            type: "move",
+            targetPlayerIds: [target.id, other.id],
+            text: modifier.text ?? `${target.name} swaps positions with ${other.name}`,
+          },
+        ],
+      };
+    }
+    const nearest = this.targetPlayerIds({ nearest: modifier.direction, from: "target" }, { ...context, targetPlayerId: instance.targetPlayerId });
+    const target = this.state.players.find((player) => player.id === instance.targetPlayerId);
+    const nearestPlayer = this.state.players.find((player) => nearest.includes(player.id));
+    if (!target || !nearestPlayer) return { actions: [] };
+    target.position = nearestPlayer.position;
+    this.recordFinishWinner([target.id]);
+    return {
+      actions: [
+        {
+          type: "moveTo",
+          targetPlayerIds: [target.id],
+          text: modifier.text ?? `${target.name} moves to the nearest player ${modifier.direction}`,
+          tileId: target.position,
+        },
+      ],
+    };
+  }
+
+  private tickEffectDurations(endingPlayerId: string, advancedRound: boolean) {
+    for (const instance of [...this.state.activeEffects]) {
+      if (instance.remaining.mode === "game" || instance.remaining.mode === "untilTriggered") continue;
+      if (instance.remaining.mode === "turns") {
+        if (instance.targetPlayerId !== endingPlayerId) continue;
+        if (instance.startedRound === this.state.round && instance.startedTurnId === endingPlayerId) continue;
+        instance.remaining = { ...instance.remaining, remaining: instance.remaining.remaining - 1 };
+      }
+      if (instance.remaining.mode === "rounds") {
+        if (!advancedRound) continue;
+        if (instance.startedRound === this.state.round) continue;
+        instance.remaining = { ...instance.remaining, remaining: instance.remaining.remaining - 1 };
+      }
+      if ("remaining" in instance.remaining && instance.remaining.remaining <= 0) {
+        this.expireEffect(instance.id, "expired");
+      }
+    }
+  }
+
+  private expireEffect(instanceId: string, reason: "expired" | "triggered") {
+    const instance = this.state.activeEffects.find((effect) => effect.id === instanceId);
+    if (!instance) return;
+    this.state.activeEffects = this.state.activeEffects.filter((effect) => effect.id !== instanceId);
+    this.io.to(this.code).emit("effect:ended", { effectInstance: instance, reason });
+  }
+
+  private effectTargetName(instance: EffectInstance): string {
+    return this.state.players.find((player) => player.id === instance.targetPlayerId)?.name ?? instance.targetPlayerId;
   }
 
   private endGame(winnerId: string) {
@@ -725,6 +1079,13 @@ function valueText(ids: string[], players: Player[], value: number, noun: string
 function moveSummary(ids: string[], players: Player[], delta: number): string {
   const verb = delta >= 0 ? "avanza" : "retrocede";
   return `${namesFor(ids, players)} ${verb} ${Math.abs(delta)} casillero(s)`;
+}
+
+function halfMovement(value: number, rounding: "floor" | "ceil" | "round" = "ceil"): number {
+  const half = value / 2;
+  if (rounding === "floor") return Math.floor(half);
+  if (rounding === "round") return Math.round(half);
+  return Math.ceil(half);
 }
 
 function clamp(value: number, min: number, max: number): number {

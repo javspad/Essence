@@ -291,22 +291,33 @@ export interface EventActivity {
   rigged?: RiggedConfig;
 }
 
-export type EventActionTarget =
+export type TargetSelector =
   | "landing"
+  | "acting"
+  | "target"
   | "winner"
   | "loser"
   | "everyone"
   | { playerId: string }
   | { rank: number }
-  | { rankFrom: number; rankTo: number };
+  | { rankFrom: number; rankTo: number }
+  | { nearest: "ahead" | "behind"; from?: "landing" | "acting" | "target" | { playerId: string } };
 
-export type EventAction =
+export type EventActionTarget = TargetSelector;
+
+export type OfflineActionKind = "takeShot" | "custom";
+
+export type ConsequenceDef =
   | { type: "text"; text: string; target?: EventActionTarget }
   | { type: "coins"; value: number; target?: EventActionTarget; text?: string }
   | { type: "move"; delta: number; target?: EventActionTarget; text?: string }
   | { type: "moveTo"; tileId: number; target?: EventActionTarget; text?: string }
   | { type: "skipTurn"; target?: EventActionTarget; text?: string }
-  | { type: "extraTurn"; target?: EventActionTarget; text?: string };
+  | { type: "extraTurn"; target?: EventActionTarget; text?: string }
+  | { type: "offlineAction"; action: OfflineActionKind; target?: EventActionTarget; text?: string; confirmation?: EventActivity["confirmation"] }
+  | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string; duration?: EffectDuration };
+
+export type EventAction = ConsequenceDef;
 
 export interface EventOutcomeBranch {
   id?: string;
@@ -359,6 +370,43 @@ export type EffectDuration =
   | { mode: "rounds"; value: number }
   | { mode: "untilTriggered" }
   | { mode: "game" };
+
+export type EffectDurationState =
+  | { mode: "turns"; remaining: number }
+  | { mode: "rounds"; remaining: number }
+  | { mode: "untilTriggered" }
+  | { mode: "game" };
+
+export type EffectLifecycleHook =
+  | "beforeRoll"
+  | "afterRoll"
+  | "beforeMovement"
+  | "afterMovement"
+  | "onCellEnter"
+  | "onActivityResult"
+  | "onTurnEnd";
+
+export type EffectCondition = {
+  rollEquals?: number;
+  phase?: Phase;
+};
+
+export type EffectModifier =
+  | { type: "halfMovement"; hook?: Extract<EffectLifecycleHook, "beforeMovement">; rounding?: "floor" | "ceil" | "round" }
+  | { type: "skipTurn"; hook?: EffectLifecycleHook; text?: string }
+  | { type: "extraTurn"; hook?: EffectLifecycleHook; text?: string }
+  | { type: "coins"; hook?: EffectLifecycleHook; value: number; text?: string }
+  | { type: "move"; hook?: EffectLifecycleHook; delta: number; text?: string }
+  | { type: "moveTo"; hook?: EffectLifecycleHook; tileId: number; text?: string }
+  | { type: "swapPositions"; hook?: EffectLifecycleHook; target: EventActionTarget; text?: string }
+  | { type: "moveToNearest"; hook?: EffectLifecycleHook; direction: "ahead" | "behind"; text?: string }
+  | {
+      type: "conditionalConsequences";
+      hook?: EffectLifecycleHook;
+      when?: EffectCondition;
+      consequences: EventAction[];
+      expiresOnTrigger?: boolean;
+    };
 
 export interface FaceAnchor {
   x: number;
@@ -435,7 +483,10 @@ export interface EffectDef {
   name: string;
   description?: string;
   duration: EffectDuration;
+  hooks?: EffectLifecycleHook[];
+  modifiers?: EffectModifier[];
   actions?: EventAction[];
+  visualAssetId?: string;
 }
 
 export interface ArtifactDef {
@@ -490,6 +541,21 @@ export interface Player {
   faceAnchors?: Record<string, FaceAnchor>;
   bodyAnchors?: Record<string, FaceAnchor>;
   cosmeticIds?: string[];
+}
+
+export interface EffectInstance {
+  id: string;
+  effectId: string;
+  name: string;
+  description?: string;
+  sourcePlayerId?: string;
+  targetPlayerId: string;
+  remaining: EffectDurationState;
+  hooks: EffectLifecycleHook[];
+  modifiers: EffectModifier[];
+  visualAssetId?: string;
+  startedRound: number;
+  startedTurnId?: string;
 }
 
 export type Phase =
@@ -560,6 +626,7 @@ export interface GameState {
   activeEvent: ActiveEvent | null;
   reveal: RevealPayload | null;
   winnerId: string | null;
+  activeEffects: EffectInstance[];
 }
 
 // ---------------------------------------------------------------------------
@@ -580,6 +647,10 @@ export interface AppliedEventAction {
   text: string;
   value?: number;
   tileId?: number;
+  effectId?: string;
+  effectInstanceIds?: string[];
+  offlineAction?: OfflineActionKind;
+  requiresConfirmation?: boolean;
 }
 
 export interface RevealEntry {
@@ -657,6 +728,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   state: (state: GameState) => void;
   "room:closed": (payload: { message: string }) => void;
+  "effect:ended": (payload: { effectInstance: EffectInstance; reason: "expired" | "triggered" }) => void;
   "minigame:start": (payload: {
     id: string;
     type: EventActivityType;
