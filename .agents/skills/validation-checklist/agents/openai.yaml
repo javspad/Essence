@@ -1,0 +1,4 @@
+interface:
+  display_name: "Validation Checklist"
+  short_description: "Manual UI validation checklist after changes"
+  default_prompt: "Use $validation-checklist to write a manual checklist for validating the latest changes from the UI."
