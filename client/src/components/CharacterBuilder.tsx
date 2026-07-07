@@ -37,6 +37,78 @@ const EXAMPLE_COSMETICS: Record<string, CosmeticDef> = {
     assetId: "hat",
     anchor: "head",
   },
+  "mustache-handlebar": {
+    id: "mustache-handlebar",
+    name: "Bigote manubrio",
+    description: "Bigote con las puntas paraditas.",
+    anchor: "mouth",
+  },
+  "mustache-pencil": {
+    id: "mustache-pencil",
+    name: "Bigote finito",
+    description: "Bigote fino tipo lápiz.",
+    anchor: "mouth",
+  },
+  "top-hat": {
+    id: "top-hat",
+    name: "Galera",
+    description: "Galera negra elegante.",
+    anchor: "head",
+  },
+  "cap": {
+    id: "cap",
+    name: "Gorra",
+    description: "Gorra con visera.",
+    anchor: "head",
+  },
+  "field-hat": {
+    id: "field-hat",
+    name: "Sombrero de campo",
+    description: "Sombrero de ala ancha.",
+    anchor: "head",
+  },
+  "coin-crown": {
+    id: "coin-crown",
+    name: "Corona de monedas",
+    description: "Corona dorada de monedas.",
+    anchor: "head",
+  },
+  "gold-chain": {
+    id: "gold-chain",
+    name: "Cadena de oro",
+    description: "Cadena de oro al cuello.",
+    anchor: "chest",
+  },
+  "dice-necklace": {
+    id: "dice-necklace",
+    name: "Collar de dados",
+    description: "Collar con un dado colgante.",
+    anchor: "chest",
+  },
+  "wristwatch": {
+    id: "wristwatch",
+    name: "Reloj de muñeca",
+    description: "Reloj en la muñeca.",
+    anchor: "rightHand",
+  },
+  "tuxedo": {
+    id: "tuxedo",
+    name: "Smoking",
+    description: "Traje de smoking negro con moño.",
+    anchor: "chest",
+  },
+  "pet-dog": {
+    id: "pet-dog",
+    name: "Perrito",
+    description: "Perrito que salta al lado tuyo.",
+    anchor: "back",
+  },
+  "pet-cat": {
+    id: "pet-cat",
+    name: "Gatito",
+    description: "Gatito que salta al lado tuyo.",
+    anchor: "back",
+  },
 };
 
 const BASE_CONTENT = withExampleCosmetics(normalizeContentSchema(seedContent));
