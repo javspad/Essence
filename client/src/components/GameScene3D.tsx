@@ -851,7 +851,6 @@ function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdv
             );
           })}
         </ol>
-        <AppliedActions actions={reveal.actions} />
         <ActionButton disabled={!canAdvance} onClick={onNext}>{canAdvance ? "Siguiente turno →" : "Esperando..."}</ActionButton>
       </div>
     </CenterOverlay>
