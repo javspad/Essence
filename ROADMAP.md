@@ -70,7 +70,7 @@ Every slice must leave the project in a state that can be inspected by a human.
 | Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, and map props. |
 | Event Builder | Existing, with legacy component/file names | `/event-builder` (`/minigame-builder` legacy alias) | Edit events, activities, stories, and consequences. |
 | Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
-| Character Builder | Existing | `/character-builder` | Edit characters, face photos, anchors, sets, and traits. |
+| Character Builder | Existing | `/character-builder` | Edit the fixed `content.characters` list, face photos, anchors, and traits. |
 | Artifact Builder | Planned | `/artifact-builder` | Edit artifact rules, rarity, effects, visuals, animations, and shop simulation. |
 | Cosmetic Builder | Existing | `/cosmetic-builder` | Edit visual-only items, prices, anchor placement, transforms, compatibility, and previews. |
 | Shop UI | Partial | In-game shop button on the 3D board | Buy/equip cosmetics now; artifact shop tab remains planned for `S4`. |
@@ -85,7 +85,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S0` Result and confirmation fixes | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S1` Domain language and schema hardening | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S-CAM` Map camera and character navigation | [x] | `S1` | `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright board-camera QA; `git diff --check`. |
-| `S2` Character identity and character sets | [x] | `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright character flow QA; `git diff --check`. |
+| `S2` Character identity and character list | [x] | `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright character flow QA; `git diff --check`. |
 | `S3` Reusable consequences and effects | [ ] | `S1`, `S-CAM` | Effect-engine tests and one configured duration effect. |
 | `S4` Artifact catalog, builder, and shop | [ ] | `S3`, `S-CAM` | Artifact builder route plus in-game shop purchase/use flow. |
 | `S5` Cosmetics and face anchors | [x] | `S2` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright S5 builder/shop QA; `git diff --check`. |
@@ -134,7 +134,7 @@ flowchart TD
   R --> B["Slice 1: Domain language and schema hardening"]
   A --> B
   B --> CAM["Slice S-CAM: Map camera and character navigation"]
-  CAM --> C["Slice 2: Character identity and character sets"]
+  CAM --> C["Slice 2: Character identity and character list"]
   CAM --> D["Slice 3: Reusable consequences and effects"]
   D --> E["Slice 4: Artifact catalog, builder, and shop"]
   C --> F["Slice 5: Cosmetics and face anchors"]
@@ -202,7 +202,7 @@ Suggested fields:
 
 - `GameContent.events`: existing event catalog.
 - `GameContent.assetCatalog`: current map prop assets.
-- Future `GameContent.characters`, `characterSets`, `cosmetics`, `artifacts`, and `effects`.
+- Future `GameContent.characters`, `cosmetics`, `artifacts`, and `effects`; legacy `characterSets` are import-only compatibility.
 
 Verification notes:
 
@@ -270,16 +270,16 @@ Acceptance:
 - Camera modes work during idle turns, movement, event/reveal overlays, and after turn changes without mutating server state.
 - The implementation creates reusable hooks/helpers for future artifact target selection and effect inspection.
 
-## Slice 2 (`S2`): Character Identity And Character Sets
+## Slice 2 (`S2`): Character Identity And Character List
 
-Goal: turn fixed player definitions into reusable configurable characters.
+Goal: turn fixed player definitions into reusable configurable characters. `S5` follow-up cleanup removed active character-set authoring/runtime; the saved `content.characters` object is now the single character list.
 
 Tasks:
 
 - [x] `S2-01` Add `CharacterDef` with id, display name, color, groom flag, face photo reference, face anchors, default loadout, and default traits.
-- [x] `S2-02` Add `CharacterSetDef` so room creation can choose which preloaded characters may join.
-- [x] `S2-03` Update room creation to include a selected character set.
-- [x] `S2-04` Update join logic so a player claims a character slot from the selected set.
+- [x] `S2-02` Add character-list compatibility for room creation and joining. Earlier `CharacterSetDef` scaffolding is now legacy import-only.
+- [x] `S2-03` Update room creation to use the saved character list.
+- [x] `S2-04` Update join logic so a player claims a character slot from the saved list.
 - [x] `S2-05` Build a Character Builder for creating/editing characters.
 - [x] `S2-06` Make the Character Builder reachable from `/character-builder` and the tools surface.
 - [x] `S2-07` Support downloading and importing the character JSON.
@@ -288,24 +288,25 @@ Tasks:
 
 Face anchor fields:
 
-- `leftEye`: x, y, angle.
-- `rightEye`: x, y, angle.
-- `mouth`: x, y, angle.
-- Optional body anchors for chest, head, hands, and back.
+- `leftEye`: x, y, z.
+- `rightEye`: x, y, z.
+- `mouth`: x, y, z.
+- Optional body anchors for head, chest, hands, and back, also using x, y, z.
 
 Verification notes:
 
-- Added shared character contracts and helpers for `CharacterDef`, `CharacterSetDef`, visible room character slots, and character set summaries.
-- `normalizeContentSchema` now migrates legacy `players` into default `characters` and `characterSets`, while Zod-backed character validation checks anchors, set membership, default loadouts, and trait/cosmetic references.
-- Seeded `shared/content.json` with explicit default characters, face/body anchors, empty loadouts, empty traits, and the `Despedida original` character set.
-- Room creation accepts a selected character set; `/api/character-sets` and `/api/rooms` expose set/slot summaries; join/create flows claim a character slot and prevent duplicate connected claims.
-- Added `/character-builder` with character editing, face/body anchor editing, set membership editing, local draft persistence, JSON import/export, and a `/tools` link.
+- Added shared character contracts and helpers for `CharacterDef` and visible room character slots.
+- `normalizeContentSchema` now migrates legacy `players` into default `characters`, strips legacy `characterSets`, and validates anchors, default loadouts, traits, and cosmetic references.
+- Seeded `shared/content.json` with explicit default characters, tuned face/body anchors, empty loadouts, and empty traits.
+- Room creation and join/create flows use the fixed saved character list and prevent duplicate connected claims.
+- Added `/character-builder` with character editing, face/body anchor editing, local draft persistence, JSON import/export, Save-to-PC support, and a `/tools` link.
+- Character Builder reset now uses tuned Javi-derived anchor defaults for every character, including Head at `x: 0.5`, `y: 0.1`, `z: -0.06`.
 - Manual QA path: open `/tools`, navigate to `/character-builder`, verify import/export JSON, create a room with `Despedida original`, join as another character slot, start the board, confirm tokens render, and confirm no free-camera control appears.
 - Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright character flow QA with screenshots at `/tmp/essence-s2-character-builder.png` and `/tmp/essence-s2-board.png`; `git diff --check`.
 
 Acceptance:
 
-- A host can create a room with a chosen character set.
+- A host can create a room from the saved character list.
 - A character can be imported/exported, edited, joined, and rendered with existing board tokens.
 - Character data can be changed through JSON and through the builder UI.
 
@@ -398,14 +399,18 @@ Verification notes:
 - Seeded configurable cosmetics for glasses, moustache, hat, beard, and chest tattoo/piercing-style body attachments with prices, anchors, transforms, and preview metadata.
 - Room state now exposes `cosmetics`, `ownedCosmeticIds`, and equipped `cosmeticIds`; default character loadouts start owned/equipped, and socket actions buy/equip cosmetics for the current room/session.
 - Added `/cosmetic-builder` with catalog editing, anchor/transform controls, compatibility controls, JSON import/export, and preview across multiple characters.
-- Follow-up Cosmetic Builder QA added ordered `anchors[]` support for two-anchor cosmetics such as goggles, an anchor visibility toggle, and anchor-relative placement labels.
+- Follow-up Cosmetic Builder QA added ordered `anchors[]` support for two-anchor cosmetics such as goggles, an anchor visibility toggle, anchor-relative placement controls, and reusable `TokenPreviewer` preview movement/view controls.
+- Cosmetic Builder now reads the same fixed character list and Character Builder draft data, so preview characters use the current face photos and anchors instead of stale scaffold data.
+- Character Builder and Cosmetic Builder both have Save actions that persist the browser draft and request a local `shared/content.json` write through the dev save endpoint.
 - Updated Character Builder previews/default loadouts to render from the shared cosmetic catalog.
 - Removed Character Builder's duplicated accessory catalog/editor surface so cosmetics are authored from the shared catalog in Cosmetic Builder.
 - Removed the character set authoring/runtime path; saved `content.characters` is now the single character list used by the builder, room creation, and room slots, while legacy `characterSets` imports are stripped during normalization.
+- Face/body anchor editing now uses `x`, `y`, and `z` coordinates instead of anchor angle; anchor resets migrate old generated defaults to the tuned defaults while preserving custom anchor edits.
+- Tuned default anchors are applied across the saved content and reset controls, including Head at `x: 0.5`, `y: 0.1`, `z: -0.06`, plus reset buttons for all anchors.
 - Updated 3D token rendering so cosmetics are data-driven and anchored to face/body anchors without affecting movement, events, minigames, artifacts, effects, scoring, or camera behavior.
 - Added an in-game shop button with a Cosmetics tab for buy/equip and a separate Artifacts tab stub for future `S4` integration.
 - Manual/Playwright QA screenshots: `/tmp/essence-s5-tools.png`, `/tmp/essence-s5-cosmetic-builder.png`, `/tmp/essence-s5-character-builder.png`, `/tmp/essence-s5-shop.png`, `/tmp/essence-s5-cosmetic-builder-desktop.png`, `/tmp/essence-s5-cosmetic-builder-mobile.png`, `/tmp/essence-s5-board-canvas.png`.
-- Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing large chunk warning only); content load smoke via `npx tsx`; Playwright S5 builder/shop QA against the built app on `PORT=3002`; Playwright follow-up QA on `http://localhost:5174/cosmetic-builder` and `/character-builder`; desktop/mobile canvas screenshot pixel checks; `git diff --check`.
+- Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing large chunk warning only); content validation/load smoke via `npx tsx`; Playwright S5 builder/shop QA against the built app on `PORT=3002`; Playwright follow-up QA on local Character/Cosmetic Builder pages for reset, draft migration, save, preview character source, anchor visibility, and two-anchor cosmetics; desktop/mobile canvas screenshot pixel checks; `git diff --check`.
 
 Merge notes:
 
@@ -564,10 +569,10 @@ These are captured from the notes and should be handled in Slice 0 unless a task
 
 - Character Builder.
 - Face photos.
-- Face anchors for eyes and mouth, including position and angle.
+- Face/body anchors for eyes, mouth, head, chest, hands, and back, including x/y/z placement.
 - Default preloaded characters.
 - Character JSON download/import/edit.
-- Room creation with selectable character set.
+- Room creation from the saved character list.
 - Character traits/default effects.
 
 ### Cosmetics
@@ -629,8 +634,8 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 | Show Whack points per player | `S0` | Whack payload already submits hits; reveal needs to expose it. |
 | Group confirmation for prendas | `S0`, `S3` | Starts as bug fix, becomes reusable confirmation consequence. |
 | Voting in input minigame | `S0`, `S3` | Likely combined prompt/vote activity or configurable resolver chain. |
-| Better characters and character builder | `S2` | Includes defaults, room character sets, JSON import/export. |
-| Face photo, eyes, mouth, anchor angle | `S2`, `S5` | Character anchors power cosmetics and visuals. |
+| Better characters and character builder | `S2` | Includes defaults, fixed saved character list, JSON import/export, and Save-to-PC support. |
+| Face photo, eyes, mouth, body anchors, anchor z | `S2`, `S5` | Character anchors power cosmetics and visuals. |
 | Default preloaded players/characters | `S2` | Migrates current `content.players`. |
 | Click characters, find them on the map, full-map overview | `S-CAM` | Adds board inspection before artifacts, effects, and richer character flows depend on it. |
 | Cosmetic system | `S5` | Visual-only, buy/equip, anchored previews. |
@@ -654,7 +659,6 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 interface GameContent {
   players: PlayerDef[]; // legacy compatibility
   characters?: Record<string, CharacterDef>;
-  characterSets?: Record<string, CharacterSetDef>;
   events?: Record<string, GameEventDef>;
   effects?: Record<string, EffectDef>;
   artifacts?: Record<string, ArtifactDef>;
@@ -668,7 +672,8 @@ interface CharacterDef {
   color?: string;
   groom?: boolean;
   facePhoto?: ContentAssetRef;
-  anchors?: CharacterAnchors;
+  faceAnchors?: Record<string, FaceAnchor>;
+  bodyAnchors?: Record<string, FaceAnchor>;
   defaultCosmetics?: string[];
   traits?: CharacterTraitDef[];
 }
