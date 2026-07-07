@@ -14,6 +14,10 @@ export interface TokenAnchorSurface {
 
 export const TOKEN_PREVIEW_GROUP_POSITION: [number, number, number] = [0, -0.78, 0];
 export const TOKEN_PREVIEW_GROUP_SCALE = 2.35;
+export const TOKEN_FACE_SURFACE_CENTER: [number, number, number] = [0, 0.506, 0.136];
+export const TOKEN_FACE_SURFACE_NORMAL: [number, number, number] = [0, 0.15, 0.989];
+export const TOKEN_FACE_SURFACE_UP: [number, number, number] = [0, 0.989, -0.15];
+export const TOKEN_FACE_ANCHOR_SPAN = 0.74;
 
 export function defaultTokenAnchor(id: string): FaceAnchor {
   switch (id) {
@@ -44,11 +48,15 @@ export function tokenAnchorSurface(handle: TokenAnchorHandle, anchor: FaceAnchor
 }
 
 function faceAnchorSurface(anchor: FaceAnchor): TokenAnchorSurface {
-  const x = (anchor.x - 0.5) * 0.56;
-  const up = (0.5 - anchor.y) * 0.56;
+  const x = (anchor.x - 0.5) * TOKEN_FACE_ANCHOR_SPAN;
+  const up = (0.5 - anchor.y) * TOKEN_FACE_ANCHOR_SPAN;
   return {
-    position: [x, 0.505 + up * 0.98, 0.159 - up * 0.18],
-    normal: [0, 0.18, 0.984],
+    position: [
+      x,
+      TOKEN_FACE_SURFACE_CENTER[1] + up * TOKEN_FACE_SURFACE_UP[1],
+      TOKEN_FACE_SURFACE_CENTER[2] + up * TOKEN_FACE_SURFACE_UP[2],
+    ],
+    normal: TOKEN_FACE_SURFACE_NORMAL,
   };
 }
 
