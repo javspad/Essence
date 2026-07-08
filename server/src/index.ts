@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
+import { MAX_ROOM_NAME_LENGTH } from "@essence/shared";
 import type { CharacterSlot, ClientToServerEvents, RoomSummary, ServerToClientEvents } from "@essence/shared";
 import { characterSlotsForContent } from "@essence/shared/characters";
 import { content } from "./content.js";
@@ -58,7 +59,7 @@ io.on("connection", (socket) => {
       return;
     }
     const code = genCode();
-    const room = new GameRoom(io, code, trimmedRoom.slice(0, 40), content);
+    const room = new GameRoom(io, code, trimmedRoom.slice(0, MAX_ROOM_NAME_LENGTH), content);
     rooms.set(code, room);
     socket.join(code);
     socketIndex.set(socket.id, code);

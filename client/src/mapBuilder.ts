@@ -13,10 +13,10 @@ import type {
   MapTerrain,
   Tile,
   TileLayout,
-  TileType,
 } from "@essence/shared";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import { defaultAssetFootprint } from "./artifactProjection";
+import type { TileType } from "@essence/shared";
 
 export type BuilderTool = "select" | "cell" | "route" | "artifact" | "terrace" | "json";
 
@@ -86,19 +86,7 @@ export type MapBuilderEvent =
   | { type: "delete_selected" }
   | { type: "replace_content"; content: BuilderContent };
 
-export const TILE_TYPES: TileType[] = [
-  "start",
-  "finish",
-  "minigame",
-  "trivia",
-  "vote",
-  "judge",
-  "dare",
-  "fate",
-  "groom",
-  "reaction",
-  "estimate",
-];
+export { TILE_TYPES } from "@essence/shared";
 
 export const TERRAIN_TYPES: MapTerrain[] = ["stone", "grass", "sand", "water", "asphalt", "magic"];
 

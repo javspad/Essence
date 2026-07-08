@@ -7,18 +7,28 @@
 // Tablero / contenido
 // ---------------------------------------------------------------------------
 
-export type TileType =
-  | "start"
-  | "finish"
-  | "minigame"
-  | "trivia"
-  | "vote"
-  | "judge"
-  | "dare"
-  | "fate"
-  | "groom"
-  | "reaction"
-  | "estimate";
+/** Max characters for a room's display name (shared by the server clamp and the client input). */
+export const MAX_ROOM_NAME_LENGTH = 40;
+
+/** App title shown in the lobby / connection badge. */
+export const APP_TITLE = "Despedida de Javi";
+
+/** Single source of truth for the tile types (drives both the `TileType` union and runtime validation). */
+export const TILE_TYPES = [
+  "start",
+  "finish",
+  "minigame",
+  "trivia",
+  "vote",
+  "judge",
+  "dare",
+  "fate",
+  "groom",
+  "reaction",
+  "estimate",
+] as const;
+
+export type TileType = (typeof TILE_TYPES)[number];
 
 export interface TileLayout {
   /** coordenadas visuales de casillero; x/y son plano de tablero, z es altura opcional */
@@ -277,6 +287,11 @@ export interface EventStory {
 export interface EventActivity {
   type: EventActivityType;
   skin?: string;
+  /**
+   * Per-activity-type payload; shape depends on `type` and is narrowed via casts in the engine.
+   * e.g. estimate: `{ answer: number }`, buzzer/reaction: `{ options?: string[]; answer?: string }`,
+   * judge: `{ persona?: string; loseFlavor?: string }`, vote: `{ options?: string[] }`.
+   */
   content?: unknown;
   /** @deprecated Use activity.type: "hostPick" | "selfTap" | "vote" instead. */
   resolutionMode?: EventResolutionMode;

@@ -146,7 +146,7 @@ export default function CharacterBuilder() {
       setJsonModalOpen(false);
       setSaveStatus("Imported");
     } catch {
-      window.alert("JSON invalido");
+      window.alert("Invalid JSON");
     }
   };
 

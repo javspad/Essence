@@ -94,7 +94,7 @@ export function useGame() {
     socket.emit("room:create", { name, roomName, characterId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
-        persist(res.code, name, res.playerId, characterId ?? res.playerId);
+        persist(res.code, name, res.playerId, characterId);
       } else setError(res.error);
     });
   }, []);
@@ -104,7 +104,7 @@ export function useGame() {
     socket.emit("room:join", { code: code.toUpperCase(), name, characterId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
-        persist(res.code, name, res.playerId, characterId ?? res.playerId);
+        persist(res.code, name, res.playerId, characterId);
       } else setError(res.error);
     });
   }, []);
