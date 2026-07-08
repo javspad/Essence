@@ -18,6 +18,7 @@ import type {
   PlayerDef,
   Tile,
 } from "./types";
+import { TILE_TYPES } from "./types";
 import { EVENT_ACTIVITY_TYPES, normalizeGameContentEvents } from "./events";
 import { playerDefToCharacter } from "./characters";
 import {
@@ -424,6 +425,9 @@ function validateMapDefinition(
 
 function validateTile(path: string, tile: Tile, error: (path: string, message: string) => void) {
   if (!Number.isInteger(tile.id)) error(`${path}.id`, "must be an integer");
+  if (!(TILE_TYPES as readonly string[]).includes(tile.type)) {
+    error(`${path}.type`, `is not a supported tile type: ${tile.type}`);
+  }
   if (!tile.layout) {
     error(`${path}.layout`, "is required");
     return;
@@ -528,6 +532,8 @@ function validateFutureCatalogReferences(
     }
   }
   for (const [id, artifact] of Object.entries(content.artifacts ?? {}) as [string, ArtifactDef][]) {
+    if (!artifact.name?.trim()) error(`artifacts.${id}.name`, "must not be empty");
+    if (artifact.price !== undefined && artifact.price < 0) error(`artifacts.${id}.price`, "must be non-negative");
     artifact.consequences?.forEach((action, index) => {
       validateAction(`artifacts.${id}.consequences[${index}]`, action, targetIds, effectIds, error);
     });
