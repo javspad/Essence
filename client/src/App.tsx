@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { APP_TITLE } from "@essence/shared";
 import type { GameState, Player } from "@essence/shared";
 import { useGame } from "./useGame";
 import { useBoardPresentation } from "./useBoardPresentation";
@@ -178,7 +179,7 @@ function SceneLoading({ code }: { code: string }) {
 function ConnBadge({ connected, code, roomName }: { connected: boolean; code?: string; roomName?: string }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 text-xs text-white/60">
-      <span>{code ? `${roomName ?? "Sala"} · ${code}` : "Despedida de Javi"}</span>
+      <span>{code ? `${roomName ?? "Sala"} · ${code}` : APP_TITLE}</span>
       <Badge className={connected ? "border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]" : "border-[#fecaca] bg-[#fb7185] px-2 py-1 text-[9px] text-[#2a070b]"}>
         {connected ? "● en línea" : "● reconectando..."}
       </Badge>

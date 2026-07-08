@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Check, LogIn, RefreshCw, Users, Wrench } from "lucide-react";
+import { APP_TITLE, MAX_ROOM_NAME_LENGTH } from "@essence/shared";
 import type { CharacterSlot, RoomSummary } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
@@ -23,7 +24,7 @@ export default function JoinScreen({ error, onCreate, onJoin }: Props) {
       <Card font="normal" className="w-full border-[#fff4bf] bg-[#171120]/92 text-[#fff8d6] shadow-[0_20px_60px_rgb(0_0_0/0.38)]">
         <CardHeader font="normal" className="text-center">
           <div className="mb-2 text-5xl">🎲🍻</div>
-          <CardTitle font="normal" className="text-3xl font-black">Despedida de Javi</CardTitle>
+          <CardTitle font="normal" className="text-3xl font-black">{APP_TITLE}</CardTitle>
           <p className="text-sm font-bold text-[#c7bddc]">15 años de amistad, una noche de joda</p>
         </CardHeader>
 
@@ -126,7 +127,7 @@ function CreateView({
         value={roomName}
         onChange={(e) => setRoomName(e.target.value)}
         placeholder="Ej. Mesa de Javi"
-        maxLength={40}
+        maxLength={MAX_ROOM_NAME_LENGTH}
         className="h-14 w-full bg-[#100b1a] text-center text-lg font-black text-[#fff8d6]"
       />
       <div className="space-y-2">
