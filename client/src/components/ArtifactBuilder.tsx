@@ -122,7 +122,7 @@ export default function ArtifactBuilder() {
     setImportText("");
     setJsonOpen(false);
     setSimulatedOffers([]);
-    setSaveStatus(saved ? "Restored saved draft" : "Reset to content.json");
+    setSaveStatus(saved ? "Recovered browser draft" : "Loaded content.json");
   };
 
   const copyJson = async () => {
@@ -138,7 +138,7 @@ export default function ArtifactBuilder() {
       setSaveStatus("Saved to content.json");
     } catch (error) {
       console.error("Unable to save content.json", error);
-      setSaveStatus(stored ? "Saved in browser" : "Save failed");
+      setSaveStatus(stored ? "Browser backup only" : "Save failed");
     }
   };
 
@@ -524,7 +524,7 @@ function JsonModal({
           <h2 className="text-lg font-black text-white">Import JSON</h2>
           <textarea value={importText} onChange={(event) => setImportText(event.target.value)} className="mt-3 h-[56dvh] w-full rounded-md border border-white/10 bg-[#071018] p-3 font-mono text-xs text-slate-200" />
           <div className="mt-3 flex flex-wrap justify-end gap-2">
-            <button onClick={onReset} className="builder-button danger">Reset to saved draft</button>
+            <button onClick={onReset} className="builder-button danger">Recover browser draft</button>
             <button onClick={onClose} className="builder-button">Close</button>
             <button onClick={onImport} className="builder-button preview">Import</button>
           </div>
@@ -589,7 +589,7 @@ function isFullContent(value: unknown): value is GameContent {
 }
 
 function loadInitialBuilderState(): { content: GameContent; selectedArtifactId: string } {
-  return loadSavedBuilderState() ?? baseArtifactBuilderState();
+  return baseArtifactBuilderState();
 }
 
 function loadSavedBuilderState(): { content: GameContent; selectedArtifactId: string } | null {

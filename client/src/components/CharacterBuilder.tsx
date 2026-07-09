@@ -121,7 +121,7 @@ export default function CharacterBuilder() {
       setSaveStatus("Saved to content.json");
     } catch (error) {
       console.error("Unable to save content.json", error);
-      setSaveStatus(stored ? "Saved in browser" : "Save failed");
+      setSaveStatus(stored ? "Browser backup only" : "Save failed");
     }
   };
 
@@ -157,7 +157,7 @@ export default function CharacterBuilder() {
     setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
     setImportText("");
     setJsonModalOpen(false);
-    setSaveStatus(saved ? "Restored saved draft" : "Reset to content.json");
+    setSaveStatus(saved ? "Recovered browser draft" : "Loaded content.json");
   };
 
   return (
@@ -852,7 +852,7 @@ function JsonModal({
                 Import
               </button>
               <button type="button" onClick={onReset} className="builder-button danger">
-                Reset to saved draft
+                Recover browser draft
               </button>
             </div>
           </div>
@@ -890,7 +890,7 @@ function EmptyState({ label }: { label: string }) {
 }
 
 function loadInitialContent(): GameContent {
-  return loadSavedCharacterContent() ?? contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+  return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
 }
 
 function loadSavedCharacterContent(): GameContent | null {

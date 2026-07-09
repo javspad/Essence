@@ -258,8 +258,7 @@ export default function MapBuilder() {
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [initialDraftWasLocal] = useState(() => hasStoredBuilderDraft());
-  const [saveStatus, setSaveStatus] = useState<DraftSaveStatus>(() => (initialDraftWasLocal ? "browser" : "saved"));
+  const [saveStatus, setSaveStatus] = useState<DraftSaveStatus>("saved");
   const exportContent = useMemo(() => builderContentToGameContent(BASE_CONTENT, state.content), [state.content]);
   const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
   const draftJson = useMemo(() => JSON.stringify(state.content), [state.content]);
@@ -267,7 +266,7 @@ export default function MapBuilder() {
   const diskSavedDraftRef = useRef<string | null>(null);
 
   if (savedDraftRef.current === null) savedDraftRef.current = draftJson;
-  if (diskSavedDraftRef.current === null && !initialDraftWasLocal) diskSavedDraftRef.current = draftJson;
+  if (diskSavedDraftRef.current === null) diskSavedDraftRef.current = draftJson;
 
   useEffect(() => {
     if (savedDraftRef.current !== draftJson) setSaveStatus((current) => (current === "error" ? "error" : "dirty"));
@@ -513,7 +512,7 @@ function MapTopBar({
       : saveStatus === "saving"
         ? "Saving shared/content.json"
         : saveStatus === "browser"
-          ? "Browser draft restored; save to shared/content.json"
+          ? "Browser draft only; save to shared/content.json"
           : saveStatus === "error"
             ? "Retry saving shared/content.json"
             : "Save to shared/content.json";
@@ -856,7 +855,7 @@ function JsonModal({
                 Import
               </button>
               <button type="button" onClick={onReset} className="builder-button danger">
-                Reset to saved draft
+                Recover browser draft
               </button>
             </div>
           </div>
@@ -2330,17 +2329,6 @@ function SelectInput({
 }
 
 function loadInitialState(): MapBuilderState {
-  const content = loadSavedBuilderContent();
-  if (content) {
-    const base = createInitialMapBuilderState(BASE_CONTENT);
-    return {
-      ...base,
-      content,
-      activeMapId: content.activeMapId,
-      selection: content.maps[0]?.board[0] ? { kind: "node", id: content.maps[0].board[0].id } : null,
-      message: "Borrador local cargado y actualizado",
-    };
-  }
   return createInitialMapBuilderState(BASE_CONTENT);
 }
 
@@ -2361,14 +2349,6 @@ function loadSavedBuilderContent(): BuilderContent | null {
     localStorage.removeItem(STORAGE_KEY);
   }
   return null;
-}
-
-function hasStoredBuilderDraft(): boolean {
-  try {
-    return !!localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return false;
-  }
 }
 
 function mergeAssetCatalog(localCatalog: MapAssetDef[] | undefined, baseCatalog: MapAssetDef[] | undefined): MapAssetDef[] {

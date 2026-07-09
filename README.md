@@ -51,11 +51,11 @@ Todo el "alma" vive en [`shared/content.json`](shared/content.json): tablero, mi
 
 ### Map builder
 
-Abrí `http://localhost:5173/map-builder` para editar mapas visualmente. El builder permite crear/duplicar mapas, mover casilleros, conectar rutas tipo grafo, cambiar terreno, asignar minijuegos/prendas/destinos, colocar map props decorativos y exportar/importar el JSON completo. El modo **Test map** mueve una ficha de prueba por cualquier casillero, ya sea desde el selector, clickeando el mapa o siguiendo rutas salientes. **3D playtest** abre la escena en pantalla completa, como una vista real de partida; también se puede abrir directo con `http://localhost:5173/map-builder?playtest3d=1`. En desarrollo, **Save** guarda el borrador local y escribe el JSON completo validado en `shared/content.json`; **Reset to saved draft** vuelve al último borrador guardado localmente.
+Abrí `http://localhost:5173/map-builder` para editar mapas visualmente. El builder permite crear/duplicar mapas, mover casilleros, conectar rutas tipo grafo, cambiar terreno, asignar minijuegos/prendas/destinos, colocar map props decorativos y exportar/importar el JSON completo. El modo **Test map** mueve una ficha de prueba por cualquier casillero, ya sea desde el selector, clickeando el mapa o siguiendo rutas salientes. **3D playtest** abre la escena en pantalla completa, como una vista real de partida; también se puede abrir directo con `http://localhost:5173/map-builder?playtest3d=1`. En desarrollo, **Save** guarda un backup local de recuperación y escribe el JSON completo validado en `shared/content.json`; al abrir un builder siempre manda `shared/content.json`, y **Recover browser draft** solo recupera un borrador local si lo pedís explícitamente.
 
 ### Event builder
 
-Abrí `http://localhost:5173/event-builder` para editar eventos, actividades, stories, consecuencias y playtests. En desarrollo, **Save** escribe el JSON completo validado en `shared/content.json` y deja una copia local recuperable. `http://localhost:5173/minigame-builder` queda como alias legado.
+Abrí `http://localhost:5173/event-builder` para editar eventos, actividades, stories, consecuencias y playtests. En desarrollo, **Save** escribe el JSON completo validado en `shared/content.json` y deja una copia local recuperable que no se carga automáticamente. `http://localhost:5173/minigame-builder` queda como alias legado.
 
 ### Tools hub
 

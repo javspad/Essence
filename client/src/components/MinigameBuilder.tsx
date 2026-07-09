@@ -255,18 +255,18 @@ export default function MinigameBuilder() {
       setSaveStatus("Saved to content.json");
     } catch (error) {
       console.error("Unable to save content.json", error);
-      setSaveStatus(stored ? "Saved in browser" : "Save failed");
+      setSaveStatus(stored ? "Browser backup only" : "Save failed");
     }
   };
 
   const resetDraft = () => {
-    const saved = hasEventBuilderDraft();
-    const next = loadInitialContent();
+    const saved = loadSavedEventBuilderContent();
+    const next = saved ?? loadInitialContent();
     setContent(next);
     setSelectedId(Object.keys(next.events ?? {})[0] ?? "");
     setImportText("");
     setJsonModalOpen(false);
-    setSaveStatus(saved ? "Restored saved draft" : "Reset to content.json");
+    setSaveStatus(saved ? "Recovered browser draft" : "Loaded content.json");
     resetRun();
   };
 
@@ -1544,7 +1544,7 @@ function JsonModal({
                 Import
               </button>
               <button type="button" onClick={onReset} className="rounded-md border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-sm font-bold text-rose-100 transition hover:bg-rose-500/15">
-                Reset to saved draft
+                Recover browser draft
               </button>
             </div>
           </div>
@@ -1931,12 +1931,17 @@ function resolvePreviewTargetIds(
 }
 
 function loadInitialContent(): GameContent {
+  return BASE_CONTENT;
+}
+
+function loadSavedEventBuilderContent(): GameContent | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return BASE_CONTENT;
+    if (!saved) return null;
     return migrateEffectDraft(normalizeContentSchema(JSON.parse(saved)));
   } catch {
-    return BASE_CONTENT;
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
   }
 }
 
@@ -1946,14 +1951,6 @@ function persistEventBuilderDraft(exportJson: string): boolean {
     return true;
   } catch (error) {
     console.warn("Unable to persist event builder browser draft", error);
-    return false;
-  }
-}
-
-function hasEventBuilderDraft(): boolean {
-  try {
-    return !!localStorage.getItem(STORAGE_KEY);
-  } catch {
     return false;
   }
 }

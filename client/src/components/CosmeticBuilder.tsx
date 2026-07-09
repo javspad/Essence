@@ -38,7 +38,6 @@ import CosmeticGalleryOverlay from "./CosmeticGalleryOverlay";
 
 const STORAGE_KEY = "essence:cosmetic-builder:draft:v1";
 const KNOWN_BASE_COSMETICS_STORAGE_KEY = "essence:cosmetic-builder:known-base-cosmetics:v1";
-const CHARACTER_BUILDER_STORAGE_KEY = "essence:character-builder:draft:v1";
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 const DEFAULT_FACE_ALIGNMENT: FacePhotoAlignment = { x: 0.5, y: 0.5, scale: 1.08, angle: 0 };
 const DEFAULT_ASSET_KINDS = [
@@ -175,7 +174,7 @@ export default function CosmeticBuilder() {
     setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
     setImportText("");
     setJsonOpen(false);
-    setSaveStatus(saved ? "Restored saved draft" : "Reset to content.json");
+    setSaveStatus(saved ? "Recovered browser draft" : "Loaded content.json");
   };
 
   const copyJson = async () => {
@@ -191,7 +190,7 @@ export default function CosmeticBuilder() {
       setSaveStatus("Saved to content.json");
     } catch (error) {
       console.error("Unable to save content.json", error);
-      setSaveStatus(stored ? "Saved in browser" : "Save failed");
+      setSaveStatus(stored ? "Browser backup only" : "Save failed");
     }
   };
 
@@ -738,7 +737,7 @@ function JsonModal({
                 Import
               </button>
               <button type="button" onClick={onReset} className="builder-button danger">
-                Reset to saved draft
+                Recover browser draft
               </button>
             </div>
           </div>
@@ -791,7 +790,7 @@ function EmptyState({ label }: { label: string }) {
 }
 
 function loadInitialContent(): GameContent {
-  return loadSavedCosmeticContent() ?? cosmeticBuilderContentFrom(BASE_CONTENT);
+  return cosmeticBuilderContentFrom(BASE_CONTENT);
 }
 
 function loadSavedCosmeticContent(): GameContent | null {
@@ -860,13 +859,7 @@ function rememberBaseCosmeticIds() {
 }
 
 function currentCharacterContent(): GameContent {
-  try {
-    const saved = localStorage.getItem(CHARACTER_BUILDER_STORAGE_KEY);
-    if (!saved) return BASE_CONTENT;
-    return contentWithCharacterList(JSON.parse(saved), BASE_CONTENT);
-  } catch {
-    return BASE_CONTENT;
-  }
+  return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
 }
 
 function cosmeticsForCurrentCharacters(
