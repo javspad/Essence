@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type Dispatch, type PointerEvent } from "react";
-import { Copy, Pencil, Plus, Save, Trash2 } from "lucide-react";
+import { Copy, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import type {
   GameContent,
   MapArtifact,
@@ -109,6 +109,16 @@ const TERRACE_SURFACE_LABEL: Record<MapTerraceSurface, string> = {
   stone: "Piedra",
   plaza: "Plaza",
 };
+
+const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const COLOR_INPUT_HEX_RE = /^#[0-9a-fA-F]{6}$/;
+
+function optionsWithOrphan(value: string, options: { value: string; label: string }[]) {
+  if (value && !options.some((option) => option.value === value)) {
+    return [{ value, label: `Falta: ${value}` }, ...options];
+  }
+  return options;
+}
 
 const ASSET_EMOJI: Record<string, string> = {
   "oak-tree": "🌲",
@@ -2041,6 +2051,10 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
   const previewPlayer = BASE_CONTENT.players.find((player) => player.id === previewPlayerId) ?? BASE_CONTENT.players[0];
   const tileEventIds = eventIdsForTile(tile);
   const resolvedEvent = previewPlayer ? resolveTileEventForPlayer(BASE_CONTENT, tile, previewPlayer) : null;
+  const eventOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.events ?? {}).map((id) => ({ value: id, label: eventTitle(BASE_CONTENT.events![id]) }))];
+  const minigameOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.minigames).map((id) => ({ value: id, label: id }))];
+  const dareOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.dares).map((id) => ({ value: id, label: id }))];
+  const fateOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.fates).map((id) => ({ value: id, label: id }))];
   const updateStoryParam = (key: string, value: string) => {
     const next = { ...(tile.storyParams ?? {}) };
     if (value.trim()) next[key] = value;
@@ -2061,7 +2075,7 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
       <SelectInput
         label="Event"
         value={tile.eventId ?? ""}
-        options={[{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.events ?? {}).map((id) => ({ value: id, label: eventTitle(BASE_CONTENT.events![id]) }))]}
+        options={optionsWithOrphan(tile.eventId ?? "", eventOptions)}
         onChange={(eventId) => dispatch({ type: "update_node", id: tile.id, patch: { eventId: eventId || undefined } })}
       />
       {tileEventIds.length > 0 && (
@@ -2083,7 +2097,7 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
         <SelectInput
           label="Legacy minigame"
           value={tile.minigameId ?? ""}
-          options={[{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.minigames).map((id) => ({ value: id, label: id }))]}
+          options={optionsWithOrphan(tile.minigameId ?? "", minigameOptions)}
           onChange={(minigameId) => dispatch({ type: "update_node", id: tile.id, patch: { minigameId: minigameId || undefined } })}
         />
       )}
@@ -2097,7 +2111,7 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
         <SelectInput
           label="Legacy dare"
           value={tile.dareId ?? ""}
-          options={[{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.dares).map((id) => ({ value: id, label: id }))]}
+          options={optionsWithOrphan(tile.dareId ?? "", dareOptions)}
           onChange={(dareId) => dispatch({ type: "update_node", id: tile.id, patch: { dareId: dareId || undefined } })}
         />
       )}
@@ -2105,7 +2119,7 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
         <SelectInput
           label="Legacy fate"
           value={tile.fateId ?? ""}
-          options={[{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.fates).map((id) => ({ value: id, label: id }))]}
+          options={optionsWithOrphan(tile.fateId ?? "", fateOptions)}
           onChange={(fateId) => dispatch({ type: "update_node", id: tile.id, patch: { fateId: fateId || undefined } })}
         />
       )}
@@ -2191,7 +2205,7 @@ function ArtifactInspector({ artifact, assetCatalog, dispatch }: { artifact: Map
         onChange={(position) => dispatch({ type: "update_artifact", id: artifact.id, patch: { position } })}
       />
       <NumberInput label="Scale" value={artifact.scale ?? 1} step={0.1} onChange={(scale) => dispatch({ type: "update_artifact", id: artifact.id, patch: { scale } })} />
-      <TextInput label="Tint" value={artifact.tint ?? ""} onChange={(tint) => dispatch({ type: "update_artifact", id: artifact.id, patch: { tint: tint || undefined } })} />
+      <ColorInput label="Tint" value={artifact.tint} onChange={(tint) => dispatch({ type: "update_artifact", id: artifact.id, patch: { tint } })} />
       <label className="mt-2 flex items-center gap-2 text-sm font-bold text-slate-300">
         <input
           type="checkbox"
@@ -2276,6 +2290,43 @@ function TextInput({ label, value, onChange }: { label: string; value: string; o
     <label className="mb-2 block text-xs font-bold text-slate-300">
       {label}
       <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300" />
+    </label>
+  );
+}
+
+function ColorInput({ label, value, onChange }: { label: string; value?: string; onChange: (value: string | undefined) => void }) {
+  const valid = value ? HEX_COLOR_RE.test(value) : true;
+  const colorValue = value && COLOR_INPUT_HEX_RE.test(value) ? value : "#ffffff";
+
+  return (
+    <label className="mb-2 block text-xs font-bold text-slate-300">
+      {label}
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          type="color"
+          value={colorValue}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-white/10 bg-[#0d120d]"
+          aria-label={`${label} color`}
+        />
+        <input
+          value={value ?? ""}
+          placeholder="#rrggbb"
+          onChange={(event) => onChange(event.target.value || undefined)}
+          className="w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
+        />
+        {value ? (
+          <button
+            type="button"
+            onClick={() => onChange(undefined)}
+            aria-label={`Clear ${label}`}
+            className="shrink-0 rounded-md border border-white/10 px-2 py-2 text-xs text-slate-300 hover:border-white/30"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+      {value && !valid ? <span className="mt-1 block text-[0.7rem] font-bold text-amber-400">Hex invalido (ej. #a855f7)</span> : null}
     </label>
   );
 }

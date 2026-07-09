@@ -1034,3 +1034,93 @@ await withRolls([1], async () => {
     voters: ["alice", "carla"],
   });
 });
+
+{
+  const { io, events } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "HARD1", "Minigame action hardening", content);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.getState().phase = "minigame";
+  room.getState().activeMinigame = {
+    id: "manual",
+    type: "reaction",
+    content: {},
+    participants: ["alice", "bob"],
+    subjects: ["alice", "bob"],
+    submitted: [],
+  };
+
+  room.minigameAction("socket-alice", { ok: true });
+  assert.equal(events.filter((event) => event.event === "minigame:action").length, 1, "normal minigame actions are re-emitted");
+
+  room.minigameAction("socket-alice", { blob: "x".repeat(2050) });
+  assert.equal(events.filter((event) => event.event === "minigame:action").length, 1, "oversized minigame actions are ignored");
+
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  room.minigameAction("socket-alice", circular);
+  assert.equal(events.filter((event) => event.event === "minigame:action").length, 1, "unserializable minigame actions are ignored");
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "HARD2", "Minigame result hardening", content);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.getState().phase = "minigame";
+  room.getState().activeMinigame = {
+    id: "manual",
+    type: "reaction",
+    content: {},
+    participants: ["alice", "bob"],
+    subjects: ["alice", "bob"],
+    submitted: [],
+  };
+
+  await room.submitResult("socket-alice", { score: Number.POSITIVE_INFINITY, payload: { hits: 999 } });
+  assert.deepEqual(room.getState().activeMinigame?.submitted, [], "non-finite scores do not mark a player as submitted");
+
+  await room.submitResult("socket-alice", { score: 3, payload: { hits: 3 } });
+  assert.deepEqual(room.getState().activeMinigame?.submitted, ["alice"], "finite scores still submit normally");
+}
+
+const extraTurnContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "fate", eventId: "everyone-extra" },
+    { id: 2, type: "finish" },
+  ],
+  events: {
+    "everyone-extra": {
+      name: "Everyone extra",
+      kind: "story",
+      story: { title: "Everyone extra", prompt: "The first target keeps the extra turn." },
+      actions: [{ type: "extraTurn", target: "everyone" }],
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "alice", name: "Alice", color: "#f87171" },
+    { id: "bob", name: "Bob", color: "#60a5fa" },
+    { id: "carla", name: "Carla", color: "#34d399" },
+  ],
+});
+
+await withRolls([1], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TURN1", "Extra turn targets", extraTurnContent);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.join("socket-carla", "Carla");
+  room.startGame("socket-alice");
+  room.roll("socket-alice");
+
+  assert.deepEqual(room.getState().activeEvent?.actions?.[0].targetPlayerIds, ["alice", "bob", "carla"]);
+  room.next("socket-alice");
+  assert.equal(room.getState().turnOrder[room.getState().activeIndex], "alice", "multi-target extraTurn keeps the first resolved target");
+});
