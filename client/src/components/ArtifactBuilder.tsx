@@ -35,10 +35,6 @@ export default function ArtifactBuilder() {
   }, [artifactIds, selectedArtifactId]);
 
   useEffect(() => {
-    if (!persistDraft(draftJson)) setSaveStatus("Storage full");
-  }, [draftJson]);
-
-  useEffect(() => {
     if (!saveStatus) return;
     const timeout = window.setTimeout(() => setSaveStatus(""), 3000);
     return () => window.clearTimeout(timeout);

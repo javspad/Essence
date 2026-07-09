@@ -96,9 +96,8 @@ export default function CosmeticBuilder() {
   }, [characterIds, selectedCharacterId]);
 
   useEffect(() => {
-    persistCosmeticDraft(exportJson);
     rememberBaseCosmeticIds();
-  }, [exportJson]);
+  }, []);
 
   useEffect(() => {
     if (!saveStatus) return;

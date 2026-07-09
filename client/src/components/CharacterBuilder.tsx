@@ -65,10 +65,6 @@ export default function CharacterBuilder() {
   }, [characterIds, selectedCharacterId]);
 
   useEffect(() => {
-    persistCharacterDraft(exportJson);
-  }, [exportJson]);
-
-  useEffect(() => {
     if (!saveStatus) return;
     const timeout = window.setTimeout(() => setSaveStatus(""), 1600);
     return () => window.clearTimeout(timeout);
