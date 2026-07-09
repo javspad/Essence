@@ -1,4 +1,4 @@
-import { ArrowRight, Gamepad2, Home, Map, Palette, SlidersHorizontal, Sparkles, UserRound, Wrench } from "lucide-react";
+import { ArrowRight, Gamepad2, Home, Map, Palette, SlidersHorizontal, Sparkles, UserRound, Volume2, Wrench } from "lucide-react";
 
 const TOOL_LINKS = [
   {
@@ -49,6 +49,14 @@ const TOOL_LINKS = [
     icon: SlidersHorizontal,
     accent: "cyan",
   },
+  {
+    href: "/sound-builder",
+    title: "Sound builder",
+    eyebrow: "Audio triggers",
+    body: "Assets, weighted variants, scoped sounds",
+    icon: Volume2,
+    accent: "sky",
+  },
 ];
 
 export default function ToolsHub() {
@@ -80,6 +88,8 @@ export default function ToolsHub() {
                 ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
                 : tool.accent === "fuchsia"
                   ? "border-fuchsia-300/25 bg-fuchsia-300/10 text-fuchsia-100"
+                  : tool.accent === "sky"
+                    ? "border-sky-300/25 bg-sky-300/10 text-sky-100"
                   : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100";
           return (
             <a

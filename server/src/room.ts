@@ -111,6 +111,8 @@ export class GameRoom {
       artifactCatalog: content.artifacts,
       artifactRarities: content.artifactRarities,
       artifactRarityRates: content.artifactRarityRates,
+      audioAssets: content.audioAssets,
+      audioTriggers: content.audioTriggers,
       artifactShop: null,
       pendingArtifactUse: null,
       boardShape: activeMap?.boardShape,

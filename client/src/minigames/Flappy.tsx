@@ -139,7 +139,7 @@ export default function Flappy({ content, players, me, onFinish, onAction, spect
     if (!players.length) {
       if (!finishedRef.current) {
         finishedRef.current = true;
-        onFinishRef.current(0, { pipes: 0, distance: 0 });
+        onFinishRef.current(0, { pipes: 0, distance: 0 }, "loss");
       }
       return;
     }
@@ -164,7 +164,7 @@ export default function Flappy({ content, players, me, onFinish, onAction, spect
     };
 
     // Muerte o cap: reporto UNA vez y paso a espectador
-    const endRun = (now: number, outcome?: "win") => {
+    const endRun = (now: number, outcome: "win" | "loss" = "loss") => {
       if (s.dead) return;
       s.dead = true;
       s.diedAt = now;

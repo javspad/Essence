@@ -2,6 +2,8 @@ import type {
   ArtifactDef,
   ArtifactRarityDef,
   ArtifactRarityRates,
+  AudioAssetDef,
+  AudioTriggerBindingDef,
   CharacterDef,
   CharacterTraitDef,
   CosmeticDef,
@@ -23,6 +25,7 @@ import type {
   Tile,
 } from "./types";
 import { TILE_TYPES } from "./types";
+import { AUDIO_SCOPE_TYPES, AUDIO_TRIGGER_ID_SET } from "./audio";
 import { EVENT_ACTIVITY_TYPES, normalizeGameContentEvents } from "./events";
 import { playerDefToCharacter } from "./characters";
 import { artifactPrice, artifactRarityDefinitions, artifactRarityRatesFromDefinitions } from "./artifacts";
@@ -230,6 +233,50 @@ const ArtifactDefSchema = z
   })
   .passthrough();
 
+const AudioAssetDefSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    src: z.string().min(1),
+    mimeType: z.string().optional(),
+    durationMs: z.number().finite().nonnegative().optional(),
+    kind: z.enum(["oneShot", "loop"]).optional(),
+    tags: z.array(z.string().min(1)).optional(),
+  })
+  .passthrough();
+
+const AudioTriggerScopeSchema = z
+  .object({
+    type: z.enum(AUDIO_SCOPE_TYPES),
+    id: z.string().min(1).optional(),
+  })
+  .passthrough();
+
+const AudioTriggerVariantDefSchema = z
+  .object({
+    assetId: z.string().min(1),
+    weight: z.number().finite().nonnegative().optional(),
+    volume: z.number().finite().min(0).max(2).optional(),
+    playbackRate: z.number().finite().positive().optional(),
+  })
+  .passthrough();
+
+const AudioTriggerBindingDefSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    trigger: z.string().min(1),
+    scope: AudioTriggerScopeSchema.optional(),
+    variants: z.array(AudioTriggerVariantDefSchema).min(1),
+    enabled: z.boolean().optional(),
+    category: z.enum(["sfx", "music"]).optional(),
+    playback: z.enum(["oneShot", "loop"]).optional(),
+    volume: z.number().finite().min(0).max(2).optional(),
+    cooldownMs: z.number().finite().nonnegative().optional(),
+    maxVoices: z.number().int().positive().optional(),
+    overlapPolicy: z.enum(["overlap", "skip", "interrupt"]).optional(),
+  })
+  .passthrough();
+
 const TILE_TYPE_SET = new Set<string>(TILE_TYPES);
 
 export function normalizeContentSchema(input: unknown): GameContent {
@@ -252,6 +299,9 @@ export function normalizeContentSchema(input: unknown): GameContent {
     artifactRarities,
     artifactRarityRates: artifactRarityRatesFromDefinitions(artifactRarities),
     artifacts: cloneArtifacts(normalized.artifacts),
+    audioAssets: cloneAudioAssets(normalized.audioAssets),
+    audioTriggers: cloneAudioTriggers(normalized.audioTriggers),
+    audioSettings: normalized.audioSettings ? { ...normalized.audioSettings } : undefined,
     board: cloneTiles(normalized.board),
     maps: normalized.maps?.map((map) => normalizeMapDefinition(map as MapDefinitionImport)),
     assetCatalog: normalized.assetCatalog?.map((asset) => ({
@@ -293,6 +343,18 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   validateCatalogIds(normalized.artifacts, "artifacts", error);
   validateArtifacts(normalized.artifacts, playerIds, effectIds, new Set(Object.keys(normalized.artifactRarities ?? {})), error);
   validateCatalogIds(normalized.effects, "effects", error);
+  validateCatalogIds(normalized.audioAssets, "audioAssets", error);
+  validateAudioContent(
+    normalized,
+    {
+      players: playerIds,
+      minigames: new Set(Object.keys(normalized.minigames ?? {})),
+      artifacts: new Set(Object.keys(normalized.artifacts ?? {})),
+      cosmetics: new Set(Object.keys(normalized.cosmetics ?? {})),
+      effects: effectIds,
+    },
+    error
+  );
   validateFutureCatalogReferences(normalized, traitIds, error, warning);
 
   const maps = normalized.maps ?? [
@@ -687,6 +749,87 @@ function validateArtifacts(
   }
 }
 
+function validateAudioContent(
+  content: GameContent,
+  ids: {
+    players: Set<string>;
+    minigames: Set<string>;
+    artifacts: Set<string>;
+    cosmetics: Set<string>;
+    effects: Set<string>;
+  },
+  error: (path: string, message: string) => void
+) {
+  const assetIds = new Set(Object.keys(content.audioAssets ?? {}));
+  for (const [id, asset] of Object.entries(content.audioAssets ?? {}) as [string, AudioAssetDef][]) {
+    const result = AudioAssetDefSchema.safeParse(asset);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(`audioAssets.${id}`, issue.path), issue.message);
+      }
+    }
+    if (asset.id && asset.id !== id) error(`audioAssets.${id}.id`, `must match catalog key ${id}`);
+  }
+
+  content.audioTriggers?.forEach((binding: AudioTriggerBindingDef, index) => {
+    const path = `audioTriggers[${index}]`;
+    const result = AudioTriggerBindingDefSchema.safeParse(binding);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(path, issue.path), issue.message);
+      }
+    }
+    if (!AUDIO_TRIGGER_ID_SET.has(binding.trigger)) error(`${path}.trigger`, `must be a supported audio trigger id`);
+    validateAudioScope(`${path}.scope`, binding.scope, ids, error);
+    if (!binding.variants?.length) error(`${path}.variants`, "must include at least one variant");
+    binding.variants?.forEach((variant, variantIndex) => {
+      const variantPath = `${path}.variants[${variantIndex}]`;
+      if (!assetIds.has(variant.assetId)) error(`${variantPath}.assetId`, `references missing audio asset ${variant.assetId}`);
+      if (variant.weight !== undefined && (!Number.isFinite(variant.weight) || variant.weight < 0)) {
+        error(`${variantPath}.weight`, "must be a non-negative finite number");
+      }
+      if (variant.volume !== undefined && (!Number.isFinite(variant.volume) || variant.volume < 0 || variant.volume > 2)) {
+        error(`${variantPath}.volume`, "must be between 0 and 2");
+      }
+      if (variant.playbackRate !== undefined && (!Number.isFinite(variant.playbackRate) || variant.playbackRate <= 0)) {
+        error(`${variantPath}.playbackRate`, "must be a positive finite number");
+      }
+    });
+  });
+}
+
+function validateAudioScope(
+  path: string,
+  scope: AudioTriggerBindingDef["scope"],
+  ids: {
+    players: Set<string>;
+    minigames: Set<string>;
+    artifacts: Set<string>;
+    cosmetics: Set<string>;
+    effects: Set<string>;
+  },
+  error: (path: string, message: string) => void
+) {
+  if (!scope || scope.type === "global") return;
+  if (!scope.id) {
+    error(path, `${scope.type} scope requires an id`);
+    return;
+  }
+  const catalog =
+    scope.type === "player"
+      ? ids.players
+      : scope.type === "minigame"
+        ? ids.minigames
+        : scope.type === "artifact"
+          ? ids.artifacts
+          : scope.type === "cosmetic"
+            ? ids.cosmetics
+            : scope.type === "effect"
+              ? ids.effects
+              : undefined;
+  if (catalog && !catalog.has(scope.id)) error(`${path}.id`, `references missing ${scope.type} ${scope.id}`);
+}
+
 function validateFutureCatalogReferences(
   content: GameContent,
   traitIds: Set<string>,
@@ -909,6 +1052,27 @@ function cloneArtifacts(artifacts: Record<string, ArtifactDef> | undefined): Rec
       },
     ])
   );
+}
+
+function cloneAudioAssets(audioAssets: Record<string, AudioAssetDef> | undefined): Record<string, AudioAssetDef> | undefined {
+  if (!audioAssets) return undefined;
+  return Object.fromEntries(
+    Object.entries(audioAssets).map(([id, asset]) => [
+      id,
+      {
+        ...asset,
+        tags: asset.tags ? [...asset.tags] : undefined,
+      },
+    ])
+  );
+}
+
+function cloneAudioTriggers(audioTriggers: AudioTriggerBindingDef[] | undefined): AudioTriggerBindingDef[] | undefined {
+  return audioTriggers?.map((binding) => ({
+    ...binding,
+    scope: binding.scope ? { ...binding.scope } : undefined,
+    variants: (binding.variants ?? []).map((variant) => ({ ...variant })),
+  }));
 }
 
 function cloneAction<T extends EventAction>(action: T): T {
