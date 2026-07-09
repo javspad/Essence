@@ -687,6 +687,13 @@ export class GameRoom {
   minigameAction(socketId: string, data: unknown) {
     const p = this.playerBySocket(socketId);
     if (!p || !this.state.activeMinigame) return;
+    if (data !== null && typeof data === "object") {
+      try {
+        if (JSON.stringify(data).length > 2048) return;
+      } catch {
+        return;
+      }
+    }
     // Re-emitir acción (ej. buzzer apretado) para que las pantallas reaccionen.
     this.io.to(this.code).emit("minigame:action", { playerId: p.id, data });
   }
@@ -712,6 +719,7 @@ export class GameRoom {
     }
 
     if (this.pendingResults.has(p.id)) return;
+    if (typeof result.score !== "number" || !Number.isFinite(result.score)) return;
 
     this.pendingResults.set(p.id, { playerId: p.id, score: result.score, payload: result.payload, outcome: result.outcome });
     if (!mg.submitted.includes(p.id)) mg.submitted.push(p.id);
@@ -1031,7 +1039,7 @@ export class GameRoom {
       return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} pierde su próximo turno` };
     }
     if (action.type === "extraTurn") {
-      for (const id of targetPlayerIds) this.extraTurnPlayerId = id;
+      this.extraTurnPlayerId = targetPlayerIds[0] ?? this.extraTurnPlayerId;
       return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} juega otro turno` };
     }
     if (action.type === "offlineAction") {
