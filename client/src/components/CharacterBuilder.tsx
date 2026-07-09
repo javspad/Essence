@@ -65,10 +65,6 @@ export default function CharacterBuilder() {
   }, [characterIds, selectedCharacterId]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, exportJson);
-  }, [exportJson]);
-
-  useEffect(() => {
     if (!saveStatus) return;
     const timeout = window.setTimeout(() => setSaveStatus(""), 1600);
     return () => window.clearTimeout(timeout);
@@ -114,14 +110,14 @@ export default function CharacterBuilder() {
   };
 
   const saveDraft = async () => {
-    localStorage.setItem(STORAGE_KEY, exportJson);
-    setSaveStatus("Saving...");
+    const stored = persistCharacterDraft(exportJson);
+    setSaveStatus(stored ? "Saving..." : "Storage full; saving...");
     try {
       await saveContentJsonToDisk(exportJson);
-      setSaveStatus("Saved to PC");
+      setSaveStatus("Saved to content.json");
     } catch (error) {
       console.error("Unable to save content.json", error);
-      setSaveStatus("Draft only");
+      setSaveStatus(stored ? "Browser backup only" : "Save failed");
     }
   };
 
@@ -151,13 +147,13 @@ export default function CharacterBuilder() {
   };
 
   const resetDraft = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    const next = contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+    const saved = loadSavedCharacterContent();
+    const next = saved ?? contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
     setContent(next);
     setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
     setImportText("");
     setJsonModalOpen(false);
-    setSaveStatus("Reset");
+    setSaveStatus(saved ? "Recovered browser draft" : "Loaded content.json");
   };
 
   return (
@@ -852,7 +848,7 @@ function JsonModal({
                 Import
               </button>
               <button type="button" onClick={onReset} className="builder-button danger">
-                Reset draft
+                Recover browser draft
               </button>
             </div>
           </div>
@@ -890,12 +886,27 @@ function EmptyState({ label }: { label: string }) {
 }
 
 function loadInitialContent(): GameContent {
+  return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+}
+
+function loadSavedCharacterContent(): GameContent | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+    if (!saved) return null;
     return contentWithCharacterList(JSON.parse(saved), BASE_CONTENT);
   } catch {
-    return contentWithCharacterList(BASE_CONTENT, BASE_CONTENT);
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+}
+
+function persistCharacterDraft(exportJson: string): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, exportJson);
+    return true;
+  } catch (error) {
+    console.warn("Unable to persist character builder browser draft", error);
+    return false;
   }
 }
 

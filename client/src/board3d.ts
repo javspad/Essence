@@ -105,6 +105,7 @@ const SLOT_STYLE: Record<TileType, SlotMaterialStyle> = {
   groom: { top: "#facc15", side: "#a16207", accent: "#fef9c3", emissive: "#fde047", decal: "spark" },
   reaction: { top: "#22c55e", side: "#166534", accent: "#dcfce7", emissive: "#4ade80", decal: "bolt" },
   estimate: { top: "#06b6d4", side: "#0e7490", accent: "#cffafe", emissive: "#22d3ee", decal: "ring" },
+  shop: { top: "#10b981", side: "#065f46", accent: "#d1fae5", emissive: "#34d399", decal: "coin" },
 };
 
 const TERRAIN_STYLE: Record<MapTerrain, TerrainMaterialStyle> = {

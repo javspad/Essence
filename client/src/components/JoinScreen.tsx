@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Check, LogIn, RefreshCw, Users, Wrench } from "lucide-react";
-import type { CharacterSlot, RoomSummary } from "@essence/shared";
+import { ArrowLeft, Check, LogIn, Map as MapIcon, RefreshCw, Users, Wrench } from "lucide-react";
+import type { CharacterSlot, ContentMapSummary, RoomSummary } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/8bit/input";
 
 interface Props {
   error: string | null;
-  onCreate: (name: string, roomName: string, characterId?: string) => void;
+  onCreate: (name: string, roomName: string, characterId?: string, mapId?: string) => void;
   onJoin: (code: string, name: string, characterId?: string) => void;
 }
 
@@ -91,12 +91,14 @@ function CreateView({
 }: {
   name: string;
   error: string | null;
-  onCreate: (name: string, roomName: string, characterId?: string) => void;
+  onCreate: (name: string, roomName: string, characterId?: string, mapId?: string) => void;
   onBack: () => void;
 }) {
   const [roomName, setRoomName] = useState("");
   const [characters, setCharacters] = useState<CharacterSlot[] | null>(null);
   const [characterId, setCharacterId] = useState("");
+  const [maps, setMaps] = useState<ContentMapSummary[] | null>(null);
+  const [mapId, setMapId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -110,12 +112,23 @@ function CreateView({
       .catch(() => {
         if (!cancelled) setCharacters([]);
       });
+    fetch("/api/maps")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { maps: ContentMapSummary[] }) => {
+        if (cancelled) return;
+        setMaps(data.maps);
+        setMapId((current) => current || data.maps.find((map) => map.active)?.id || data.maps[0]?.id || "");
+      })
+      .catch(() => {
+        if (!cancelled) setMaps([]);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
   const selectedCharacter = characters?.find((slot) => slot.id === characterId) ?? characters?.[0] ?? null;
+  const selectedMap = maps?.find((map) => map.id === mapId) ?? maps?.find((map) => map.active) ?? maps?.[0] ?? null;
   const createName = name.trim() || selectedCharacter?.displayName || "";
 
   return (
@@ -129,6 +142,46 @@ function CreateView({
         maxLength={40}
         className="h-14 w-full bg-[#100b1a] text-center text-lg font-black text-[#fff8d6]"
       />
+      <div className="space-y-2">
+        <p className="retro flex items-center gap-1 text-[10px] uppercase text-[#c7bddc]">
+          <MapIcon className="h-3 w-3" />
+          Mapa
+        </p>
+        {maps === null ? (
+          <p className="text-center text-sm font-bold text-[#c7bddc]">Cargando mapas...</p>
+        ) : maps.length === 0 ? (
+          <p className="border-2 border-dashed border-[#fff4bf]/20 bg-[#0d1829] p-3 text-center text-sm font-black text-[#fff8d6]">
+            No hay mapas guardados
+          </p>
+        ) : (
+          <div className="border-2 border-[#fff4bf]/20 bg-[#0d1829] p-3">
+            <label className="sr-only" htmlFor="room-map-select">Mapa de la sala</label>
+            <select
+              id="room-map-select"
+              value={selectedMap?.id ?? ""}
+              onChange={(event) => setMapId(event.target.value)}
+              className="h-11 w-full rounded-none border-2 border-[#fff4bf]/20 bg-[#100b1a] px-3 text-sm font-black text-[#fff8d6] outline-none focus:border-[#f5d547]"
+            >
+              {maps.map((map) => (
+                <option key={map.id} value={map.id}>
+                  {map.name}{map.active ? " · activo" : ""}
+                </option>
+              ))}
+            </select>
+            {selectedMap && (
+              <div className="mt-3 space-y-2">
+                {selectedMap.description && <p className="line-clamp-2 text-xs font-bold leading-5 text-[#c7bddc]">{selectedMap.description}</p>}
+                <div className="flex flex-wrap gap-1.5">
+                  <MapStat label="Cells" value={selectedMap.cells} />
+                  <MapStat label="Routes" value={selectedMap.routes} />
+                  <MapStat label="Props" value={selectedMap.props} />
+                  {selectedMap.terraces > 0 && <MapStat label="Terraces" value={selectedMap.terraces} />}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <div className="space-y-2">
         <p className="retro text-[10px] uppercase text-[#c7bddc]">Tu personaje</p>
         {characters === null ? (
@@ -155,9 +208,10 @@ function CreateView({
         onClick={() =>
           roomName.trim() &&
           selectedCharacter &&
-          onCreate(createName, roomName.trim(), selectedCharacter.id)
+          selectedMap &&
+          onCreate(createName, roomName.trim(), selectedCharacter.id, selectedMap.id)
         }
-        disabled={!roomName.trim() || !selectedCharacter}
+        disabled={!roomName.trim() || !selectedCharacter || !selectedMap}
         className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
       >
         <Users data-icon="inline-start" />
@@ -247,6 +301,11 @@ function JoinView({
                     <span className="mt-0.5 block truncate text-[11px] text-[#c7bddc]">
                       {r.host ? `Host: ${r.host}` : "Sin host"}
                     </span>
+                    {r.mapName && (
+                      <span className="mt-0.5 block truncate text-[11px] text-[#a7f3d0]">
+                        Mapa: {r.mapName}
+                      </span>
+                    )}
                   </span>
                   <Badge className="border-[#a7f3d0] bg-[#34d399] px-2 py-1 text-[9px] text-[#062116]">
                     <Users data-icon="inline-start" />
@@ -329,6 +388,14 @@ function JoinView({
 
       {error && <p className="animate-pop text-center font-semibold text-[#fb7185]">{error}</p>}
     </div>
+  );
+}
+
+function MapStat({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="border border-[#fff4bf]/20 bg-[#100b1a] px-2 py-1 text-[9px] font-black uppercase text-[#fff8d6]">
+      {label}: {value}
+    </span>
   );
 }
 

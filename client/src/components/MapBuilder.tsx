@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type PointerEvent } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type Dispatch, type PointerEvent } from "react";
+import { Copy, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import type {
   GameContent,
   MapArtifact,
@@ -39,6 +40,7 @@ import {
   TERRAIN_TYPES,
   TILE_TYPES,
   validateMap,
+  type BuilderContent,
   type BuilderSelection,
   type BuilderTool,
   type MapBuilderState,
@@ -46,11 +48,12 @@ import {
 } from "../mapBuilder";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import { eventIdsForTile, eventTitle, resolveTileEventForPlayer } from "@essence/shared/events";
+import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 import Board3DShell from "./Board3DShell";
-import CosmeticGalleryOverlay from "./CosmeticGalleryOverlay";
 
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 const STORAGE_KEY = "essence:map-builder:draft";
+type DraftSaveStatus = "saved" | "dirty" | "saving" | "browser" | "error";
 
 const TILE_LABEL: Record<TileType, string> = {
   start: "Start",
@@ -64,6 +67,7 @@ const TILE_LABEL: Record<TileType, string> = {
   groom: "Novio",
   reaction: "Reacción",
   estimate: "Estimación",
+  shop: "Shop",
 };
 
 const TILE_COLOR: Record<TileType, string> = {
@@ -78,6 +82,7 @@ const TILE_COLOR: Record<TileType, string> = {
   groom: "#facc15",
   reaction: "#22c55e",
   estimate: "#06b6d4",
+  shop: "#10b981",
 };
 
 const TERRAIN_COLOR: Record<MapTerrain, string> = {
@@ -253,13 +258,19 @@ export default function MapBuilder() {
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [cosmeticsOpen, setCosmeticsOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<DraftSaveStatus>("saved");
   const exportContent = useMemo(() => builderContentToGameContent(BASE_CONTENT, state.content), [state.content]);
   const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
+  const draftJson = useMemo(() => JSON.stringify(state.content), [state.content]);
+  const savedDraftRef = useRef<string | null>(null);
+  const diskSavedDraftRef = useRef<string | null>(null);
+
+  if (savedDraftRef.current === null) savedDraftRef.current = draftJson;
+  if (diskSavedDraftRef.current === null) diskSavedDraftRef.current = draftJson;
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.content));
-  }, [state.content]);
+    if (savedDraftRef.current !== draftJson) setSaveStatus((current) => (current === "error" ? "error" : "dirty"));
+  }, [draftJson]);
 
   useEffect(() => {
     if (activeMap.board.some((tile) => tile.id === testCellId)) return;
@@ -268,6 +279,28 @@ export default function MapBuilder() {
 
   const copyJson = async () => {
     await navigator.clipboard?.writeText(exportJson);
+  };
+
+  const saveDraft = async () => {
+    let stored = false;
+    try {
+      localStorage.setItem(STORAGE_KEY, draftJson);
+      stored = true;
+      savedDraftRef.current = draftJson;
+    } catch (error) {
+      console.warn("Unable to persist map builder browser draft", error);
+    }
+
+    setSaveStatus("saving");
+    try {
+      await saveContentJsonToDisk(exportJson);
+      savedDraftRef.current = draftJson;
+      diskSavedDraftRef.current = draftJson;
+      setSaveStatus("saved");
+    } catch (error) {
+      console.error("Unable to save content.json", error);
+      setSaveStatus(stored ? "browser" : "error");
+    }
   };
 
   const downloadJson = () => {
@@ -292,8 +325,12 @@ export default function MapBuilder() {
   };
 
   const resetDraft = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    dispatch({ type: "replace_content", content: normalizeBuilderContent(BASE_CONTENT) });
+    const savedContent = loadSavedBuilderContent();
+    const content = savedContent ?? normalizeBuilderContent(BASE_CONTENT);
+    const restoredDraftJson = JSON.stringify(content);
+    savedDraftRef.current = restoredDraftJson;
+    setSaveStatus(savedContent && diskSavedDraftRef.current !== restoredDraftJson ? "browser" : "saved");
+    dispatch({ type: "replace_content", content });
   };
 
   const open3DPlaytest = () => {
@@ -319,6 +356,12 @@ export default function MapBuilder() {
     setMapDetailsOpen(true);
   };
 
+  const deleteMap = () => {
+    if (state.content.maps.length <= 1) return;
+    if (!window.confirm(`Delete map "${activeMap.name}"?`)) return;
+    dispatch({ type: "delete_map" });
+  };
+
   return (
     <main className="map-builder-shell flex h-dvh min-h-0 flex-col overflow-hidden bg-[#0d140e] text-slate-100">
       <header className="flex flex-none items-center gap-2 border-b border-white/10 bg-[#101810]/98 px-3 py-2 shadow-lg shadow-black/20">
@@ -332,14 +375,11 @@ export default function MapBuilder() {
           dispatch={dispatch}
           onCreate={createMap}
           onDuplicate={duplicateMap}
+          onDelete={deleteMap}
           onEdit={() => setMapDetailsOpen(true)}
           onImport={() => setJsonModalOpen(true)}
-          onCopy={copyJson}
-          onDownload={downloadJson}
-          onReset={resetDraft}
-          onOpen3D={open3DPlaytest}
-          onOpenGallery={() => setGalleryOpen(true)}
-          onOpenCosmetics={() => setCosmeticsOpen(true)}
+          onSave={saveDraft}
+          saveStatus={saveStatus}
           testMode={testMode}
           onToggleTest={() => setTestMode((value) => !value)}
         />
@@ -359,9 +399,9 @@ export default function MapBuilder() {
               onTestCellChange={setTestCellId}
             />
 
-            {/* Mientras un overlay 3D a pantalla completa está abierto (playtest, galería
-                de props o de cosméticos), desmontamos el preview chico: un solo canvas WebGL. */}
-            {!playtest3DOpen && !galleryOpen && !cosmeticsOpen && (
+            {/* Mientras un overlay 3D a pantalla completa está abierto, desmontamos
+                el preview chico: un solo canvas WebGL. */}
+            {!playtest3DOpen && !galleryOpen && (
               <Floating3DPreview
                 map={activeMap}
                 assetCatalog={state.content.assetCatalog}
@@ -380,6 +420,7 @@ export default function MapBuilder() {
               setAssetId={setAssetId}
               tileType={tileType}
               setTileType={setTileType}
+              onOpenGallery={() => setGalleryOpen(true)}
             />
           </div>
         </section>
@@ -436,13 +477,6 @@ export default function MapBuilder() {
         />
       )}
 
-      {cosmeticsOpen && (
-        <CosmeticGalleryOverlay
-          cosmetics={Object.values(BASE_CONTENT.cosmetics ?? {})}
-          characters={BASE_CONTENT.characters ?? {}}
-          onClose={() => setCosmeticsOpen(false)}
-        />
-      )}
     </main>
   );
 }
@@ -452,14 +486,11 @@ function MapTopBar({
   dispatch,
   onCreate,
   onDuplicate,
+  onDelete,
   onEdit,
   onImport,
-  onCopy,
-  onDownload,
-  onReset,
-  onOpen3D,
-  onOpenGallery,
-  onOpenCosmetics,
+  onSave,
+  saveStatus,
   testMode,
   onToggleTest,
 }: {
@@ -467,101 +498,103 @@ function MapTopBar({
   dispatch: Dispatch<any>;
   onCreate: () => void;
   onDuplicate: () => void;
+  onDelete: () => void;
   onEdit: () => void;
   onImport: () => void;
-  onCopy: () => void;
-  onDownload: () => void;
-  onReset: () => void;
-  onOpen3D: () => void;
-  onOpenGallery: () => void;
-  onOpenCosmetics: () => void;
+  onSave: () => void;
+  saveStatus: DraftSaveStatus;
   testMode: boolean;
   onToggleTest: () => void;
 }) {
+  const saveLabel =
+    saveStatus === "saved"
+      ? "Saved to shared/content.json"
+      : saveStatus === "saving"
+        ? "Saving shared/content.json"
+        : saveStatus === "browser"
+          ? "Browser draft only; save to shared/content.json"
+          : saveStatus === "error"
+            ? "Retry saving shared/content.json"
+            : "Save to shared/content.json";
+  const saveClass = saveStatus === "dirty" || saveStatus === "saving" ? "active" : saveStatus === "error" || saveStatus === "browser" ? "danger" : "";
+  const canDeleteMap = state.content.maps.length > 1;
+
   return (
-    <section className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.035] p-1.5">
-      <select
-        value={state.activeMapId}
-        onChange={(event) => dispatch({ type: "select_map", mapId: event.target.value })}
-        aria-label="Active map"
-        className="min-w-[12rem] flex-1 rounded-md border border-white/10 bg-[#0a100b] px-3 py-1.5 text-xs font-black text-white outline-none focus:border-emerald-300"
-      >
-        {state.content.maps.map((map) => (
-          <option key={map.id} value={map.id}>
-            {map.name}
-          </option>
-        ))}
-      </select>
-      <button type="button" onClick={onEdit} className="builder-button">
-        Edit
-      </button>
-      <button type="button" onClick={onCreate} className="builder-button">
-        New
-      </button>
-      <button type="button" onClick={onDuplicate} className="builder-button">
-        Duplicate
-      </button>
-      <button type="button" onClick={onImport} data-json-open="true" className="builder-button">
-        Import
-      </button>
-      <button type="button" onClick={onCopy} className="builder-button">
-        Copy
-      </button>
-      <button type="button" onClick={onDownload} className="builder-button">
-        Download
-      </button>
-      <button type="button" onClick={onReset} className="builder-button danger">
-        Reset
-      </button>
-      <ViewsMenu
-        items={[
-          { label: "🎮 3D playtest", onClick: onOpen3D },
-          { label: "🧱 Props 3D", onClick: onOpenGallery },
-          { label: "🧢 Cosméticos 3D", onClick: onOpenCosmetics },
-        ]}
-      />
-      <button type="button" onClick={onToggleTest} className={`builder-button ${testMode ? "active" : ""}`}>
-        {testMode ? "Stop test" : "Test map"}
-      </button>
-      <a href="/tools" className="builder-button">
-        Tools
-      </a>
-      <a href="/" className="builder-button">
-        Game
-      </a>
+    <section className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-white/[0.035] p-1.5">
+      <div className="flex min-w-[min(100%,34rem)] flex-1 flex-wrap items-center gap-1.5">
+        <select
+          value={state.activeMapId}
+          onChange={(event) => dispatch({ type: "select_map", mapId: event.target.value })}
+          aria-label="Map"
+          className="w-full min-w-[12rem] rounded-md border border-white/10 bg-[#0a100b] px-3 py-1.5 text-xs font-black text-white outline-none focus:border-emerald-300 sm:w-64 lg:w-72"
+        >
+          {state.content.maps.map((map) => (
+            <option key={map.id} value={map.id}>
+              {map.name}
+            </option>
+          ))}
+        </select>
+        <MapIconButton label={saveLabel} icon={Save} onClick={onSave} className={saveClass} live />
+        <MapIconButton label="Edit map details" icon={Pencil} onClick={onEdit} />
+        <MapIconButton label="New map" icon={Plus} onClick={onCreate} />
+        <MapIconButton label="Duplicate map" icon={Copy} onClick={onDuplicate} />
+        <MapIconButton
+          label={canDeleteMap ? "Delete map" : "Cannot delete last map"}
+          icon={Trash2}
+          onClick={onDelete}
+          className="danger"
+          disabled={!canDeleteMap}
+        />
+      </div>
+      <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 border-white/10 lg:border-l lg:pl-2">
+        <button type="button" onClick={onImport} data-json-open="true" className="builder-button" aria-label="Import or export JSON">
+          JSON
+        </button>
+        <button
+          type="button"
+          onClick={onToggleTest}
+          className={`builder-button ${testMode ? "active" : ""}`}
+          aria-label={testMode ? "Stop test map" : "Test map"}
+        >
+          {testMode ? "Stop" : "Test"}
+        </button>
+        <a href="/tools" className="builder-button">
+          Tools
+        </a>
+      </div>
     </section>
   );
 }
 
-/** Desplegable que agrupa las vistas 3D para que la barra no se desborde. */
-function ViewsMenu({ items }: { items: { label: string; onClick: () => void }[] }) {
-  const [open, setOpen] = useState(false);
+function MapIconButton({
+  label,
+  icon: Icon,
+  onClick,
+  className = "",
+  disabled = false,
+  live = false,
+}: {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  onClick: () => void;
+  className?: string;
+  disabled?: boolean;
+  live?: boolean;
+}) {
   return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="builder-button preview">
-        Vistas 3D ▾
+    <span className="builder-tooltip" data-tooltip={label}>
+      <button
+        type="button"
+        onClick={disabled ? undefined : onClick}
+        aria-disabled={disabled || undefined}
+        aria-label={label}
+        aria-live={live ? "polite" : undefined}
+        title={label}
+        className={`builder-button icon ${className} ${disabled ? "is-disabled" : ""}`}
+      >
+        <Icon className="h-4 w-4" />
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-50 mt-1 min-w-[11rem] rounded-md border border-white/15 bg-[#141b12] p-1 shadow-2xl shadow-black/45">
-            {items.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => {
-                  item.onClick();
-                  setOpen(false);
-                }}
-                className="block w-full rounded px-3 py-2 text-left text-xs font-black text-white transition hover:bg-white/10"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    </span>
   );
 }
 
@@ -656,6 +689,7 @@ function FloatingToolBar({
   setAssetId,
   tileType,
   setTileType,
+  onOpenGallery,
 }: {
   state: MapBuilderState;
   dispatch: Dispatch<any>;
@@ -664,6 +698,7 @@ function FloatingToolBar({
   setAssetId: (id: string) => void;
   tileType: TileType;
   setTileType: (type: TileType) => void;
+  onOpenGallery: () => void;
 }) {
   return (
     <section data-map-builder-toolbar="true" className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-3">
@@ -671,20 +706,25 @@ function FloatingToolBar({
         {(state.tool === "artifact" || state.tool === "cell") && (
           <div className="absolute bottom-[calc(100%+0.5rem)] left-1/2 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-white/15 bg-slate-950/92 p-3 text-white shadow-2xl shadow-black/30 backdrop-blur-md">
             {state.tool === "artifact" && (
-              <label className="block text-xs font-bold text-slate-300">
-                Asset
-                <select
-                  value={assetId}
-                  onChange={(event) => setAssetId(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
-                >
-                  {assetCatalog.map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {assetOptionLabel(asset)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="flex items-end gap-2">
+                <label className="block min-w-0 flex-1 text-xs font-bold text-slate-300">
+                  Asset
+                  <select
+                    value={assetId}
+                    onChange={(event) => setAssetId(event.target.value)}
+                    className="mt-1 w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
+                  >
+                    {assetCatalog.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {assetOptionLabel(asset)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button type="button" onClick={onOpenGallery} className="builder-button preview h-[2.35rem]" aria-label="Open prop 3D viewer">
+                  View 3D
+                </button>
+              </div>
             )}
             {state.tool === "cell" && (
               <label className="block text-xs font-bold text-slate-300">
@@ -815,7 +855,7 @@ function JsonModal({
                 Import
               </button>
               <button type="button" onClick={onReset} className="builder-button danger">
-                Reset draft
+                Recover browser draft
               </button>
             </div>
           </div>
@@ -1739,11 +1779,24 @@ function PropGalleryOverlay({
   const [selectedId, setSelectedId] = useState(
     assetCatalog.some((asset) => asset.id === initialAssetId) ? initialAssetId : assetCatalog[0]?.id ?? ""
   );
-  const selectedIndex = Math.max(0, assetCatalog.findIndex((asset) => asset.id === selectedId));
-  const selectedAsset = assetCatalog[selectedIndex];
-  const [scale, setScale] = useState(selectedAsset?.defaultScale ?? 1);
+  const [scale, setScale] = useState(() => assetCatalog.find((asset) => asset.id === initialAssetId)?.defaultScale ?? assetCatalog[0]?.defaultScale ?? 1);
   const [catalogOpen, setCatalogOpen] = useState(true);
+  const [searchText, setSearchText] = useState("");
+  const searchTerm = searchText.trim().toLowerCase();
+  const filteredAssets = useMemo(() => {
+    if (!searchTerm) return assetCatalog;
+    return assetCatalog.filter((asset) => propSearchText(asset).includes(searchTerm));
+  }, [assetCatalog, searchTerm]);
+  const selectedIndex = filteredAssets.findIndex((asset) => asset.id === selectedId);
+  const selectedAsset = selectedIndex >= 0 ? filteredAssets[selectedIndex] : undefined;
   const preview = useMemo(() => buildPropPreviewMap(selectedAsset?.id ?? "", selectedAsset, scale), [selectedAsset, scale]);
+
+  useEffect(() => {
+    if (selectedAsset || !filteredAssets.length) return;
+    const next = filteredAssets[0];
+    setSelectedId(next.id);
+    setScale(next.defaultScale ?? 1);
+  }, [filteredAssets, selectedAsset]);
 
   // Cambiar de prop resetea el tamaño al por defecto de ese prop.
   const selectProp = (id: string) => {
@@ -1752,9 +1805,10 @@ function PropGalleryOverlay({
   };
 
   const step = (delta: number) => {
-    if (!assetCatalog.length) return;
-    const next = (selectedIndex + delta + assetCatalog.length) % assetCatalog.length;
-    selectProp(assetCatalog[next].id);
+    if (!filteredAssets.length) return;
+    const currentIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    const next = (currentIndex + delta + filteredAssets.length) % filteredAssets.length;
+    selectProp(filteredAssets[next].id);
   };
 
   return (
@@ -1787,10 +1841,10 @@ function PropGalleryOverlay({
 
         <section className="pointer-events-auto w-full rounded-lg border border-white/15 bg-slate-950/65 p-3 shadow-2xl shadow-black/35 backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => step(-1)} className="builder-button compact" aria-label="Prop anterior">◀</button>
-              <span className="min-w-[4rem] text-center text-xs font-bold text-slate-300">{assetCatalog.length ? selectedIndex + 1 : 0} / {assetCatalog.length}</span>
-              <button type="button" onClick={() => step(1)} className="builder-button compact" aria-label="Prop siguiente">▶</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => step(-1)} disabled={!filteredAssets.length} className="builder-button compact disabled:opacity-40" aria-label="Prop anterior">◀</button>
+              <span className="min-w-[4rem] text-center text-xs font-bold text-slate-300">{filteredAssets.length ? Math.max(selectedIndex, 0) + 1 : 0} / {filteredAssets.length}</span>
+              <button type="button" onClick={() => step(1)} disabled={!filteredAssets.length} className="builder-button compact disabled:opacity-40" aria-label="Prop siguiente">▶</button>
               <button
                 type="button"
                 onClick={() => setCatalogOpen((open) => !open)}
@@ -1799,6 +1853,16 @@ function PropGalleryOverlay({
               >
                 {catalogOpen ? "Catálogo ▾" : "Catálogo ▸"}
               </button>
+              <label className="flex min-w-[13rem] items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-300">
+                Buscar
+                <input
+                  type="search"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="Nombre, tipo o id"
+                  className="h-[1.9rem] min-w-0 flex-1 rounded-md border border-white/10 bg-[#0d120d] px-2 text-xs font-bold normal-case tracking-normal text-white outline-none placeholder:text-slate-500 focus:border-cyan-300"
+                />
+              </label>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-300">Tamaño</span>
@@ -1833,22 +1897,27 @@ function PropGalleryOverlay({
           </div>
           {catalogOpen && (
             <div className="mt-3 grid max-h-[30vh] grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto overscroll-contain pr-1">
-            {assetCatalog.map((asset) => (
-              <button
-                key={asset.id}
-                type="button"
-                onClick={() => selectProp(asset.id)}
-                aria-pressed={asset.id === selectedId}
-                className={`flex items-center gap-2 rounded-md border px-2 py-2 text-left text-xs font-bold transition ${
-                  asset.id === selectedId
-                    ? "border-cyan-300/70 bg-cyan-400/20 text-cyan-100"
-                    : "border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/10"
-                }`}
-              >
-                <span className="text-base leading-none">{ASSET_EMOJI[asset.id] ?? KIND_EMOJI[asset.kind] ?? KIND_EMOJI.custom}</span>
-                <span className="truncate">{asset.name}</span>
-              </button>
-            ))}
+              {filteredAssets.map((asset) => (
+                <button
+                  key={asset.id}
+                  type="button"
+                  onClick={() => selectProp(asset.id)}
+                  aria-pressed={asset.id === selectedId}
+                  className={`flex items-center gap-2 rounded-md border px-2 py-2 text-left text-xs font-bold transition ${
+                    asset.id === selectedId
+                      ? "border-cyan-300/70 bg-cyan-400/20 text-cyan-100"
+                      : "border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/10"
+                  }`}
+                >
+                  <span className="text-base leading-none">{ASSET_EMOJI[asset.id] ?? KIND_EMOJI[asset.kind] ?? KIND_EMOJI.custom}</span>
+                  <span className="truncate">{asset.name}</span>
+                </button>
+              ))}
+              {!filteredAssets.length && (
+                <p className="col-span-full rounded-md border border-white/10 bg-black/25 px-3 py-4 text-center text-xs font-bold text-slate-300">
+                  No props match that search.
+                </p>
+              )}
             </div>
           )}
         </section>
@@ -2260,30 +2329,26 @@ function SelectInput({
 }
 
 function loadInitialState(): MapBuilderState {
+  return createInitialMapBuilderState(BASE_CONTENT);
+}
+
+function loadSavedBuilderContent(): BuilderContent | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const content = JSON.parse(raw);
       if (content?.maps?.length) {
-        const base = createInitialMapBuilderState(BASE_CONTENT);
-        const migratedContent = normalizeBuilderContent({
+        return normalizeBuilderContent({
           ...BASE_CONTENT,
           ...content,
           assetCatalog: mergeAssetCatalog(content.assetCatalog, BASE_CONTENT.assetCatalog),
         });
-        return {
-          ...base,
-          content: migratedContent,
-          activeMapId: migratedContent.activeMapId,
-          selection: migratedContent.maps[0]?.board[0] ? { kind: "node", id: migratedContent.maps[0].board[0].id } : null,
-          message: "Borrador local cargado y actualizado",
-        };
       }
     }
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
-  return createInitialMapBuilderState(BASE_CONTENT);
+  return null;
 }
 
 function mergeAssetCatalog(localCatalog: MapAssetDef[] | undefined, baseCatalog: MapAssetDef[] | undefined): MapAssetDef[] {
@@ -2407,6 +2472,7 @@ function shortType(type: TileType): string {
     groom: "GR",
     reaction: "RX",
     estimate: "ES",
+    shop: "SH",
   };
   return labels[type];
 }
@@ -2426,6 +2492,10 @@ function artifactColor(kind?: MapAssetDef["kind"]): string {
 function assetOptionLabel(asset: MapAssetDef): string {
   const emoji = ASSET_EMOJI[asset.id] ?? KIND_EMOJI[asset.kind] ?? KIND_EMOJI.custom;
   return `${emoji} ${asset.name}`;
+}
+
+function propSearchText(asset: MapAssetDef): string {
+  return [asset.name, asset.id, asset.kind, assetOptionLabel(asset)].join(" ").toLowerCase();
 }
 
 function terraceRectFromDraft(draft: { start: MapGridPoint; current: MapGridPoint }): {

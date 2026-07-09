@@ -148,6 +148,57 @@ body {
   padding: 0.3rem 0.45rem;
 }
 
+.builder-button.icon {
+  min-height: 1.95rem;
+  width: 1.95rem;
+  padding: 0;
+}
+
+.builder-button.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.builder-button.is-disabled:hover {
+  border-color: rgb(255 255 255 / 0.12);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.builder-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.builder-tooltip::after {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 50%;
+  z-index: 80;
+  width: max-content;
+  max-width: 14rem;
+  transform: translate(-50%, -0.2rem);
+  border: 1px solid rgb(110 231 183 / 0.38);
+  border-radius: 0.25rem;
+  background: #ecfdf5;
+  color: #052e16;
+  content: attr(data-tooltip);
+  opacity: 0;
+  padding: 0.28rem 0.45rem;
+  pointer-events: none;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.35);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.builder-tooltip:hover::after,
+.builder-tooltip:focus-within::after {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
 .builder-route-button {
   display: flex;
   min-height: 2.1rem;

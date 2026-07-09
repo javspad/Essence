@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { EffectDef, EffectDuration, EffectInstance, EffectLifecycleHook, EventAction, GameContent, GameState, Player } from "@essence/shared";
+import type { ArtifactOffer, EffectDef, EffectDuration, EffectInstance, EffectLifecycleHook, EventAction, GameContent, GameState, Player } from "@essence/shared";
 import { consequenceLabel, durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import seedContent from "@shared/content.json";
@@ -21,8 +21,10 @@ import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 import { cn } from "@/lib/utils";
+import { artifactUseMessage, effectEndedMessage } from "../artifactPresentation";
 import { applyCameraIntent, supportsWebGL, type BoardCameraState, type CameraIntent } from "../board3d";
 import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
+import type { EffectNotice } from "../useGame";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import Board3DShell from "./Board3DShell";
 import CosmeticShop from "./CosmeticShop";
@@ -47,9 +49,15 @@ interface GameScene3DProps {
   onRoll: () => void;
   onBuyCosmetic: (cosmeticId: string, onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => void;
   onEquipCosmetic: (cosmeticId: string, equipped: boolean, onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => void;
+  onRollArtifactShop: (onResult?: (res: { ok: true; offers: ArtifactOffer[] } | { ok: false; error: string }) => void) => void;
+  onBuyArtifact: (offerId: string, onResult?: (res: { ok: true; artifactId: string; requiresTarget: boolean } | { ok: false; error: string }) => void) => void;
+  onUseArtifact: (targetPlayerId: string | undefined, onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => void;
+  onSkipArtifactShop: (onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => void;
   onNext: () => void;
   onLeave: () => void;
   onDebugApplyEffect: (playerId: string, effect: EffectDef) => void;
+  effectNotices?: EffectNotice[];
+  onDismissEffectNotice?: (noticeId: string) => void;
 }
 
 const DICE = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
@@ -161,14 +169,23 @@ export default function GameScene3D({
   onRoll,
   onBuyCosmetic,
   onEquipCosmetic,
+  onRollArtifactShop,
+  onBuyArtifact,
+  onUseArtifact,
+  onSkipArtifactShop,
   onNext,
   onLeave,
   onDebugApplyEffect,
+  effectNotices = [],
+  onDismissEffectNotice,
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
   const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [cosmeticShopOpen, setCosmeticShopOpen] = useState(false);
+  const [artifactTargetPreviewId, setArtifactTargetPreviewId] = useState<string | null>(null);
+  const forcedArtifactShopOpen = state.phase === "shop" && Boolean(state.artifactShop);
+  const shopOpen = cosmeticShopOpen || forcedArtifactShopOpen;
   const canAdvance = isHost || isMyTurn;
   const editMode = useMemo(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("sceneEdit"),
@@ -184,6 +201,13 @@ export default function GameScene3D({
     (playerId: string) => dispatchCameraIntent({ kind: "focusPlayer", playerId }),
     [dispatchCameraIntent]
   );
+  const previewArtifactTarget = useCallback(
+    (playerId: string | null) => {
+      setArtifactTargetPreviewId(playerId);
+      if (playerId) focusPlayer(playerId);
+    },
+    [focusPlayer]
+  );
   const requestLeave = useCallback(() => setLeaveConfirmOpen(true), []);
   const confirmLeave = useCallback(() => {
     setLeaveConfirmOpen(false);
@@ -195,6 +219,15 @@ export default function GameScene3D({
     if (state.players.some((player) => player.id === cameraState.focusedPlayerId)) return;
     setCameraState((current) => ({ ...current, focusedPlayerId: null }));
   }, [cameraState.focusedPlayerId, state.players]);
+
+  useEffect(() => {
+    if (state.phase !== "shop") setArtifactTargetPreviewId(null);
+  }, [state.artifactShop?.visitId, state.phase]);
+
+  const artifactTrajectory =
+    state.pendingArtifactUse && artifactTargetPreviewId
+      ? { fromPlayerId: state.pendingArtifactUse.playerId, toPlayerId: artifactTargetPreviewId }
+      : null;
 
   if (!canLoad3D) {
     return (
@@ -209,6 +242,24 @@ export default function GameScene3D({
           onNext={onNext}
           onLeave={requestLeave}
         />
+        {shopOpen && (
+          <CosmeticShop
+            state={state}
+            me={me}
+            sharedArtifactShop={forcedArtifactShopOpen}
+            onClose={() => {
+              if (!forcedArtifactShopOpen) setCosmeticShopOpen(false);
+            }}
+            onBuyCosmetic={onBuyCosmetic}
+            onEquipCosmetic={onEquipCosmetic}
+            onRollArtifacts={onRollArtifactShop}
+            onBuyArtifact={onBuyArtifact}
+            onUseArtifact={onUseArtifact}
+            onSkipArtifactShop={onSkipArtifactShop}
+            onTargetPreview={previewArtifactTarget}
+          />
+        )}
+        <EffectNoticeStack state={state} me={me} notices={effectNotices} onDismiss={onDismissEffectNotice} />
         {leaveConfirmOpen && (
           <LeaveConfirmationOverlay
             isHost={isHost}
@@ -229,6 +280,7 @@ export default function GameScene3D({
         artifacts={state.artifacts}
         assetCatalog={state.assetCatalog}
         cosmetics={state.cosmetics}
+        activeEffects={state.activeEffects}
         boardShape={state.boardShape}
         terraces={state.terraces}
         players={state.players}
@@ -241,6 +293,7 @@ export default function GameScene3D({
         cameraMode={cameraState.mode}
         focusedPlayerId={cameraState.focusedPlayerId}
         onPlayerFocus={focusPlayer}
+        artifactTrajectory={artifactTrajectory}
         className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_45%_-5%,#f2d8a7_0%,#dfa96b_30%,#96602c_62%,#2c1808_100%)]"
       />
 
@@ -266,15 +319,24 @@ export default function GameScene3D({
         onDebugApplyEffect={onDebugApplyEffect}
       />
 
-      {cosmeticShopOpen && (
+      {shopOpen && (
         <CosmeticShop
           state={state}
           me={me}
-          onClose={() => setCosmeticShopOpen(false)}
+          sharedArtifactShop={forcedArtifactShopOpen}
+          onClose={() => {
+            if (!forcedArtifactShopOpen) setCosmeticShopOpen(false);
+          }}
           onBuyCosmetic={onBuyCosmetic}
           onEquipCosmetic={onEquipCosmetic}
+          onRollArtifacts={onRollArtifactShop}
+          onBuyArtifact={onBuyArtifact}
+          onUseArtifact={onUseArtifact}
+          onSkipArtifactShop={onSkipArtifactShop}
+          onTargetPreview={previewArtifactTarget}
         />
       )}
+      <EffectNoticeStack state={state} me={me} notices={effectNotices} onDismiss={onDismissEffectNotice} />
 
       {leaveConfirmOpen && (
         <LeaveConfirmationOverlay
@@ -388,7 +450,7 @@ function SceneChrome({
         </div>
       )}
 
-      {state.phase === "event" && <EventOverlay state={state} canAdvance={canAdvance} busyLabel={eventBusyLabel} onNext={onNext} />}
+      {state.phase === "event" && <EventOverlay state={state} me={me} canAdvance={canAdvance} busyLabel={eventBusyLabel} onNext={onNext} />}
       {state.phase === "reveal" && <RevealOverlay state={state} canAdvance={canAdvance} onNext={onNext} />}
       {state.phase === "finished" && <VictoryOverlay state={state} onLeave={onLeave} />}
     </div>
@@ -1153,11 +1215,13 @@ function diceDisplay(value: number | null | undefined, baseValue?: number | null
 
 function EventOverlay({
   state,
+  me,
   canAdvance,
   busyLabel,
   onNext,
 }: {
   state: GameState;
+  me: Player;
   canAdvance: boolean;
   busyLabel?: string | null;
   onNext: () => void;
@@ -1165,8 +1229,14 @@ function EventOverlay({
   const event = state.activeEvent;
   if (!event) return null;
   const player = state.players.find((p) => p.id === event.playerId);
+  const artifactTarget = event.artifactUse?.targetPlayerId
+    ? state.players.find((p) => p.id === event.artifactUse?.targetPlayerId)
+    : undefined;
+  const displayPlayer = artifactTarget ?? player;
+  const displayName = artifactTarget?.id === me.id ? "Vos" : displayPlayer?.name ?? "Jugador";
   const isDare = event.kind === "dare" || event.story?.title?.toLowerCase().includes("prenda");
   const title = event.title ?? event.story?.title ?? (isDare ? "Prenda" : "Evento");
+  const artifactMessage = artifactUseMessage(event, state.players, me.id);
 
   return (
     <CenterOverlay>
@@ -1179,14 +1249,19 @@ function EventOverlay({
         {/* Player name */}
         <h2
           className="mt-4 text-center text-4xl font-black drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-6xl"
-          style={{ color: player?.color ?? "#fff", textShadow: `0 0 40px ${player?.color ?? "#fff"}55` }}
+          style={{ color: displayPlayer?.color ?? "#fff", textShadow: `0 0 40px ${displayPlayer?.color ?? "#fff"}55` }}
         >
-          {player?.name ?? "Jugador"}
+          {displayName}
         </h2>
         {/* Divider */}
         <div className="mx-auto my-5 h-px w-24 rounded-full bg-white/20" />
         {/* Event text */}
         {event.story?.setup && <p className="mx-auto max-w-2xl text-center text-base font-black leading-7 text-white/70 sm:text-xl">{event.story.setup}</p>}
+        {artifactMessage && (
+          <p className="mx-auto mt-3 max-w-2xl rounded-sm border border-[#67e8f9]/35 bg-[#0891b2]/18 px-4 py-3 text-center text-sm font-black leading-5 text-[#cffafe] sm:text-lg">
+            {artifactMessage}
+          </p>
+        )}
         <p className="mx-auto mt-3 max-w-2xl text-center text-xl font-black leading-snug text-white/95 sm:text-3xl">
           {event.story?.prompt ?? event.text}
         </p>
@@ -1249,6 +1324,54 @@ function AppliedActions({ actions }: { actions?: { text: string; targetPlayerIds
         <p key={`${action.text}-${index}`} className="rounded-sm border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-center text-sm font-black text-amber-100">
           {action.text}
         </p>
+      ))}
+    </div>
+  );
+}
+
+function EffectNoticeStack({
+  state,
+  me,
+  notices,
+  onDismiss,
+}: {
+  state: GameState;
+  me: Player;
+  notices: EffectNotice[];
+  onDismiss?: (noticeId: string) => void;
+}) {
+  if (!notices.length) return null;
+  return (
+    <div className="pointer-events-none fixed right-3 top-20 z-50 grid w-[min(22rem,calc(100vw-1.5rem))] gap-2 sm:right-5">
+      {notices.map((notice) => (
+        <article
+          key={notice.id}
+          className="pointer-events-auto rounded-md border border-[#67e8f9]/35 bg-[#071923]/92 p-3 text-[#ecfeff] shadow-[0_16px_40px_rgb(0_0_0/0.45)] backdrop-blur-xl"
+        >
+          <div className="flex items-start gap-3">
+            <span className="grid size-8 shrink-0 place-items-center rounded-sm border border-[#67e8f9]/30 bg-[#0891b2]/20 text-sm font-black">
+              {notice.effectInstance.icon ?? <Sparkles className="size-4" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black uppercase tracking-wider text-[#67e8f9]">
+                {notice.reason === "triggered" ? "Item consumed" : "Item expired"}
+              </p>
+              <p className="mt-1 text-sm font-black leading-5">
+                {effectEndedMessage(notice.effectInstance, state.players, me.id, notice.reason)}
+              </p>
+            </div>
+            {onDismiss && (
+              <button
+                type="button"
+                aria-label="Dismiss item notification"
+                onClick={() => onDismiss(notice.id)}
+                className="grid size-7 shrink-0 place-items-center rounded-sm border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </article>
       ))}
     </div>
   );
@@ -1631,6 +1754,7 @@ function isDevBuild(): boolean {
 
 function turnTitle(state: GameState, active: Player | undefined, isMyTurn: boolean): string {
   if (state.phase === "moving") return "Moviendo ficha...";
+  if (state.phase === "shop") return "Shop de artifacts";
   if (state.phase === "event") return "Casillero especial";
   if (state.phase === "turn") return isMyTurn ? "¡Es tu turno!" : `Turno de ${active?.name ?? "..."}`;
   return active ? `Turno de ${active.name}` : "Tablero";
@@ -1641,6 +1765,7 @@ function phaseLabel(phase: GameState["phase"]): string {
     lobby: "Lobby",
     turn: "Turno",
     moving: "Movimiento",
+    shop: "Shop",
     event: "Evento",
     minigame: "Minijuego",
     reveal: "Resultados",
@@ -1692,7 +1817,7 @@ function LegacyGameScreen({
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-sm text-violet-200">
         3D no disponible en este navegador.
       </div>
-      {state.phase === "event" && <EventCard state={state} canAdvance={canAdvance} onNext={onNext} />}
+      {state.phase === "event" && <EventCard state={state} me={me} canAdvance={canAdvance} onNext={onNext} />}
     </div>
   );
 }

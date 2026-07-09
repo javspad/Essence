@@ -33,10 +33,14 @@ const TOOL_LINKS = [
     icon: Palette,
     accent: "fuchsia",
   },
-];
-
-const PLANNED_TOOLS = [
-  { title: "Artifact builder", eyebrow: "Gameplay items", icon: Sparkles },
+  {
+    href: "/artifact-builder",
+    title: "Artifact builder",
+    eyebrow: "Gameplay items",
+    body: "Rarity, effects, targeting, shop rolls",
+    icon: Sparkles,
+    accent: "emerald",
+  },
 ];
 
 export default function ToolsHub() {
@@ -90,29 +94,6 @@ export default function ToolsHub() {
           );
         })}
       </section>
-
-      <section className="mx-auto w-full max-w-5xl px-4 pb-6">
-        <div className="grid gap-3 md:grid-cols-3">
-          {PLANNED_TOOLS.map((tool) => {
-            const Icon = tool.icon;
-            return (
-              <div key={tool.title} className="rounded-lg border border-white/10 bg-white/[0.035] p-4 text-slate-300">
-                <div className="mb-5 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-slate-500">{tool.eyebrow}</p>
-                    <h2 className="mt-1 text-base font-black tracking-normal text-white/75">{tool.title}</h2>
-                  </div>
-                  <Icon className="h-5 w-5 text-slate-500" />
-                </div>
-                <span className="inline-flex rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[0.62rem] font-black uppercase tracking-[0.14em] text-slate-500">
-                  Planned
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
       <footer className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 pb-6 text-xs font-bold text-slate-500">
         <Wrench className="h-4 w-4" />
         Content JSON stays portable across builders.

@@ -73,6 +73,7 @@ const presentationSetup = setup({
     hasMotionPath: ({ context }) => context.motionPath.length > 1 && context.landingState !== null,
     hasDeferredEventJump: ({ context }) => hasDeferredEventJump(context),
     pendingStateIsEvent: ({ context }) => context.pendingAfterMoveState?.phase === "event",
+    pendingStateIsShop: ({ context }) => context.pendingAfterMoveState?.phase === "shop",
     pendingStateIsMinigame: ({ context }) => context.pendingAfterMoveState?.phase === "minigame",
   },
   delays: {
@@ -346,6 +347,11 @@ export const gamePresentationMachine = presentationSetup.createMachine({
             actions: showLatestStateAndClearMotion,
           },
           {
+            guard: "pendingStateIsShop",
+            target: "shopReady",
+            actions: showLatestStateAndClearMotion,
+          },
+          {
             guard: "pendingStateIsMinigame",
             target: "minigameReady",
             actions: showLatestStateAndClearMotion,
@@ -398,6 +404,21 @@ export const gamePresentationMachine = presentationSetup.createMachine({
         ],
       },
     },
+    shopReady: {
+      on: {
+        [BoardPresentationEventType.SERVER_STATE]: [
+          {
+            guard: "isRollUpdate",
+            target: "rollingDice",
+            actions: captureRollUpdate,
+          },
+          {
+            target: "idle",
+            actions: showServerState,
+          },
+        ],
+      },
+    },
     minigameReady: {
       on: {
         [BoardPresentationEventType.SERVER_STATE]: [
@@ -425,7 +446,8 @@ function createRollPlan(previous: GameState, next: GameState): RollPlan | null {
   const finalPosition = playerPosition(next, playerId);
   if (startPosition === null || finalPosition === null) return null;
 
-  const rollLanding = clamp(startPosition + next.lastRoll, 0, Math.max(0, next.boardLength - 1));
+  const movement = next.lastMovement ?? next.lastRoll;
+  const rollLanding = clamp(startPosition + movement, 0, Math.max(0, next.boardLength - 1));
   const landingPosition = next.phase === "moving" ? finalPosition : rollLanding;
   if (landingPosition === startPosition && finalPosition === startPosition) return null;
 
@@ -461,6 +483,8 @@ function withoutTransientBoardState(state: GameState, phase: Phase): GameState {
     phase,
     activeEvent: phase === "event" ? state.activeEvent : null,
     activeMinigame: phase === "minigame" ? state.activeMinigame : null,
+    artifactShop: phase === "shop" ? state.artifactShop : null,
+    pendingArtifactUse: phase === "shop" ? state.pendingArtifactUse : null,
     reveal: phase === "reveal" ? state.reveal : null,
   };
 }

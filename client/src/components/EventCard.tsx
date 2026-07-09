@@ -1,18 +1,26 @@
-import type { GameState } from "@essence/shared";
+import type { GameState, Player } from "@essence/shared";
+import { artifactUseMessage } from "../artifactPresentation";
 import { Button } from "@/components/ui/8bit/button";
 
 interface Props {
   state: GameState;
+  me: Player;
   canAdvance: boolean;
   onNext: () => void;
 }
 
-export default function EventCard({ state, canAdvance, onNext }: Props) {
+export default function EventCard({ state, me, canAdvance, onNext }: Props) {
   const ev = state.activeEvent;
   if (!ev) return null;
   const player = state.players.find((p) => p.id === ev.playerId);
+  const artifactTarget = ev.artifactUse?.targetPlayerId
+    ? state.players.find((p) => p.id === ev.artifactUse?.targetPlayerId)
+    : undefined;
+  const displayPlayer = artifactTarget ?? player;
+  const displayName = artifactTarget?.id === me.id ? "Vos" : displayPlayer?.name ?? "Jugador";
   const isDare = ev.kind === "dare" || ev.story?.title?.toLowerCase().includes("prenda");
   const title = ev.title ?? ev.story?.title ?? (isDare ? "Prenda" : "Evento");
+  const artifactMessage = artifactUseMessage(ev, state.players, me.id);
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-40">
@@ -25,10 +33,15 @@ export default function EventCard({ state, canAdvance, onNext }: Props) {
         <p className="text-sm uppercase tracking-widest text-white/60 mb-1">
           {title}
         </p>
-        <p className="font-bold text-lg mb-1" style={{ color: player?.color }}>
-          {player?.name}
+        <p className="font-bold text-lg mb-1" style={{ color: displayPlayer?.color }}>
+          {displayName}
         </p>
         {ev.story?.setup && <p className="mb-3 text-sm font-bold text-white/65">{ev.story.setup}</p>}
+        {artifactMessage && (
+          <p className="mb-3 rounded-sm border border-cyan-200/30 bg-cyan-300/10 px-3 py-2 text-sm font-black text-cyan-100">
+            {artifactMessage}
+          </p>
+        )}
         <p className="text-xl font-semibold mb-4">{ev.story?.prompt ?? ev.text}</p>
         {ev.story?.reward && <p className="mb-4 text-sm font-black text-amber-200">{ev.story.reward}</p>}
         {ev.actions?.length ? (

@@ -56,6 +56,7 @@ export type MapBuilderEvent =
   | { type: "select_map"; mapId: string }
   | { type: "create_map" }
   | { type: "duplicate_map" }
+  | { type: "delete_map" }
   | { type: "update_map"; patch: Partial<Pick<MapDefinition, "name" | "description" | "theme">> }
   | { type: "update_board_shape"; patch: Partial<MapBoardShape> }
   | { type: "toggle_blocked_cell"; point: MapGridPoint }
@@ -98,6 +99,7 @@ export const TILE_TYPES: TileType[] = [
   "groom",
   "reaction",
   "estimate",
+  "shop",
 ];
 
 export const TERRAIN_TYPES: MapTerrain[] = ["stone", "grass", "sand", "water", "asphalt", "magic"];
@@ -317,6 +319,23 @@ export function mapBuilderReducer(state: MapBuilderState, event: MapBuilderEvent
         selection: copy.board[0] ? { kind: "node", id: copy.board[0].id } : null,
         pendingRouteFrom: null,
         message: "Mapa duplicado",
+      };
+    }
+    case "delete_map": {
+      const activeIndex = state.content.maps.findIndex((map) => map.id === state.activeMapId);
+      if (state.content.maps.length <= 1 || activeIndex < 0) {
+        return { ...state, message: "No se puede eliminar el único mapa" };
+      }
+      const deletedMap = state.content.maps[activeIndex];
+      const maps = state.content.maps.filter((_, index) => index !== activeIndex);
+      const nextMap = maps[Math.min(activeIndex, maps.length - 1)] ?? maps[0];
+      return {
+        ...state,
+        activeMapId: nextMap.id,
+        content: { ...state.content, activeMapId: nextMap.id, maps },
+        selection: nextMap.board[0] ? { kind: "node", id: nextMap.board[0].id } : null,
+        pendingRouteFrom: null,
+        message: `Mapa eliminado: ${deletedMap.name}`,
       };
     }
     case "update_map":

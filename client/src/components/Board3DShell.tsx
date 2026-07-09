@@ -20,7 +20,7 @@ import {
   type PointLight,
   type Texture,
 } from "three";
-import type { CosmeticDef, FaceAnchor, FacePhotoAlignment, MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
+import type { CosmeticDef, EffectInstance, FaceAnchor, FacePhotoAlignment, MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
 import { cosmeticAnchorRefs, cosmeticAssetKind, normalizeCosmeticDef } from "@essence/shared/cosmetics";
 import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
 import { defaultTokenAnchor, tokenAnchorSurface } from "../characterTokenRig";
@@ -68,6 +68,7 @@ import {
 interface Board3DShellProps {
   tiles: Tile[];
   players?: Player[];
+  activeEffects?: EffectInstance[];
   routes?: MapRoute[];
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
@@ -90,11 +91,13 @@ interface Board3DShellProps {
   freeCameraRefit?: boolean;
   focusedPlayerId?: FocusedPlayerId;
   onPlayerFocus?: (playerId: string) => void;
+  artifactTrajectory?: { fromPlayerId: string; toPlayerId: string } | null;
 }
 
 export default function Board3DShell({
   tiles,
   players = [],
+  activeEffects = [],
   routes = [],
   artifacts = [],
   assetCatalog = [],
@@ -114,6 +117,7 @@ export default function Board3DShell({
   freeCameraRefit = false,
   focusedPlayerId = null,
   onPlayerFocus,
+  artifactTrajectory = null,
 }: Board3DShellProps) {
   const reducedMotion = useReducedMotion();
   const visible = usePageVisible();
@@ -134,12 +138,17 @@ export default function Board3DShell({
   const activePlayer = activeId ? players.find((player) => player.id === activeId) : undefined;
   const activeSlot = slotPositions.get(activePlayer?.position ?? 0) ?? [0, 0, 0];
   const focusedPlayer = focusedPlayerId ? players.find((player) => player.id === focusedPlayerId) : undefined;
+  const trajectorySlot = useMemo(
+    () => trajectoryMidpoint(artifactTrajectory, players, slotPositions),
+    [artifactTrajectory, players, slotPositions]
+  );
   // La cámara sigue al foco elegido; sin foco, sigue al que se está moviendo (evento incluido), no solo al del turno.
   const trackedId = cameraMode === "followActivePlayer" ? focusedPlayer?.id ?? activeMotion?.playerId ?? activeId : activeMotion?.playerId ?? activeId;
   const trackedPlayer = trackedId ? players.find((player) => player.id === trackedId) : undefined;
-  const trackedSlot = slotPositions.get(trackedPlayer?.position ?? activePlayer?.position ?? 0) ?? activeSlot;
+  const trackedSlot = trajectorySlot ?? slotPositions.get(trackedPlayer?.position ?? activePlayer?.position ?? 0) ?? activeSlot;
   // Posición viva del muñeco animado: el token la escribe cada frame, la cámara la lee.
   const trackedTokenRef = useRef<Vector3 | null>(null);
+  const trajectoryCameraRef = useRef<Vector3 | null>(null);
   const overviewShot = useMemo(() => boardCameraOverviewShot(bounds, terraces), [bounds, terraces]);
   const activePath = new Set(
     activeMotion && activeMotion.playerId === activeId
@@ -147,6 +156,16 @@ export default function Board3DShell({
       : movementPath(activePlayer?.position ?? -1, lastRoll, boardLength)
   );
   const occupancy = useMemo(() => playersByPosition(players), [players]);
+  const effectVisualsByPlayer = useMemo(() => {
+    const grouped = new Map<string, EffectInstance[]>();
+    activeEffects.forEach((effect) => {
+      if (!effect.visualAssetId) return;
+      const visuals = grouped.get(effect.targetPlayerId) ?? [];
+      visuals.push(effect);
+      grouped.set(effect.targetPlayerId, visuals);
+    });
+    return grouped;
+  }, [activeEffects]);
   const tokens = useMemo(
     () =>
       players.map((player) => {
@@ -184,6 +203,10 @@ export default function Board3DShell({
     const stackTotal = stack.length || 1;
     return tokenWorldPosition(slotPositions.get(player.position) ?? [0, 0, 0], stackIndex, stackTotal);
   }, [diceCue, occupancy, players, slotPositions]);
+  const artifactTrajectoryPoints = useMemo(
+    () => trajectoryPoints(artifactTrajectory, players, occupancy, slotPositions),
+    [artifactTrajectory, occupancy, players, slotPositions]
+  );
 
   // Fondo ámbar cálido tipo bokeh (la referencia del diorama), no más verdoso/oscuro
   const shellClassName =
@@ -209,7 +232,7 @@ export default function Board3DShell({
           <CinematicCamera
             mode={cameraMode}
             target={trackedSlot}
-            tokenRef={trackedTokenRef}
+            tokenRef={trajectorySlot ? trajectoryCameraRef : trackedTokenRef}
             motion={motion}
             walking={activeMotion !== null}
             dice={Boolean(diceCue)}
@@ -268,10 +291,13 @@ export default function Board3DShell({
             motionNonce={motionNonce}
             focused={player.id === focusedPlayerId}
             cosmeticCatalog={cosmetics}
+            effectVisuals={effectVisualsByPlayer.get(player.id) ?? []}
             onSelect={onPlayerFocus}
             trackRef={player.id === trackedId ? trackedTokenRef : undefined}
           />
         ))}
+
+        {artifactTrajectoryPoints && <ArtifactTrajectoryBeam from={artifactTrajectoryPoints.from} to={artifactTrajectoryPoints.to} />}
 
         {diceCue && dicePosition && <FloatingDice cue={diceCue} position={dicePosition} motion={motion} />}
 
@@ -531,6 +557,29 @@ function RouteStairs({ from, to, width }: { from: Vec3; to: Vec3; width: number 
           </mesh>
         </group>
       ))}
+    </group>
+  );
+}
+
+function ArtifactTrajectoryBeam({ from, to }: { from: Vec3; to: Vec3 }) {
+  const start = new Vector3(from[0], from[1] + 0.72, from[2]);
+  const end = new Vector3(to[0], to[1] + 0.72, to[2]);
+  const delta = end.clone().sub(start);
+  const length = delta.length();
+  if (length < 0.05) return null;
+  const midpoint = start.clone().add(end).multiplyScalar(0.5);
+  const quaternion = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), delta.clone().normalize());
+
+  return (
+    <group>
+      <mesh position={midpoint} quaternion={quaternion}>
+        <cylinderGeometry args={[0.035, 0.035, length, 12]} />
+        <meshStandardMaterial color="#67e8f9" emissive="#22d3ee" emissiveIntensity={0.5} transparent opacity={0.76} />
+      </mesh>
+      <mesh position={end} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.22, 0.025, 10, 28]} />
+        <meshStandardMaterial color="#fde68a" emissive="#f59e0b" emissiveIntensity={0.38} transparent opacity={0.9} />
+      </mesh>
     </group>
   );
 }
@@ -1025,6 +1074,9 @@ const TOKEN_FACE_DECAL_GEOMETRY = makeCurvedTokenFaceGeometry();
 const TOKEN_CROWN_GEOMETRY = new CylinderGeometry(0.05, 0.07, 0.05, 6);
 const TOKEN_SHADOW_GEOMETRY = new CircleGeometry(0.2, 20);
 const TOKEN_MARKER_GEOMETRY = new OctahedronGeometry(0.085);
+const TOKEN_ARTIFACT_PACK_GEOMETRY = new SphereGeometry(0.095, 18, 14);
+const TOKEN_ARTIFACT_PACK_FLAP_GEOMETRY = new CylinderGeometry(0.07, 0.074, 0.024, 18);
+const TOKEN_ARTIFACT_PACK_STRAP_GEOMETRY = new TorusGeometry(0.047, 0.0045, 8, 18);
 const TOKEN_GOGGLE_RING_GEOMETRY = new TorusGeometry(0.035, 0.006, 10, 24);
 const TOKEN_GOGGLE_LENS_GEOMETRY = new CircleGeometry(0.029, 24);
 const TOKEN_GOGGLE_BRIDGE_GEOMETRY = new CylinderGeometry(0.006, 0.006, 0.09, 12);
@@ -1773,6 +1825,7 @@ function PlayerToken({
   motionNonce,
   focused,
   cosmeticCatalog,
+  effectVisuals,
   onSelect,
   trackRef,
 }: {
@@ -1784,6 +1837,7 @@ function PlayerToken({
   motionNonce: string;
   focused: boolean;
   cosmeticCatalog: Record<string, CosmeticDef>;
+  effectVisuals: EffectInstance[];
   onSelect?: (playerId: string) => void;
   /** la cámara lee de acá la posición viva del muñeco seguido */
   trackRef?: { current: Vector3 | null };
@@ -1853,6 +1907,7 @@ function PlayerToken({
   });
 
   const opacity = player.connected ? 1 : 0.45;
+  const hasBackpackArtifact = effectVisuals.some((effect) => effect.visualAssetId === "backpack");
 
   return (
     <group
@@ -1885,12 +1940,32 @@ function PlayerToken({
         opacity={opacity}
         focused={focused}
       />
+      {hasBackpackArtifact && <TokenArtifactBackpack opacity={opacity} />}
       {/* Floating turn marker */}
       {active && (
         <mesh ref={markerRef} position={[0, 0.94, 0]} geometry={TOKEN_MARKER_GEOMETRY} dispose={null}>
           <meshStandardMaterial color="#fde047" emissive="#f59e0b" emissiveIntensity={0.85} roughness={0.25} />
         </mesh>
       )}
+    </group>
+  );
+}
+
+function TokenArtifactBackpack({ opacity }: { opacity: number }) {
+  return (
+    <group position={[0, 0.32, 0.17]} rotation={[0.12, 0, 0]}>
+      <mesh castShadow scale={[0.95, 1.15, 0.58]} geometry={TOKEN_ARTIFACT_PACK_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color="#2563eb" roughness={0.55} metalness={0.08} transparent opacity={opacity} />
+      </mesh>
+      <mesh castShadow position={[0, 0.055, 0.048]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 0.72, 1]} geometry={TOKEN_ARTIFACT_PACK_FLAP_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color="#1d4ed8" roughness={0.5} metalness={0.12} transparent opacity={opacity} />
+      </mesh>
+      <mesh position={[-0.065, 0.01, -0.006]} rotation={[Math.PI / 2, 0.18, 0]} scale={[0.62, 1, 0.72]} geometry={TOKEN_ARTIFACT_PACK_STRAP_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color="#bae6fd" roughness={0.4} transparent opacity={opacity * 0.86} />
+      </mesh>
+      <mesh position={[0.065, 0.01, -0.006]} rotation={[Math.PI / 2, -0.18, 0]} scale={[0.62, 1, 0.72]} geometry={TOKEN_ARTIFACT_PACK_STRAP_GEOMETRY} dispose={null}>
+        <meshStandardMaterial color="#bae6fd" roughness={0.4} transparent opacity={opacity * 0.86} />
+      </mesh>
     </group>
   );
 }
@@ -2220,6 +2295,51 @@ function playersByPosition(players: Player[]): Map<number, Player[]> {
     positions.set(player.position, stack);
   }
   return positions;
+}
+
+function trajectoryMidpoint(
+  trajectory: { fromPlayerId: string; toPlayerId: string } | null,
+  players: Player[],
+  slotPositions: Map<number, Vec3>
+): Vec3 | null {
+  if (!trajectory) return null;
+  const from = players.find((player) => player.id === trajectory.fromPlayerId);
+  const to = players.find((player) => player.id === trajectory.toPlayerId);
+  const fromSlot = from ? slotPositions.get(from.position) : undefined;
+  const toSlot = to ? slotPositions.get(to.position) : undefined;
+  if (!fromSlot || !toSlot) return null;
+  return [
+    roundLocal((fromSlot[0] + toSlot[0]) / 2),
+    roundLocal((fromSlot[1] + toSlot[1]) / 2),
+    roundLocal((fromSlot[2] + toSlot[2]) / 2),
+  ];
+}
+
+function trajectoryPoints(
+  trajectory: { fromPlayerId: string; toPlayerId: string } | null,
+  players: Player[],
+  occupancy: Map<number, Player[]>,
+  slotPositions: Map<number, Vec3>
+): { from: Vec3; to: Vec3 } | null {
+  if (!trajectory) return null;
+  const from = players.find((player) => player.id === trajectory.fromPlayerId);
+  const to = players.find((player) => player.id === trajectory.toPlayerId);
+  if (!from || !to) return null;
+  return {
+    from: playerTokenPosition(from, occupancy, slotPositions),
+    to: playerTokenPosition(to, occupancy, slotPositions),
+  };
+}
+
+function playerTokenPosition(player: Player, occupancy: Map<number, Player[]>, slotPositions: Map<number, Vec3>): Vec3 {
+  const stack = occupancy.get(player.position) ?? [];
+  const stackIndex = Math.max(0, stack.findIndex((candidate) => candidate.id === player.id));
+  const stackTotal = stack.length || 1;
+  return tokenWorldPosition(slotPositions.get(player.position) ?? [0, 0, 0], stackIndex, stackTotal);
+}
+
+function roundLocal(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 function easeOut(t: number): number {

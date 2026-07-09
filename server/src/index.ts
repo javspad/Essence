@@ -6,9 +6,9 @@ import { existsSync } from "node:fs";
 import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
-import type { CharacterSlot, ClientToServerEvents, RoomSummary, ServerToClientEvents } from "@essence/shared";
+import type { CharacterSlot, ClientToServerEvents, ContentMapSummary, GameContent, MapDefinition, RoomSummary, ServerToClientEvents } from "@essence/shared";
 import { characterSlotsForContent } from "@essence/shared/characters";
-import { content } from "./content.js";
+import { loadContent } from "./content.js";
 import { GameRoom } from "./room.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -47,18 +47,73 @@ function listRooms(): RoomSummary[] {
 }
 
 function listCharacters(): CharacterSlot[] {
-  return characterSlotsForContent(content);
+  return characterSlotsForContent(loadContent());
+}
+
+function listMaps(): ContentMapSummary[] {
+  return mapSummariesForContent(loadContent());
+}
+
+function mapSummariesForContent(content: GameContent): ContentMapSummary[] {
+  const maps = content.maps?.length
+    ? content.maps
+    : [
+        {
+          id: "board",
+          name: "Board",
+          description: "Legacy board layout",
+          board: content.board,
+          routes: [],
+          artifacts: [],
+        } satisfies MapDefinition,
+      ];
+  const activeMapId = content.activeMapId && maps.some((map) => map.id === content.activeMapId) ? content.activeMapId : maps[0]?.id;
+  return maps.map((map) => ({
+    id: map.id,
+    name: map.name,
+    description: map.description,
+    cells: map.board.length,
+    routes: map.routes.length,
+    props: (map.mapProps ?? map.artifacts ?? []).length,
+    terraces: map.terraces?.length ?? 0,
+    active: map.id === activeMapId,
+  }));
+}
+
+function mapIdForRoom(content: GameContent, requestedMapId?: string): { ok: true; mapId?: string } | { ok: false; error: string } {
+  const trimmed = requestedMapId?.trim();
+  const maps = content.maps ?? [];
+  if (!trimmed) return { ok: true, mapId: content.activeMapId ?? maps[0]?.id };
+  if (!maps.some((map) => map.id === trimmed)) return { ok: false, error: "Ese mapa no existe en content.json" };
+  return { ok: true, mapId: trimmed };
+}
+
+function contentLoadError(error: unknown): string {
+  const detail = error instanceof Error ? error.message : "Error desconocido";
+  return `No pude cargar content.json: ${detail}`;
 }
 
 io.on("connection", (socket) => {
-  socket.on("room:create", ({ name, roomName, characterId }, ack) => {
+  socket.on("room:create", ({ name, roomName, characterId, mapId }, ack) => {
     const trimmedRoom = (roomName ?? "").trim();
     if (!trimmedRoom) {
       ack({ ok: false, error: "Poné un nombre a la sala" });
       return;
     }
+    let roomContent: GameContent;
+    try {
+      roomContent = loadContent();
+    } catch (error) {
+      ack({ ok: false, error: contentLoadError(error) });
+      return;
+    }
+    const selectedMap = mapIdForRoom(roomContent, mapId);
+    if (!selectedMap.ok) {
+      ack(selectedMap);
+      return;
+    }
     const code = genCode();
-    const room = new GameRoom(io, code, trimmedRoom.slice(0, 40), content);
+    const room = new GameRoom(io, code, trimmedRoom.slice(0, 40), roomContent, { mapId: selectedMap.mapId });
     rooms.set(code, room);
     socket.join(code);
     socketIndex.set(socket.id, code);
@@ -140,6 +195,34 @@ io.on("connection", (socket) => {
       if (!result.ok) socket.emit("error", { message: result.error });
     })
   );
+  socket.on("artifact:rollShop", (_payload, ack) =>
+    withRoom((r) => {
+      const result = r.rollArtifactShop(socket.id);
+      ack(result);
+      if (!result.ok) socket.emit("error", { message: result.error });
+    })
+  );
+  socket.on("artifact:buy", ({ offerId }, ack) =>
+    withRoom((r) => {
+      const result = r.buyArtifact(socket.id, offerId);
+      ack(result);
+      if (!result.ok) socket.emit("error", { message: result.error });
+    })
+  );
+  socket.on("artifact:use", ({ targetPlayerId }, ack) =>
+    withRoom((r) => {
+      const result = r.useArtifact(socket.id, targetPlayerId);
+      ack(result);
+      if (!result.ok) socket.emit("error", { message: result.error });
+    })
+  );
+  socket.on("artifact:skipShop", (_payload, ack) =>
+    withRoom((r) => {
+      const result = r.skipArtifactShop(socket.id);
+      ack(result);
+      if (!result.ok) socket.emit("error", { message: result.error });
+    })
+  );
   socket.on("minigame:force", () => withRoom((r) => void r.forceResolve(socket.id)));
   socket.on("debug:applyEffect", (payload) => withRoom((r) => r.debugApplyEffect(socket.id, payload)));
 
@@ -164,7 +247,19 @@ app.get("/api/rooms", (_req, res) => {
 });
 
 app.get("/api/characters", (_req, res) => {
-  res.json({ characters: listCharacters() });
+  try {
+    res.json({ characters: listCharacters() });
+  } catch (error) {
+    res.status(500).json({ error: contentLoadError(error) });
+  }
+});
+
+app.get("/api/maps", (_req, res) => {
+  try {
+    res.json({ maps: listMaps() });
+  } catch (error) {
+    res.status(500).json({ error: contentLoadError(error) });
+  }
 });
 
 const clientDist = resolve(__dirname, "../../client/dist");

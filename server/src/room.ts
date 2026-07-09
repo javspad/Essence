@@ -2,6 +2,8 @@ import type { Server } from "socket.io";
 import type {
   ActiveMinigame,
   AppliedEventAction,
+  ArtifactDef,
+  ArtifactOffer,
   CharacterDef,
   ClientToServerEvents,
   EffectDef,
@@ -20,6 +22,15 @@ import type {
   ServerToClientEvents,
   Tile,
 } from "@essence/shared";
+import {
+  ARTIFACT_SHOP_OFFER_COUNT,
+  artifactActionsForUse,
+  artifactPrice,
+  artifactRequiresTarget,
+  artifactTargetMode,
+  rollArtifactShopOffers,
+  validArtifactTargetIds,
+} from "@essence/shared/artifacts";
 import { characterDisplayName, characterSlotsForContent } from "@essence/shared/characters";
 import {
   consequenceMatchesHook,
@@ -51,6 +62,10 @@ interface JoinOptions {
   characterId?: string;
 }
 
+interface GameRoomOptions {
+  mapId?: string;
+}
+
 export class GameRoom {
   readonly code: string;
   readonly name: string;
@@ -65,14 +80,16 @@ export class GameRoom {
   private skippedTurns = new Set<string>();
   private extraTurnPlayerId: string | null = null;
   private nextEffectInstanceId = 1;
+  private nextArtifactShopVisitId = 1;
   private pendingActivityPreludeActions: AppliedEventAction[] = [];
 
-  constructor(io: IO, code: string, name: string, content: GameContent) {
+  constructor(io: IO, code: string, name: string, content: GameContent, options: GameRoomOptions = {}) {
     this.io = io;
     this.code = code;
     this.name = name;
     this.content = content;
     const activeMap =
+      content.maps?.find((map) => map.id === options.mapId) ??
       content.maps?.find((map) => map.id === content.activeMapId) ??
       content.maps?.[0];
     this.state = {
@@ -81,11 +98,16 @@ export class GameRoom {
       phase: "lobby",
       characterSlots: characterSlotsForContent(content),
       mapId: activeMap?.id,
+      mapName: activeMap?.name ?? null,
       board: activeMap?.board ?? content.board,
       routes: activeMap?.routes,
       artifacts: activeMap?.artifacts,
       assetCatalog: content.assetCatalog,
       cosmetics: content.cosmetics,
+      artifactCatalog: content.artifacts,
+      artifactRarityRates: content.artifactRarityRates,
+      artifactShop: null,
+      pendingArtifactUse: null,
       boardShape: activeMap?.boardShape,
       terraces: activeMap?.terraces,
       players: [],
@@ -95,6 +117,7 @@ export class GameRoom {
       boardLength: (activeMap?.board ?? content.board).length,
       lastBaseRoll: null,
       lastRoll: null,
+      lastMovement: null,
       activeMinigame: null,
       activeEvent: null,
       reveal: null,
@@ -118,10 +141,13 @@ export class GameRoom {
     this.refreshCharacterSlots();
     const connected = this.state.players.filter((p) => p.connected);
     const host = this.state.players.find((p) => p.isHost) ?? this.state.players[0];
+    const map = this.content.maps?.find((candidate) => candidate.id === this.state.mapId);
     return {
       code: this.code,
       name: this.name,
       phase: this.state.phase,
+      mapId: this.state.mapId,
+      mapName: map?.name ?? null,
       characterSlots: this.state.characterSlots,
       players: connected.length,
       maxPlayers: this.state.characterSlots?.length ?? this.content.players.length,
@@ -303,6 +329,87 @@ export class GameRoom {
     return { ok: true };
   }
 
+  rollArtifactShop(socketId: string): { ok: true; offers: ArtifactOffer[] } | { ok: false; error: string } {
+    const context = this.activeArtifactShopContext(socketId);
+    if (!context.ok) return context;
+    const { shop } = context;
+    if (shop.purchasedOfferId || this.state.pendingArtifactUse) return { ok: false, error: "Ya compraste un artifact en esta visita" };
+    if (shop.offers.length) return { ok: true, offers: shop.offers };
+    const offers = rollArtifactShopOffers(this.content, ARTIFACT_SHOP_OFFER_COUNT, shop.visitId);
+    if (!offers.length) return { ok: false, error: "No hay artifacts disponibles" };
+    this.state.artifactShop = {
+      ...shop,
+      rolled: true,
+      offers,
+    };
+    this.broadcast();
+    return { ok: true, offers };
+  }
+
+  buyArtifact(socketId: string, offerId: string): { ok: true; artifactId: string; requiresTarget: boolean } | { ok: false; error: string } {
+    const context = this.activeArtifactShopContext(socketId);
+    if (!context.ok) return context;
+    const { player, shop } = context;
+    if (shop.purchasedOfferId || this.state.pendingArtifactUse) return { ok: false, error: "Ya compraste un artifact en esta visita" };
+    if (!shop.offers.length) return { ok: false, error: "Primero rollea los offers" };
+    const offer = shop.offers.find((candidate) => candidate.id === offerId);
+    if (!offer) return { ok: false, error: "Ese offer no existe" };
+    const artifact = this.content.artifacts?.[offer.artifactId];
+    if (!artifact) return { ok: false, error: "Ese artifact no existe" };
+    const price = artifactPrice(artifact);
+    if (player.coins < price) return { ok: false, error: "No te alcanzan las monedas" };
+
+    player.coins -= price;
+    this.state.artifactShop = {
+      ...shop,
+      purchasedOfferId: offer.id,
+    };
+
+    const targetMode = artifactTargetMode(artifact);
+    const validTargetIds = validArtifactTargetIds(artifact, this.state.players.map((candidate) => candidate.id), player.id);
+    this.state.pendingArtifactUse = {
+      playerId: player.id,
+      artifactId: artifact.id,
+      offerId: offer.id,
+      targetMode,
+      validTargetIds,
+    };
+
+    if (!artifactRequiresTarget(artifact)) {
+      const useResult = this.resolveArtifactUse(player, artifact, targetMode === "self" ? player.id : undefined);
+      if (!useResult.ok) return useResult;
+      return { ok: true, artifactId: artifact.id, requiresTarget: false };
+    }
+
+    this.broadcast();
+    return { ok: true, artifactId: artifact.id, requiresTarget: true };
+  }
+
+  useArtifact(socketId: string, targetPlayerId?: string): { ok: true } | { ok: false; error: string } {
+    const player = this.playerBySocket(socketId);
+    if (!player) return { ok: false, error: "No estás en esta sala" };
+    const pending = this.state.pendingArtifactUse;
+    if (!pending || pending.playerId !== player.id) return { ok: false, error: "No hay un artifact pendiente" };
+    const artifact = this.content.artifacts?.[pending.artifactId];
+    if (!artifact) return { ok: false, error: "Ese artifact no existe" };
+    const mode = artifactTargetMode(artifact);
+    const resolvedTargetId = mode === "self" ? player.id : mode === "choosePlayer" ? targetPlayerId : undefined;
+    if (mode === "choosePlayer" && (!resolvedTargetId || !pending.validTargetIds.includes(resolvedTargetId))) {
+      return { ok: false, error: "Elegí un jugador válido" };
+    }
+    return this.resolveArtifactUse(player, artifact, resolvedTargetId);
+  }
+
+  skipArtifactShop(socketId: string): { ok: true } | { ok: false; error: string } {
+    const context = this.activeArtifactShopContext(socketId);
+    if (!context.ok) return context;
+    if (this.state.pendingArtifactUse) return { ok: false, error: "Resolvé el artifact comprado" };
+    this.state.artifactShop = null;
+    this.state.pendingArtifactUse = null;
+    this.advanceTurn();
+    return { ok: true };
+  }
+
   // --- Inicio --------------------------------------------------------------
 
   startGame(socketId: string) {
@@ -345,7 +452,7 @@ export class GameRoom {
       actingPlayerId: active.id,
       landingPlayerId: active.id,
       targetPlayerId: active.id,
-      roll,
+      roll: rollResult.baseRoll,
     });
 
     const finish = this.state.boardLength - 1;
@@ -356,7 +463,12 @@ export class GameRoom {
       targetPlayerId: active.id,
       roll: rollResult.baseRoll,
     });
-    active.position = Math.min(active.position + movement, finish);
+    const startPosition = active.position;
+    const intendedPosition = Math.min(startPosition + movement, finish);
+    const shopPosition = this.firstShopPositionInPath(startPosition, intendedPosition);
+    const landingPosition = shopPosition ?? intendedPosition;
+    this.state.lastMovement = Math.max(0, landingPosition - startPosition);
+    active.position = landingPosition;
     this.state.phase = "moving";
     this.broadcast();
 
@@ -383,7 +495,19 @@ export class GameRoom {
     this.triggerTile(tile, active, lifecycleActions);
   }
 
+  private firstShopPositionInPath(startPosition: number, finalPosition: number): number | null {
+    if (finalPosition <= startPosition) return null;
+    for (let position = startPosition + 1; position <= finalPosition; position += 1) {
+      if (this.state.board[position]?.type === "shop") return position;
+    }
+    return null;
+  }
+
   private triggerTile(tile: Tile, active: Player, preludeActions: AppliedEventAction[] = []) {
+    if (tile.type === "shop") {
+      this.startArtifactShop(tile, active, preludeActions);
+      return;
+    }
     const event = resolveTileEventForPlayer(this.content, tile, active);
     if (event) {
       this.startEvent(event, active, preludeActions);
@@ -404,6 +528,88 @@ export class GameRoom {
     }
     // Casillero sin acción (start u otros): pasa el turno.
     this.advanceTurn();
+  }
+
+  private startArtifactShop(tile: Tile, active: Player, preludeActions: AppliedEventAction[] = []) {
+    this.state.reveal = null;
+    this.state.activeEvent = preludeActions.length
+      ? {
+          kind: "story",
+          title: "Active effects",
+          text: "Active effects triggered before the shop.",
+          story: { title: "Active effects", prompt: "Active effects triggered before the shop." },
+          playerId: active.id,
+          actions: preludeActions,
+        }
+      : null;
+    this.state.activeMinigame = null;
+    this.state.pendingArtifactUse = null;
+    this.state.artifactShop = {
+      visitId: `artifact-shop-${this.nextArtifactShopVisitId++}`,
+      playerId: active.id,
+      tileId: tile.id,
+      offers: [],
+      rolled: false,
+    };
+    this.state.phase = "shop";
+    this.broadcast();
+  }
+
+  private activeArtifactShopContext(socketId: string):
+    | { ok: true; player: Player; shop: NonNullable<GameState["artifactShop"]> }
+    | { ok: false; error: string } {
+    const player = this.playerBySocket(socketId);
+    if (!player) return { ok: false, error: "No estás en esta sala" };
+    const active = this.activePlayer();
+    const shop = this.state.artifactShop;
+    if (this.state.phase !== "shop" || !shop) return { ok: false, error: "No estás en un shop" };
+    if (!active || active.id !== player.id || shop.playerId !== player.id) return { ok: false, error: "Solo compra quien cayó en el shop" };
+    return { ok: true, player, shop };
+  }
+
+  private resolveArtifactUse(player: Player, artifact: ArtifactDef, targetPlayerId?: string): { ok: true } | { ok: false; error: string } {
+    const mode = artifactTargetMode(artifact);
+    const targetIds = validArtifactTargetIds(artifact, this.state.players.map((candidate) => candidate.id), player.id);
+    const resolvedTargetId = mode === "self" ? player.id : mode === "choosePlayer" ? targetPlayerId : undefined;
+    if (mode === "choosePlayer" && (!resolvedTargetId || !targetIds.includes(resolvedTargetId))) {
+      return { ok: false, error: "Elegí un jugador válido" };
+    }
+    const defaultTarget: EventActionTarget = mode === "choosePlayer" ? "target" : "acting";
+    const artifactActions = this.applyActions(artifactActionsForUse(artifact), {
+      landingPlayerId: player.id,
+      actingPlayerId: player.id,
+      targetPlayerId: resolvedTargetId ?? player.id,
+      ranking: resolvedTargetId ? [resolvedTargetId, player.id] : [player.id],
+      defaultTarget,
+    });
+    const targetName = resolvedTargetId ? this.state.players.find((candidate) => candidate.id === resolvedTargetId)?.name ?? resolvedTargetId : null;
+    const targetText = targetName && targetName !== player.name ? ` on ${targetName}` : targetName === player.name ? " on themselves" : "";
+    const verb = `${player.name} used ${artifact.name}${targetText}.`;
+    this.state.pendingArtifactUse = null;
+    this.state.phase = "event";
+    this.state.activeEvent = {
+      id: `artifact-${artifact.id}`,
+      kind: "story",
+      title: artifact.name,
+      text: verb,
+      story: {
+        title: artifact.name,
+        setup: artifact.animations?.incoming ? animationLabel(artifact.animations.incoming) : undefined,
+        prompt: verb,
+        reward: artifact.description,
+      },
+      playerId: player.id,
+      actions: artifactActions,
+      artifactUse: {
+        artifactId: artifact.id,
+        artifactName: artifact.name,
+        sourcePlayerId: player.id,
+        targetPlayerId: resolvedTargetId ?? null,
+        targetMode: mode,
+      },
+    };
+    this.broadcast();
+    return { ok: true };
   }
 
   // --- Eventos / actividades ----------------------------------------------
@@ -689,8 +895,11 @@ export class GameRoom {
         }
       : null;
     this.pendingEvent = null;
+    this.state.artifactShop = null;
+    this.state.pendingArtifactUse = null;
     this.state.lastBaseRoll = null;
     this.state.lastRoll = null;
+    this.state.lastMovement = null;
 
     const order = this.state.turnOrder.filter((id) => {
       const pl = this.state.players.find((p) => p.id === id);
@@ -1145,6 +1354,11 @@ function valueText(ids: string[], players: Player[], value: number, noun: string
 function moveSummary(ids: string[], players: Player[], delta: number): string {
   const verb = delta >= 0 ? "avanza" : "retrocede";
   return `${namesFor(ids, players)} ${verb} ${Math.abs(delta)} casillero(s)`;
+}
+
+function animationLabel(animation: string): string {
+  if (animation === "gaston-backpack-drop") return "Gaston delivers the backpack.";
+  return animation;
 }
 
 function halfMovement(value: number, rounding: "floor" | "ceil" | "round" = "ceil"): number {

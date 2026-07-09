@@ -12,8 +12,8 @@ const errors = [];
 const ok = (cond, msg) => { if (!cond) errors.push(msg); };
 
 ok(json.activeMapId === "farewell-loop", "activeMapId cambió");
-ok(Array.isArray(json.board) && json.board.length === 24 && json.board[0].layout.x === 0, "legacy board tocado");
 ok(map, "falta el mapa farewell-loop");
+ok(Array.isArray(json.board) && Array.isArray(map?.board) && JSON.stringify(json.board) === JSON.stringify(map.board), "board raíz no coincide con el mapa activo");
 
 // --- board ids secuenciales, start/finish ---
 const board = map.board;

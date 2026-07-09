@@ -12,6 +12,7 @@ const MapBuilder = lazy(() => import("./components/MapBuilder"));
 const EventBuilder = lazy(() => import("./components/MinigameBuilder"));
 const CharacterBuilder = lazy(() => import("./components/CharacterBuilder"));
 const CosmeticBuilder = lazy(() => import("./components/CosmeticBuilder"));
+const ArtifactBuilder = lazy(() => import("./components/ArtifactBuilder"));
 const ToolsHub = lazy(() => import("./components/ToolsHub"));
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
     path === "/event-builder" || path === "/minigame-builder" || search.has("eventBuilder") || search.has("minigameBuilder");
   const characterBuilderMode = path === "/character-builder" || search.has("characterBuilder");
   const cosmeticBuilderMode = path === "/cosmetic-builder" || search.has("cosmeticBuilder");
+  const artifactBuilderMode = path === "/artifact-builder" || search.has("artifactBuilder");
   const toolsMode = path === "/tools";
 
   if (toolsMode) {
@@ -65,11 +67,19 @@ export default function App() {
     );
   }
 
+  if (artifactBuilderMode) {
+    return (
+      <Suspense fallback={<SceneLoading code="ARTF" />}>
+        <ArtifactBuilder />
+      </Suspense>
+    );
+  }
+
   return <GameApp />;
 }
 
 function GameApp() {
-  const { connected, state, me, activeId, isHost, error, actions } = useGame();
+  const { connected, state, me, activeId, isHost, error, effectNotices, dismissEffectNotice, actions } = useGame();
 
   // Sin identidad todavía → pantalla de ingreso.
   if (!state || !me) {
@@ -88,6 +98,8 @@ function GameApp() {
       me={me}
       activeId={activeId}
       isHost={isHost}
+      effectNotices={effectNotices}
+      onDismissEffectNotice={dismissEffectNotice}
       actions={actions}
     />
   );
@@ -99,6 +111,8 @@ function ConnectedGame({
   me,
   activeId,
   isHost,
+  effectNotices,
+  onDismissEffectNotice,
   actions,
 }: {
   connected: boolean;
@@ -106,6 +120,8 @@ function ConnectedGame({
   me: Player;
   activeId: string | null;
   isHost: boolean;
+  effectNotices: ReturnType<typeof useGame>["effectNotices"];
+  onDismissEffectNotice: ReturnType<typeof useGame>["dismissEffectNotice"];
   actions: ReturnType<typeof useGame>["actions"];
 }) {
   const presentation = useBoardPresentation(state);
@@ -114,7 +130,7 @@ function ConnectedGame({
   const boardActiveId = boardState.turnOrder[boardState.activeIndex] ?? activeId ?? undefined;
   const boardIsMyTurn = boardMe.id === boardActiveId;
 
-  const boardPhaseVisible = ["turn", "moving", "event", "reveal", "finished"].includes(boardState.phase);
+  const boardPhaseVisible = ["turn", "moving", "shop", "event", "reveal", "finished"].includes(boardState.phase);
   const holdingMinigameForBoard = state.phase === "minigame" && !presentation.showMinigame;
 
   if (boardPhaseVisible || holdingMinigameForBoard) {
@@ -138,9 +154,15 @@ function ConnectedGame({
           }}
           onBuyCosmetic={actions.buyCosmetic}
           onEquipCosmetic={actions.equipCosmetic}
+          onRollArtifactShop={actions.rollArtifactShop}
+          onBuyArtifact={actions.buyArtifact}
+          onUseArtifact={actions.useArtifact}
+          onSkipArtifactShop={actions.skipArtifactShop}
           onNext={actions.next}
           onLeave={actions.leave}
           onDebugApplyEffect={actions.debugApplyEffect}
+          effectNotices={effectNotices}
+          onDismissEffectNotice={onDismissEffectNotice}
         />
       </Suspense>
     );

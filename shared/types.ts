@@ -7,18 +7,22 @@
 // Tablero / contenido
 // ---------------------------------------------------------------------------
 
-export type TileType =
-  | "start"
-  | "finish"
-  | "minigame"
-  | "trivia"
-  | "vote"
-  | "judge"
-  | "dare"
-  | "fate"
-  | "groom"
-  | "reaction"
-  | "estimate";
+export const TILE_TYPES = [
+  "start",
+  "finish",
+  "minigame",
+  "trivia",
+  "vote",
+  "judge",
+  "dare",
+  "fate",
+  "groom",
+  "reaction",
+  "estimate",
+  "shop",
+] as const;
+
+export type TileType = (typeof TILE_TYPES)[number];
 
 export interface TileLayout {
   /** coordenadas visuales de casillero; x/y son plano de tablero, z es altura opcional */
@@ -382,7 +386,16 @@ export interface PlayerDef {
   color?: string;
 }
 
-export type CatalogRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export type ArtifactRarity = "common" | "epic" | "legendary";
+export type CatalogRarity = ArtifactRarity | "uncommon" | "rare";
+export type ArtifactTargetMode = "none" | "self" | "choosePlayer";
+export type ArtifactUseFlow = "immediate" | "targeted";
+
+export interface ArtifactRarityRates {
+  common: number;
+  epic: number;
+  legendary: number;
+}
 
 export type EffectDuration =
   | { mode: "turns"; value: number }
@@ -574,12 +587,55 @@ export interface ArtifactDef {
   id: string;
   name: string;
   description?: string;
-  price?: number;
-  rarity?: CatalogRarity;
+  price: number;
+  rarity: ArtifactRarity;
+  targetMode: ArtifactTargetMode;
+  useFlow?: ArtifactUseFlow;
   target?: EventActionTarget;
   consequences?: EventAction[];
   effects?: string[];
+  visual?: {
+    assetId?: string;
+    anchorType?: CosmeticAnchorType;
+    anchorId?: string;
+    label?: string;
+    color?: string;
+  };
+  animations?: {
+    outgoing?: string;
+    incoming?: string;
+  };
+  weightOverrides?: {
+    shop?: number;
+  };
+  /** Legacy/import alias for visual.assetId. */
   visualAssetId?: string;
+  /** Legacy/import alias for weightOverrides.shop. */
+  shopWeight?: number;
+}
+
+export interface ArtifactOffer {
+  id: string;
+  artifactId: string;
+  price: number;
+  rarity: ArtifactRarity;
+}
+
+export interface ArtifactShopState {
+  visitId: string;
+  playerId: string;
+  tileId: number;
+  offers: ArtifactOffer[];
+  rolled: boolean;
+  purchasedOfferId?: string;
+}
+
+export interface PendingArtifactUse {
+  playerId: string;
+  artifactId: string;
+  offerId?: string;
+  targetMode: ArtifactTargetMode;
+  validTargetIds: string[];
 }
 
 export interface GameContent {
@@ -593,6 +649,7 @@ export interface GameContent {
   cosmetics?: Record<string, CosmeticDef>;
   /** Legacy/import alias normalized into cosmetics. */
   characterCosmetics?: unknown[];
+  artifactRarityRates?: ArtifactRarityRates;
   artifacts?: Record<string, ArtifactDef>;
   effects?: Record<string, EffectDef>;
   minigames: Record<string, MinigameDef>;
@@ -646,6 +703,7 @@ export type Phase =
   | "lobby"
   | "turn" // esperando que el jugador activo tire
   | "moving" // animación de movimiento
+  | "shop" // jugador activo cayó en tienda y resuelve compra/uso de artifact
   | "event" // resolviendo un casillero no-minijuego (dare/fate)
   | "minigame" // minijuego en curso (clientes jugando local)
   | "reveal" // mostrando resultados
@@ -680,6 +738,13 @@ export interface ActiveEvent {
   story?: EventStory;
   playerId: string;
   actions?: AppliedEventAction[];
+  artifactUse?: {
+    artifactId: string;
+    artifactName: string;
+    sourcePlayerId: string;
+    targetPlayerId?: string | null;
+    targetMode: ArtifactTargetMode;
+  };
 }
 
 export interface GameState {
@@ -689,12 +754,18 @@ export interface GameState {
   phase: Phase;
   characterSlots?: CharacterSlot[];
   mapId?: string;
+  mapName?: string | null;
   /** layout del tablero (tipos/labels); el contenido sensible no viaja */
   board: Tile[];
   routes?: MapRoute[];
+  /** Legacy decorative map props. Gameplay artifacts are exposed via artifactCatalog. */
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
   cosmetics?: Record<string, CosmeticDef>;
+  artifactCatalog?: Record<string, ArtifactDef>;
+  artifactRarityRates?: ArtifactRarityRates;
+  artifactShop: ArtifactShopState | null;
+  pendingArtifactUse: PendingArtifactUse | null;
   boardShape?: MapBoardShape;
   terraces?: MapTerrace[];
   players: Player[];
@@ -708,6 +779,8 @@ export interface GameState {
   lastBaseRoll: number | null;
   /** effective movement roll after active roll modifiers */
   lastRoll: number | null;
+  /** cells actually moved this roll; can be shorter than lastRoll when stopped by an interrupting tile */
+  lastMovement?: number | null;
   activeMinigame: ActiveMinigame | null;
   activeEvent: ActiveEvent | null;
   reveal: RevealPayload | null;
@@ -776,6 +849,8 @@ export interface RoomSummary {
   code: string;
   name: string;
   phase: Phase;
+  mapId?: string;
+  mapName?: string | null;
   characterSlots?: CharacterSlot[];
   /** cantidad de jugadores conectados ahora */
   players: number;
@@ -783,6 +858,17 @@ export interface RoomSummary {
   maxPlayers: number;
   /** nombre del host (o primer jugador) */
   host: string | null;
+}
+
+export interface ContentMapSummary {
+  id: string;
+  name: string;
+  description?: string;
+  cells: number;
+  routes: number;
+  props: number;
+  terraces: number;
+  active: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -795,7 +881,7 @@ export interface ClientToServerEvents {
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   "room:create": (
-    payload: { name?: string; roomName: string; characterId?: string },
+    payload: { name?: string; roomName: string; characterId?: string; mapId?: string },
     ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
   ) => void;
   /** El jugador abandona la sala voluntariamente. */
@@ -811,6 +897,22 @@ export interface ClientToServerEvents {
   ) => void;
   "cosmetic:equip": (
     payload: { cosmeticId: string; equipped: boolean },
+    ack: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => void;
+  "artifact:rollShop": (
+    payload: Record<string, never>,
+    ack: (res: { ok: true; offers: ArtifactOffer[] } | { ok: false; error: string }) => void
+  ) => void;
+  "artifact:buy": (
+    payload: { offerId: string },
+    ack: (res: { ok: true; artifactId: string; requiresTarget: boolean } | { ok: false; error: string }) => void
+  ) => void;
+  "artifact:use": (
+    payload: { targetPlayerId?: string },
+    ack: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => void;
+  "artifact:skipShop": (
+    payload: Record<string, never>,
     ack: (res: { ok: true } | { ok: false; error: string }) => void
   ) => void;
   /** host fuerza el cierre del minijuego si alguien se colgó */
