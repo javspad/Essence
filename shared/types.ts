@@ -52,6 +52,8 @@ export interface Tile {
   eventIds?: string[];
   /** ajustes narrativos/temáticos editables desde el map builder */
   storyParams?: Record<string, string>;
+  /** authoring tags for zones and reusable effect conditions */
+  tags?: string[];
 }
 
 export type MapTerrain =
@@ -422,6 +424,21 @@ export type EffectLifecycleHook =
 
 export type EffectCondition = {
   rollEquals?: number;
+  rollGte?: number;
+  rollLte?: number;
+  movementGte?: number;
+  movementLte?: number;
+  movementTotal?: {
+    turns: number;
+    lte?: number;
+    gte?: number;
+  };
+  consecutiveRolls?: {
+    count: number;
+    atLeast?: number;
+    atMost?: number;
+  };
+  cellTagsAny?: string[];
   phase?: Phase;
 };
 
@@ -462,6 +479,24 @@ export interface CharacterLoadout {
   cosmeticIds?: string[];
 }
 
+export interface CharacterTraitDef {
+  id: string;
+  name: string;
+  description?: string;
+  effectId: string;
+  icon?: string;
+}
+
+export interface CharacterTraitSummary {
+  id: string;
+  name: string;
+  description?: string;
+  effectId: string;
+  effectName: string;
+  duration: EffectDuration;
+  icon?: string;
+}
+
 export interface CharacterDef {
   id: string;
   /** Canonical authored name shown to players. */
@@ -490,6 +525,7 @@ export interface CharacterSlot {
   faceAnchors?: Record<string, FaceAnchor>;
   bodyAnchors?: Record<string, FaceAnchor>;
   defaultLoadout?: CharacterLoadout;
+  defaultTraits?: CharacterTraitSummary[];
   claimedByPlayerId?: string;
   connected?: boolean;
 }
@@ -646,6 +682,7 @@ export interface GameContent {
   events?: Record<string, GameEventDef>;
   playerStories?: Record<string, PlayerStoryBank>;
   characters?: Record<string, CharacterDef>;
+  characterTraits?: Record<string, CharacterTraitDef>;
   cosmetics?: Record<string, CosmeticDef>;
   /** Legacy/import alias normalized into cosmetics. */
   characterCosmetics?: unknown[];

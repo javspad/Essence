@@ -120,6 +120,94 @@ const characterContent: GameContent = normalizeGameContentEvents({
   },
 });
 
+const traitBoard = Array.from({ length: 20 }, (_, id) => ({
+  id,
+  type: id === 19 ? "finish" as const : "start" as const,
+  layout: { x: id, y: 0 },
+  ...(id === 6 ? { tags: ["belgrano-4pm"] } : {}),
+}));
+
+const traitContent: GameContent = normalizeGameContentEvents({
+  board: traitBoard,
+  events: {},
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "alice", name: "Alice", color: "#f87171" },
+    { id: "bob", name: "Bob", color: "#60a5fa" },
+    { id: "frang", name: "FranG", color: "#3b82f6" },
+  ],
+  characters: {
+    alice: { id: "alice", displayName: "Alice", color: "#f87171", defaultTraits: ["steady-boots"] },
+    bob: { id: "bob", displayName: "Bob", color: "#60a5fa", defaultTraits: ["high-roll-curse"] },
+    frang: { id: "frang", displayName: "FranG", color: "#3b82f6", defaultTraits: ["finance-pop-quiz"] },
+  },
+  characterTraits: {
+    "steady-boots": {
+      id: "steady-boots",
+      name: "Steady boots",
+      description: "Moves at double speed for the whole game.",
+      effectId: "double-movement-game",
+    },
+    "high-roll-curse": {
+      id: "high-roll-curse",
+      name: "High roll curse",
+      description: "Move back after two high rolls in a row.",
+      effectId: "two-high-rolls-back",
+    },
+    "finance-pop-quiz": {
+      id: "finance-pop-quiz",
+      name: "Finance pop quiz",
+      description: "High rolls trigger a quick finance challenge.",
+      effectId: "finance-challenge-on-four-plus",
+    },
+  },
+  effects: {
+    "double-movement-game": {
+      id: "double-movement-game",
+      name: "Double movement",
+      duration: { mode: "game" },
+      consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 2, rounding: "round" }],
+    },
+    "two-high-rolls-back": {
+      id: "two-high-rolls-back",
+      name: "Two high rolls back",
+      duration: { mode: "game" },
+      consequences: [
+        {
+          type: "move",
+          hook: "afterMovement",
+          when: { consecutiveRolls: { atLeast: 5, count: 2 } },
+          delta: -5,
+          text: "Two high rolls in a row: move back 5.",
+        },
+      ],
+    },
+    "finance-challenge-on-four-plus": {
+      id: "finance-challenge-on-four-plus",
+      name: "Finance challenge",
+      duration: { mode: "game" },
+      consequences: [
+        {
+          type: "offlineAction",
+          hook: "afterMovement",
+          when: { rollGte: 4 },
+          action: "custom",
+          text: "Solve the finance pop quiz.",
+        },
+        {
+          type: "move",
+          hook: "afterMovement",
+          when: { rollGte: 4 },
+          delta: -1,
+          text: "Finance miss: move back 1.",
+        },
+      ],
+    },
+  },
+});
+
 const players = [
   { id: "alice", name: "Alice", socketId: "socket-alice", connected: true, position: 0, coins: 0, isHost: true, groom: false, color: "#f87171" },
   { id: "bob", name: "Bob", socketId: "socket-bob", connected: true, position: 0, coins: 0, isHost: false, groom: false, color: "#60a5fa" },
@@ -180,6 +268,29 @@ const players = [
   assert.ok(result.errors.some((error) => error.includes("artifacts.bad.price")), "artifact prices must be non-negative");
   assert.ok(result.errors.some((error) => error.includes("artifacts.bad.rarity")), "artifact rarity is limited to S4 buckets");
   assert.ok(result.errors.some((error) => error.includes("artifacts.bad.effects")), "artifact effect references are validated");
+}
+
+{
+  const result = validateGameContent({
+    board: [
+      { id: 0, type: "start", layout: { x: 0, y: 0 } },
+      { id: 1, type: "finish", layout: { x: 1, y: 0 } },
+    ],
+    minigames: {},
+    dares: {},
+    fates: {},
+    players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+    characters: {
+      alice: { id: "alice", displayName: "Alice", defaultTraits: ["missing-trait"] },
+    },
+    characterTraits: {
+      "bad-trait": { id: "bad-trait", name: "Bad trait", effectId: "missing-effect" },
+    },
+    effects: {},
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.includes("characters.alice.defaultTraits")), "default traits must reference character trait definitions");
+  assert.ok(result.errors.some((error) => error.includes("characterTraits.bad-trait.effectId")), "character traits must reference reusable effects");
 }
 
 {
@@ -348,6 +459,58 @@ const players = [
   assert.equal(room.getState().players.find((player) => player.id === "groom")?.groom, true);
   assert.deepEqual((room as any).join("socket-full", "Full"), { ok: false, error: "La sala está llena" });
 }
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TRT0", "Traits", traitContent);
+
+  assert.equal(room.getState().characterSlots?.find((slot) => slot.id === "alice")?.defaultTraits?.[0]?.name, "Steady boots");
+  assert.equal(room.getState().characterSlots?.find((slot) => slot.id === "alice")?.defaultTraits?.[0]?.effectId, "double-movement-game");
+
+  room.join("socket-alice", "Alice");
+  room.startGame("socket-alice");
+
+  assert.equal(room.getState().activeEffects.length, 1);
+  assert.equal(room.getState().activeEffects[0].name, "Steady boots");
+  assert.equal(room.getState().activeEffects[0].description, "Moves at double speed for the whole game.");
+  assert.equal(room.getState().activeEffects[0].effectId, "double-movement-game");
+  assert.equal(room.getState().activeEffects[0].targetPlayerId, "alice");
+
+  room.disconnect("socket-alice");
+  room.join("socket-alice-2", "Alice", { characterId: "alice" } as any);
+  assert.equal(room.getState().activeEffects.length, 1, "reconnect does not duplicate default trait effects");
+}
+
+await withRolls([5, 5], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TRT1", "Trait conditions", traitContent);
+
+  room.join("socket-bob", "Bob", { characterId: "bob" } as any);
+  room.startGame("socket-bob");
+
+  room.roll("socket-bob");
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.position, 5);
+  assert.equal(room.getState().phase, "turn");
+
+  room.roll("socket-bob");
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.position, 5, "second high roll moves back after landing");
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "move" && action.value === -5), true);
+});
+
+await withRolls([4], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TRT2", "Trait prompt", traitContent);
+
+  room.join("socket-frang", "FranG", { characterId: "frang" } as any);
+  room.startGame("socket-frang");
+  room.roll("socket-frang");
+
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().players.find((player) => player.id === "frang")?.position, 3);
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction" && action.requiresConfirmation), true);
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "move" && action.value === -1), true);
+});
 
 {
   const { io } = createIoRecorder();

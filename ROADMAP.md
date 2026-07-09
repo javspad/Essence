@@ -102,7 +102,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S3` Reusable consequences and effects | [x] | `S1`, `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright Event Builder QA; `git diff --check`. |
 | `S4` Artifact catalog, builder, and shop | [x] | `S3`, `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build`; Playwright S4 builder/shop QA; `git diff --check`. |
 | `S5` Cosmetics and face anchors | [x] | `S2` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright S5 builder/shop QA; `git diff --check`. |
-| `S6` Character traits | [ ] | `S2`, `S3` | Character builder trait config plus live trait trigger. |
+| `S6` Character traits | [x] | `S2`, `S3` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build`; Playwright S6 builder/lobby QA; `git diff --check`. |
 | `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Coin-source tests plus in-game spending flow. |
 | `S8` Authoring skills and content bank | [ ] | `S7` | Docs/skills can add example content and validation passes. |
 | `S9` Audio, camera, and presentation polish | [ ] | `S8` | Manual QA with mute/volume, authored camera framing, and event feedback checks. |
@@ -504,11 +504,11 @@ Goal: let characters start with default positive or negative effects.
 
 Tasks:
 
-- [ ] `S6-01` Add character-attached `CharacterTrait` definitions that reuse the effect engine.
-- [ ] `S6-02` Allow traits to be permanent, whole-game, or duration-limited.
-- [ ] `S6-03` Show trait title and description in character selection and active effects UI.
-- [ ] `S6-04` Add Character Builder controls for adding/removing traits.
-- [ ] `S6-05` Implement the seed traits from the notes.
+- [x] `S6-01` Add character-attached `CharacterTrait` definitions that reuse the effect engine.
+- [x] `S6-02` Allow traits to be permanent, whole-game, or duration-limited.
+- [x] `S6-03` Show trait title and description in character selection and active effects UI.
+- [x] `S6-04` Add Character Builder controls for adding/removing traits.
+- [x] `S6-05` Implement the seed traits from the notes.
 
 Seed traits:
 
@@ -523,6 +523,25 @@ Acceptance:
 
 - At least one always-on trait, one conditional trait, and one prompt/challenge trait work through the same effect engine.
 - Traits can be edited from character JSON and the Character Builder.
+
+Verification notes:
+
+- Added a `CharacterTrait` catalog that points at reusable `EffectDef` entries; `Character.defaultTraits` now references trait ids, while the server attaches the backing effects once per character at game start or late join.
+- Added reusable effect conditions for roll thresholds, consecutive-roll streaks, movement totals across recent turns, and tagged board cells.
+- Seeded Javi, Facu, Nico, Willy, Beltro, and FranG traits in `shared/content.json`, including a tagged `BELGRANO 4PM` cell.
+- Character selection and lobby cards show trait names/descriptions, and active-effect UI reuses the trait title/description when a default trait is live.
+- FranG's finance challenge uses the existing offline-action confirmation presentation and applies the one-cell backstep in the same triggered effect event. Facu's language trait is presentational text for one turn rather than full UI localization.
+- Full verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build` (existing Vite large chunk warning only); `npx tsx` content validation for `shared/content.json`; `git diff --check`; Playwright S6 builder/lobby QA on ports `3016` and `5186` with screenshot `/tmp/essence-s6-traits-lobby.png`.
+
+Manual QA checklist:
+
+- [ ] Open `/character-builder`, switch between Javi, Nico, and FranG, and verify each default trait card shows a title, description, backing effect, and duration.
+- [ ] Remove and re-add a trait in Character Builder, then use Import/export to confirm the character JSON preserves `defaultTraits`.
+- [ ] Create a room from `/`, verify character cards show trait chips during selection, and verify the lobby shows the selected player's trait chips before starting.
+- [ ] Start the game and verify default trait effects appear once for each connected player, with no duplicate after a reconnect.
+- [ ] Trigger one streak/conditional trait, such as Nico or Willy rolling high twice, and verify the effect action appears in the active-effect event.
+- [ ] Trigger FranG's roll-4-plus challenge and verify the offline-action prompt plus one-cell backstep appear through the existing effect/action presentation.
+- [ ] Visit the S4 artifact shop and S5 cosmetic shop after starting a game to confirm their existing flows still open and function.
 
 ## Slice 7 (`S7`): Economy And Special Cells
 
@@ -833,9 +852,8 @@ We should grill these one at a time before treating the roadmap as final.
 
 1. Should cosmetic ownership persist only within a room, inside imported character JSON, or in a future account/profile store?
 2. For future non-prompt offline actions, should confirmation reuse the prompt confirmer set exactly, or add consequence-specific confirmation rules?
-3. Should character traits be visible to everyone before the game starts, or revealed only when triggered?
-4. Should shots/offline prompts award coins automatically, only after confirmation, or never by default?
-5. Should anecdotes be raw content titles only, or structured story beats with tags, safe display text, and allowed activity types?
+3. Should shots/offline prompts award coins automatically, only after confirmation, or never by default?
+4. Should anecdotes be raw content titles only, or structured story beats with tags, safe display text, and allowed activity types?
 
 Resolved:
 
@@ -849,7 +867,8 @@ Resolved:
 - Artifact shop entry: reaching a shop cell opens a shared artifact shop view for everyone; the active shop actor explicitly rolls four offers, while spectators watch the same state with controls locked.
 - Builder persistence: Save writes validated normalized content to `shared/content.json` in local dev; browser storage is a draft/recovery fallback, and Download remains the manual backup path.
 - Room map selection: creating a room can select any map saved in `shared/content.json`.
+- Character trait visibility: default trait names/descriptions are visible during character selection and lobby; live default trait effects appear in the existing active-effect UI during play.
 
 ## Next Review Step
 
-Start with `S6` Character Traits. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, and `S5` are complete, and `S7` remains blocked on trait work plus economy-balancing decisions. Authored camera framing stays deferred to `S9` as lower-priority presentation/content-authoring polish.
+Start with `S7` Economy And Special Cells. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, `S5`, and `S6` are complete. Authored camera framing stays deferred to `S9` as lower-priority presentation/content-authoring polish.

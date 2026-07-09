@@ -2,9 +2,11 @@ import type {
   ArtifactDef,
   ArtifactRarityRates,
   CharacterDef,
+  CharacterTraitDef,
   CosmeticDef,
   EffectDef,
   EffectDuration,
+  EffectModifier,
   EventAction,
   EventActionTarget,
   EventOutcomeBranch,
@@ -87,6 +89,16 @@ const CharacterDefSchema = z
     defaultLoadout: CharacterLoadoutSchema.optional(),
     defaultCosmetics: z.array(z.string()).optional(),
     defaultTraits: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const CharacterTraitDefSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().optional(),
+    effectId: z.string().min(1),
+    icon: z.string().optional(),
   })
   .passthrough();
 
@@ -229,6 +241,8 @@ export function normalizeContentSchema(input: unknown): GameContent {
     ...contentWithoutCharacterSets,
     players,
     characters,
+    characterTraits: cloneCharacterTraits(normalized.characterTraits),
+    effects: cloneEffects(normalized.effects),
     cosmetics: cloneCosmetics(cosmetics),
     artifactRarityRates: normalized.artifactRarityRates ? { ...normalized.artifactRarityRates } : undefined,
     artifacts: cloneArtifacts(normalized.artifacts),
@@ -260,6 +274,7 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   const playerIds = new Set([...legacyPlayerIds, ...characterIds]);
   const assetIds = validateAssetCatalog(normalized, error);
   const effectIds = new Set(Object.keys(normalized.effects ?? {}));
+  const traitIds = validateCharacterTraits(normalized.characterTraits, effectIds, error);
 
   for (const [id, event] of Object.entries(normalized.events ?? {})) {
     validateEvent(`events.${id}`, event, playerIds, effectIds, error);
@@ -267,11 +282,12 @@ export function validateGameContent(content: unknown): ContentValidationResult {
 
   validateCatalogIds(normalized.cosmetics, "cosmetics", error);
   validateCosmetics(normalized.cosmetics, characterIds, error, warning);
+  validateCatalogIds(normalized.characterTraits, "characterTraits", error);
   validateArtifactRarityRates(normalized.artifactRarityRates, error);
   validateCatalogIds(normalized.artifacts, "artifacts", error);
   validateArtifacts(normalized.artifacts, playerIds, effectIds, error);
   validateCatalogIds(normalized.effects, "effects", error);
-  validateFutureCatalogReferences(normalized, error, warning);
+  validateFutureCatalogReferences(normalized, traitIds, error, warning);
 
   const maps = normalized.maps ?? [
     {
@@ -352,6 +368,29 @@ function validateCharacters(
   return ids;
 }
 
+function validateCharacterTraits(
+  traits: Record<string, CharacterTraitDef> | undefined,
+  effectIds: Set<string>,
+  error: (path: string, message: string) => void
+): Set<string> {
+  const ids = new Set<string>();
+  for (const [id, trait] of Object.entries(traits ?? {})) {
+    if (ids.has(id)) error(`characterTraits.${id}`, "is duplicated");
+    ids.add(id);
+    const result = CharacterTraitDefSchema.safeParse(trait);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(`characterTraits.${id}`, issue.path), issue.message);
+      }
+    }
+    if (trait.id && trait.id !== id) error(`characterTraits.${id}.id`, `must match catalog key ${id}`);
+    if (trait.effectId && !effectIds.has(trait.effectId)) {
+      error(`characterTraits.${id}.effectId`, `references missing effect ${trait.effectId}`);
+    }
+  }
+  return ids;
+}
+
 function validateAssetCatalog(content: GameContent, error: (path: string, message: string) => void): Set<string> {
   const ids = new Set<string>();
   for (const asset of content.assetCatalog ?? []) {
@@ -420,6 +459,7 @@ function validateAction(
   if (action.type === "moveToNearest" && action.direction !== "ahead" && action.direction !== "behind") {
     error(`${path}.direction`, "must be ahead or behind");
   }
+  if (action.when) validateCondition(`${path}.when`, action.when, error);
 }
 
 function validateDuration(path: string, duration: EffectDuration | undefined, error: (path: string, message: string) => void) {
@@ -427,6 +467,25 @@ function validateDuration(path: string, duration: EffectDuration | undefined, er
   if ((duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses") && (!Number.isInteger(duration.value) || duration.value < 1)) {
     error(`${path}.value`, "must be a positive integer");
   }
+}
+
+function validateCondition(path: string, condition: NonNullable<EventAction["when"]>, error: (path: string, message: string) => void) {
+  if (condition.rollEquals !== undefined && !Number.isFinite(condition.rollEquals)) error(`${path}.rollEquals`, "must be finite");
+  if (condition.rollGte !== undefined && !Number.isFinite(condition.rollGte)) error(`${path}.rollGte`, "must be finite");
+  if (condition.rollLte !== undefined && !Number.isFinite(condition.rollLte)) error(`${path}.rollLte`, "must be finite");
+  if (condition.movementGte !== undefined && !Number.isFinite(condition.movementGte)) error(`${path}.movementGte`, "must be finite");
+  if (condition.movementLte !== undefined && !Number.isFinite(condition.movementLte)) error(`${path}.movementLte`, "must be finite");
+  if (condition.consecutiveRolls) {
+    if (!Number.isInteger(condition.consecutiveRolls.count) || condition.consecutiveRolls.count < 1) error(`${path}.consecutiveRolls.count`, "must be a positive integer");
+    if (condition.consecutiveRolls.atLeast !== undefined && !Number.isFinite(condition.consecutiveRolls.atLeast)) error(`${path}.consecutiveRolls.atLeast`, "must be finite");
+    if (condition.consecutiveRolls.atMost !== undefined && !Number.isFinite(condition.consecutiveRolls.atMost)) error(`${path}.consecutiveRolls.atMost`, "must be finite");
+  }
+  if (condition.movementTotal) {
+    if (!Number.isInteger(condition.movementTotal.turns) || condition.movementTotal.turns < 1) error(`${path}.movementTotal.turns`, "must be a positive integer");
+    if (condition.movementTotal.lte !== undefined && !Number.isFinite(condition.movementTotal.lte)) error(`${path}.movementTotal.lte`, "must be finite");
+    if (condition.movementTotal.gte !== undefined && !Number.isFinite(condition.movementTotal.gte)) error(`${path}.movementTotal.gte`, "must be finite");
+  }
+  if (condition.cellTagsAny && !condition.cellTagsAny.every((tag) => tag.trim())) error(`${path}.cellTagsAny`, "must include non-empty tags");
 }
 
 function validateTarget(
@@ -615,6 +674,7 @@ function validateArtifacts(
 
 function validateFutureCatalogReferences(
   content: GameContent,
+  traitIds: Set<string>,
   error: (path: string, message: string) => void,
   warning: (path: string, message: string) => void
 ) {
@@ -627,7 +687,7 @@ function validateFutureCatalogReferences(
       if (!cosmeticIds.has(cosmeticId)) error(`characters.${id}.defaultLoadout.cosmeticIds`, `references missing cosmetic ${cosmeticId}`);
     }
     for (const traitId of character.defaultTraits ?? []) {
-      if (!effectIds.has(traitId)) error(`characters.${id}.defaultTraits`, `references missing effect ${traitId}`);
+      if (!traitIds.has(traitId)) error(`characters.${id}.defaultTraits`, `references missing character trait ${traitId}`);
     }
   }
   for (const [id, effect] of Object.entries(content.effects ?? {}) as [string, EffectDef][]) {
@@ -640,6 +700,7 @@ function validateFutureCatalogReferences(
     effect.actions?.forEach((action, index) => validateAction(`effects.${id}.actions[${index}]`, action, targetIds, effectIds, error));
     effect.modifiers?.forEach((modifier, index) => {
       if (modifier.type === "conditionalConsequences") {
+        if (modifier.when) validateCondition(`effects.${id}.modifiers[${index}].when`, modifier.when, error);
         modifier.consequences.forEach((action, actionIndex) => {
           validateAction(`effects.${id}.modifiers[${index}].consequences[${actionIndex}]`, action, targetIds, effectIds, error);
         });
@@ -740,6 +801,43 @@ function cloneCharacter(character: CharacterDef): CharacterDef {
   };
 }
 
+function cloneCharacterTraits(traits: Record<string, CharacterTraitDef> | undefined): Record<string, CharacterTraitDef> | undefined {
+  if (!traits) return undefined;
+  return Object.fromEntries(
+    Object.entries(traits).map(([id, trait]) => [
+      id,
+      {
+        ...trait,
+      },
+    ])
+  );
+}
+
+function cloneEffects(effects: Record<string, EffectDef> | undefined): Record<string, EffectDef> | undefined {
+  if (!effects) return undefined;
+  return Object.fromEntries(
+    Object.entries(effects).map(([id, effect]) => [
+      id,
+      {
+        ...effect,
+        duration: effect.duration ? { ...effect.duration } : effect.duration,
+        hooks: effect.hooks ? [...effect.hooks] : undefined,
+        consequences: effect.consequences?.map(cloneAction),
+        actions: effect.actions?.map(cloneAction),
+        modifiers: effect.modifiers?.map(cloneEffectModifier),
+      },
+    ])
+  );
+}
+
+function cloneEffectModifier<T extends EffectModifier>(modifier: T): T {
+  const copy = { ...modifier } as EffectModifier;
+  if ("when" in copy && copy.when) copy.when = cloneCondition(copy.when);
+  if (copy.type === "conditionalConsequences") copy.consequences = copy.consequences.map(cloneAction);
+  if (copy.type === "swapPositions") copy.target = cloneTarget(copy.target);
+  return copy as T;
+}
+
 function cloneCosmetics(cosmetics: Record<string, CosmeticDef>): Record<string, CosmeticDef> {
   return Object.fromEntries(
     Object.entries(cosmetics).map(([id, cosmetic]) => [
@@ -787,9 +885,18 @@ function cloneAction<T extends EventAction>(action: T): T {
   if ("target" in copy && copy.target) copy.target = cloneTarget(copy.target);
   if ("withTarget" in copy) copy.withTarget = cloneTarget(copy.withTarget);
   if (copy.duration) copy.duration = { ...copy.duration };
-  if (copy.when) copy.when = { ...copy.when };
+  if (copy.when) copy.when = cloneCondition(copy.when);
   if (copy.type === "offlineAction" && copy.confirmation) copy.confirmation = { ...copy.confirmation, playerIds: copy.confirmation.playerIds ? [...copy.confirmation.playerIds] : undefined };
   return copy as T;
+}
+
+function cloneCondition(condition: NonNullable<EventAction["when"]>): NonNullable<EventAction["when"]> {
+  return {
+    ...condition,
+    movementTotal: condition.movementTotal ? { ...condition.movementTotal } : undefined,
+    consecutiveRolls: condition.consecutiveRolls ? { ...condition.consecutiveRolls } : undefined,
+    cellTagsAny: condition.cellTagsAny ? [...condition.cellTagsAny] : undefined,
+  };
 }
 
 function cloneTarget<T extends EventActionTarget | undefined>(target: T): T {
@@ -825,6 +932,7 @@ function cloneTiles(board: Tile[]): Tile[] {
     layout: tile.layout ? { ...tile.layout } : undefined,
     eventIds: tile.eventIds ? [...tile.eventIds] : undefined,
     storyParams: tile.storyParams ? { ...tile.storyParams } : undefined,
+    tags: tile.tags ? [...tile.tags] : undefined,
   }));
 }
 

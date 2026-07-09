@@ -24,6 +24,8 @@ export function contentWithCharacterList(input: unknown, baseContent: GameConten
   const characters = migrateLegacyDefaultAnchors(migrateLegacyHeadAnchors(imported.characters ?? {}));
   return normalizeContentSchema({
     ...baseContent,
+    effects: imported.effects ?? baseContent.effects,
+    characterTraits: imported.characterTraits ?? baseContent.characterTraits,
     players: playersForCharacters(characters, imported.players ?? baseContent.players ?? []),
     characters,
   });

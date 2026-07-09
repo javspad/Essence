@@ -5,6 +5,7 @@ import type {
   Player,
   PlayerDef,
 } from "./types";
+import { characterDefaultTraitSummaries } from "./traits";
 
 export function playerDefToCharacter(def: PlayerDef): CharacterDef {
   return {
@@ -53,6 +54,7 @@ export function characterSlotsForContent(
             cosmeticIds: character.defaultLoadout.cosmeticIds ? [...character.defaultLoadout.cosmeticIds] : undefined,
           }
         : undefined,
+      defaultTraits: characterDefaultTraitSummaries(content, character),
       claimedByPlayerId: claimed?.id,
       connected: claimed?.connected,
     };

@@ -410,6 +410,7 @@ function CharacterSlotButton({
   disabled?: boolean;
   onClick: () => void;
 }) {
+  const traits = slot.defaultTraits ?? [];
   return (
     <button
       type="button"
@@ -420,9 +421,29 @@ function CharacterSlotButton({
       }`}
     >
       <span className="size-3 rounded-[2px] border border-black/35" style={{ background: slot.color }} />
-      <span className="min-w-0 truncate text-xs font-black text-[#fff8d6]">
-        {slot.displayName}
-        {slot.groom ? " groom" : ""}
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-black text-[#fff8d6]">
+          {slot.displayName}
+          {slot.groom ? " groom" : ""}
+        </span>
+        {traits.length > 0 && (
+          <span className="mt-1 flex max-w-full flex-wrap gap-1">
+            {traits.slice(0, 2).map((trait) => (
+              <span
+                key={trait.id}
+                title={`${trait.name}: ${trait.description ?? trait.effectName}`}
+                className="max-w-[7rem] truncate border border-cyan-200/25 bg-cyan-300/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-cyan-100"
+              >
+                {trait.name}
+              </span>
+            ))}
+            {traits.length > 2 && (
+              <span className="border border-cyan-200/25 bg-cyan-300/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-cyan-100">
+                +{traits.length - 2}
+              </span>
+            )}
+          </span>
+        )}
       </span>
       {selected ? (
         <Check className="h-4 w-4 text-[#f5d547]" />

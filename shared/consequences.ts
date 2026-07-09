@@ -9,6 +9,7 @@ import type {
   EventActionTarget,
   OfflineActionKind,
   Player,
+  Tile,
 } from "./types";
 
 export interface TargetResolutionContext {
@@ -24,6 +25,10 @@ export interface TargetResolutionContext {
 export interface EffectHookContext {
   hook: EffectLifecycleHook;
   roll?: number;
+  movement?: number;
+  rollHistory?: number[];
+  movementHistory?: number[];
+  cell?: Tile;
   phase?: string;
 }
 
@@ -153,7 +158,41 @@ export function offlineActionLabel(action: OfflineActionKind): string {
 export function effectConditionMatches(condition: EffectCondition | undefined, context: EffectHookContext): boolean {
   if (!condition) return true;
   if (condition.rollEquals !== undefined && context.roll !== condition.rollEquals) return false;
+  if (condition.rollGte !== undefined && (context.roll === undefined || context.roll < condition.rollGte)) return false;
+  if (condition.rollLte !== undefined && (context.roll === undefined || context.roll > condition.rollLte)) return false;
+  if (condition.movementGte !== undefined && (context.movement === undefined || context.movement < condition.movementGte)) return false;
+  if (condition.movementLte !== undefined && (context.movement === undefined || context.movement > condition.movementLte)) return false;
+  if (condition.consecutiveRolls && !consecutiveRollsMatch(condition.consecutiveRolls, context.rollHistory)) return false;
+  if (condition.movementTotal && !movementTotalMatches(condition.movementTotal, context.movementHistory)) return false;
+  if (condition.cellTagsAny?.length && !condition.cellTagsAny.some((tag) => context.cell?.tags?.includes(tag))) return false;
   if (condition.phase !== undefined && context.phase !== condition.phase) return false;
+  return true;
+}
+
+function consecutiveRollsMatch(
+  condition: NonNullable<EffectCondition["consecutiveRolls"]>,
+  rollHistory: number[] | undefined
+): boolean {
+  if (!Number.isInteger(condition.count) || condition.count < 1) return false;
+  const recent = rollHistory?.slice(-condition.count) ?? [];
+  if (recent.length < condition.count) return false;
+  const atLeast = condition.atLeast;
+  const atMost = condition.atMost;
+  if (atLeast !== undefined && !recent.every((roll) => roll >= atLeast)) return false;
+  if (atMost !== undefined && !recent.every((roll) => roll <= atMost)) return false;
+  return true;
+}
+
+function movementTotalMatches(
+  condition: NonNullable<EffectCondition["movementTotal"]>,
+  movementHistory: number[] | undefined
+): boolean {
+  if (!Number.isInteger(condition.turns) || condition.turns < 1) return false;
+  const recent = movementHistory?.slice(-condition.turns) ?? [];
+  if (recent.length < condition.turns) return false;
+  const total = recent.reduce((sum, movement) => sum + movement, 0);
+  if (condition.lte !== undefined && total > condition.lte) return false;
+  if (condition.gte !== undefined && total < condition.gte) return false;
   return true;
 }
 

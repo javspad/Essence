@@ -34,20 +34,39 @@ export default function Lobby({ state, isHost, onStart, onLeave }: Props) {
               </Badge>
             </div>
             <div className="flex flex-col gap-2">
-              {connected.map((p) => (
-                <div
-                  key={p.id}
-                  className="grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-3 border-2 border-[#fff4bf]/20 bg-[#0d1829] p-3"
-                >
-                  <span className="size-4 rounded-[2px] border border-black/35" style={{ background: p.color }} />
-                  <span className="min-w-0 truncate font-black">{p.name}{p.groom ? " 🤵" : ""}</span>
-                  {p.isHost && (
-                    <Badge className="border-[#fde68a] bg-[#f5d547] px-2 py-1 text-[9px] uppercase text-[#201507]">
-                      host
-                    </Badge>
-                  )}
-                </div>
-              ))}
+              {connected.map((p) => {
+                const slot = state.characterSlots?.find((candidate) => candidate.id === (p.characterId ?? p.id));
+                const traits = slot?.defaultTraits ?? [];
+                return (
+                  <div
+                    key={p.id}
+                    className="grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-3 border-2 border-[#fff4bf]/20 bg-[#0d1829] p-3"
+                  >
+                    <span className="size-4 rounded-[2px] border border-black/35" style={{ background: p.color }} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-black">{p.name}{p.groom ? " 🤵" : ""}</span>
+                      {traits.length > 0 && (
+                        <span className="mt-1 flex max-w-full flex-wrap gap-1">
+                          {traits.slice(0, 3).map((trait) => (
+                            <span
+                              key={trait.id}
+                              title={`${trait.name}: ${trait.description ?? trait.effectName}`}
+                              className="max-w-[8rem] truncate border border-cyan-200/25 bg-cyan-300/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-cyan-100"
+                            >
+                              {trait.name}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </span>
+                    {p.isHost && (
+                      <Badge className="border-[#fde68a] bg-[#f5d547] px-2 py-1 text-[9px] uppercase text-[#201507]">
+                        host
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

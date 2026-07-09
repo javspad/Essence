@@ -31,7 +31,7 @@ import {
   rollArtifactShopOffers,
   validArtifactTargetIds,
 } from "@essence/shared/artifacts";
-import { characterDisplayName, characterSlotsForContent } from "@essence/shared/characters";
+import { characterDisplayName, characterForContent, characterSlotsForContent } from "@essence/shared/characters";
 import {
   consequenceMatchesHook,
   consequenceLabel,
@@ -41,6 +41,7 @@ import {
   shouldAttachConsequence,
   timedConsequenceEffectDef,
 } from "@essence/shared/consequences";
+import { resolveCharacterTrait } from "@essence/shared/traits";
 import {
   eventTitle,
   resolveActivityParticipantIds,
@@ -82,6 +83,9 @@ export class GameRoom {
   private nextEffectInstanceId = 1;
   private nextArtifactShopVisitId = 1;
   private pendingActivityPreludeActions: AppliedEventAction[] = [];
+  private appliedCharacterTraitKeys = new Set<string>();
+  private rollHistory = new Map<string, number[]>();
+  private movementHistory = new Map<string, number[]>();
 
   constructor(io: IO, code: string, name: string, content: GameContent, options: GameRoomOptions = {}) {
     this.io = io;
@@ -179,7 +183,9 @@ export class GameRoom {
       return { ok: true, playerId: existing.id };
     }
 
-    this.state.players.push(this.playerFromCharacter(character.def, socketId));
+    const player = this.playerFromCharacter(character.def, socketId);
+    this.state.players.push(player);
+    if (this.state.phase !== "lobby") this.applyDefaultTraitsForPlayer(player.id);
     this.broadcast();
     return { ok: true, playerId: character.def.id };
   }
@@ -422,12 +428,36 @@ export class GameRoom {
     this.state.activeIndex = 0;
     this.state.round = 1;
     this.state.phase = "turn";
+    this.applyDefaultTraitsForPlayers(order);
     this.broadcast();
   }
 
   private activePlayer(): Player | undefined {
     const id = this.state.turnOrder[this.state.activeIndex];
     return this.state.players.find((p) => p.id === id);
+  }
+
+  private applyDefaultTraitsForPlayers(playerIds: string[]) {
+    for (const playerId of playerIds) this.applyDefaultTraitsForPlayer(playerId);
+  }
+
+  private applyDefaultTraitsForPlayer(playerId: string) {
+    const player = this.state.players.find((candidate) => candidate.id === playerId);
+    if (!player) return;
+    const character = characterForContent(this.content, player.characterId ?? player.id);
+    for (const traitId of character?.defaultTraits ?? []) {
+      const key = `${player.id}:${traitId}`;
+      if (this.appliedCharacterTraitKeys.has(key)) continue;
+      const resolved = resolveCharacterTrait(this.content, traitId);
+      if (!resolved) continue;
+      const instanceIds = this.attachEffectToTargets(resolved.effect, [player.id], {
+        sourcePlayerId: player.id,
+        name: resolved.trait.name,
+        description: resolved.trait.description ?? resolved.effect.description,
+        icon: resolved.trait.icon ?? resolved.effect.icon,
+      });
+      if (instanceIds.length) this.appliedCharacterTraitKeys.add(key);
+    }
   }
 
   // --- Turno ---------------------------------------------------------------
@@ -448,6 +478,7 @@ export class GameRoom {
       targetPlayerId: active.id,
       roll,
     });
+    this.recordHistory(this.rollHistory, active.id, rollResult.baseRoll);
     const afterRollActions = this.applyEffectHook("afterRoll", {
       actingPlayerId: active.id,
       landingPlayerId: active.id,
@@ -469,6 +500,7 @@ export class GameRoom {
     const landingPosition = shopPosition ?? intendedPosition;
     this.state.lastMovement = Math.max(0, landingPosition - startPosition);
     active.position = landingPosition;
+    this.recordHistory(this.movementHistory, active.id, this.state.lastMovement);
     this.state.phase = "moving";
     this.broadcast();
 
@@ -478,12 +510,16 @@ export class GameRoom {
       landingPlayerId: active.id,
       targetPlayerId: active.id,
       roll,
+      movement: this.state.lastMovement,
+      cell: tile,
     });
     const cellEnterActions = this.applyEffectHook("onCellEnter", {
       actingPlayerId: active.id,
       landingPlayerId: active.id,
       targetPlayerId: active.id,
       roll,
+      movement: this.state.lastMovement,
+      cell: tile,
     });
     const lifecycleActions = [...beforeRollActions, ...afterRollActions, ...beforeMovementActions, ...afterMovementActions, ...cellEnterActions];
 
@@ -883,11 +919,15 @@ export class GameRoom {
       return;
     }
     const endingPlayerId = this.activePlayer()?.id;
+    const endingRoll = this.state.lastBaseRoll ?? this.state.lastRoll ?? undefined;
+    const endingMovement = this.state.lastMovement ?? undefined;
     const turnEndActions = endingPlayerId
       ? this.applyEffectHook("onTurnEnd", {
           actingPlayerId: endingPlayerId,
           landingPlayerId: endingPlayerId,
           targetPlayerId: endingPlayerId,
+          roll: endingRoll,
+          movement: endingMovement,
         })
       : [];
 
@@ -1177,21 +1217,21 @@ export class GameRoom {
   private attachEffectToTargets(
     effect: NonNullable<GameContent["effects"]>[string],
     targetPlayerIds: string[],
-    options: { sourcePlayerId?: string; duration?: EffectDuration } = {}
+    options: { sourcePlayerId?: string; duration?: EffectDuration; name?: string; description?: string; icon?: string } = {}
   ): string[] {
     const instanceIds: string[] = [];
     for (const targetPlayerId of targetPlayerIds) {
       const instance: EffectInstance = {
         id: `${effect.id}-${this.nextEffectInstanceId++}`,
         effectId: effect.id,
-        name: effect.name,
-        description: effect.description,
+        name: options.name ?? effect.name,
+        description: options.description ?? effect.description,
         sourcePlayerId: options.sourcePlayerId,
         targetPlayerId,
         remaining: durationStateFromDef(options.duration ?? effect.duration),
         hooks: effectHooksFor(effect),
         consequences: effectConsequencesFor(effect),
-        icon: effect.icon,
+        icon: options.icon ?? effect.icon,
         visualAssetId: effect.visualAssetId,
         startedRound: this.state.round,
         startedTurnId: this.activePlayer()?.id,
@@ -1237,6 +1277,8 @@ export class GameRoom {
       targetPlayerId?: string;
       ranking?: string[];
       roll?: number;
+      movement?: number | null;
+      cell?: Tile;
     }
   ): AppliedEventAction[] {
     const applied: AppliedEventAction[] = [];
@@ -1251,7 +1293,17 @@ export class GameRoom {
         targetPlayerId: instance.targetPlayerId,
       };
       for (const action of instance.consequences) {
-        if (!consequenceMatchesHook(action, { hook, roll: context.roll, phase: this.state.phase })) continue;
+        if (
+          !consequenceMatchesHook(action, {
+            hook,
+            roll: context.roll,
+            movement: context.movement ?? undefined,
+            rollHistory: this.rollHistory.get(instance.targetPlayerId),
+            movementHistory: this.movementHistory.get(instance.targetPlayerId),
+            cell: context.cell,
+            phase: this.state.phase,
+          })
+        ) continue;
         triggered = true;
         applied.push(
           ...this.applyActions([action], {
@@ -1294,6 +1346,11 @@ export class GameRoom {
     if (!instance) return;
     this.state.activeEffects = this.state.activeEffects.filter((effect) => effect.id !== instanceId);
     this.io.to(this.code).emit("effect:ended", { effectInstance: instance, reason });
+  }
+
+  private recordHistory(history: Map<string, number[]>, playerId: string, value: number | null | undefined) {
+    if (value === null || value === undefined || !Number.isFinite(value)) return;
+    history.set(playerId, [...(history.get(playerId) ?? []), value].slice(-8));
   }
 
   private effectTargetName(instance: EffectInstance): string {

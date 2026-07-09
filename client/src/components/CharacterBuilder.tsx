@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Crosshair, Download, Home, ImagePlus, Plus, Rotate3D, RotateCcw, Save, Trash2, Upload, Wrench } from "lucide-react";
-import type { CharacterDef, CosmeticDef, FaceAnchor, FacePhotoAlignment, GameContent } from "@essence/shared";
+import type { CharacterDef, CharacterTraitDef, CosmeticDef, EffectDef, FaceAnchor, FacePhotoAlignment, GameContent } from "@essence/shared";
 import { characterDisplayName } from "@essence/shared/characters";
+import { durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
 import { normalizeContentSchema } from "@essence/shared/contentValidation";
 import seedContent from "@shared/content.json";
 import { defaultTokenAnchor, type TokenAnchorHandle } from "../characterTokenRig";
@@ -230,6 +231,8 @@ export default function CharacterBuilder() {
             <CharacterEditor
               key={selectedCharacter.id}
               character={selectedCharacter}
+              characterTraits={content.characterTraits ?? {}}
+              effects={content.effects ?? {}}
               cosmetics={content.cosmetics ?? {}}
               onChange={(updater) => updateCharacter(selectedCharacter.id, updater)}
               onDelete={() => deleteCharacter(selectedCharacter.id)}
@@ -258,11 +261,15 @@ export default function CharacterBuilder() {
 
 function CharacterEditor({
   character,
+  characterTraits,
+  effects,
   cosmetics,
   onChange,
   onDelete,
 }: {
   character: CharacterDef;
+  characterTraits: Record<string, CharacterTraitDef>;
+  effects: Record<string, EffectDef>;
   cosmetics: Record<string, CosmeticDef>;
   onChange: (updater: (character: CharacterDef) => CharacterDef) => void;
   onDelete: () => void;
@@ -330,14 +337,110 @@ function CharacterEditor({
       <section className="rounded-md border border-white/10 bg-white/[0.035] p-4">
         <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-fuchsia-200">Defaults</p>
         <div className="mt-3 grid gap-3">
-          <TextInput
-            label="Default traits"
-            value={(character.defaultTraits ?? []).join(", ")}
-            onChange={(value) => update({ defaultTraits: csv(value) })}
+          <TraitControls
+            character={character}
+            characterTraits={characterTraits}
+            effects={effects}
+            onChange={(defaultTraits) => update({ defaultTraits })}
           />
         </div>
       </section>
     </div>
+  );
+}
+
+function TraitControls({
+  character,
+  characterTraits,
+  effects,
+  onChange,
+}: {
+  character: CharacterDef;
+  characterTraits: Record<string, CharacterTraitDef>;
+  effects: Record<string, EffectDef>;
+  onChange: (defaultTraits: string[]) => void;
+}) {
+  const traitList = useMemo(() => Object.values(characterTraits).sort((a, b) => a.name.localeCompare(b.name)), [characterTraits]);
+  const assignedIds = character.defaultTraits ?? [];
+  const assignedSet = new Set(assignedIds);
+  const available = traitList.filter((trait) => !assignedSet.has(trait.id));
+  const availableKey = available.map((trait) => trait.id).join("|");
+  const [selectedTraitId, setSelectedTraitId] = useState(available[0]?.id ?? "");
+
+  useEffect(() => {
+    if (selectedTraitId && available.some((trait) => trait.id === selectedTraitId)) return;
+    setSelectedTraitId(available[0]?.id ?? "");
+  }, [availableKey, selectedTraitId]);
+
+  const addTrait = () => {
+    if (!selectedTraitId || assignedSet.has(selectedTraitId)) return;
+    onChange([...assignedIds, selectedTraitId]);
+  };
+  const removeTrait = (traitId: string) => {
+    onChange(assignedIds.filter((id) => id !== traitId));
+  };
+
+  return (
+    <div className="grid gap-3 rounded-md border border-white/10 bg-black/15 p-3">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <label className="sr-only" htmlFor={`trait-select-${character.id}`}>Trait to add</label>
+        <select
+          id={`trait-select-${character.id}`}
+          value={selectedTraitId}
+          onChange={(event) => setSelectedTraitId(event.target.value)}
+          disabled={!available.length}
+          className="h-10 min-w-0 rounded-md border border-white/10 bg-[#101722] px-3 text-xs font-black text-white outline-none focus:border-amber-300/60 disabled:opacity-45"
+        >
+          {available.length ? (
+            available.map((trait) => (
+              <option key={trait.id} value={trait.id}>
+                {trait.name}
+              </option>
+            ))
+          ) : (
+            <option value="">No traits available</option>
+          )}
+        </select>
+        <button type="button" onClick={addTrait} disabled={!selectedTraitId} className="builder-button compact preview gap-2">
+          <Plus className="h-4 w-4" />
+          Add
+        </button>
+      </div>
+
+      {assignedIds.length ? (
+        <div className="grid gap-2">
+          {assignedIds.map((traitId) => {
+            const trait = characterTraits[traitId];
+            const effect = trait ? effects[trait.effectId] : undefined;
+            return (
+              <div key={traitId} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-md border border-white/10 bg-white/[0.04] p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-white">{trait?.name ?? traitId}</p>
+                  <p className="mt-1 line-clamp-2 text-xs font-bold leading-4 text-slate-300">{trait?.description ?? effect?.description ?? "Missing trait definition"}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <TraitMeta label="Effect" value={effect?.name ?? trait?.effectId ?? "missing"} />
+                    {effect && <TraitMeta label="Duration" value={effectRemainingLabel(durationStateFromDef(effect.duration))} />}
+                  </div>
+                </div>
+                <button type="button" onClick={() => removeTrait(traitId)} className="builder-button danger compact" aria-label={`Remove ${trait?.name ?? traitId}`}>
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="rounded-md border border-dashed border-white/10 p-3 text-xs font-black text-slate-400">No default traits</p>
+      )}
+    </div>
+  );
+}
+
+function TraitMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="max-w-full truncate rounded-sm border border-cyan-200/20 bg-cyan-300/10 px-2 py-1 text-[0.62rem] font-black uppercase text-cyan-100">
+      {label}: {value}
+    </span>
   );
 }
 
@@ -935,13 +1038,6 @@ function nextId(prefix: string, records: Record<string, unknown>): string {
     id = `${prefix}-${index}`;
   }
   return id;
-}
-
-function csv(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function isFullContent(value: unknown): value is GameContent {
