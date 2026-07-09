@@ -68,7 +68,7 @@ Every slice must leave the project in a state that can be inspected by a human.
 | --- | --- | --- | --- |
 | Game | Existing | `/` | Join/create room, choose an authored map, and play the current board game. |
 | Board Camera Controls | Existing | In-game board HUD | Click player tokens, focus characters, and toggle a full-map overview. |
-| Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, and map props; save to `shared/content.json`; inspect/search props in the 3D gallery. |
+| Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, map props, and future authored camera framing; save to `shared/content.json`; inspect/search props in the 3D gallery. |
 | Event Builder | Existing, with legacy component/file names | `/event-builder` (`/minigame-builder` legacy alias) | Edit events, activities, stories, and consequences. |
 | Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
 | Character Builder | Existing | `/character-builder` | Edit characters, face photos, anchors, default loadouts, and draft trait ids. |
@@ -105,7 +105,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S6` Character traits | [ ] | `S2`, `S3` | Character builder trait config plus live trait trigger. |
 | `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Coin-source tests plus in-game spending flow. |
 | `S8` Authoring skills and content bank | [ ] | `S7` | Docs/skills can add example content and validation passes. |
-| `S9` Audio and presentation polish | [ ] | `S8` | Manual QA with mute/volume and event feedback checks. |
+| `S9` Audio, camera, and presentation polish | [ ] | `S8` | Manual QA with mute/volume, authored camera framing, and event feedback checks. |
 
 ## Pre-Roadmap Refactors
 
@@ -156,7 +156,7 @@ flowchart TD
   F --> H
   G --> H
   H --> I["Slice 8: Authoring skills and content bank"]
-  I --> J["Slice 9: Audio and presentation polish"]
+  I --> J["Slice 9: Audio, camera, and presentation polish"]
 ```
 
 ## Slice 0 (`S0`): Result And Confirmation Fixes
@@ -595,7 +595,7 @@ Acceptance:
 
 - A non-core developer can add a new event, artifact, cosmetic, or story beat by following docs and running validation.
 
-## Slice 9 (`S9`): Audio And Presentation Polish
+## Slice 9 (`S9`): Audio, Camera, And Presentation Polish
 
 Goal: make feedback legible and fun once the systems are stable.
 
@@ -609,6 +609,18 @@ Tasks:
 - [ ] `S9-06` Add event-specific sounds.
 - [ ] `S9-07` Add notifications for effect applied, effect ticked, effect ended, artifact used, and purchase completed.
 - [ ] `S9-08` Tune reveal, target selector, shop, and active effect presentation for desktop and mobile.
+- [ ] `S9-09` Add Map Builder controls for authored camera framing:
+  - Set the default board camera/view orientation from the 3D preview.
+  - Store camera presets as data so they survive JSON export/import.
+  - Preview the saved default view without leaving the builder.
+- [ ] `S9-10` Add per-cell camera framing:
+  - Select a board cell and adjust the viewing direction, pitch, distance, and optional field-of-view.
+  - Keep the active character/player as the focus target while changing the direction from which the scene is viewed.
+  - Allow cells such as shops or visually dense prop areas to frame the character plus nearby assets more intentionally.
+- [ ] `S9-11` Apply authored camera framing during runtime presentation:
+  - When landing on a configured cell, use the cell camera preset as a temporary presentation view.
+  - Provide a clear reset back to the active-player follow view and full-map overview.
+  - Reuse `S-CAM` camera-intent primitives and do not reintroduce free/manual camera movement.
 
 Partial baseline:
 
@@ -617,6 +629,8 @@ Partial baseline:
 Acceptance:
 
 - Important state changes have visible and optional audible feedback without blocking gameplay.
+- Map authors can configure a default board camera and cell-specific presentation camera angles through `/map-builder`.
+- Authored camera angles improve viewing of shop cells, artifacts, and map props while keeping the character/player in focus.
 
 ## Bug Backlog
 
@@ -642,6 +656,9 @@ These are captured from the notes and should be handled in Slice 0 unless a task
 - Full-map overview toggle for map inspection.
 - Reset control back to the active player/current turn.
 - Reusable focused-player and camera-intent helpers for target selection, effects, and artifact flows.
+- Authored default board camera orientation in Map Builder.
+- Per-cell camera presets that keep the character/player focused while changing view direction, pitch, distance, and framing.
+- Shop-cell camera framing that presents the player and nearby shop/assets from a better angle.
 
 ### Characters
 
@@ -722,6 +739,7 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 | Artifact target selection, highlight, trajectory, camera centering | `S-CAM`, `S4` | `S-CAM` provides focus/camera primitives; `S4` adds artifact-specific target flow. |
 | Artifact outgoing/incoming animations | `S4`, `S9` | Rule flow first, polish later. |
 | Artifact duration effects and expiration notifications | `S3`, `S4`, `S9` | Engine first, item integration second, polish last. |
+| Map Builder default camera and per-cell camera angles | `S-CAM`, `S9` | Low-priority polish/content-authoring feature; keep player focus while changing view direction for shops and dense map areas. |
 | Reusable consequence/effect logic | `S3` | Explicitly shared by minigames, events, artifacts, traits, and cells. |
 | Offline shot consequences | `S0`, `S3`, `S7` | Confirmation and optional coin reward policy. |
 | Character default buffs/effects | `S6` | Named **Character Traits** in glossary. |
@@ -744,6 +762,29 @@ interface GameContent {
   cosmetics?: Record<string, CosmeticDef>;
   assetCatalog?: MapAssetDef[]; // decorative map props
   maps?: MapDefinition[];
+}
+
+interface CameraFramingDef {
+  id?: string;
+  /** Keep player/character focus; only change the view direction and distance. */
+  focus: "activePlayer" | "cell" | "targetPlayer";
+  yaw: number;
+  pitch: number;
+  distance: number;
+  fov?: number;
+  /** Optional offset for framing nearby assets such as a shop prop beside the player. */
+  focusOffset?: { x: number; y?: number; z: number };
+}
+
+interface MapDefinition {
+  defaultCamera?: CameraFramingDef;
+  cameraPresets?: Record<string, CameraFramingDef>;
+}
+
+interface Tile {
+  /** Per-cell presentation framing used when a player lands here. */
+  cameraPresetId?: string;
+  camera?: CameraFramingDef;
 }
 
 interface CharacterDef {
@@ -811,4 +852,4 @@ Resolved:
 
 ## Next Review Step
 
-Start with `S6` Character Traits. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, and `S5` are complete, and `S7` remains blocked on trait work plus economy-balancing decisions.
+Start with `S6` Character Traits. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, and `S5` are complete, and `S7` remains blocked on trait work plus economy-balancing decisions. Authored camera framing stays deferred to `S9` as lower-priority presentation/content-authoring polish.

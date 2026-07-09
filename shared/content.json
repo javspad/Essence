@@ -1473,7 +1473,7 @@
       "id": 5,
       "type": "shop",
       "layout": {
-        "x": 5,
+        "x": 5.5,
         "y": 1.5
       },
       "eventId": "event-bostezo"
@@ -3130,7 +3130,7 @@
           "id": 5,
           "type": "shop",
           "layout": {
-            "x": 5,
+            "x": 5.5,
             "y": 1.5
           },
           "eventId": "event-bostezo"
