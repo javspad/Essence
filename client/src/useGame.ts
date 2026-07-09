@@ -11,7 +11,8 @@ interface MinigameStart {
   participants: string[];
 }
 
-const STORAGE_KEY = "essence:session";
+const STORAGE_KEY = "essence:session:v1";
+const LEGACY_STORAGE_KEY = "essence:session";
 
 interface Session {
   code: string;
@@ -26,13 +27,43 @@ export interface EffectNotice {
   reason: "expired" | "triggered";
 }
 
-function loadSession(): Session | null {
+function parseSession(raw: string | null): Session | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
+    const parsed = JSON.parse(raw) as Partial<Session>;
+    if (
+      typeof parsed.code === "string" &&
+      typeof parsed.name === "string" &&
+      typeof parsed.playerId === "string" &&
+      (parsed.characterId === undefined || typeof parsed.characterId === "string")
+    ) {
+      return parsed as Session;
+    }
   } catch {
-    return null;
+    // Ignore stale or malformed sessions.
   }
+  return null;
+}
+
+function clearSession() {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
+function loadSession(): Session | null {
+  const versioned = parseSession(localStorage.getItem(STORAGE_KEY));
+  if (versioned) return versioned;
+
+  const legacy = parseSession(localStorage.getItem(LEGACY_STORAGE_KEY));
+  if (!legacy) return null;
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // The in-memory session is still usable for this render.
+  }
+  return legacy;
 }
 
 export function useGame() {
@@ -51,7 +82,7 @@ export function useGame() {
       if (s) {
         socket.emit("room:join", { code: s.code, name: s.name, characterId: s.characterId }, (res) => {
           if (res.ok) setPlayerId(res.playerId);
-          else localStorage.removeItem(STORAGE_KEY);
+          else clearSession();
         });
       }
     };
@@ -73,7 +104,7 @@ export function useGame() {
       }, 6500);
     };
     const onRoomClosed = (payload: { message: string }) => {
-      localStorage.removeItem(STORAGE_KEY);
+      clearSession();
       setPlayerId(null);
       setState(null);
       setMinigameStart(null);
@@ -128,7 +159,7 @@ export function useGame() {
 
   const leave = useCallback(() => {
     socket.emit("room:leave");
-    localStorage.removeItem(STORAGE_KEY);
+    clearSession();
     setPlayerId(null);
     setState(null);
   }, []);

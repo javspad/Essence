@@ -426,13 +426,13 @@ export default function MinigameBuilder() {
           {selected && <EventScopeSelect value={scopeSelectValue(selected.trigger)} players={PLAYER_POOL} onChange={updateTrigger} />}
         </div>
         <div className="flex items-center justify-end gap-2">
-          <button onClick={saveDraft} className="h-8 rounded-md border border-cyan-200/25 bg-cyan-300/10 px-2.5 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15">
+          <button type="button" onClick={saveDraft} className="h-8 rounded-md border border-cyan-200/25 bg-cyan-300/10 px-2.5 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15">
             {saveStatus || "Save"}
           </button>
-          <button onClick={() => setJsonModalOpen(true)} className="h-8 rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-black text-slate-100 transition hover:bg-white/10">
+          <button type="button" onClick={() => setJsonModalOpen(true)} className="h-8 rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-black text-slate-100 transition hover:bg-white/10">
             Import/export
           </button>
-          <button onClick={resetRun} className="h-8 rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-black text-slate-100 transition hover:bg-white/10">
+          <button type="button" onClick={resetRun} className="h-8 rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-black text-slate-100 transition hover:bg-white/10">
             Reset run
           </button>
           <a href="/tools" className="flex h-8 items-center rounded-md border border-amber-200/25 bg-amber-300/10 px-2.5 text-xs font-black text-amber-100 transition hover:bg-amber-300/15">
@@ -464,7 +464,7 @@ export default function MinigameBuilder() {
           <div className="mt-3 flex min-h-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-2">
               <SectionTitle eyebrow={`${filteredEventIds.length}/${eventIds.length} events`} title="Events" />
-              <button onClick={createEvent} className="rounded-md border border-cyan-200/25 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15">
+              <button type="button" onClick={createEvent} className="rounded-md border border-cyan-200/25 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15">
                 New
               </button>
             </div>
@@ -622,13 +622,13 @@ export default function MinigameBuilder() {
               onChange={setActorId}
             />
             <div className="mt-3 flex flex-wrap gap-2">
-              <button onClick={addPlayer} disabled={players.length >= PLAYER_POOL.length} className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/10 disabled:opacity-40">
+              <button type="button" onClick={addPlayer} disabled={players.length >= PLAYER_POOL.length} className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/10 disabled:opacity-40">
                 Add player
               </button>
-              <button onClick={addAllPlayers} className="rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/15">
+              <button type="button" onClick={addAllPlayers} className="rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/15">
                 Add all
               </button>
-              <button onClick={resetPlayers} className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/10">
+              <button type="button" onClick={resetPlayers} className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/10">
                 Reset
               </button>
             </div>
@@ -653,6 +653,7 @@ export default function MinigameBuilder() {
                   >
                     <span className="truncate text-sm font-black text-white">{player.name}</span>
                     <button
+                      type="button"
                       onClick={(event) => {
                         event.stopPropagation();
                         removePlayer(player.id);
@@ -685,6 +686,7 @@ export default function MinigameBuilder() {
 
           <Panel title="Consequences" eyebrow={`${selected?.outcomes?.length ?? 0} branches`}>
             <button
+              type="button"
               onClick={addConsequence}
               disabled={!selected}
               className="w-full rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/15 disabled:opacity-40"

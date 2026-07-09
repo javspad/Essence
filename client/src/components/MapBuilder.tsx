@@ -945,6 +945,7 @@ function ExportPanel({
         </button>
       </div>
       <textarea
+        aria-label="Map import JSON"
         value={importText}
         onChange={(event) => setImportText(event.target.value)}
         placeholder="Pegá un content.json para importar"
@@ -960,6 +961,7 @@ function ExportPanel({
       </div>
       {active && (
         <textarea
+          aria-label="Map export JSON"
           readOnly
           value={exportJson}
           className="mt-2 h-40 w-full resize-none rounded-md border border-white/10 bg-black/30 p-2 font-mono text-[0.65rem] text-slate-200"

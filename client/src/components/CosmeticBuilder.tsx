@@ -213,19 +213,19 @@ export default function CosmeticBuilder() {
           <h1 className="truncate text-xl font-black tracking-normal text-white">Cosmetic builder</h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <button onClick={saveDraft} className="builder-button preview gap-2">
+          <button type="button" onClick={saveDraft} className="builder-button preview gap-2">
             <Save className="h-4 w-4" />
             Save
           </button>
-          <button onClick={() => setJsonOpen(true)} className="builder-button preview gap-2">
+          <button type="button" onClick={() => setJsonOpen(true)} className="builder-button preview gap-2">
             <Upload className="h-4 w-4" />
             Import/export
           </button>
-          <button onClick={downloadJson} className="builder-button gap-2">
+          <button type="button" onClick={downloadJson} className="builder-button gap-2">
             <Download className="h-4 w-4" />
             Download
           </button>
-          <button onClick={() => setGalleryOpen(true)} className="builder-button preview gap-2">
+          <button type="button" onClick={() => setGalleryOpen(true)} className="builder-button preview gap-2">
             <Rotate3D className="h-4 w-4" />
             3D gallery
           </button>
@@ -614,7 +614,7 @@ function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: strin
         <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
         <h2 className="truncate text-base font-black text-white">{title}</h2>
       </div>
-      <button onClick={action} className="builder-button compact gap-2" aria-label={`Create ${title}`}>
+      <button type="button" onClick={action} className="builder-button compact gap-2" aria-label={`Create ${title}`}>
         <Plus className="h-4 w-4" />
       </button>
     </div>

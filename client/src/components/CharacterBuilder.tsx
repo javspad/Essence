@@ -164,15 +164,15 @@ export default function CharacterBuilder() {
           <h1 className="truncate text-xl font-black tracking-normal text-white">Character builder</h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <button onClick={saveDraft} className="builder-button preview gap-2">
+          <button type="button" onClick={saveDraft} className="builder-button preview gap-2">
             <Save className="h-4 w-4" />
             Save
           </button>
-          <button onClick={() => setJsonModalOpen(true)} className="builder-button preview gap-2">
+          <button type="button" onClick={() => setJsonModalOpen(true)} className="builder-button preview gap-2">
             <Upload className="h-4 w-4" />
             Import/export
           </button>
-          <button onClick={downloadJson} className="builder-button gap-2">
+          <button type="button" onClick={downloadJson} className="builder-button gap-2">
             <Download className="h-4 w-4" />
             Download
           </button>
@@ -383,10 +383,6 @@ function CharacterPreviewer({
     setProjectedAnchors((current) => (sameProjectedTokenAnchors(current, next) ? current : next));
   }, []);
 
-  useEffect(() => {
-    if (character.facePhoto) setSourceDraft("");
-  }, [character.facePhoto]);
-
   const updateAlignment = (patch: Partial<FacePhotoAlignment>) => {
     onChange({ facePhotoAlignment: clampAlignment({ ...alignment, ...patch }) });
   };
@@ -465,6 +461,11 @@ function CharacterPreviewer({
     const facePhoto = sourceDraft.trim();
     if (!facePhoto) return;
     onChange({ facePhoto, facePhotoAlignment: character.facePhotoAlignment ?? DEFAULT_FACE_ALIGNMENT });
+    setSourceDraft("");
+  };
+  const handleFacePhotoUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    setSourceDraft("");
+    onFacePhotoUpload(event);
   };
 
   return (
@@ -569,7 +570,7 @@ function CharacterPreviewer({
 
       <div className="space-y-3">
         <section className="rounded-md border border-white/10 bg-black/15 p-3">
-          <input id={uploadId} type="file" accept="image/*" className="sr-only" onChange={onFacePhotoUpload} />
+          <input id={uploadId} type="file" accept="image/*" className="sr-only" onChange={handleFacePhotoUpload} />
           <div className="flex flex-wrap items-center gap-2">
             <p className="mr-auto text-[0.62rem] font-black uppercase tracking-[0.18em] text-amber-200">Face photo</p>
             <label htmlFor={uploadId} className="builder-button gap-2">
@@ -601,7 +602,10 @@ function CharacterPreviewer({
             <button
               type="button"
               disabled={!hasFacePhoto}
-              onClick={() => onChange({ facePhoto: undefined, facePhotoAlignment: DEFAULT_FACE_ALIGNMENT })}
+              onClick={() => {
+                setSourceDraft("");
+                onChange({ facePhoto: undefined, facePhotoAlignment: DEFAULT_FACE_ALIGNMENT });
+              }}
               className="builder-button danger disabled:opacity-40"
             >
               Clear
@@ -713,7 +717,7 @@ function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: strin
         <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
         <h2 className="truncate text-base font-black text-white">{title}</h2>
       </div>
-      <button onClick={action} className="builder-button compact gap-2">
+      <button type="button" onClick={action} className="builder-button compact gap-2" aria-label={`Create ${title}`}>
         <Plus className="h-4 w-4" />
       </button>
     </div>

@@ -703,6 +703,7 @@ export function FreeOrbitCamera({ overview, refit = false }: { overview: BoardCa
   // Encuadre inicial desde la toma general; se fija una sola vez porque el overview
   // del builder es estable mientras el preview está abierto (no queremos que la
   // cámara vuelva al centro cada vez que se mueve un prop).
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup -- Vector3.sub() is math here; no subscription or timer is created.
   useLayoutEffect(() => {
     const look = scratch.current.set(...overview.look);
     const offset = new Vector3(...overview.position).sub(look);

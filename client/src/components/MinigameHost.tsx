@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { GameState, Player } from "@essence/shared";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
@@ -18,17 +18,14 @@ interface Props {
 
 export default function MinigameHost({ state, me, isHost, onFinish, onAction, onForce, onLeave }: Props) {
   const mg = state.activeMinigame;
-  const [finished, setFinished] = useState(false);
-
-  // Reset cuando arranca un minijuego nuevo.
-  useEffect(() => {
-    setFinished(false);
-  }, [mg?.id, mg?.judge?.phase, state.round, state.activeIndex]);
+  const [finishedMinigameKey, setFinishedMinigameKey] = useState<string | null>(null);
 
   if (!mg) return null;
 
+  const minigameKey = `${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`;
   const Engine = ENGINES[mg.type];
   const amParticipant = mg.participants.includes(me.id);
+  const finished = finishedMinigameKey === minigameKey;
   const alreadyIn = mg.submitted.includes(me.id) || finished;
   const connectedPlayers = state.players.filter((p) => p.connected);
   const subjectPlayers = (mg.subjects?.length ? mg.subjects : mg.participants)
@@ -92,7 +89,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
 
   const handleFinish = (score: number, payload: unknown, outcome?: "win" | "loss") => {
     if (finished) return;
-    setFinished(true);
+    setFinishedMinigameKey(minigameKey);
     onFinish(score, payload, outcome);
   };
 

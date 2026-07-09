@@ -194,6 +194,14 @@ export default function GameScene3D({
   const focusedPlayer = cameraState.focusedPlayerId
     ? state.players.find((player) => player.id === cameraState.focusedPlayerId)
     : undefined;
+  const effectiveCameraState = cameraState.focusedPlayerId && !focusedPlayer ? { ...cameraState, focusedPlayerId: null } : cameraState;
+  const activeArtifactTargetPreviewId =
+    state.phase === "shop" &&
+    state.pendingArtifactUse &&
+    artifactTargetPreviewId &&
+    state.players.some((player) => player.id === artifactTargetPreviewId)
+      ? artifactTargetPreviewId
+      : null;
   const dispatchCameraIntent = useCallback((intent: CameraIntent) => {
     setCameraState((current) => applyCameraIntent(current, intent));
   }, []);
@@ -214,19 +222,9 @@ export default function GameScene3D({
     onLeave();
   }, [onLeave]);
 
-  useEffect(() => {
-    if (!cameraState.focusedPlayerId) return;
-    if (state.players.some((player) => player.id === cameraState.focusedPlayerId)) return;
-    setCameraState((current) => ({ ...current, focusedPlayerId: null }));
-  }, [cameraState.focusedPlayerId, state.players]);
-
-  useEffect(() => {
-    if (state.phase !== "shop") setArtifactTargetPreviewId(null);
-  }, [state.artifactShop?.visitId, state.phase]);
-
   const artifactTrajectory =
-    state.pendingArtifactUse && artifactTargetPreviewId
-      ? { fromPlayerId: state.pendingArtifactUse.playerId, toPlayerId: artifactTargetPreviewId }
+    state.pendingArtifactUse && activeArtifactTargetPreviewId
+      ? { fromPlayerId: state.pendingArtifactUse.playerId, toPlayerId: activeArtifactTargetPreviewId }
       : null;
 
   if (!canLoad3D) {
@@ -291,7 +289,7 @@ export default function GameScene3D({
         diceCue={diceCue}
         interactive
         cameraMode={cameraState.mode}
-        focusedPlayerId={cameraState.focusedPlayerId}
+        focusedPlayerId={effectiveCameraState.focusedPlayerId}
         onPlayerFocus={focusPlayer}
         artifactTrajectory={artifactTrajectory}
         className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_45%_-5%,#f2d8a7_0%,#dfa96b_30%,#96602c_62%,#2c1808_100%)]"
@@ -306,7 +304,7 @@ export default function GameScene3D({
         canAdvance={canAdvance}
         editMode={editMode}
         isHost={isHost}
-        cameraState={cameraState}
+        cameraState={effectiveCameraState}
         eventBusyLabel={eventBusyLabel}
         rollBlocked={rollBlocked}
         statusLabel={statusLabel}
@@ -348,7 +346,7 @@ export default function GameScene3D({
       )}
 
       <div className="sr-only" aria-live="polite">
-        {sceneStatus(state, activeId, cameraState, focusedPlayer)}
+        {sceneStatus(state, activeId, effectiveCameraState, focusedPlayer)}
       </div>
     </main>
   );

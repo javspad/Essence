@@ -157,15 +157,15 @@ export default function ArtifactBuilder() {
           <h1 className="truncate text-xl font-black tracking-normal text-white">Artifact builder</h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <button onClick={saveDraft} className="builder-button preview gap-2">
+          <button type="button" onClick={saveDraft} className="builder-button preview gap-2">
             <Save className="h-4 w-4" />
             Save
           </button>
-          <button onClick={() => setJsonOpen(true)} className="builder-button preview gap-2">
+          <button type="button" onClick={() => setJsonOpen(true)} className="builder-button preview gap-2">
             <Upload className="h-4 w-4" />
             Import/export
           </button>
-          <button onClick={downloadJson} className="builder-button gap-2">
+          <button type="button" onClick={downloadJson} className="builder-button gap-2">
             <Download className="h-4 w-4" />
             Download
           </button>
@@ -322,7 +322,7 @@ function ArtifactEditor({
             <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-emerald-200">Artifact</p>
             <h2 className="mt-1 text-lg font-black text-white">{artifact.name}</h2>
           </div>
-          <button onClick={onDelete} className="builder-button danger gap-2">
+          <button type="button" onClick={onDelete} className="builder-button danger gap-2">
             <Trash2 className="h-4 w-4" />
             Delete
           </button>
@@ -418,7 +418,7 @@ function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: strin
         <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
         <h2 className="text-base font-black text-white">{title}</h2>
       </div>
-      <button onClick={action} className="builder-button preview h-9 w-9 p-0" aria-label="Create artifact">
+      <button type="button" onClick={action} className="builder-button preview h-9 w-9 p-0" aria-label="Create artifact">
         <Plus className="h-4 w-4" />
       </button>
     </div>
@@ -510,19 +510,19 @@ function JsonModal({
         <h2 id="artifact-json-modal-title" className="sr-only">Import and export artifact JSON</h2>
         <div className="min-h-0 p-4">
           <h2 className="text-lg font-black text-white">Export JSON</h2>
-          <textarea readOnly value={exportJson} className="mt-3 h-[56dvh] w-full rounded-md border border-white/10 bg-[#071018] p-3 font-mono text-xs text-slate-200" />
+          <textarea aria-label="Artifact export JSON" readOnly value={exportJson} className="mt-3 h-[56dvh] w-full rounded-md border border-white/10 bg-[#071018] p-3 font-mono text-xs text-slate-200" />
           <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={onCopy} className="builder-button preview gap-2"><Copy className="h-4 w-4" />Copy</button>
-            <button onClick={onDownload} className="builder-button gap-2"><Download className="h-4 w-4" />Download</button>
+            <button type="button" onClick={onCopy} className="builder-button preview gap-2"><Copy className="h-4 w-4" />Copy</button>
+            <button type="button" onClick={onDownload} className="builder-button gap-2"><Download className="h-4 w-4" />Download</button>
           </div>
         </div>
         <div className="min-h-0 border-t border-white/10 p-4 lg:border-l lg:border-t-0">
           <h2 className="text-lg font-black text-white">Import JSON</h2>
-          <textarea value={importText} onChange={(event) => setImportText(event.target.value)} className="mt-3 h-[56dvh] w-full rounded-md border border-white/10 bg-[#071018] p-3 font-mono text-xs text-slate-200" />
+          <textarea aria-label="Artifact import JSON" value={importText} onChange={(event) => setImportText(event.target.value)} className="mt-3 h-[56dvh] w-full rounded-md border border-white/10 bg-[#071018] p-3 font-mono text-xs text-slate-200" />
           <div className="mt-3 flex flex-wrap justify-end gap-2">
-            <button onClick={onReset} className="builder-button danger">Recover browser draft</button>
-            <button onClick={onClose} className="builder-button">Close</button>
-            <button onClick={onImport} className="builder-button preview">Import</button>
+            <button type="button" onClick={onReset} className="builder-button danger">Recover browser draft</button>
+            <button type="button" onClick={onClose} className="builder-button">Close</button>
+            <button type="button" onClick={onImport} className="builder-button preview">Import</button>
           </div>
         </div>
       </section>
