@@ -9,3 +9,8 @@ script = "bun install"
 name = "Run"
 icon = "run"
 command = "bun dev"
+
+[[actions]]
+name = "Bring changes"
+icon = "tool"
+command = "gl"

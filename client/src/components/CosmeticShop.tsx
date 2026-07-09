@@ -407,13 +407,36 @@ function ArtifactShopPanel({
             {sharedArtifactShop ? "This is the same offer list every player is viewing." : "Coins are deducted immediately. Purchase then moves to artifact use."}
           </p>
         </div>
-        <div className="flex flex-wrap justify-end gap-1.5 text-[9px] font-black uppercase">
-          <span className="rounded-sm border border-[#fde68a]/30 bg-[#f5d547]/10 px-2 py-1 text-[#fde68a]">
-            {shopActor?.name ?? "Player"} coins: {actorCoins}
-          </span>
-          <span className="rounded-sm border border-[#6ee7b7]/40 bg-[#10b981]/15 px-2 py-1 text-[#6ee7b7]">
-            {shop.purchasedOfferId ? "Purchase used" : "1 purchase / visit"}
-          </span>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-1.5 text-[9px] font-black uppercase">
+            <span className="rounded-sm border border-[#fde68a]/30 bg-[#f5d547]/10 px-2 py-1 text-[#fde68a]">
+              {shopActor?.name ?? "Player"} coins: {actorCoins}
+            </span>
+            <span className="rounded-sm border border-[#6ee7b7]/40 bg-[#10b981]/15 px-2 py-1 text-[#6ee7b7]">
+              {shop.purchasedOfferId ? "Purchase used" : "1 purchase / visit"}
+            </span>
+          </div>
+          {isActor && !shop.purchasedOfferId && (
+            <Button
+              type="button"
+              disabled={busyId === "skip-artifacts"}
+              onClick={() => {
+                setBusyId("skip-artifacts");
+                setStatus("");
+                onSkipArtifactShop((res) => {
+                  setBusyId(null);
+                  setStatus(res.ok ? "Skipped" : res.error);
+                  if (res.ok) {
+                    onTargetPreview(null);
+                    onClose();
+                  }
+                });
+              }}
+              className="min-h-9 bg-white/10 px-3 text-[10px] uppercase tracking-wider text-[#d4cfea] hover:bg-white/15 disabled:opacity-45"
+            >
+              Skip shop
+            </Button>
+          )}
         </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2">

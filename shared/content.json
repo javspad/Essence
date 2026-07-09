@@ -478,28 +478,28 @@
       "bodyAnchors": {
         "head": {
           "x": 0.5,
-          "y": 0.16,
-          "angle": 0
+          "y": 0.1,
+          "z": -0.06
         },
         "chest": {
-          "x": 0.5,
-          "y": 0.44,
-          "angle": 0
+          "x": 0.4975743086430109,
+          "y": 0.425696860742933,
+          "z": 0
         },
         "leftHand": {
           "x": 0.28,
           "y": 0.46,
-          "angle": 0
+          "z": 0
         },
         "rightHand": {
           "x": 0.72,
           "y": 0.46,
-          "angle": 0
+          "z": 0
         },
         "back": {
-          "x": 0.5,
-          "y": 0.48,
-          "angle": 0
+          "x": 0.4058921755725191,
+          "y": 0.5575799141221374,
+          "z": 0
         }
       },
       "defaultLoadout": {
@@ -537,28 +537,28 @@
       "bodyAnchors": {
         "head": {
           "x": 0.5,
-          "y": 0.16,
-          "angle": 0
+          "y": 0.1,
+          "z": -0.06
         },
         "chest": {
-          "x": 0.5,
-          "y": 0.44,
-          "angle": 0
+          "x": 0.4975743086430109,
+          "y": 0.425696860742933,
+          "z": 0
         },
         "leftHand": {
           "x": 0.28,
           "y": 0.46,
-          "angle": 0
+          "z": 0
         },
         "rightHand": {
           "x": 0.72,
           "y": 0.46,
-          "angle": 0
+          "z": 0
         },
         "back": {
-          "x": 0.5,
-          "y": 0.48,
-          "angle": 0
+          "x": 0.4058921755725191,
+          "y": 0.5575799141221374,
+          "z": 0
         }
       },
       "defaultLoadout": {
@@ -596,28 +596,28 @@
       "bodyAnchors": {
         "head": {
           "x": 0.5,
-          "y": 0.16,
-          "angle": 0
+          "y": 0.1,
+          "z": -0.06
         },
         "chest": {
-          "x": 0.5,
-          "y": 0.44,
-          "angle": 0
+          "x": 0.4975743086430109,
+          "y": 0.425696860742933,
+          "z": 0
         },
         "leftHand": {
           "x": 0.28,
           "y": 0.46,
-          "angle": 0
+          "z": 0
         },
         "rightHand": {
           "x": 0.72,
           "y": 0.46,
-          "angle": 0
+          "z": 0
         },
         "back": {
-          "x": 0.5,
-          "y": 0.48,
-          "angle": 0
+          "x": 0.4058921755725191,
+          "y": 0.5575799141221374,
+          "z": 0
         }
       },
       "defaultLoadout": {
@@ -1357,7 +1357,15 @@
       "asset": "corona-rey",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "corona-rey"
     },
     "sombrero-mariachi": {
       "id": "sombrero-mariachi",
@@ -1367,7 +1375,15 @@
       "asset": "sombrero-mariachi",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "sombrero-mariachi"
     },
     "gorro-bufon": {
       "id": "gorro-bufon",
@@ -1377,7 +1393,15 @@
       "asset": "gorro-bufon",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "gorro-bufon"
     },
     "casco-vikingo": {
       "id": "casco-vikingo",
@@ -1387,7 +1411,15 @@
       "asset": "casco-vikingo",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "casco-vikingo"
     },
     "corona-laurel": {
       "id": "corona-laurel",
@@ -1397,7 +1429,15 @@
       "asset": "corona-laurel",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "corona-laurel"
     },
     "aureola": {
       "id": "aureola",
@@ -1407,7 +1447,15 @@
       "asset": "aureola",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "aureola"
     },
     "cuernos-diablo": {
       "id": "cuernos-diablo",
@@ -1417,7 +1465,15 @@
       "asset": "cuernos-diablo",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "cuernos-diablo"
     },
     "gorro-hongo": {
       "id": "gorro-hongo",
@@ -1427,7 +1483,15 @@
       "asset": "gorro-hongo",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "gorro-hongo"
     },
     "helice-gorro": {
       "id": "helice-gorro",
@@ -1437,7 +1501,15 @@
       "asset": "helice-gorro",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "helice-gorro"
     },
     "corona-flores": {
       "id": "corona-flores",
@@ -1447,7 +1519,15 @@
       "asset": "corona-flores",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "corona-flores"
     },
     "casco-obra": {
       "id": "casco-obra",
@@ -1457,7 +1537,15 @@
       "asset": "casco-obra",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "casco-obra"
     },
     "sombrero-bruja": {
       "id": "sombrero-bruja",
@@ -1467,7 +1555,15 @@
       "asset": "sombrero-bruja",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "sombrero-bruja"
     },
     "cresta-punk": {
       "id": "cresta-punk",
@@ -1477,7 +1573,15 @@
       "asset": "cresta-punk",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "cresta-punk"
     },
     "fez": {
       "id": "fez",
@@ -1487,7 +1591,15 @@
       "asset": "fez",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "fez"
     },
     "aleta-tiburon": {
       "id": "aleta-tiburon",
@@ -1497,7 +1609,15 @@
       "asset": "aleta-tiburon",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "aleta-tiburon"
     },
     "pulpo-sombrero": {
       "id": "pulpo-sombrero",
@@ -1507,7 +1627,15 @@
       "asset": "pulpo-sombrero",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "pulpo-sombrero"
     },
     "banana-cabeza": {
       "id": "banana-cabeza",
@@ -1517,7 +1645,15 @@
       "asset": "banana-cabeza",
       "anchorType": "body",
       "anchorId": "head",
-      "anchor": "head"
+      "anchor": "head",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "head"
+        }
+      ],
+      "preview": {},
+      "assetId": "banana-cabeza"
     },
     "lentes-corazon": {
       "id": "lentes-corazon",
@@ -1527,7 +1663,15 @@
       "asset": "lentes-corazon",
       "anchorType": "face",
       "anchorId": "leftEye",
-      "anchor": "leftEye"
+      "anchor": "leftEye",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "leftEye"
+        }
+      ],
+      "preview": {},
+      "assetId": "lentes-corazon"
     },
     "lentes-estrella": {
       "id": "lentes-estrella",
@@ -1537,7 +1681,15 @@
       "asset": "lentes-estrella",
       "anchorType": "face",
       "anchorId": "leftEye",
-      "anchor": "leftEye"
+      "anchor": "leftEye",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "leftEye"
+        }
+      ],
+      "preview": {},
+      "assetId": "lentes-estrella"
     },
     "monoculo": {
       "id": "monoculo",
@@ -1547,7 +1699,15 @@
       "asset": "monoculo",
       "anchorType": "face",
       "anchorId": "rightEye",
-      "anchor": "rightEye"
+      "anchor": "rightEye",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "rightEye"
+        }
+      ],
+      "preview": {},
+      "assetId": "monoculo"
     },
     "lentes-3d": {
       "id": "lentes-3d",
@@ -1557,7 +1717,15 @@
       "asset": "lentes-3d",
       "anchorType": "face",
       "anchorId": "leftEye",
-      "anchor": "leftEye"
+      "anchor": "leftEye",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "leftEye"
+        }
+      ],
+      "preview": {},
+      "assetId": "lentes-3d"
     },
     "antifaz": {
       "id": "antifaz",
@@ -1567,7 +1735,15 @@
       "asset": "antifaz",
       "anchorType": "face",
       "anchorId": "leftEye",
-      "anchor": "leftEye"
+      "anchor": "leftEye",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "leftEye"
+        }
+      ],
+      "preview": {},
+      "assetId": "antifaz"
     },
     "parche-pirata": {
       "id": "parche-pirata",
@@ -1577,7 +1753,15 @@
       "asset": "parche-pirata",
       "anchorType": "face",
       "anchorId": "leftEye",
-      "anchor": "leftEye"
+      "anchor": "leftEye",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "leftEye"
+        }
+      ],
+      "preview": {},
+      "assetId": "parche-pirata"
     },
     "lentes-pixel": {
       "id": "lentes-pixel",
@@ -1587,7 +1771,15 @@
       "asset": "lentes-pixel",
       "anchorType": "face",
       "anchorId": "leftEye",
-      "anchor": "leftEye"
+      "anchor": "leftEye",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "leftEye"
+        }
+      ],
+      "preview": {},
+      "assetId": "lentes-pixel"
     },
     "nariz-payaso": {
       "id": "nariz-payaso",
@@ -1597,7 +1789,15 @@
       "asset": "nariz-payaso",
       "anchorType": "face",
       "anchorId": "mouth",
-      "anchor": "mouth"
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ],
+      "preview": {},
+      "assetId": "nariz-payaso"
     },
     "ojos-saltones": {
       "id": "ojos-saltones",
@@ -1607,7 +1807,15 @@
       "asset": "ojos-saltones",
       "anchorType": "face",
       "anchorId": "leftEye",
-      "anchor": "leftEye"
+      "anchor": "leftEye",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "leftEye"
+        }
+      ],
+      "preview": {},
+      "assetId": "ojos-saltones"
     },
     "chupete": {
       "id": "chupete",
@@ -1617,7 +1825,15 @@
       "asset": "chupete",
       "anchorType": "face",
       "anchorId": "mouth",
-      "anchor": "mouth"
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ],
+      "preview": {},
+      "assetId": "chupete"
     },
     "puro": {
       "id": "puro",
@@ -1627,7 +1843,15 @@
       "asset": "puro",
       "anchorType": "face",
       "anchorId": "mouth",
-      "anchor": "mouth"
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ],
+      "preview": {},
+      "assetId": "puro"
     },
     "pipa": {
       "id": "pipa",
@@ -1637,7 +1861,15 @@
       "asset": "pipa",
       "anchorType": "face",
       "anchorId": "mouth",
-      "anchor": "mouth"
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ],
+      "preview": {},
+      "assetId": "pipa"
     },
     "diente-oro": {
       "id": "diente-oro",
@@ -1647,7 +1879,15 @@
       "asset": "diente-oro",
       "anchorType": "face",
       "anchorId": "mouth",
-      "anchor": "mouth"
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ],
+      "preview": {},
+      "assetId": "diente-oro"
     },
     "barba-vikinga": {
       "id": "barba-vikinga",
@@ -1657,7 +1897,15 @@
       "asset": "barba-vikinga",
       "anchorType": "face",
       "anchorId": "mouth",
-      "anchor": "mouth"
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ],
+      "preview": {},
+      "assetId": "barba-vikinga"
     },
     "globo-chicle": {
       "id": "globo-chicle",
@@ -1667,7 +1915,15 @@
       "asset": "globo-chicle",
       "anchorType": "face",
       "anchorId": "mouth",
-      "anchor": "mouth"
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ],
+      "preview": {},
+      "assetId": "globo-chicle"
     },
     "banda-novio": {
       "id": "banda-novio",
@@ -1677,7 +1933,15 @@
       "asset": "banda-novio",
       "anchorType": "body",
       "anchorId": "chest",
-      "anchor": "chest"
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ],
+      "preview": {},
+      "assetId": "banda-novio"
     },
     "medalla-oro": {
       "id": "medalla-oro",
@@ -1687,7 +1951,15 @@
       "asset": "medalla-oro",
       "anchorType": "body",
       "anchorId": "chest",
-      "anchor": "chest"
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ],
+      "preview": {},
+      "assetId": "medalla-oro"
     },
     "armadura-caballero": {
       "id": "armadura-caballero",
@@ -1697,7 +1969,15 @@
       "asset": "armadura-caballero",
       "anchorType": "body",
       "anchorId": "chest",
-      "anchor": "chest"
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ],
+      "preview": {},
+      "assetId": "armadura-caballero"
     },
     "chaleco-salvavidas": {
       "id": "chaleco-salvavidas",
@@ -1707,7 +1987,15 @@
       "asset": "chaleco-salvavidas",
       "anchorType": "body",
       "anchorId": "chest",
-      "anchor": "chest"
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ],
+      "preview": {},
+      "assetId": "chaleco-salvavidas"
     },
     "bandolera": {
       "id": "bandolera",
@@ -1717,7 +2005,15 @@
       "asset": "bandolera",
       "anchorType": "body",
       "anchorId": "chest",
-      "anchor": "chest"
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ],
+      "preview": {},
+      "assetId": "bandolera"
     },
     "corbata-luces": {
       "id": "corbata-luces",
@@ -1727,7 +2023,18 @@
       "asset": "corbata-luces",
       "anchorType": "body",
       "anchorId": "chest",
-      "anchor": "chest"
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ],
+      "transform": {
+        "x": -0.16
+      },
+      "preview": {},
+      "assetId": "corbata-luces"
     },
     "collar-hawaiano": {
       "id": "collar-hawaiano",
@@ -1737,7 +2044,19 @@
       "asset": "collar-hawaiano",
       "anchorType": "body",
       "anchorId": "chest",
-      "anchor": "chest"
+      "anchor": "chest",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "chest"
+        }
+      ],
+      "transform": {
+        "y": -0.02,
+        "x": 0.02
+      },
+      "preview": {},
+      "assetId": "collar-hawaiano"
     },
     "mochila-jet": {
       "id": "mochila-jet",
@@ -1747,7 +2066,15 @@
       "asset": "mochila-jet",
       "anchorType": "body",
       "anchorId": "back",
-      "anchor": "back"
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ],
+      "preview": {},
+      "assetId": "mochila-jet"
     },
     "alas-angel": {
       "id": "alas-angel",
@@ -1757,7 +2084,15 @@
       "asset": "alas-angel",
       "anchorType": "body",
       "anchorId": "back",
-      "anchor": "back"
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ],
+      "preview": {},
+      "assetId": "alas-angel"
     },
     "alas-demonio": {
       "id": "alas-demonio",
@@ -1767,7 +2102,15 @@
       "asset": "alas-demonio",
       "anchorType": "body",
       "anchorId": "back",
-      "anchor": "back"
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ],
+      "preview": {},
+      "assetId": "alas-demonio"
     },
     "caparazon-tortuga": {
       "id": "caparazon-tortuga",
@@ -1777,7 +2120,15 @@
       "asset": "caparazon-tortuga",
       "anchorType": "body",
       "anchorId": "back",
-      "anchor": "back"
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ],
+      "preview": {},
+      "assetId": "caparazon-tortuga"
     },
     "capa-super": {
       "id": "capa-super",
@@ -1787,7 +2138,15 @@
       "asset": "capa-super",
       "anchorType": "body",
       "anchorId": "back",
-      "anchor": "back"
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ],
+      "preview": {},
+      "assetId": "capa-super"
     },
     "tanque-buzo": {
       "id": "tanque-buzo",
@@ -1797,7 +2156,15 @@
       "asset": "tanque-buzo",
       "anchorType": "body",
       "anchorId": "back",
-      "anchor": "back"
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ],
+      "preview": {},
+      "assetId": "tanque-buzo"
     },
     "alas-hada": {
       "id": "alas-hada",
@@ -1807,7 +2174,15 @@
       "asset": "alas-hada",
       "anchorType": "body",
       "anchorId": "back",
-      "anchor": "back"
+      "anchor": "back",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "back"
+        }
+      ],
+      "preview": {},
+      "assetId": "alas-hada"
     },
     "guantes-boxeo": {
       "id": "guantes-boxeo",
@@ -1817,7 +2192,15 @@
       "asset": "guantes-boxeo",
       "anchorType": "body",
       "anchorId": "rightHand",
-      "anchor": "rightHand"
+      "anchor": "rightHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "rightHand"
+        }
+      ],
+      "preview": {},
+      "assetId": "guantes-boxeo"
     },
     "sable-laser": {
       "id": "sable-laser",
@@ -1827,7 +2210,15 @@
       "asset": "sable-laser",
       "anchorType": "body",
       "anchorId": "rightHand",
-      "anchor": "rightHand"
+      "anchor": "rightHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "rightHand"
+        }
+      ],
+      "preview": {},
+      "assetId": "sable-laser"
     },
     "varita-magica": {
       "id": "varita-magica",
@@ -1837,7 +2228,15 @@
       "asset": "varita-magica",
       "anchorType": "body",
       "anchorId": "rightHand",
-      "anchor": "rightHand"
+      "anchor": "rightHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "rightHand"
+        }
+      ],
+      "preview": {},
+      "assetId": "varita-magica"
     },
     "maracas": {
       "id": "maracas",
@@ -1847,7 +2246,15 @@
       "asset": "maracas",
       "anchorType": "body",
       "anchorId": "rightHand",
-      "anchor": "rightHand"
+      "anchor": "rightHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "rightHand"
+        }
+      ],
+      "preview": {},
+      "assetId": "maracas"
     },
     "copa-champan": {
       "id": "copa-champan",
@@ -1857,7 +2264,15 @@
       "asset": "copa-champan",
       "anchorType": "body",
       "anchorId": "rightHand",
-      "anchor": "rightHand"
+      "anchor": "rightHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "rightHand"
+        }
+      ],
+      "preview": {},
+      "assetId": "copa-champan"
     },
     "jarra-cerveza": {
       "id": "jarra-cerveza",
@@ -1867,7 +2282,15 @@
       "asset": "jarra-cerveza",
       "anchorType": "body",
       "anchorId": "rightHand",
-      "anchor": "rightHand"
+      "anchor": "rightHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "rightHand"
+        }
+      ],
+      "preview": {},
+      "assetId": "jarra-cerveza"
     },
     "antorcha": {
       "id": "antorcha",
@@ -1877,7 +2300,15 @@
       "asset": "antorcha",
       "anchorType": "body",
       "anchorId": "rightHand",
-      "anchor": "rightHand"
+      "anchor": "rightHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "rightHand"
+        }
+      ],
+      "preview": {},
+      "assetId": "antorcha"
     },
     "globo-perro": {
       "id": "globo-perro",
@@ -1887,7 +2318,15 @@
       "asset": "globo-perro",
       "anchorType": "body",
       "anchorId": "leftHand",
-      "anchor": "leftHand"
+      "anchor": "leftHand",
+      "anchors": [
+        {
+          "anchorType": "body",
+          "anchorId": "leftHand"
+        }
+      ],
+      "preview": {},
+      "assetId": "globo-perro"
     }
   },
   "artifactRarityRates": {
