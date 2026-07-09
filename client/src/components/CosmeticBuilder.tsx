@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, Crosshair, Download, Home, Plus, Rotate3D, Save, Trash2, Upload, Wrench } from "lucide-react";
+import { Copy, Crosshair, Download, Plus, Rotate3D, Save, Trash2, Upload, Wrench } from "lucide-react";
 import type {
   CharacterDef,
   CosmeticAnchorRef,
@@ -233,10 +233,6 @@ export default function CosmeticBuilder() {
           <a href="/tools" className="builder-button gap-2">
             <Wrench className="h-4 w-4" />
             Tools
-          </a>
-          <a href="/" className="builder-button gap-2">
-            <Home className="h-4 w-4" />
-            Home
           </a>
         </div>
       </header>

@@ -346,7 +346,30 @@ assert.deepEqual(
   ["p3"]
 );
 assert.deepEqual(durationStateFromDef({ mode: "rounds", value: 2 }), { mode: "rounds", remaining: 2 });
-assert.equal(effectRemainingLabel({ mode: "untilTriggered" }), "until triggered");
+assert.equal(effectRemainingLabel({ mode: "uses", remaining: 1 }), "1 use");
+const migratedUntilTriggeredDurations = normalizeContentSchema({
+  ...content,
+  effects: {
+    "legacy-next-trigger": {
+      id: "legacy-next-trigger",
+      name: "Legacy next trigger",
+      duration: { mode: "untilTriggered" },
+      consequences: [{ type: "coins", value: 1 }],
+    },
+  },
+  artifacts: {
+    "legacy-attached-consequence": {
+      id: "legacy-attached-consequence",
+      name: "Legacy attached consequence",
+      price: 1,
+      rarity: "common",
+      targetMode: "self",
+      consequences: [{ type: "coins", value: 1, duration: { mode: "untilTriggered" } }],
+    },
+  },
+});
+assert.deepEqual(migratedUntilTriggeredDurations.effects?.["legacy-next-trigger"]?.duration, { mode: "uses", value: 1 });
+assert.deepEqual(migratedUntilTriggeredDurations.artifacts?.["legacy-attached-consequence"]?.consequences?.[0]?.duration, { mode: "uses", value: 1 });
 assert.deepEqual(effectConsequencesFor({ id: "half", name: "Half", duration: { mode: "rounds", value: 2 }, consequences: [{ type: "movementMultiplier", multiplier: 0.5 }] }), [
   { type: "movementMultiplier", multiplier: 0.5, hook: "beforeMovement" },
 ]);

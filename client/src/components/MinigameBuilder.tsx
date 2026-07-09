@@ -35,6 +35,7 @@ import { applyRig } from "@essence/shared/rig";
 import { ENGINES } from "../minigames";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
+import { effectBuilderHref } from "./EffectBuilderSurface";
 import MinigameHost from "./MinigameHost";
 
 const DEFAULT_EFFECT_ID = "half-roll-2-rounds";
@@ -100,7 +101,6 @@ export default function MinigameBuilder() {
   const [saveStatus, setSaveStatus] = useState("");
 
   const selected = selectedId ? content.events?.[selectedId] : undefined;
-  const selectedEffect = selectedEffectId ? content.effects?.[selectedEffectId] : undefined;
   const protagonist = players.find((player) => player.id === protagonistId) ?? players[0];
   const actor = players.find((player) => player.id === actorId) ?? players[0];
   const resolved = selected && protagonist ? resolveEventForPlayer(content, selectedId, protagonist) : null;
@@ -438,12 +438,6 @@ export default function MinigameBuilder() {
           <a href="/tools" className="flex h-8 items-center rounded-md border border-amber-200/25 bg-amber-300/10 px-2.5 text-xs font-black text-amber-100 transition hover:bg-amber-300/15">
             Tools
           </a>
-          <a href="/" className="flex h-8 items-center rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-black text-slate-100 transition hover:bg-white/10">
-            Home
-          </a>
-          <a href="/map-builder" className="flex h-8 items-center rounded-md border border-emerald-200/25 bg-emerald-300/10 px-2.5 text-xs font-black text-emerald-100 transition hover:bg-emerald-300/15">
-            Map builder
-          </a>
         </div>
       </header>
 
@@ -673,26 +667,23 @@ export default function MinigameBuilder() {
             <ResolutionPanel resolution={playtestResolution} players={players} />
           </Panel>
 
-          <EffectBuilderPanel
-            effects={content.effects ?? {}}
-            selectedEffect={selectedEffect}
-            selectedEffectId={selectedEffectId}
-            players={PLAYER_POOL}
-            onSelect={setSelectedEffectId}
-            onCreate={createEffect}
-            onDelete={deleteEffect}
-            onUpdate={updateEffect}
-          />
-
           <Panel title="Consequences" eyebrow={`${selected?.outcomes?.length ?? 0} branches`}>
-            <button
-              type="button"
-              onClick={addConsequence}
-              disabled={!selected}
-              className="w-full rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/15 disabled:opacity-40"
-            >
-              Add consequence
-            </button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={addConsequence}
+                disabled={!selected}
+                className="rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/15 disabled:opacity-40"
+              >
+                Add consequence
+              </button>
+              <a
+                href={effectBuilderHref(selectedEffectId || undefined, "/event-builder")}
+                className="flex items-center justify-center rounded-md border border-amber-200/25 bg-amber-300/10 px-3 py-2 text-sm font-bold text-amber-100 transition hover:bg-amber-300/15"
+              >
+                Effect builder
+              </a>
+            </div>
             <div className="mt-3 space-y-2">
               {(selected?.outcomes ?? []).map((outcome, index) => (
                 <ConsequenceEditor
@@ -2354,7 +2345,6 @@ function DurationEditor({ duration, onChange }: { duration: EffectDuration; onCh
           { value: "uses", label: "Uses" },
           { value: "rounds", label: "Rounds" },
           { value: "turns", label: "Turns" },
-          { value: "untilTriggered", label: "Until triggered" },
           { value: "game", label: "Whole game" },
         ]}
         onChange={(mode) => onChange(durationForMode(mode as EffectDuration["mode"], duration))}

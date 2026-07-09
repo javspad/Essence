@@ -388,29 +388,30 @@ export interface PlayerDef {
   color?: string;
 }
 
-export type ArtifactRarity = "common" | "epic" | "legendary";
+export type ArtifactRarity = string;
 export type CatalogRarity = ArtifactRarity | "uncommon" | "rare";
 export type ArtifactTargetMode = "none" | "self" | "choosePlayer";
 export type ArtifactUseFlow = "immediate" | "targeted";
 
-export interface ArtifactRarityRates {
-  common: number;
-  epic: number;
-  legendary: number;
+export type ArtifactRarityRates = Record<string, number>;
+
+export interface ArtifactRarityDef {
+  id: ArtifactRarity;
+  name: string;
+  weight: number;
+  color: string;
 }
 
 export type EffectDuration =
   | { mode: "turns"; value: number }
   | { mode: "rounds"; value: number }
   | { mode: "uses"; value: number }
-  | { mode: "untilTriggered" }
   | { mode: "game" };
 
 export type EffectDurationState =
   | { mode: "turns"; remaining: number }
   | { mode: "rounds"; remaining: number }
   | { mode: "uses"; remaining: number }
-  | { mode: "untilTriggered" }
   | { mode: "game" };
 
 export type EffectLifecycleHook =
@@ -686,6 +687,8 @@ export interface GameContent {
   cosmetics?: Record<string, CosmeticDef>;
   /** Legacy/import alias normalized into cosmetics. */
   characterCosmetics?: unknown[];
+  artifactRarities?: Record<string, ArtifactRarityDef>;
+  /** Legacy/import alias normalized into artifactRarities. */
   artifactRarityRates?: ArtifactRarityRates;
   artifacts?: Record<string, ArtifactDef>;
   effects?: Record<string, EffectDef>;
@@ -800,6 +803,7 @@ export interface GameState {
   assetCatalog?: MapAssetDef[];
   cosmetics?: Record<string, CosmeticDef>;
   artifactCatalog?: Record<string, ArtifactDef>;
+  artifactRarities?: Record<string, ArtifactRarityDef>;
   artifactRarityRates?: ArtifactRarityRates;
   artifactShop: ArtifactShopState | null;
   pendingArtifactUse: PendingArtifactUse | null;

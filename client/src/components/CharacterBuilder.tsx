@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { Crosshair, Download, Home, ImagePlus, Plus, Rotate3D, RotateCcw, Save, Trash2, Upload, Wrench } from "lucide-react";
+import { Crosshair, Download, ExternalLink, ImagePlus, Plus, Rotate3D, RotateCcw, Save, SlidersHorizontal, Trash2, Upload, Wrench } from "lucide-react";
 import type { CharacterDef, CharacterTraitDef, CosmeticDef, EffectDef, FaceAnchor, FacePhotoAlignment, GameContent } from "@essence/shared";
 import { characterDisplayName } from "@essence/shared/characters";
 import { durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
@@ -17,6 +17,7 @@ import {
 } from "./TokenPreviewer";
 import { contentWithCharacterList } from "./builderContent";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
+import { effectBuilderHref } from "./EffectBuilderSurface";
 
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 const STORAGE_KEY = "essence:character-builder:draft:v1";
@@ -181,10 +182,6 @@ export default function CharacterBuilder() {
           <a href="/tools" className="builder-button gap-2">
             <Wrench className="h-4 w-4" />
             Tools
-          </a>
-          <a href="/" className="builder-button gap-2">
-            <Home className="h-4 w-4" />
-            Home
           </a>
         </div>
       </header>
@@ -382,6 +379,16 @@ function TraitControls({
 
   return (
     <div className="grid gap-3 rounded-md border border-white/10 bg-black/15 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-black text-white">Character traits</h3>
+          <p className="mt-1 text-xs font-bold leading-4 text-slate-400">{assignedIds.length} assigned</p>
+        </div>
+        <a href={effectBuilderHref(undefined, "/character-builder")} className="builder-button compact preview gap-2">
+          <SlidersHorizontal className="h-4 w-4" />
+          Effect builder
+        </a>
+      </div>
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
         <label className="sr-only" htmlFor={`trait-select-${character.id}`}>Trait to add</label>
         <select
@@ -422,9 +429,18 @@ function TraitControls({
                     {effect && <TraitMeta label="Duration" value={effectRemainingLabel(durationStateFromDef(effect.duration))} />}
                   </div>
                 </div>
-                <button type="button" onClick={() => removeTrait(traitId)} className="builder-button danger compact" aria-label={`Remove ${trait?.name ?? traitId}`}>
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex shrink-0 flex-col gap-2">
+                  <a
+                    href={effectBuilderHref(effect?.id ?? trait?.effectId, "/character-builder")}
+                    className="builder-button compact preview"
+                    aria-label={`Open effect for ${trait?.name ?? traitId}`}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                  <button type="button" onClick={() => removeTrait(traitId)} className="builder-button danger compact" aria-label={`Remove ${trait?.name ?? traitId}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             );
           })}

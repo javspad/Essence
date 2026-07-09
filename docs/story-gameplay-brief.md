@@ -144,7 +144,6 @@ Effect duration modes:
 - Uses.
 - Turns.
 - Rounds.
-- Until triggered.
 - Whole game.
 
 Target selectors:

@@ -889,7 +889,6 @@ function EffectComposer({
             { value: "uses", label: "Uses" },
             { value: "rounds", label: "Rounds" },
             { value: "turns", label: "Turns" },
-            { value: "untilTriggered", label: "Until triggered" },
             { value: "game", label: "Whole game" },
           ]}
           onChange={(mode) => onChange({ ...effect, duration: durationForMode(mode as EffectDuration["mode"], duration) })}
@@ -1594,12 +1593,12 @@ function hookOptionsForEditableAction(type: EditableEffectAction["type"]): { val
 }
 
 function normalizeEffectDuration(duration: EffectDuration): EffectDuration {
-  if (duration.mode === "game" || duration.mode === "untilTriggered") return { mode: duration.mode };
+  if (duration.mode === "game") return { mode: duration.mode };
   return { mode: duration.mode, value: Math.max(1, Math.round(duration.value || 1)) };
 }
 
 function durationForMode(mode: EffectDuration["mode"], previous: EffectDuration): EffectDuration {
-  if (mode === "game" || mode === "untilTriggered") return { mode };
+  if (mode === "game") return { mode };
   const value = previous.mode === "turns" || previous.mode === "rounds" || previous.mode === "uses" ? previous.value : 1;
   return { mode, value };
 }
@@ -1672,7 +1671,10 @@ function loadEventBuilderDraftEffects(): Record<string, EffectDef> {
     const parsed = loadEventBuilderDraftContent();
     if (!isRecord(parsed.effects)) return {};
     return Object.fromEntries(
-      Object.entries(parsed.effects).filter((entry): entry is [string, EffectDef] => isEffectDef(entry[1]))
+      Object.entries(parsed.effects).flatMap(([id, value]) => {
+        const effect = effectFromDraft(value);
+        return effect ? [[id, effect]] : [];
+      })
     );
   } catch {
     return {};
@@ -1729,17 +1731,22 @@ function saveHiddenEffectIds(effectIds: Set<string>) {
   window.localStorage.setItem(DEV_TOOLS_HIDDEN_EFFECTS_KEY, JSON.stringify([...effectIds]));
 }
 
-function isEffectDef(value: unknown): value is EffectDef {
-  if (!isRecord(value)) return false;
-  if (typeof value.id !== "string" || typeof value.name !== "string") return false;
-  if (!isEffectDuration(value.duration)) return false;
-  return Array.isArray(value.consequences) || Array.isArray(value.actions) || Array.isArray(value.modifiers);
+function effectFromDraft(value: unknown): EffectDef | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.id !== "string" || typeof value.name !== "string") return null;
+  const duration = effectDurationFromDraft(value.duration);
+  if (!duration) return null;
+  if (!Array.isArray(value.consequences) && !Array.isArray(value.actions) && !Array.isArray(value.modifiers)) return null;
+  return { ...(value as unknown as EffectDef), duration };
 }
 
-function isEffectDuration(value: unknown): value is EffectDef["duration"] {
-  if (!isRecord(value) || typeof value.mode !== "string") return false;
-  if (value.mode === "game" || value.mode === "untilTriggered") return true;
-  return (value.mode === "turns" || value.mode === "rounds" || value.mode === "uses") && typeof value.value === "number" && Number.isFinite(value.value);
+function effectDurationFromDraft(value: unknown): EffectDuration | null {
+  if (!isRecord(value) || typeof value.mode !== "string") return null;
+  if (value.mode === "untilTriggered") return { mode: "uses", value: 1 };
+  if (value.mode === "game") return { mode: "game" };
+  if (value.mode !== "turns" && value.mode !== "rounds" && value.mode !== "uses") return null;
+  if (typeof value.value !== "number" || !Number.isFinite(value.value)) return null;
+  return { mode: value.mode, value: Math.max(1, Math.round(value.value)) };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

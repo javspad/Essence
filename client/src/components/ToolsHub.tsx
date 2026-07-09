@@ -1,4 +1,4 @@
-import { ArrowRight, Gamepad2, Home, Map, Palette, Sparkles, UserRound, Wrench } from "lucide-react";
+import { ArrowRight, Gamepad2, Home, Map, Palette, SlidersHorizontal, Sparkles, UserRound, Wrench } from "lucide-react";
 
 const TOOL_LINKS = [
   {
@@ -40,6 +40,14 @@ const TOOL_LINKS = [
     body: "Rarity, effects, targeting, shop rolls",
     icon: Sparkles,
     accent: "emerald",
+  },
+  {
+    href: "/effect-builder",
+    title: "Effect builder",
+    eyebrow: "Shared rules",
+    body: "Reusable effects, hooks, conditions",
+    icon: SlidersHorizontal,
+    accent: "cyan",
   },
 ];
 

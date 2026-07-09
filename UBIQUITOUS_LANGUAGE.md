@@ -49,10 +49,17 @@ This glossary is a working draft for Essence, based on the planning notes and th
 | Term | Definition | Aliases to avoid |
 | --- | --- | --- |
 | **Coin** | The spendable currency earned from minigames, cells, shots, and item effects. | Money, moneda in code |
+| **Coin Source** | The authored or runtime reason a **Coin Transaction** exists, such as a ranking payout, shop purchase, cell, shot confirmation, artifact, or effect. | Generic reason string when it affects rules |
+| **Coin Transaction** | A server-authoritative coin change with amount, source, affected player, and display text for reveal/log UI. | Silent balance mutation |
+| **Economy Consequence** | A reusable **Consequence** that gains, loses, spends, transfers, steals, or redistributes **Coins**. | Economy rule outside the consequence engine |
+| **Coin Selector** | A selector based on current coin balances, such as richest player, poorest player, coin rank, or coin rank range. | Activity ranking selector |
+| **Coin Transfer** | An **Economy Consequence** that moves available **Coins** from one source selector to one recipient selector. | Two unrelated coin changes |
+| **Ranking Payout Policy** | Authored rules that map an **Activity Ranking** to **Economy Consequences** after an **Activity** resolves. | Hard-coded coinPayout |
 | **Cosmetic** | A purchasable visual item that can be owned and equipped without gameplay effects. | Artifact, effect item |
 | **Artifact** | A purchasable gameplay item with an immediate use flow and optional visual representation. | Map artifact, cosmetic |
 | **Artifact Offer** | One of the random shop options shown during a shop visit. | Shop card |
 | **Shop Roll** | The generated set of **Artifact Offers** for one shop visit. | Reroll, shop reroll |
+| **Shop Purchase** | An atomic shop command that validates offer, ownership, and balance before spending **Coins** and granting an item. | Authored consequence |
 | **Effect** | A duration-based modifier that changes how a **Player** interacts with the game. | Consequence, buff |
 | **Effect Instance** | A live **Effect** applied to a **Player**, with source, target, remaining duration, and optional visual. | Active buff |
 | **Effect Visual** | A temporary character visual shown while an **Effect Instance** is active. | Cosmetic when it has gameplay meaning |
@@ -80,16 +87,23 @@ This glossary is a working draft for Essence, based on the planning notes and th
 - An **Event** can have zero or one **Activity** and zero or more **Consequences**.
 - An **Activity** has **Participants**, **Subjects**, submitted **Results**, and one resolved **Ranking**.
 - A **Reveal** displays **Results**, **Ranking**, awarded **Coins**, and applied **Consequences**.
+- A **Ranking Payout Policy** converts an **Activity Ranking** into **Economy Consequences**.
 - A **Player** may own zero or more **Cosmetics** in a **Room** and equip a visual loadout from that owned set.
 - A **Cosmetic** may attach to a **Face Anchor**, body anchor, or board token, but never changes gameplay.
 - An **Artifact** may produce **Consequences**, apply **Effects**, require a **Target Player**, and optionally display an **Artifact Visual** or **Effect Visual**.
+- A **Coin Transfer** has at least one source selector and one recipient selector, and each applied transfer should produce **Coin Transaction** records for display.
 - An **Effect Instance** belongs to exactly one **Target Player** and may reference one **Acting Player** as its source.
 - A **Shop Roll** contains several **Artifact Offers**, and the **Acting Player** can buy at most one offer per shop visit under the current notes.
+- A **Shop Purchase** may create **Coin Transactions**, but it is not itself an authored **Consequence** because it also grants ownership and must stay atomic.
 
 ## Stable Rules
 
 - A **Consequence** is immediate: it changes state now, awards/removes **Coins**, moves a **Player**, or asks for a confirmed offline action.
 - An **Effect** has duration: it modifies future interactions for turns, rounds, a trigger window, or the whole **Game**.
+- Spending **Coins** is all-or-nothing: a shop purchase or explicit spend either succeeds with enough balance or fails without changing state.
+- Steal and redistribution **Economy Consequences** may clamp to available **Coins** when configured as an effect, but must never make a balance negative.
+- **Coin Selectors** are different from **Activity Ranking** selectors; if ties occur, the server must use deterministic tie-breaking and log the selected players.
+- A **Shop Purchase** reuses the same coin transaction path as consequences, but purchase validation and item grant stay in the shop command.
 - Buying a **Cosmetic** may spend **Coins**, but equipping or rendering a **Cosmetic** never changes movement, scoring, events, activities, artifacts, effects, or minigame outcomes.
 - Joining a **Room** claims an existing **Character** slot; free-text names are reconnection/import compatibility, not a way to invent a new **Character** during play.
 - Decorative board objects are authored as **Map Props** in Content JSON (`mapProps`); legacy runtime/import code may still mirror them through `artifacts` until the implementation rename is safe.
@@ -118,3 +132,5 @@ This glossary is a working draft for Essence, based on the planning notes and th
 - "name" and "display name" overlap in character/player code. Recommendation: use **displayName** for authored **Character** content and reserve runtime **Player.name** for the claimed slot's visible name.
 - "Participant" and "affected player" overlap in artifacts and minigames. Recommendation: use **Participant** only for players who submit activity input, **Subject** for players who can be ranked, and **Target Player** for players selected by an item/effect.
 - "Star" was removed from code as a score marker and is not part of product language. Recommendation: do not reintroduce stars as a scoring resource; use the configured **Win Condition** plus **Coins** for ranking context.
+- "More coins" and "less coins" can mean current coin balance, activity score, or final standings. Recommendation: call current-balance targeting a **Coin Selector** and keep **Ranking** for resolved activity order.
+- Minigame coin rewards can be confused with direct score output. Recommendation: define a **Ranking Payout Policy** that turns ranked activity results into reusable **Economy Consequences**.

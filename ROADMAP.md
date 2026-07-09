@@ -103,9 +103,10 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S4` Artifact catalog, builder, and shop | [x] | `S3`, `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build`; Playwright S4 builder/shop QA; `git diff --check`. |
 | `S5` Cosmetics and face anchors | [x] | `S2` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright S5 builder/shop QA; `git diff --check`. |
 | `S6` Character traits | [x] | `S2`, `S3` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build`; Playwright S6 builder/lobby QA; `git diff --check`. |
-| `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Coin-source tests plus in-game spending flow. |
-| `S8` Authoring skills and content bank | [ ] | `S7` | Docs/skills can add example content and validation passes. |
-| `S9` Audio, camera, and presentation polish | [ ] | `S8` | Manual QA with mute/volume, authored camera framing, and event feedback checks. |
+| `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Economy consequence tests, minigame payout migration, builder UI QA, and shop/minigame spending flow. |
+| `S7.5` Authored camera framing and activity media | [ ] | `S7`, `S-CAM` | Map Builder camera QA, Event Builder media QA, import/export checks, and runtime reveal/activity checks. |
+| `S8` Authoring skills and content bank | [ ] | `S7.5` | Docs/skills can add example content, map-event coverage, generation helpers, and validation passes. |
+| `S9` Audio trigger system and presentation polish | [ ] | `S-CAM`, `S4`, `S5`, `S6` | Sound Builder QA, runtime trigger QA, mute/volume checks, weighted variant tests, and browser autoplay checks. |
 
 ## Pre-Roadmap Refactors
 
@@ -155,8 +156,12 @@ flowchart TD
   E --> H["Slice 7: Economy and special cells"]
   F --> H
   G --> H
-  H --> I["Slice 8: Authoring skills and content bank"]
-  I --> J["Slice 9: Audio, camera, and presentation polish"]
+  H --> HM["Slice 7.5: Authored camera framing and activity media"]
+  HM --> I["Slice 8: Authoring skills and content bank"]
+  CAM --> J["Slice 9: Audio trigger system and presentation polish"]
+  E --> J
+  F --> J
+  G --> J
 ```
 
 ## Slice 0 (`S0`): Result And Confirmation Fixes
@@ -332,7 +337,7 @@ Tasks:
 - [x] `S3-02` Add target selectors needed by the notes: acting player, target player, nearest ahead, nearest behind, everyone, ranking winner/loser/range, and fixed player.
 - [x] `S3-03` Add offline-action consequences such as "take a shot" as prompt/confirmation flows rather than hidden state changes.
 - [x] `S3-04` Add duration-based `EffectDef` and live `EffectInstance`.
-- [x] `S3-05` Add effect duration modes: uses, turns, rounds, until triggered, and whole game.
+- [x] `S3-05` Add effect duration modes: uses, turns, rounds, and whole game.
 - [x] `S3-06` Add effect lifecycle hooks: before roll, after roll, before movement, after movement, on cell enter, on activity result, and on turn end.
 - [x] `S3-07` Add effect modifiers for movement multipliers, dice bias, half movement compatibility, skip turn, extra turn, conditional consequences, coin changes, position changes, swap positions, and move-to-nearest.
 - [x] `S3-08` Add server-side application and expiration, with notifications when an effect ends.
@@ -545,20 +550,88 @@ Manual QA checklist:
 
 ## Slice 7 (`S7`): Economy And Special Cells
 
-Goal: make coin sources and spending feel coherent.
+Goal: make coin sources, ranking rewards, spending, stealing, and redistribution feel coherent through the reusable consequence/effect engine.
+
+Design notes from the `grill-with-docs` pass:
+
+- Keep the consequence engine as the source of truth. S7 should not add a separate economy resolver beside `ConsequenceDef`.
+- Treat minigame rewards as a configurable **Ranking Payout Policy** that resolves into reusable coin consequences. Keep the legacy `coinPayout` array as a migration/default path until authored policies cover the existing content.
+- Extend target selection with coin-aware selectors such as richest player, poorest player, coin rank, coin rank range, and selected source/recipient. These should compose with the existing `TargetSelector` model instead of becoming one-off artifact logic.
+- Model stealing as a transfer consequence: source selector loses coins, recipient selector gains the transferred amount, and reveal/log UI explains who paid, who received, and whether the amount was clamped.
+- Centralize actual coin mutation in a shared transaction helper used by consequences, ranking payouts, and shop purchase commands.
+- Keep shop purchases as atomic purchase commands, not authored consequences: validate offer/ownership/balance, spend coins, grant the item, and emit the same transaction/log output.
+- Use fail-fast spending for shop purchases and clamped transfer/loss for steal/redistribution effects unless a specific artifact says it should fail instead.
 
 Tasks:
 
-- [ ] `S7-01` Define all coin sources: shots/offline prompts, minigames, communist-style artifact, coin cells, steal-coin artifacts.
-- [ ] `S7-02` Add coin special cells to map/content.
-- [ ] `S7-03` Add reusable consequences for gaining, losing, stealing, and redistributing coins.
-- [ ] `S7-04` Add guardrails so players cannot spend below zero.
-- [ ] `S7-05` Show why coins changed in reveal/event/action logs.
-- [ ] `S7-06` Balance artifact and cosmetic prices against minigame payouts.
+- [ ] `S7-01` Define the economy vocabulary and schema: `Coin Source`, `Coin Transaction`, `Economy Consequence`, `Coin Selector`, `Coin Transfer`, and `Ranking Payout Policy`.
+- [ ] `S7-02` Add coin-aware target selectors that reuse the existing selector path: most coins, least coins, coin rank, coin rank range, and explicit selected player.
+- [ ] `S7-03` Add a shared coin transaction helper used by coin consequences, ranking payout resolution, artifact shop purchases, and cosmetic shop purchases.
+- [ ] `S7-04` Add reusable coin consequences for gain, lose, steal/transfer, and redistribute. Keep purchase affordability in shop purchase commands, not authored consequences.
+- [ ] `S7-05` Convert minigame ranking payouts into a configurable Ranking Payout Policy that compiles to coin consequences; keep `coinPayout` as compatibility/default content during migration.
+- [ ] `S7-06` Expose coin consequence and ranking payout controls in the Event Builder/minigame builder, using the existing consequence editor instead of a new payout-only UI.
+- [ ] `S7-07` Add or update Artifact Builder/shop examples for steal-from-selected-player, richest/poorest selector, and communist-style redistribution artifacts.
+- [ ] `S7-08` Add coin special cells to map/content through authored event/consequence config, not one-off server branches.
+- [ ] `S7-09` Add economy guardrails: no negative balances, deterministic tie-breaking for coin selectors, safe partial transfer behavior, and all-or-nothing shop purchases.
+- [ ] `S7-10` Show why coins changed in reveal/event/action logs, shop purchase/use feedback, and minigame ranking summaries.
+- [ ] `S7-11` Balance artifact and cosmetic prices against minigame payouts and non-minigame coin sources.
 
 Acceptance:
 
-- A player can earn coins from at least two non-minigame sources and spend them in shop flows without state inconsistencies.
+- Minigame ranking rewards can be authored and previewed as reusable coin consequences, while current minigame content still works through the compatibility payout path.
+- Richest/poorest and coin-rank selectors can target players consistently from events, artifacts, and effects.
+- A steal/transfer artifact can move coins from a selected or computed source player to the acting player, never taking a balance below zero.
+- A communist-style artifact can take available coins from every other player and give the transferred total to the acting player with clear reveal/log text.
+- A player can earn coins from at least two non-minigame sources and spend them in artifact/cosmetic shop flows without state inconsistencies.
+- Artifact and cosmetic shop purchases reuse the shared coin transaction helper while remaining atomic purchase commands instead of authored consequences.
+- Builder UI lets us configure and test coin consequences, ranking payout policies, and special coin cells without editing server code.
+
+## Slice 7.5 (`S7.5`): Authored Camera Framing And Activity Media
+
+Goal: make authored maps, events, minigames, and activities visually inspectable and fun before the broader authoring/content-bank slice.
+
+Why this sits before `S8`:
+
+- S8 will generate and validate content. Before that, authors need the visual primitives to see whether a map cell, event, minigame, activity, image, and camera angle actually work together.
+- Camera framing was previously deferred to S9, but it directly improves shop cells, dense map areas, artifact presentation, and event testing.
+- Event/activity images should be in place before we turn the anecdote bank into reusable content, so stories can carry memes/photos from the beginning.
+
+Tasks:
+
+- [ ] `S7.5-01` Add Map Builder controls for authored default camera framing:
+  - Set the default board camera/view orientation from the 3D preview.
+  - Store camera presets as data so they survive JSON export/import.
+  - Preview the saved default view without leaving the builder.
+- [ ] `S7.5-02` Add per-cell camera framing:
+  - Select a board cell and adjust viewing direction, pitch, distance, optional field-of-view, and optional focus offset.
+  - Keep the active character/player as the focus target while changing the direction from which the scene is viewed.
+  - Allow cells such as shops or visually dense prop areas to frame the character plus nearby assets more intentionally.
+- [ ] `S7.5-03` Apply authored camera framing during runtime presentation:
+  - When landing on a configured cell, use the cell camera preset as a temporary presentation view.
+  - Provide a clear reset back to active-player follow and full-map overview.
+  - Reuse `S-CAM` camera-intent primitives and do not reintroduce free/manual camera movement.
+- [ ] `S7.5-04` Add portable image/media attachments for events, minigames, and activity captions:
+  - Support pasted images, drag-and-drop files, and file upload.
+  - Store image metadata and crop settings with content import/export.
+  - Let an event/activity choose where the media appears: prompt/caption, reveal, or both.
+- [ ] `S7.5-05` Add a simple image crop/customization UI:
+  - Crop/position image.
+  - Choose fit mode for compact prompt cards and larger reveal views.
+  - Add alt text or short caption for accessibility and fallback display.
+- [ ] `S7.5-06` Render event/activity media in authoring previews and runtime UI:
+  - Event Builder/minigame builder preview.
+  - Activity prompt/caption surface.
+  - Reveal/results surface.
+  - Mobile-safe layout that does not hide action controls or results.
+- [ ] `S7.5-07` Add validation for media references, crop bounds, camera presets, and broken image assets.
+
+Acceptance:
+
+- A map author can configure a default board camera and cell-specific presentation camera angles through `/map-builder`.
+- Landing on a configured cell uses the authored camera angle while still keeping the character/player in focus.
+- An author can paste, drag/drop, or upload a meme/photo onto an event/minigame/activity, crop it, save it, export/import content JSON, and see it in preview/runtime.
+- Media rendering is accessible, mobile-safe, and does not block submitting or reviewing an activity.
+- Manual/free camera movement remains out of scope.
 
 ## Slice 8 (`S8`): Authoring Skills And Content Bank
 
@@ -575,8 +648,22 @@ Tasks:
   - Adding story beats.
   - Running the PR workflow.
 - [ ] `S8-02` Add examples for a basic event, a scored minigame, an artifact with immediate consequence, an artifact with duration effect, a cosmetic, and a character trait.
-- [ ] `S8-03` Add validation scripts for content JSON, artifact rates, missing assets, invalid anchors, and unreachable map cells.
+- [ ] `S8-03` Add validation scripts for content JSON, artifact rates, missing assets, invalid anchors, unreachable map cells, event-to-map coverage, and placeable 3D prompt/element coverage.
 - [ ] `S8-04` Convert the anecdote list into tagged `StoryBeat` content.
+- [ ] `S8-05` Add a Map/Event Coverage view:
+  - List every event currently defined in Content JSON.
+  - Show which maps/cells reference each event.
+  - Highlight unplaced events, duplicated references, and cells with missing/invalid event ids.
+  - Keep the first pass simple: use all current events, not event sets.
+- [ ] `S8-06` Add simple map generation/assignment helpers using all current events:
+  - Fill empty event slots from unplaced events.
+  - Suggest cells for events that are not on the active map.
+  - Preview changes before saving.
+  - Keep manual author control; generation should be a helper, not an automatic rewrite.
+- [ ] `S8-07` Validate that every referenced 3D prompt/element is available as a placeable item in the Map Builder palette/gallery:
+  - Missing placeable asset ids should fail validation.
+  - Map Builder should make those assets discoverable before content authors use them.
+  - This should cover prompts, map props, and any future authored 3D event/activity elements.
 
 Story/anecdote content bank from notes:
 
@@ -613,43 +700,115 @@ Story/anecdote content bank from notes:
 Acceptance:
 
 - A non-core developer can add a new event, artifact, cosmetic, or story beat by following docs and running validation.
+- An author can see whether every current event is placed on the active map and can use helper generation to place missing events.
+- Validation catches missing event placements, invalid event ids on cells, and referenced 3D prompt/elements that are not placeable.
 
-## Slice 9 (`S9`): Audio, Camera, And Presentation Polish
+## Slice 9 (`S9`): Audio Trigger System And Presentation Polish
 
-Goal: make feedback legible and fun once the systems are stable.
+Goal: make the game feel alive with authored sounds that can be attached to gameplay/UI triggers, support weighted random variants, and stay configurable from a tool panel.
+
+Why this can run in parallel:
+
+- S9 depends on already-complete surfaces: `S-CAM` player focus/clicks, `S4` artifacts/shop, `S5` cosmetics, `S6` characters, and existing minigame/runtime flows.
+- S9 should not wait for `S8`; it builds the sound authoring/runtime foundation that future content skills can document later.
+- S9 should avoid S7 economy behavior and S7.5 media/camera internals except for carefully integrating with shared runtime surfaces.
+
+Design rules:
+
+- Sounds are authored as **Audio Trigger Bindings**: a trigger id plus one or more audio variants.
+- Each trigger can have a default list and scoped custom lists, such as per-player, per-minigame, per-artifact, or per-cosmetic sounds.
+- Default and custom lists are additive. When a scoped custom sound exists, it joins the candidate pool instead of replacing defaults.
+- When a trigger has multiple candidates, choose one randomly using optional variant weights.
+- Keep mute, master volume, music volume, and sound-effects volume available from runtime UI.
+- Respect browser autoplay constraints: initialize/unlock audio after a user gesture and fail quietly if playback is blocked.
 
 Tasks:
 
-- [ ] `S9-01` Add sound effect infrastructure with mute/volume controls.
-- [ ] `S9-02` Add Discord-style UI sounds.
-- [ ] `S9-03` Add coin sounds.
-- [ ] `S9-04` Add event entry sounds.
-- [ ] `S9-05` Add artifact sounds.
-- [ ] `S9-06` Add event-specific sounds.
-- [ ] `S9-07` Add notifications for effect applied, effect ticked, effect ended, artifact used, and purchase completed.
-- [ ] `S9-08` Tune reveal, target selector, shop, and active effect presentation for desktop and mobile.
-- [ ] `S9-09` Add Map Builder controls for authored camera framing:
-  - Set the default board camera/view orientation from the 3D preview.
-  - Store camera presets as data so they survive JSON export/import.
-  - Preview the saved default view without leaving the builder.
-- [ ] `S9-10` Add per-cell camera framing:
-  - Select a board cell and adjust the viewing direction, pitch, distance, and optional field-of-view.
-  - Keep the active character/player as the focus target while changing the direction from which the scene is viewed.
-  - Allow cells such as shops or visually dense prop areas to frame the character plus nearby assets more intentionally.
-- [ ] `S9-11` Apply authored camera framing during runtime presentation:
-  - When landing on a configured cell, use the cell camera preset as a temporary presentation view.
-  - Provide a clear reset back to the active-player follow view and full-map overview.
-  - Reuse `S-CAM` camera-intent primitives and do not reintroduce free/manual camera movement.
+- [ ] `S9-01` Add shared audio content schema:
+  - `AudioAssetDef` for uploaded/imported audio.
+  - `AudioTriggerBindingDef` for trigger id, scope, variants, weights, volume, category, cooldown/overlap policy, and enabled state.
+  - Distinguish one-shot sound effects from looping/background music.
+- [ ] `S9-02` Add a Sound Builder/Audio Tool in `/tools`:
+  - Upload or import audio assets.
+  - Preview/play an audio asset.
+  - Attach one or more variants to a trigger.
+  - Set optional weights when a trigger has multiple variants.
+  - Configure global defaults and scoped custom sounds.
+- [ ] `S9-03` Add runtime audio engine:
+  - Weighted random selection.
+  - Additive default + scoped custom candidate resolution.
+  - Mute/master volume/music volume/sfx volume.
+  - Cooldowns or voice limits for spammy triggers where needed.
+  - Non-fatal handling for missing/blocked audio.
+- [ ] `S9-04` Add artifact and shop triggers:
+  - Receive an artifact or send an artifact to another player.
+  - Use an artifact on myself.
+  - Open a shop.
+  - Roll shop options/offers.
+- [ ] `S9-05` Add movement, dice, and board interaction triggers:
+  - Dice rolling.
+  - Each player step.
+  - Clicking a player token.
+  - Player-click should also add a quick squash/squish animation, be fun to spam, and support default plus per-player custom sounds.
+- [ ] `S9-06` Add win and game-end triggers:
+  - When a player wins a minigame/activity, with optional per-player custom sounds.
+  - Final winner when the whole game finishes.
+- [ ] `S9-07` Add minigame-specific audio hooks:
+  - Minigame music/background loop.
+  - Time ticking/countdown sounds.
+  - Player loses/fails in minigames, especially Flappy Birds, Maze, and Snake.
+  - Inspect existing minigames and add other natural failure, timeout, win, start, or end hooks where they fit.
+- [ ] `S9-08` Add cosmetic triggers:
+  - Buying a cosmetic.
+  - Equipping a cosmetic.
+- [ ] `S9-09` Keep existing notification/presentation polish:
+  - Effect applied.
+  - Effect ticked.
+  - Effect ended.
+  - Artifact used.
+  - Purchase completed.
+  - Tune reveal, target selector, shop, active effect, and media timing after audio is wired.
+- [ ] `S9-10` Add validation and tests:
+  - Missing audio assets.
+  - Invalid trigger ids/scopes.
+  - Invalid weights.
+  - Weighted random helper behavior.
+  - Import/export persistence.
+
+Audio trigger inventory:
+
+- `artifact.received`
+- `artifact.sent`
+- `artifact.used.self`
+- `shop.opened`
+- `shop.roll`
+- `player.step`
+- `player.clicked`
+- `dice.roll`
+- `activity.playerWon`
+- `game.finalWinner`
+- `minigame.music`
+- `minigame.timeTick`
+- `minigame.playerLost`
+- `cosmetic.bought`
+- `cosmetic.equipped`
+- `effect.applied`
+- `effect.ticked`
+- `effect.ended`
+- `artifact.used`
+- `purchase.completed`
 
 Partial baseline:
 
-- Effect ended/consumed notifications now appear for active effects that expire or trigger during gameplay, including artifact-backed effects. Remaining `S9-07` work: applied/ticked notifications, purchase-completed feedback, and final presentation polish.
+- Effect ended/consumed notifications now appear for active effects that expire or trigger during gameplay, including artifact-backed effects. Remaining `S9-09` work: applied/ticked notifications, purchase-completed feedback, final presentation polish, and sound hooks.
 
 Acceptance:
 
-- Important state changes have visible and optional audible feedback without blocking gameplay.
-- Map authors can configure a default board camera and cell-specific presentation camera angles through `/map-builder`.
-- Authored camera angles improve viewing of shop cells, artifacts, and map props while keeping the character/player in focus.
+- A content author can open the Sound Builder/Audio Tool, add audio assets, attach weighted variants to triggers, and save/export/import the configuration.
+- Runtime gameplay can play authored sounds for artifacts, shops, movement, dice, minigames, player clicks, player wins, final winner, cosmetics, effects, and purchases.
+- Default and scoped custom sounds are additive, and weighted random selection works when more than one variant is available.
+- Player-token click includes a quick squash/squish animation and can be clicked repeatedly for fun without breaking camera focus or gameplay state.
+- Mute and volume controls work, and browser autoplay failures do not crash or block gameplay.
 
 ## Bug Backlog
 
@@ -678,6 +837,16 @@ These are captured from the notes and should be handled in Slice 0 unless a task
 - Authored default board camera orientation in Map Builder.
 - Per-cell camera presets that keep the character/player focused while changing view direction, pitch, distance, and framing.
 - Shop-cell camera framing that presents the player and nearby shop/assets from a better angle.
+
+### Events And Activities
+
+- Image/media attachments for events, minigames, and activity captions.
+- Paste, drag/drop, and upload flow for memes/photos.
+- Simple crop, fit, caption, and alt-text controls.
+- Runtime rendering for prompt/caption and reveal/results surfaces.
+- Map/Event Coverage view showing which current events are placed on which cells.
+- Simple map generation/assignment helpers that use all current events.
+- Validation that referenced 3D prompt/elements are available as placeable Map Builder items.
 
 ### Characters
 
@@ -721,19 +890,30 @@ These are captured from the notes and should be handled in Slice 0 unless a task
 - Extra coins from special coin cells.
 - Steal/redistribute coin artifacts.
 - Communist-style artifact that steals from everyone and gives to the acting player.
+- Coin-aware selectors such as richest, poorest, coin rank, and coin rank range.
+- Ranking payout policies that reuse the consequence engine instead of hard-coded payout-only logic.
+- Coin transaction logs that explain source, target, amount, reason, and partial transfer behavior.
 
 ### Authoring
 
 - Skills/docs for maps, events, minigames, artifacts, cosmetics, story, and PR workflow.
 - Validation for content and catalogs.
 - Story beat tagging and reuse.
+- Event-to-map coverage report.
+- Helper generation that places currently defined events onto the active map.
+- Placeable 3D prompt/element validation.
 
 ### Presentation
 
-- Sound effects.
-- Discord-style UI sounds.
-- Coin and event sounds.
-- Artifact sounds and animations.
+- Sound Builder/Audio Tool for assigning sounds to runtime triggers.
+- Audio asset catalog with import/upload and preview.
+- Weighted random variants per trigger.
+- Additive default and scoped custom sounds, including per-player and per-minigame custom sounds.
+- Runtime mute, master volume, music volume, and sound-effects volume.
+- Artifact sent/received/use sounds.
+- Shop open and shop roll sounds.
+- Player step, player click, dice roll, minigame music, time tick, win/loss, final winner, cosmetic buy/equip, effect, artifact, and purchase sounds.
+- Fast squash/squish animation when clicking a player token.
 - Effect notifications.
 
 ## Source Notes Coverage
@@ -758,13 +938,21 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 | Artifact target selection, highlight, trajectory, camera centering | `S-CAM`, `S4` | `S-CAM` provides focus/camera primitives; `S4` adds artifact-specific target flow. |
 | Artifact outgoing/incoming animations | `S4`, `S9` | Rule flow first, polish later. |
 | Artifact duration effects and expiration notifications | `S3`, `S4`, `S9` | Engine first, item integration second, polish last. |
-| Map Builder default camera and per-cell camera angles | `S-CAM`, `S9` | Low-priority polish/content-authoring feature; keep player focus while changing view direction for shops and dense map areas. |
+| Map Builder default camera and per-cell camera angles | `S-CAM`, `S7.5` | Promoted before S8 so content authors can frame shops, dense cells, and activity presentation while keeping player focus. |
+| Event/minigame/activity images and captions | `S7.5` | Add paste, drag/drop, upload, crop, caption, alt text, import/export, and runtime prompt/reveal rendering. |
 | Reusable consequence/effect logic | `S3` | Explicitly shared by minigames, events, artifacts, traits, and cells. |
 | Offline shot consequences | `S0`, `S3`, `S7` | Confirmation and optional coin reward policy. |
 | Character default buffs/effects | `S6` | Named **Character Traits** in glossary. |
 | Extra coins from shots/minigames/special cells/artifacts | `S7` | Economy balancing and reusable coin consequences. |
+| Minigame ranking coin payouts | `S7` | Convert hard-coded `coinPayout` behavior into a configurable Ranking Payout Policy that resolves through coin consequences. |
+| Coin selectors by richest/poorest/rank | `S7` | Adds coin-aware target selection for events, artifacts, effects, and economy logs. |
 | Authoring skills for map/events/minigames/artifacts/cosmetics/story/PRs | `S8` | Repo-local skills/docs plus validation examples. |
-| Sound effects and Discord-style sounds | `S9` | Presentation polish after mechanics are stable. |
+| See all events already on the map | `S8` | Map/Event Coverage view lists every current event and where it is placed, with unplaced/invalid references highlighted. |
+| Simple map generation from current events | `S8` | Helper can place currently defined events onto the active map with preview before save. |
+| Validate placeable 3D prompts/elements | `S8` | Ensure every referenced 3D prompt/element exists as a placeable Map Builder palette/gallery item. |
+| Sound effects and Discord-style sounds | `S9` | Authored Audio Trigger Binding system with weighted variants, scoped defaults/custom sounds, mute/volume controls, and runtime hooks. |
+| Artifact/shop/cosmetic/player/minigame/game audio hooks | `S9` | Includes artifact sent/received/self-use, shop open/roll, cosmetic buy/equip, player step/click, dice roll, minigame music/tick/loss/win, final winner, effects, and purchase-completed sounds. |
+| Player click squish animation | `S9` | Fast click feedback that can be spammed for fun, while preserving S-CAM focus behavior and optional per-player sounds. |
 | Anecdote/history bank | `S8` | Converted into tagged **Story Beat** content. |
 | Star removal | `R-REF` | New review feedback; remove before roadmap implementation. |
 
@@ -781,6 +969,109 @@ interface GameContent {
   cosmetics?: Record<string, CosmeticDef>;
   assetCatalog?: MapAssetDef[]; // decorative map props
   maps?: MapDefinition[];
+  mediaAssets?: Record<string, ContentMediaAssetDef>;
+  audioAssets?: Record<string, AudioAssetDef>;
+  audioTriggers?: AudioTriggerBindingDef[];
+  coinPayout?: number[]; // compatibility/default path for legacy minigame rewards
+  economy?: {
+    rankingPayoutPolicies?: Record<string, RankingPayoutPolicyDef>;
+  };
+}
+
+type AudioTriggerId =
+  | "artifact.received"
+  | "artifact.sent"
+  | "artifact.used.self"
+  | "shop.opened"
+  | "shop.roll"
+  | "player.step"
+  | "player.clicked"
+  | "dice.roll"
+  | "activity.playerWon"
+  | "game.finalWinner"
+  | "minigame.music"
+  | "minigame.timeTick"
+  | "minigame.playerLost"
+  | "cosmetic.bought"
+  | "cosmetic.equipped"
+  | "effect.applied"
+  | "effect.ticked"
+  | "effect.ended"
+  | "artifact.used"
+  | "purchase.completed";
+
+interface AudioAssetDef {
+  id: string;
+  name: string;
+  src: string; // portable first pass: data URL or import/export-safe asset reference
+  kind?: "sfx" | "music";
+  durationMs?: number;
+}
+
+interface AudioTriggerBindingDef {
+  id: string;
+  trigger: AudioTriggerId;
+  scope?: {
+    playerId?: string;
+    minigameId?: string;
+    artifactId?: string;
+    cosmeticId?: string;
+  };
+  variants: Array<{
+    assetId: string;
+    weight?: number;
+    volume?: number;
+  }>;
+  category?: "sfx" | "music" | "ui";
+  cooldownMs?: number;
+  overlap?: "allow" | "restart" | "skip";
+  enabled?: boolean;
+}
+
+interface ContentMediaAssetDef {
+  id: string;
+  type: "image";
+  src: string; // portable first pass: data URL or import/export-safe asset reference
+  alt?: string;
+  crop?: { x: number; y: number; width: number; height: number };
+  fit?: "cover" | "contain";
+}
+
+interface ActivityMediaRef {
+  assetId: string;
+  caption?: string;
+  placement?: "prompt" | "reveal" | "both";
+}
+
+interface GameEventDef {
+  media?: ActivityMediaRef[];
+}
+
+interface EventActivity {
+  media?: ActivityMediaRef[];
+}
+
+type CoinSelector =
+  | { coinRank: number }
+  | { coinRankFrom: number; coinRankTo: number }
+  | { coinBalance: "highest" | "lowest"; tieBreak?: "ranking" | "turnOrder" | "playerId" };
+
+interface CoinTransferConsequenceDef {
+  type: "coinTransfer";
+  amount: number;
+  from: TargetSelector | CoinSelector;
+  to: TargetSelector | CoinSelector;
+  mode?: "clampAvailable" | "failIfInsufficient";
+  text?: string;
+}
+
+interface RankingPayoutPolicyDef {
+  id: string;
+  name: string;
+  entries: Array<{
+    selector: TargetSelector; // usually rank or rank range
+    actions: ConsequenceDef[];
+  }>;
 }
 
 interface CameraFramingDef {
@@ -854,6 +1145,8 @@ We should grill these one at a time before treating the roadmap as final.
 2. For future non-prompt offline actions, should confirmation reuse the prompt confirmer set exactly, or add consequence-specific confirmation rules?
 3. Should shots/offline prompts award coins automatically, only after confirmation, or never by default?
 4. Should anecdotes be raw content titles only, or structured story beats with tags, safe display text, and allowed activity types?
+5. Should first-pass event/activity images be stored inline in Content JSON, as local asset files, or as both? Recommendation: start with portable `mediaAssets` references that can survive import/export, then split large assets into files when the asset pipeline matures.
+6. Should first-pass audio assets be stored inline in Content JSON, as local asset files, or as both? Recommendation: mirror the media approach: portable `audioAssets` references for import/export, size warnings/compression where possible, and future file-backed assets when the pipeline matures.
 
 Resolved:
 
@@ -861,14 +1154,16 @@ Resolved:
 - Artifact language: **Artifact** means gameplay item; current decorative map objects are **Map Props** in product/UI language.
 - Prompt/prenda confirmation: defaults to the rest of the connected group and can be configured with `confirmation.mode` or `confirmation.playerIds`.
 - Manual camera movement is intentionally out of scope; map inspection uses player focus plus full-map overview.
-- Effect durations: `uses` tick when the effect actually fires, `turns` tick when the target player's turn ends, `rounds` tick when the room round advances, `untilTriggered` expires on a matching trigger, and `game` lasts until the game ends.
+- Effect durations: `uses` tick when the effect actually fires, with `uses: 1` representing a next-trigger one-shot; `turns` tick when the target player's turn ends, `rounds` tick when the room round advances, and `game` lasts until the game ends.
 - Effect authoring: effects are user-attached duration-wrapped compositions of the same consequence vocabulary; shot/offline prompts should be modeled as events or immediate consequences, not bundled into the seeded movement effect.
 - Artifact purchase/use: artifacts are bought and used immediately during a shop visit; there is no stored artifact inventory yet.
 - Artifact shop entry: reaching a shop cell opens a shared artifact shop view for everyone; the active shop actor explicitly rolls four offers, while spectators watch the same state with controls locked.
 - Builder persistence: Save writes validated normalized content to `shared/content.json` in local dev; browser storage is a draft/recovery fallback, and Download remains the manual backup path.
 - Room map selection: creating a room can select any map saved in `shared/content.json`.
 - Character trait visibility: default trait names/descriptions are visible during character selection and lobby; live default trait effects appear in the existing active-effect UI during play.
+- Authored camera framing is promoted from S9 into `S7.5` so it lands before authoring/content generation work in S8.
+- S9 audio triggers can run in parallel with S7/S7.5/S8 because they depend on already-complete gameplay and UI surfaces; keep the implementation modular to reduce merge conflicts.
 
 ## Next Review Step
 
-Start with `S7` Economy And Special Cells. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, `S5`, and `S6` are complete. Authored camera framing stays deferred to `S9` as lower-priority presentation/content-authoring polish.
+Continue with `S7` Economy And Special Cells, `S7.5` Authored Camera Framing And Activity Media, and `S9` Audio Trigger System in parallel worktrees. Start `S8` Authoring Skills And Content Bank after `S7.5` stabilizes. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, `S5`, and `S6` are complete.

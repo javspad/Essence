@@ -1,5 +1,6 @@
 import type {
   ArtifactDef,
+  ArtifactRarityDef,
   ArtifactRarityRates,
   CharacterDef,
   CharacterTraitDef,
@@ -24,7 +25,7 @@ import type {
 import { TILE_TYPES } from "./types";
 import { EVENT_ACTIVITY_TYPES, normalizeGameContentEvents } from "./events";
 import { playerDefToCharacter } from "./characters";
-import { ARTIFACT_RARITIES, artifactPrice, artifactShopWeight } from "./artifacts";
+import { artifactPrice, artifactRarityDefinitions, artifactRarityRatesFromDefinitions } from "./artifacts";
 import {
   cosmeticAnchorId,
   cosmeticAnchorRefs,
@@ -175,13 +176,16 @@ const CosmeticDefSchema = z
   })
   .passthrough();
 
-const ArtifactRarityRatesSchema = z
+const ArtifactRarityDefSchema = z
   .object({
-    common: z.number().finite().nonnegative(),
-    epic: z.number().finite().nonnegative(),
-    legendary: z.number().finite().nonnegative(),
+    id: z.string().min(1),
+    name: z.string().min(1),
+    weight: z.number().finite().nonnegative(),
+    color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "must be a hex color"),
   })
   .passthrough();
+
+const ArtifactRaritiesSchema = z.record(ArtifactRarityDefSchema);
 
 const ArtifactVisualSchema = z
   .object({
@@ -212,7 +216,7 @@ const ArtifactDefSchema = z
     name: z.string().min(1),
     description: z.string().optional(),
     price: z.number().finite().nonnegative(),
-    rarity: z.enum(["common", "epic", "legendary"]),
+    rarity: z.string().min(1),
     targetMode: z.enum(["none", "self", "choosePlayer"]),
     useFlow: z.enum(["immediate", "targeted"]).optional(),
     target: z.any().optional(),
@@ -237,6 +241,7 @@ export function normalizeContentSchema(input: unknown): GameContent {
   const players = clonePlayers(normalized.players ?? []);
   const characters = normalizeCharacters(normalized.characters, players);
   const cosmetics = normalizeCosmeticCatalog(normalized.cosmetics, normalized.characterCosmetics);
+  const artifactRarities = cloneArtifactRarities(normalized.artifactRarities, normalized.artifactRarityRates, normalized.artifacts);
   return {
     ...contentWithoutCharacterSets,
     players,
@@ -244,7 +249,8 @@ export function normalizeContentSchema(input: unknown): GameContent {
     characterTraits: cloneCharacterTraits(normalized.characterTraits),
     effects: cloneEffects(normalized.effects),
     cosmetics: cloneCosmetics(cosmetics),
-    artifactRarityRates: normalized.artifactRarityRates ? { ...normalized.artifactRarityRates } : undefined,
+    artifactRarities,
+    artifactRarityRates: artifactRarityRatesFromDefinitions(artifactRarities),
     artifacts: cloneArtifacts(normalized.artifacts),
     board: cloneTiles(normalized.board),
     maps: normalized.maps?.map((map) => normalizeMapDefinition(map as MapDefinitionImport)),
@@ -283,9 +289,9 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   validateCatalogIds(normalized.cosmetics, "cosmetics", error);
   validateCosmetics(normalized.cosmetics, characterIds, error, warning);
   validateCatalogIds(normalized.characterTraits, "characterTraits", error);
-  validateArtifactRarityRates(normalized.artifactRarityRates, error);
+  validateArtifactRarities(normalized.artifactRarities, error);
   validateCatalogIds(normalized.artifacts, "artifacts", error);
-  validateArtifacts(normalized.artifacts, playerIds, effectIds, error);
+  validateArtifacts(normalized.artifacts, playerIds, effectIds, new Set(Object.keys(normalized.artifactRarities ?? {})), error);
   validateCatalogIds(normalized.effects, "effects", error);
   validateFutureCatalogReferences(normalized, traitIds, error, warning);
 
@@ -464,6 +470,11 @@ function validateAction(
 
 function validateDuration(path: string, duration: EffectDuration | undefined, error: (path: string, message: string) => void) {
   if (!duration) return;
+  const mode = (duration as { mode?: unknown }).mode;
+  if (mode !== "turns" && mode !== "rounds" && mode !== "uses" && mode !== "game") {
+    error(`${path}.mode`, "must be uses, turns, rounds, or game");
+    return;
+  }
   if ((duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses") && (!Number.isInteger(duration.value) || duration.value < 1)) {
     error(`${path}.value`, "must be a positive integer");
   }
@@ -630,26 +641,30 @@ function validateCatalogIds<T extends { id: string }>(
   }
 }
 
-function validateArtifactRarityRates(
-  rates: ArtifactRarityRates | undefined,
+function validateArtifactRarities(
+  rarities: Record<string, ArtifactRarityDef> | undefined,
   error: (path: string, message: string) => void
 ) {
-  if (!rates) return;
-  const result = ArtifactRarityRatesSchema.safeParse(rates);
+  if (!rarities) return;
+  const result = ArtifactRaritiesSchema.safeParse(rarities);
   if (!result.success) {
     for (const issue of result.error.issues) {
-      error(zodPath("artifactRarityRates", issue.path), issue.message);
+      error(zodPath("artifactRarities", issue.path), issue.message);
     }
     return;
   }
-  const total = ARTIFACT_RARITIES.reduce((sum, rarity) => sum + rates[rarity], 0);
-  if (total <= 0) error("artifactRarityRates", "must include at least one positive rarity rate");
+  for (const [id, rarity] of Object.entries(rarities)) {
+    if (rarity.id !== id) error(`artifactRarities.${id}.id`, `must match rarity key ${id}`);
+  }
+  const total = Object.values(rarities).reduce((sum, rarity) => sum + rarity.weight, 0);
+  if (Math.abs(total - 100) > 0.001) error("artifactRarities", "weights must add to 100");
 }
 
 function validateArtifacts(
   artifacts: Record<string, ArtifactDef> | undefined,
   playerIds: Set<string>,
   effectIds: Set<string>,
+  rarityIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
   for (const [id, artifact] of Object.entries(artifacts ?? {})) {
@@ -661,7 +676,7 @@ function validateArtifacts(
     }
     if (artifact.id && artifact.id !== id) error(`artifacts.${id}.id`, `must match catalog key ${id}`);
     if (artifactPrice(artifact) < 0) error(`artifacts.${id}.price`, "must be non-negative");
-    if (artifactShopWeight(artifact) < 0) error(`artifacts.${id}.weightOverrides.shop`, "must be non-negative");
+    if (artifact.rarity && !rarityIds.has(artifact.rarity)) error(`artifacts.${id}.rarity`, `references missing rarity ${artifact.rarity}`);
     if (artifact.target) validateTarget(`artifacts.${id}.target`, artifact.target, playerIds, error);
     artifact.consequences?.forEach((action, index) => {
       validateAction(`artifacts.${id}.consequences[${index}]`, action, playerIds, effectIds, error);
@@ -820,7 +835,7 @@ function cloneEffects(effects: Record<string, EffectDef> | undefined): Record<st
       id,
       {
         ...effect,
-        duration: effect.duration ? { ...effect.duration } : effect.duration,
+        duration: cloneDuration(effect.duration),
         hooks: effect.hooks ? [...effect.hooks] : undefined,
         consequences: effect.consequences?.map(cloneAction),
         actions: effect.actions?.map(cloneAction),
@@ -862,6 +877,22 @@ function cloneCosmetics(cosmetics: Record<string, CosmeticDef>): Record<string, 
   );
 }
 
+function cloneArtifactRarities(
+  artifactRarities: Record<string, ArtifactRarityDef> | undefined,
+  artifactRarityRates: ArtifactRarityRates | undefined,
+  artifacts: Record<string, ArtifactDef> | undefined
+): Record<string, ArtifactRarityDef> {
+  const rarities = artifactRarityDefinitions({ artifactRarities, artifactRarityRates, artifacts });
+  return Object.fromEntries(
+    Object.entries(rarities).map(([id, rarity]) => [
+      id,
+      {
+        ...rarity,
+      },
+    ])
+  );
+}
+
 function cloneArtifacts(artifacts: Record<string, ArtifactDef> | undefined): Record<string, ArtifactDef> | undefined {
   if (!artifacts) return undefined;
   return Object.fromEntries(
@@ -884,10 +915,18 @@ function cloneAction<T extends EventAction>(action: T): T {
   const copy = { ...action } as EventAction;
   if ("target" in copy && copy.target) copy.target = cloneTarget(copy.target);
   if ("withTarget" in copy) copy.withTarget = cloneTarget(copy.withTarget);
-  if (copy.duration) copy.duration = { ...copy.duration };
+  if (copy.duration) copy.duration = cloneDuration(copy.duration);
   if (copy.when) copy.when = cloneCondition(copy.when);
   if (copy.type === "offlineAction" && copy.confirmation) copy.confirmation = { ...copy.confirmation, playerIds: copy.confirmation.playerIds ? [...copy.confirmation.playerIds] : undefined };
   return copy as T;
+}
+
+function cloneDuration(duration: EffectDuration): EffectDuration;
+function cloneDuration(duration: EffectDuration | undefined): EffectDuration | undefined;
+function cloneDuration(duration: EffectDuration | undefined): EffectDuration | undefined {
+  if (!duration) return duration;
+  if ((duration as { mode?: string }).mode === "untilTriggered") return { mode: "uses", value: 1 };
+  return { ...duration };
 }
 
 function cloneCondition(condition: NonNullable<EventAction["when"]>): NonNullable<EventAction["when"]> {

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { ArtifactDef, ArtifactOffer, CosmeticDef, GameState, Player } from "@essence/shared";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import type { ArtifactDef, ArtifactOffer, ArtifactRarityDef, CosmeticDef, GameState, Player } from "@essence/shared";
 import { artifactActionsForUse, artifactPrice } from "@essence/shared/artifacts";
 import { consequenceLabel } from "@essence/shared/consequences";
 import { cosmeticAnchorRefs, cosmeticAssetKind, cosmeticPrice, isCosmeticCompatibleWithCharacter } from "@essence/shared/cosmetics";
@@ -310,7 +310,7 @@ function ArtifactShopPanel({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {artifacts.map((artifact) => (
-            <ArtifactCard key={artifact.id} artifact={artifact} effects={state.effects}>
+            <ArtifactCard key={artifact.id} artifact={artifact} effects={state.effects} rarities={state.artifactRarities}>
               <div className="mt-3 flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1 text-xs font-black text-[#fde68a]">
                   <Coins className="size-3.5" />
@@ -454,7 +454,7 @@ function ArtifactShopPanel({
                 ? "Buy"
                 : "No coins";
           return (
-            <ArtifactCard key={offer.id} artifact={artifact} offer={offer} effects={state.effects}>
+            <ArtifactCard key={offer.id} artifact={artifact} offer={offer} effects={state.effects} rarities={state.artifactRarities}>
               <div className="mt-3 flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1 text-xs font-black text-[#fde68a]">
                   <Coins className="size-3.5" />
@@ -568,13 +568,30 @@ function TargetSelector({
   );
 }
 
-function ArtifactCard({ artifact, offer, effects, children }: { artifact: ArtifactDef; offer?: ArtifactOffer; effects?: GameState["effects"]; children?: ReactNode }) {
+function ArtifactCard({
+  artifact,
+  offer,
+  effects,
+  rarities,
+  children,
+}: {
+  artifact: ArtifactDef;
+  offer?: ArtifactOffer;
+  effects?: GameState["effects"];
+  rarities?: Record<string, ArtifactRarityDef>;
+  children?: ReactNode;
+}) {
   const rarity = offer?.rarity ?? artifact.rarity;
+  const rarityDef = rarities?.[rarity];
   return (
     <article
       data-artifact-shop-item={artifact.id}
-      aria-label={`${artifact.name}, ${rarity} artifact`}
-      className={cn("rounded-md border bg-white/[0.04] p-3", rarityCardClass(rarity))}
+      aria-label={`${artifact.name}, ${rarityDef?.name ?? rarity} artifact`}
+      className={cn(
+        "rounded-md border bg-white/[0.04] p-3",
+        rarityDef ? "shadow-[inset_4px_0_0_var(--artifact-rarity-color)]" : rarityCardClass(rarity)
+      )}
+      style={rarityDef ? artifactRarityCardStyle(rarityDef.color) : undefined}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -621,6 +638,23 @@ function rarityCardClass(rarity: ArtifactOffer["rarity"]): string {
         ? "border-fuchsia-200/45 bg-fuchsia-300/[0.055] shadow-[inset_4px_0_0_rgba(217,70,239,0.68)]"
         : "border-emerald-200/35 bg-emerald-300/[0.045] shadow-[inset_4px_0_0_rgba(52,211,153,0.58)]"
   );
+}
+
+function artifactRarityCardStyle(color: string): CSSProperties {
+  const stripeColor = hexToRgba(color, 0.72);
+  return {
+    borderColor: hexToRgba(color, 0.42),
+    backgroundColor: hexToRgba(color, 0.06),
+    "--artifact-rarity-color": stripeColor,
+  } as CSSProperties;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex.slice(1) : "34d399";
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function cosmeticAnchorSummary(cosmetic: CosmeticDef): string {

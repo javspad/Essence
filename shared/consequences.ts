@@ -130,7 +130,6 @@ export function effectRemainingLabel(remaining: EffectDurationState): string {
   if (remaining.mode === "turns") return `${remaining.remaining} turn${remaining.remaining === 1 ? "" : "s"}`;
   if (remaining.mode === "rounds") return `${remaining.remaining} round${remaining.remaining === 1 ? "" : "s"}`;
   if (remaining.mode === "uses") return `${remaining.remaining} use${remaining.remaining === 1 ? "" : "s"}`;
-  if (remaining.mode === "untilTriggered") return "until triggered";
   return "whole game";
 }
 

@@ -13,6 +13,7 @@ const EventBuilder = lazy(() => import("./components/MinigameBuilder"));
 const CharacterBuilder = lazy(() => import("./components/CharacterBuilder"));
 const CosmeticBuilder = lazy(() => import("./components/CosmeticBuilder"));
 const ArtifactBuilder = lazy(() => import("./components/ArtifactBuilder"));
+const EffectBuilder = lazy(() => import("./components/EffectBuilder"));
 const ToolsHub = lazy(() => import("./components/ToolsHub"));
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
   const characterBuilderMode = path === "/character-builder" || search.has("characterBuilder");
   const cosmeticBuilderMode = path === "/cosmetic-builder" || search.has("cosmeticBuilder");
   const artifactBuilderMode = path === "/artifact-builder" || search.has("artifactBuilder");
+  const effectBuilderMode = path === "/effect-builder" || search.has("effectBuilder");
   const toolsMode = path === "/tools";
 
   if (toolsMode) {
@@ -71,6 +73,14 @@ export default function App() {
     return (
       <Suspense fallback={<SceneLoading code="ARTF" />}>
         <ArtifactBuilder />
+      </Suspense>
+    );
+  }
+
+  if (effectBuilderMode) {
+    return (
+      <Suspense fallback={<SceneLoading code="FX" />}>
+        <EffectBuilder />
       </Suspense>
     );
   }

@@ -109,6 +109,7 @@ export class GameRoom {
       assetCatalog: content.assetCatalog,
       cosmetics: content.cosmetics,
       artifactCatalog: content.artifacts,
+      artifactRarities: content.artifactRarities,
       artifactRarityRates: content.artifactRarityRates,
       artifactShop: null,
       pendingArtifactUse: null,
@@ -1311,7 +1312,7 @@ export class GameRoom {
             defaultTarget: "target",
           }, { fromEffect: true })
         );
-        if (action.expiresOnTrigger || instance.remaining.mode === "untilTriggered") expired.set(instance.id, "triggered");
+        if (action.expiresOnTrigger) expired.set(instance.id, "triggered");
       }
       if (triggered && instance.remaining.mode === "uses") {
         instance.remaining = { ...instance.remaining, remaining: instance.remaining.remaining - 1 };
@@ -1324,7 +1325,7 @@ export class GameRoom {
 
   private tickEffectDurations(endingPlayerId: string, advancedRound: boolean) {
     for (const instance of [...this.state.activeEffects]) {
-      if (instance.remaining.mode === "game" || instance.remaining.mode === "untilTriggered") continue;
+      if (instance.remaining.mode === "game") continue;
       if (instance.remaining.mode === "turns") {
         if (instance.targetPlayerId !== endingPlayerId) continue;
         if (instance.startedRound === this.state.round && instance.startedTurnId === endingPlayerId) continue;
@@ -1506,7 +1507,8 @@ function debugEffectFromPayload(value: unknown, effectId: string): EffectDef | n
 
 function debugDurationFromPayload(value: unknown): EffectDuration | null {
   if (!isRecord(value) || typeof value.mode !== "string") return null;
-  if (value.mode === "game" || value.mode === "untilTriggered") return { mode: value.mode };
+  if (value.mode === "untilTriggered") return { mode: "uses", value: 1 };
+  if (value.mode === "game") return { mode: value.mode };
   if (value.mode !== "turns" && value.mode !== "rounds" && value.mode !== "uses") return null;
   const count = typeof value.value === "number" ? value.value : 1;
   if (!Number.isFinite(count)) return null;

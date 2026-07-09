@@ -250,23 +250,25 @@ const players = [
     dares: {},
     fates: {},
     players: [{ id: "alice", name: "Alice", color: "#f87171" }],
-    artifactRarityRates: { common: 70, epic: -10, legendary: 0 },
+    artifactRarities: {
+      common: { id: "common", name: "Common", weight: 80, color: "#34d399" },
+      epic: { id: "epic", name: "Epic", weight: 10, color: "#d946ef" },
+    },
     artifacts: {
       bad: {
         id: "bad",
         name: "Bad artifact",
         description: "Invalid artifact for schema regression.",
         price: -1,
-        rarity: "rare",
+        rarity: "common",
         targetMode: "choosePlayer",
         effects: ["missing-effect"],
       },
     },
   });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((error) => error.includes("artifactRarityRates.epic")), "rarity rates reject negative weights");
+  assert.ok(result.errors.some((error) => error.includes("artifactRarities") && error.includes("weights must add to 100")), "rarity weights must add to 100");
   assert.ok(result.errors.some((error) => error.includes("artifacts.bad.price")), "artifact prices must be non-negative");
-  assert.ok(result.errors.some((error) => error.includes("artifacts.bad.rarity")), "artifact rarity is limited to S4 buckets");
   assert.ok(result.errors.some((error) => error.includes("artifacts.bad.effects")), "artifact effect references are validated");
 }
 

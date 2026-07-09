@@ -8,6 +8,7 @@ export function normalizeGameState(state: GameState): GameState {
     activeEffects: Array.isArray(state.activeEffects) ? state.activeEffects : [],
     effects: state.effects ?? {},
     artifactCatalog: state.artifactCatalog ?? {},
+    artifactRarities: state.artifactRarities,
     artifactRarityRates: state.artifactRarityRates,
     artifactShop: state.artifactShop ?? null,
     pendingArtifactUse: state.pendingArtifactUse ?? null,
