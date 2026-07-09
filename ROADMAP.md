@@ -10,7 +10,7 @@ Progress is tracked directly in this file. When an implementation agent finishes
 
 - Multiplayer board game for one friend group, with in-memory **Rooms** and server-authoritative **GameState** in `server/src/room.ts`.
 - Shared contract in `shared/types.ts` for board cells, maps, minigames, events, actions, results, reveal payloads, and socket events.
-- `shared/content.json` currently has 3 authored characters, 17 minigames, 22 normalized events, 2 effects, 4 gameplay artifacts, 21 visual cosmetics, 1 active 54-cell map, 56 routes, 9 terraces, 76 decorative map props, 80 map assets, and 2 shop cells.
+- `shared/content.json` currently has 10 authored characters, 17 minigames, 22 normalized events, 2 effects, 6 gameplay artifacts, 22 visual cosmetics, 1 active 54-cell map, 56 routes, 9 terraces, 78 decorative map props, 81 map assets, and 2 shop cells.
 - The server already resolves activity results through `server/src/minigames/index.ts`, applies rigging, awards coins, applies event outcomes, and emits reveal screens.
 - `client/src/components/MinigameBuilder.tsx` already edits story, activity type, content JSON, triggers, playtest players, and immediate consequences.
 - `client/src/components/MapBuilder.tsx` already edits maps, cells, routes, terrain, decorative map props, event assignments, and import/export JSON.

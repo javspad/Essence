@@ -14,6 +14,7 @@ const DEFAULT_ANCHORS_BY_KIND: Record<string, CosmeticAnchorRef[]> = {
   mustache: [{ anchorType: "face", anchorId: "mouth" }],
   "mustache-handlebar": [{ anchorType: "face", anchorId: "mouth" }],
   "mustache-pencil": [{ anchorType: "face", anchorId: "mouth" }],
+  "mustache-chaplin": [{ anchorType: "face", anchorId: "mouth" }],
   beard: [{ anchorType: "face", anchorId: "mouth" }],
   hat: [{ anchorType: "body", anchorId: "head" }],
   "top-hat": [{ anchorType: "body", anchorId: "head" }],

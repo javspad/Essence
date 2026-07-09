@@ -177,6 +177,7 @@ const ASSET_EMOJI: Record<string, string> = {
   "tongue-toy": "👅",
   "jony-duck-window": "🪟",
   "flying-chair": "🪑",
+  "kiosco-24hs": "🏪",
   "kiosk-bag-nofui": "🛍️",
   "tiny-trophy": "🏆",
   "silly-pool-float": "🦩",

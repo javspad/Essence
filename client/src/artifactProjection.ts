@@ -80,6 +80,7 @@ const BUILT_IN_ASSET_PROJECTIONS: Record<string, ProjectionSource> = {
   "rock": gridCircle(0.35),
   "billboard": gridRect(1.2, 0.2),
   "bus": gridRect(1.3, 0.5),
+  "kiosco-24hs": gridRect(1.05, 0.85),
 };
 
 const KIND_FOOTPRINTS: Record<MapArtifactKind, MapAssetFootprint> = {

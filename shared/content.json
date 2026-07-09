@@ -980,6 +980,39 @@
         }
       ]
     },
+    "mustache-chaplin": {
+      "id": "mustache-chaplin",
+      "name": "Bigote Chaplin",
+      "description": "Bigote corto de comedia muda para la cara del personaje.",
+      "price": 0,
+      "asset": {
+        "kind": "mustache-chaplin",
+        "color": "#160b05"
+      },
+      "anchorType": "face",
+      "anchorId": "mouth",
+      "transform": {
+        "z": 0.014,
+        "scale": 1
+      },
+      "preview": {
+        "color": "#160b05",
+        "order": 62
+      },
+      "tags": [
+        "face",
+        "mouth",
+        "mustache"
+      ],
+      "assetId": "mustache-chaplin",
+      "anchor": "mouth",
+      "anchors": [
+        {
+          "anchorType": "face",
+          "anchorId": "mouth"
+        }
+      ]
+    },
     "top-hat": {
       "id": "top-hat",
       "name": "Galera",
@@ -1409,6 +1442,57 @@
           "text": "Brindis obligatorio: take a shot."
         }
       ],
+      "weightOverrides": {
+        "shop": 1
+      }
+    },
+    "palo-hockey": {
+      "id": "palo-hockey",
+      "name": "Palo de hockey",
+      "description": "Choose a player and push them back 2 cells immediately.",
+      "price": 4,
+      "rarity": "epic",
+      "targetMode": "choosePlayer",
+      "useFlow": "targeted",
+      "consequences": [
+        {
+          "type": "move",
+          "delta": -2,
+          "target": "target",
+          "text": "Palo de hockey: move the target back 2 cells."
+        }
+      ],
+      "visual": {
+        "assetId": "hockey-stick",
+        "anchorType": "body",
+        "anchorId": "rightHand",
+        "label": "🏑",
+        "color": "#d6a15d"
+      },
+      "weightOverrides": {
+        "shop": 1
+      }
+    },
+    "bomba-humo": {
+      "id": "bomba-humo",
+      "name": "Bomba de humo",
+      "description": "Choose a player and make them stumble back 1 cell immediately.",
+      "price": 3,
+      "rarity": "common",
+      "targetMode": "choosePlayer",
+      "useFlow": "targeted",
+      "consequences": [
+        {
+          "type": "move",
+          "delta": -1,
+          "target": "target",
+          "text": "Bomba de humo: move the target back 1 cell."
+        }
+      ],
+      "visual": {
+        "label": "💨",
+        "color": "#94a3b8"
+      },
       "weightOverrides": {
         "shop": 1
       }
@@ -2928,6 +3012,22 @@
       }
     },
     {
+      "id": "kiosco-24hs",
+      "name": "Kiosco 24hs",
+      "kind": "decor",
+      "defaultScale": 1,
+      "footprint": {
+        "width": 1.05,
+        "height": 0.85,
+        "shape": "rect"
+      },
+      "tags": [
+        "shop",
+        "building",
+        "decor"
+      ]
+    },
+    {
       "id": "tiny-trophy",
       "name": "Trofeo chiquito",
       "kind": "custom",
@@ -4115,6 +4215,34 @@
           "label": "START"
         },
         {
+          "id": "art-kiosco-shop-5",
+          "assetId": "kiosco-24hs",
+          "label": "24HS",
+          "position": {
+            "x": 5.25,
+            "y": 2.35,
+            "rot": -10
+          },
+          "scale": 1,
+          "data": {
+            "shopCellId": 5
+          }
+        },
+        {
+          "id": "art-kiosco-shop-8",
+          "assetId": "kiosco-24hs",
+          "label": "24HS",
+          "position": {
+            "x": 7.85,
+            "y": 1.25,
+            "rot": 20
+          },
+          "scale": 1,
+          "data": {
+            "shopCellId": 8
+          }
+        },
+        {
           "id": "art-cerco-1",
           "assetId": "fence",
           "position": {
@@ -4993,6 +5121,34 @@
           },
           "scale": 1,
           "label": "START"
+        },
+        {
+          "id": "art-kiosco-shop-5",
+          "assetId": "kiosco-24hs",
+          "label": "24HS",
+          "position": {
+            "x": 5.25,
+            "y": 2.35,
+            "rot": -10
+          },
+          "scale": 1,
+          "data": {
+            "shopCellId": 5
+          }
+        },
+        {
+          "id": "art-kiosco-shop-8",
+          "assetId": "kiosco-24hs",
+          "label": "24HS",
+          "position": {
+            "x": 7.85,
+            "y": 1.25,
+            "rot": 20
+          },
+          "scale": 1,
+          "data": {
+            "shopCellId": 8
+          }
         },
         {
           "id": "art-cerco-1",

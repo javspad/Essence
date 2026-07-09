@@ -45,6 +45,7 @@ const DEFAULT_ASSET_KINDS = [
   "mustache",
   "mustache-handlebar",
   "mustache-pencil",
+  "mustache-chaplin",
   "hat",
   "top-hat",
   "cap",

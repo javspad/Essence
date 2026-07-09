@@ -173,6 +173,7 @@ const DEFAULT_ASSETS: MapAssetDef[] = [
   { id: "tongue-toy", name: "Lengua loca", kind: "decor", defaultScale: 1 },
   { id: "jony-duck-window", name: "Ventana de Jony", kind: "decor", defaultScale: 1 },
   { id: "flying-chair", name: "Silla voladora", kind: "decor", defaultScale: 1 },
+  { id: "kiosco-24hs", name: "Kiosco 24hs", kind: "decor", defaultScale: 1 },
   { id: "kiosk-bag-nofui", name: "Bolsa NO FUI YO", kind: "decor", defaultScale: 1 },
   { id: "tiny-trophy", name: "Trofeo chiquito", kind: "custom", defaultScale: 1 },
   { id: "silly-pool-float", name: "Flotador ridículo", kind: "decor", defaultScale: 1 },

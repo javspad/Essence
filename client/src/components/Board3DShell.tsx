@@ -1280,6 +1280,7 @@ export const COSMETIC_IDS = [
   "big-mustache",
   "mustache-handlebar",
   "mustache-pencil",
+  "mustache-chaplin",
   "party-hat",
   "top-hat",
   "cap",
@@ -1427,6 +1428,18 @@ function TokenCosmetic({
         <mesh scale={[1, 0.16, 0.22]}>
           <boxGeometry args={[0.11, 0.02, 0.02]} />
           <meshStandardMaterial color={primary} roughness={0.5} transparent opacity={opacity} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (kind === "mustache-chaplin") {
+    const mouth = transformedAnchor(cosmetic, faceAnchors, bodyAnchors, { y: 0.002, z: 0.032 });
+    return (
+      <group position={mouth} rotation={[0, 0, rotation]} scale={scale}>
+        <mesh scale={[0.52, 0.7, 0.24]}>
+          <boxGeometry args={[0.07, 0.055, 0.02]} />
+          <meshStandardMaterial color={primary} roughness={0.55} transparent opacity={opacity} />
         </mesh>
       </group>
     );
@@ -1800,6 +1813,7 @@ function cosmeticColor(cosmetic: CosmeticDef, key: "color" | "secondaryColor", f
 function defaultCosmeticColor(kind: string): string {
   if (kind === "mustache-handlebar") return "#3a2416";
   if (kind === "mustache-pencil") return "#111827";
+  if (kind === "mustache-chaplin") return "#160b05";
   if (kind === "top-hat") return "#111827";
   if (kind === "cap") return "#2563eb";
   if (kind === "field-hat") return "#c69a5b";

@@ -4,3 +4,8 @@ name = "Essence"
 
 [setup]
 script = "bun install"
+
+[[actions]]
+name = "Run"
+icon = "run"
+command = "bun dev"
