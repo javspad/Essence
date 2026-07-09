@@ -897,14 +897,111 @@
       ]
     }
   },
+  "artifactRarityRates": {
+    "common": 70,
+    "epic": 25,
+    "legendary": 5
+  },
+  "artifacts": {
+    "mochila-de-gaston": {
+      "id": "mochila-de-gaston",
+      "name": "Mochila de Gaston",
+      "description": "Gaston delivers a backpack. The target advances half of each die roll for 2 rounds; if they roll a 6, they take a shot.",
+      "price": 4,
+      "rarity": "common",
+      "targetMode": "choosePlayer",
+      "useFlow": "targeted",
+      "consequences": [
+        {
+          "type": "applyEffect",
+          "effectId": "mochila-half-roll",
+          "target": "target",
+          "text": "Mochila de Gaston is equipped."
+        }
+      ],
+      "visual": {
+        "assetId": "backpack",
+        "anchorType": "body",
+        "anchorId": "chest",
+        "label": "🎒",
+        "color": "#2563eb"
+      },
+      "animations": {
+        "incoming": "gaston-backpack-drop"
+      },
+      "weightOverrides": {
+        "shop": 1
+      }
+    },
+    "fernet-coin": {
+      "id": "fernet-coin",
+      "name": "Fernet de cambio",
+      "description": "The acting player gains 2 coins immediately.",
+      "price": 2,
+      "rarity": "common",
+      "targetMode": "self",
+      "useFlow": "immediate",
+      "consequences": [
+        {
+          "type": "coins",
+          "value": 2,
+          "target": "acting",
+          "text": "Fernet de cambio: gain 2 coins."
+        }
+      ],
+      "weightOverrides": {
+        "shop": 1
+      }
+    },
+    "taxi-nocturno": {
+      "id": "taxi-nocturno",
+      "name": "Taxi nocturno",
+      "description": "The acting player moves 1 cell forward immediately.",
+      "price": 3,
+      "rarity": "epic",
+      "targetMode": "self",
+      "useFlow": "immediate",
+      "consequences": [
+        {
+          "type": "move",
+          "delta": 1,
+          "target": "acting",
+          "text": "Taxi nocturno: move 1 cell."
+        }
+      ],
+      "weightOverrides": {
+        "shop": 1
+      }
+    },
+    "brindis-obligatorio": {
+      "id": "brindis-obligatorio",
+      "name": "Brindis obligatorio",
+      "description": "Choose a player to take a shot immediately.",
+      "price": 5,
+      "rarity": "legendary",
+      "targetMode": "choosePlayer",
+      "useFlow": "targeted",
+      "consequences": [
+        {
+          "type": "offlineAction",
+          "action": "takeShot",
+          "target": "target",
+          "text": "Brindis obligatorio: take a shot."
+        }
+      ],
+      "weightOverrides": {
+        "shop": 1
+      }
+    }
+  },
   "board": [
     {
       "id": 0,
       "type": "start",
       "label": "START",
       "layout": {
-        "x": 0,
-        "y": 5,
+        "x": -1.5,
+        "y": 0.5,
         "rot": 0
       }
     },
@@ -913,257 +1010,578 @@
       "type": "reaction",
       "minigameId": "reaction-1",
       "layout": {
-        "x": 1,
-        "y": 5,
+        "x": -0.2,
+        "y": 0.5,
         "rot": 0
       },
       "eventId": "event-reaction-1"
     },
     {
       "id": 2,
-      "type": "vote",
-      "minigameId": "mas-probable-1",
+      "type": "minigame",
+      "minigameId": "arcade-maze",
       "layout": {
-        "x": 2,
-        "y": 5,
+        "x": 1.1,
+        "y": 0.5,
         "rot": 0
       },
-      "eventId": "event-mas-probable-1"
+      "eventId": "event-arcade-maze"
     },
     {
       "id": 3,
       "type": "dare",
       "dareId": "shot-1",
       "layout": {
-        "x": 3,
-        "y": 5,
+        "x": 2.35,
+        "y": 0.5,
         "rot": 0
       },
       "eventId": "event-dare-shot-1"
     },
     {
       "id": 4,
-      "type": "minigame",
-      "minigameId": "bostezo",
-      "layout": {
-        "x": 4,
-        "y": 5,
-        "rot": 0
-      },
-      "eventId": "event-bostezo"
-    },
-    {
-      "id": 5,
-      "type": "estimate",
-      "minigameId": "estimate-frang",
-      "layout": {
-        "x": 5,
-        "y": 5,
-        "rot": 0
-      },
-      "eventId": "event-estimate-frang"
-    },
-    {
-      "id": 6,
-      "type": "fate",
-      "fateId": "retroceder-2",
-      "layout": {
-        "x": 5,
-        "y": 4,
-        "rot": -90
-      },
-      "eventId": "event-fate-retroceder-2"
-    },
-    {
-      "id": 7,
-      "type": "judge",
-      "minigameId": "lujan",
-      "layout": {
-        "x": 4,
-        "y": 4,
-        "rot": 180
-      },
-      "eventId": "event-lujan"
-    },
-    {
-      "id": 8,
-      "type": "vote",
-      "minigameId": "quien-dijo-1",
-      "layout": {
-        "x": 3,
-        "y": 4,
-        "rot": 180
-      },
-      "eventId": "event-quien-dijo-1"
-    },
-    {
-      "id": 9,
-      "type": "minigame",
-      "minigameId": "whack-amigos",
-      "layout": {
-        "x": 2,
-        "y": 4,
-        "rot": -90
-      },
-      "eventId": "event-whack-amigos"
-    },
-    {
-      "id": 10,
       "type": "trivia",
       "minigameId": "trivia-novio-1",
       "layout": {
-        "x": 2,
-        "y": 3,
-        "rot": -90
+        "x": 3.6,
+        "y": 0.5,
+        "rot": 0
       },
       "eventId": "event-trivia-novio-1"
     },
     {
-      "id": 11,
-      "type": "dare",
-      "dareId": "reto-1",
+      "id": 5,
+      "type": "shop",
       "layout": {
-        "x": 3,
-        "y": 3,
-        "rot": 0
-      },
-      "eventId": "event-dare-reto-1"
-    },
-    {
-      "id": 12,
-      "type": "minigame",
-      "minigameId": "bostezo",
-      "layout": {
-        "x": 4,
-        "y": 3,
-        "rot": 0
+        "x": 5,
+        "y": 1.5
       },
       "eventId": "event-bostezo"
     },
     {
-      "id": 13,
-      "type": "vote",
-      "minigameId": "mas-probable-2",
-      "layout": {
-        "x": 5,
-        "y": 3,
-        "rot": 0
-      },
-      "eventId": "event-mas-probable-2"
-    },
-    {
-      "id": 14,
-      "type": "fate",
-      "fateId": "monedas-bonus",
-      "layout": {
-        "x": 6,
-        "y": 3,
-        "rot": 0
-      },
-      "eventId": "event-fate-monedas-bonus"
-    },
-    {
-      "id": 15,
-      "type": "groom",
-      "minigameId": "trivia-novio-2",
-      "layout": {
-        "x": 6,
-        "y": 2,
-        "rot": -90
-      },
-      "eventId": "event-trivia-novio-2"
-    },
-    {
-      "id": 16,
-      "type": "estimate",
-      "minigameId": "estimate-noche",
-      "layout": {
-        "x": 5,
-        "y": 2,
-        "rot": 180
-      },
-      "eventId": "event-estimate-noche"
-    },
-    {
-      "id": 17,
-      "type": "judge",
-      "minigameId": "lujan",
-      "layout": {
-        "x": 4,
-        "y": 2,
-        "rot": 180
-      },
-      "eventId": "event-lujan"
-    },
-    {
-      "id": 18,
-      "type": "vote",
-      "minigameId": "dos-verdades-1",
-      "layout": {
-        "x": 4,
-        "y": 1,
-        "rot": -90,
-        "z": 0.12
-      },
-      "eventId": "event-dos-verdades-1"
-    },
-    {
-      "id": 19,
-      "type": "reaction",
-      "minigameId": "reaction-1",
-      "layout": {
-        "x": 5,
-        "y": 1,
-        "rot": 0,
-        "z": 0.12
-      },
-      "eventId": "event-reaction-1"
-    },
-    {
-      "id": 20,
+      "id": 6,
       "type": "minigame",
       "minigameId": "whack-amigos",
       "layout": {
-        "x": 6,
-        "y": 1,
-        "rot": 0,
-        "z": 0.16
+        "x": 5.7,
+        "y": -1.3,
+        "rot": -20
       },
       "eventId": "event-whack-amigos"
     },
     {
-      "id": 21,
+      "id": 7,
+      "type": "minigame",
+      "minigameId": "arcade-flappy",
+      "layout": {
+        "x": 6.6,
+        "y": -1.5,
+        "rot": 10
+      },
+      "eventId": "event-arcade-flappy"
+    },
+    {
+      "id": 8,
+      "type": "shop",
+      "label": "SHOP",
+      "layout": {
+        "x": 7.2,
+        "y": 0.7,
+        "rot": 20
+      }
+    },
+    {
+      "id": 9,
+      "type": "judge",
+      "minigameId": "lujan",
+      "layout": {
+        "x": 8.6,
+        "y": -0.2,
+        "rot": 30
+      },
+      "eventId": "event-lujan"
+    },
+    {
+      "id": 10,
+      "type": "vote",
+      "minigameId": "mas-probable-2",
+      "layout": {
+        "x": 9.7,
+        "y": 0.2,
+        "rot": 20
+      },
+      "eventId": "event-mas-probable-2"
+    },
+    {
+      "id": 11,
+      "type": "estimate",
+      "minigameId": "estimate-noche",
+      "layout": {
+        "x": 10.8,
+        "y": 0.4,
+        "rot": 10
+      },
+      "eventId": "event-estimate-noche"
+    },
+    {
+      "id": 12,
+      "type": "dare",
+      "dareId": "reto-1",
+      "layout": {
+        "x": 11.9,
+        "y": 0.7,
+        "rot": 20
+      },
+      "eventId": "event-dare-reto-1"
+    },
+    {
+      "id": 13,
+      "type": "trivia",
+      "minigameId": "trivia-novio-1",
+      "layout": {
+        "x": 13,
+        "y": 1.1,
+        "rot": 40
+      },
+      "eventId": "event-trivia-novio-1"
+    },
+    {
+      "id": 14,
+      "type": "minigame",
+      "minigameId": "arcade-snake",
+      "layout": {
+        "x": 13.9,
+        "y": 1.9,
+        "rot": 60
+      },
+      "eventId": "event-arcade-snake"
+    },
+    {
+      "id": 15,
+      "type": "reaction",
+      "minigameId": "reaction-1",
+      "layout": {
+        "x": 14.45,
+        "y": 3.35,
+        "rot": 75
+      },
+      "eventId": "event-reaction-1"
+    },
+    {
+      "id": 16,
       "type": "dare",
       "dareId": "shot-2",
       "layout": {
-        "x": 7,
-        "y": 1,
-        "rot": 0,
-        "z": 0.2
+        "x": 14.9,
+        "y": 3.8,
+        "rot": 85
       },
       "eventId": "event-dare-shot-2"
+    },
+    {
+      "id": 17,
+      "type": "estimate",
+      "minigameId": "estimate-frang",
+      "layout": {
+        "x": 15.3,
+        "y": 4.6,
+        "rot": 95
+      },
+      "eventId": "event-estimate-frang"
+    },
+    {
+      "id": 18,
+      "type": "groom",
+      "minigameId": "trivia-novio-2",
+      "layout": {
+        "x": 14.7,
+        "y": 5.7,
+        "rot": 130
+      },
+      "eventId": "event-trivia-novio-2"
+    },
+    {
+      "id": 19,
+      "type": "minigame",
+      "minigameId": "bostezo",
+      "layout": {
+        "x": 13.9,
+        "y": 6,
+        "rot": 180
+      },
+      "eventId": "event-bostezo"
+    },
+    {
+      "id": 20,
+      "type": "vote",
+      "minigameId": "mas-probable-1",
+      "layout": {
+        "x": 12.2,
+        "y": 6,
+        "rot": 180
+      },
+      "eventId": "event-mas-probable-1"
+    },
+    {
+      "id": 21,
+      "type": "judge",
+      "minigameId": "lujan",
+      "layout": {
+        "x": 10.5,
+        "y": 6,
+        "rot": 180
+      },
+      "eventId": "event-lujan"
     },
     {
       "id": 22,
       "type": "trivia",
       "minigameId": "trivia-novio-1",
       "layout": {
-        "x": 8,
-        "y": 1,
-        "rot": 0,
-        "z": 0.25
+        "x": 8.8,
+        "y": 6,
+        "rot": 180
       },
       "eventId": "event-trivia-novio-1"
     },
     {
       "id": 23,
-      "type": "finish",
-      "label": "THE END",
+      "type": "minigame",
+      "minigameId": "whack-amigos",
       "layout": {
-        "x": 9,
-        "y": 1,
-        "rot": 0,
-        "z": 0.32
+        "x": 7.5,
+        "y": 6.9,
+        "rot": -100
+      },
+      "eventId": "event-whack-amigos"
+    },
+    {
+      "id": 24,
+      "type": "estimate",
+      "minigameId": "estimate-noche",
+      "layout": {
+        "x": 8.8,
+        "y": 7.7,
+        "rot": 0
+      },
+      "eventId": "event-estimate-noche"
+    },
+    {
+      "id": 25,
+      "type": "minigame",
+      "minigameId": "arcade-horserace",
+      "layout": {
+        "x": 10.5,
+        "y": 7.7,
+        "rot": 0
+      },
+      "eventId": "event-arcade-horserace"
+    },
+    {
+      "id": 26,
+      "type": "dare",
+      "dareId": "shot-1",
+      "layout": {
+        "x": 12.2,
+        "y": 7.7,
+        "rot": 0
+      },
+      "eventId": "event-dare-shot-1"
+    },
+    {
+      "id": 27,
+      "type": "reaction",
+      "minigameId": "reaction-1",
+      "layout": {
+        "x": 13.7,
+        "y": 7.7,
+        "rot": 0
+      },
+      "eventId": "event-reaction-1"
+    },
+    {
+      "id": 28,
+      "type": "fate",
+      "fateId": "retroceder-2",
+      "layout": {
+        "x": 13,
+        "y": 8.5,
+        "rot": -150
+      },
+      "eventId": "event-fate-retroceder-2"
+    },
+    {
+      "id": 29,
+      "type": "judge",
+      "minigameId": "lujan",
+      "layout": {
+        "x": 11.4,
+        "y": 9.1,
+        "rot": 180
+      },
+      "eventId": "event-lujan"
+    },
+    {
+      "id": 30,
+      "type": "vote",
+      "minigameId": "mas-probable-2",
+      "layout": {
+        "x": 9.4,
+        "y": 9.1,
+        "rot": 180
+      },
+      "eventId": "event-mas-probable-2"
+    },
+    {
+      "id": 31,
+      "type": "groom",
+      "minigameId": "trivia-novio-2",
+      "layout": {
+        "x": 7.4,
+        "y": 9.1,
+        "rot": 180
+      },
+      "eventId": "event-trivia-novio-2"
+    },
+    {
+      "id": 32,
+      "type": "minigame",
+      "minigameId": "bostezo",
+      "layout": {
+        "x": 5.4,
+        "y": 9.1,
+        "rot": 180
+      },
+      "eventId": "event-bostezo"
+    },
+    {
+      "id": 33,
+      "type": "reaction",
+      "minigameId": "reaction-1",
+      "layout": {
+        "x": 3.6,
+        "y": 9.6,
+        "rot": 100
+      },
+      "eventId": "event-reaction-1"
+    },
+    {
+      "id": 34,
+      "type": "estimate",
+      "minigameId": "estimate-frang",
+      "layout": {
+        "x": 3,
+        "y": 10.6,
+        "rot": 130
+      },
+      "eventId": "event-estimate-frang"
+    },
+    {
+      "id": 35,
+      "type": "minigame",
+      "minigameId": "arcade-redlight",
+      "layout": {
+        "x": 3.4,
+        "y": 11.4,
+        "rot": 40
+      },
+      "eventId": "event-arcade-redlight"
+    },
+    {
+      "id": 36,
+      "type": "dare",
+      "dareId": "reto-1",
+      "layout": {
+        "x": 4.5,
+        "y": 11.9,
+        "rot": 20
+      },
+      "eventId": "event-dare-reto-1"
+    },
+    {
+      "id": 37,
+      "type": "minigame",
+      "minigameId": "whack-amigos",
+      "layout": {
+        "x": 5.7,
+        "y": 11.7,
+        "rot": -10
+      },
+      "eventId": "event-whack-amigos"
+    },
+    {
+      "id": 38,
+      "type": "reaction",
+      "minigameId": "reaction-1",
+      "layout": {
+        "x": 6.9,
+        "y": 12.1,
+        "rot": 0
+      },
+      "eventId": "event-reaction-1"
+    },
+    {
+      "id": 39,
+      "type": "fate",
+      "fateId": "monedas-bonus",
+      "layout": {
+        "x": 7.9,
+        "y": 12.4,
+        "rot": 10
+      },
+      "eventId": "event-fate-monedas-bonus"
+    },
+    {
+      "id": 40,
+      "type": "judge",
+      "minigameId": "lujan",
+      "layout": {
+        "x": 9.3,
+        "y": 12.1,
+        "rot": 5
+      },
+      "eventId": "event-lujan"
+    },
+    {
+      "id": 41,
+      "type": "vote",
+      "minigameId": "mas-probable-1",
+      "layout": {
+        "x": 11,
+        "y": 11.85,
+        "rot": -10
+      },
+      "eventId": "event-mas-probable-1"
+    },
+    {
+      "id": 42,
+      "type": "trivia",
+      "minigameId": "trivia-novio-1",
+      "layout": {
+        "x": 11.6,
+        "y": 11.3,
+        "rot": -20
+      },
+      "eventId": "event-trivia-novio-1"
+    },
+    {
+      "id": 43,
+      "type": "estimate",
+      "minigameId": "estimate-noche",
+      "layout": {
+        "x": 12.5,
+        "y": 10.6,
+        "rot": -30
+      },
+      "eventId": "event-estimate-noche"
+    },
+    {
+      "id": 44,
+      "type": "dare",
+      "dareId": "shot-2",
+      "layout": {
+        "x": 12.9,
+        "y": 8.9,
+        "rot": -40
+      },
+      "eventId": "event-dare-shot-2"
+    },
+    {
+      "id": 45,
+      "type": "minigame",
+      "minigameId": "bostezo",
+      "layout": {
+        "x": 14.6,
+        "y": 9.3,
+        "rot": -20
+      },
+      "eventId": "event-bostezo"
+    },
+    {
+      "id": 46,
+      "type": "minigame",
+      "minigameId": "arcade-snake",
+      "layout": {
+        "x": 15.6,
+        "y": 9.1,
+        "rot": -10
+      },
+      "eventId": "event-arcade-snake"
+    },
+    {
+      "id": 47,
+      "type": "minigame",
+      "minigameId": "whack-amigos",
+      "layout": {
+        "x": 16.5,
+        "y": 9.5,
+        "rot": 20
+      },
+      "eventId": "event-whack-amigos"
+    },
+    {
+      "id": 48,
+      "type": "trivia",
+      "minigameId": "trivia-novio-1",
+      "layout": {
+        "x": 17.3,
+        "y": 10,
+        "rot": 60
+      },
+      "eventId": "event-trivia-novio-1"
+    },
+    {
+      "id": 49,
+      "type": "fate",
+      "fateId": "retroceder-2",
+      "layout": {
+        "x": 17.6,
+        "y": 12,
+        "rot": 90
+      },
+      "eventId": "event-fate-retroceder-2"
+    },
+    {
+      "id": 50,
+      "type": "groom",
+      "minigameId": "trivia-novio-2",
+      "layout": {
+        "x": 16.1,
+        "y": 12.2,
+        "rot": 130
+      },
+      "eventId": "event-trivia-novio-2"
+    },
+    {
+      "id": 51,
+      "type": "judge",
+      "minigameId": "lujan",
+      "layout": {
+        "x": 15.1,
+        "y": 12.5,
+        "rot": 160
+      },
+      "eventId": "event-lujan"
+    },
+    {
+      "id": 52,
+      "type": "minigame",
+      "minigameId": "arcade-horserace",
+      "layout": {
+        "x": 14.2,
+        "y": 12.1,
+        "rot": -160
+      },
+      "eventId": "event-arcade-horserace"
+    },
+    {
+      "id": 53,
+      "type": "finish",
+      "label": "META",
+      "layout": {
+        "x": 13.9,
+        "y": 11.1,
+        "rot": 0
       }
     }
   ],
@@ -1176,7 +1594,12 @@
       "defaultScale": 1,
       "tags": [
         "natural"
-      ]
+      ],
+      "footprint": {
+        "width": 0.325926,
+        "height": 0.325926,
+        "shape": "circle"
+      }
     },
     {
       "id": "club-house",
@@ -1185,7 +1608,12 @@
       "defaultScale": 1,
       "tags": [
         "building"
-      ]
+      ],
+      "footprint": {
+        "width": 1.718518,
+        "height": 0.992592,
+        "shape": "rect"
+      }
     },
     {
       "id": "glass-building",
@@ -1194,7 +1622,12 @@
       "defaultScale": 1,
       "tags": [
         "building"
-      ]
+      ],
+      "footprint": {
+        "width": 1.481482,
+        "height": 0.859259,
+        "shape": "rect"
+      }
     },
     {
       "id": "mini-court",
@@ -1203,7 +1636,12 @@
       "defaultScale": 1,
       "tags": [
         "activity"
-      ]
+      ],
+      "footprint": {
+        "width": 1.185186,
+        "height": 0.788889,
+        "shape": "rect"
+      }
     },
     {
       "id": "mountain-cluster",
@@ -1212,7 +1650,12 @@
       "defaultScale": 1,
       "tags": [
         "natural"
-      ]
+      ],
+      "footprint": {
+        "width": 1.657185,
+        "height": 1.086815,
+        "shape": "triangle"
+      }
     },
     {
       "id": "party-van",
@@ -1221,7 +1664,12 @@
       "defaultScale": 1,
       "tags": [
         "vehicle"
-      ]
+      ],
+      "footprint": {
+        "width": 0.45926,
+        "height": 0.266667,
+        "shape": "rect"
+      }
     },
     {
       "id": "pond",
@@ -1230,7 +1678,12 @@
       "defaultScale": 1,
       "tags": [
         "terrain"
-      ]
+      ],
+      "footprint": {
+        "width": 1.555556,
+        "height": 1.555556,
+        "shape": "circle"
+      }
     },
     {
       "id": "river",
@@ -1239,7 +1692,12 @@
       "defaultScale": 1,
       "tags": [
         "terrain"
-      ]
+      ],
+      "footprint": {
+        "width": 3.814814,
+        "height": 0.37037,
+        "shape": "rect"
+      }
     },
     {
       "id": "plaza",
@@ -1248,7 +1706,12 @@
       "defaultScale": 1,
       "tags": [
         "terrain"
-      ]
+      ],
+      "footprint": {
+        "width": 1.955556,
+        "height": 1.955556,
+        "shape": "circle"
+      }
     },
     {
       "id": "start-sign",
@@ -1257,7 +1720,12 @@
       "defaultScale": 1,
       "tags": [
         "label"
-      ]
+      ],
+      "footprint": {
+        "width": 0.666666,
+        "height": 0.051852,
+        "shape": "rect"
+      }
     },
     {
       "id": "finish-sign",
@@ -1266,7 +1734,12 @@
       "defaultScale": 1,
       "tags": [
         "label"
-      ]
+      ],
+      "footprint": {
+        "width": 0.666666,
+        "height": 0.051852,
+        "shape": "rect"
+      }
     },
     {
       "id": "fountain",
@@ -1276,7 +1749,12 @@
       "tags": [
         "parque",
         "decor"
-      ]
+      ],
+      "footprint": {
+        "width": 1,
+        "height": 1,
+        "shape": "circle"
+      }
     },
     {
       "id": "bench",
@@ -1286,7 +1764,12 @@
       "tags": [
         "parque",
         "decor"
-      ]
+      ],
+      "footprint": {
+        "width": 0.6,
+        "height": 0.25,
+        "shape": "rect"
+      }
     },
     {
       "id": "palm-tree",
@@ -1296,7 +1779,12 @@
       "tags": [
         "natural",
         "playa"
-      ]
+      ],
+      "footprint": {
+        "width": 0.6,
+        "height": 0.6,
+        "shape": "circle"
+      }
     },
     {
       "id": "flower-bed",
@@ -1306,7 +1794,12 @@
       "tags": [
         "parque",
         "natural"
-      ]
+      ],
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "beach-set",
@@ -1316,7 +1809,12 @@
       "tags": [
         "playa",
         "decor"
-      ]
+      ],
+      "footprint": {
+        "width": 1.6,
+        "height": 1.6,
+        "shape": "circle"
+      }
     },
     {
       "id": "sailboat",
@@ -1326,7 +1824,12 @@
       "tags": [
         "vehicle",
         "agua"
-      ]
+      ],
+      "footprint": {
+        "width": 0.7,
+        "height": 0.3,
+        "shape": "rect"
+      }
     },
     {
       "id": "waterfall",
@@ -1336,7 +1839,12 @@
       "tags": [
         "terrain",
         "agua"
-      ]
+      ],
+      "footprint": {
+        "width": 0.8,
+        "height": 0.35,
+        "shape": "rect"
+      }
     },
     {
       "id": "wedding-arch",
@@ -1346,7 +1854,28 @@
       "tags": [
         "meta",
         "decor"
-      ]
+      ],
+      "footprint": {
+        "width": 0.8,
+        "height": 0.2,
+        "shape": "rect"
+      }
+    },
+    {
+      "id": "backpack",
+      "name": "Mochila",
+      "kind": "custom",
+      "defaultScale": 1,
+      "color": "#2563eb",
+      "tags": [
+        "artifact",
+        "visual"
+      ],
+      "footprint": {
+        "width": 1,
+        "height": 1,
+        "shape": "rect"
+      }
     },
     {
       "id": "fence",
@@ -1356,7 +1885,12 @@
       "tags": [
         "building",
         "decor"
-      ]
+      ],
+      "footprint": {
+        "width": 0.9,
+        "height": 0.12,
+        "shape": "rect"
+      }
     },
     {
       "id": "streetlamp",
@@ -1366,7 +1900,12 @@
       "tags": [
         "urbano",
         "decor"
-      ]
+      ],
+      "footprint": {
+        "width": 0.24,
+        "height": 0.24,
+        "shape": "circle"
+      }
     },
     {
       "id": "rock",
@@ -1375,7 +1914,12 @@
       "defaultScale": 1,
       "tags": [
         "natural"
-      ]
+      ],
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "billboard",
@@ -1385,7 +1929,12 @@
       "tags": [
         "urbano",
         "building"
-      ]
+      ],
+      "footprint": {
+        "width": 1.2,
+        "height": 0.2,
+        "shape": "rect"
+      }
     },
     {
       "id": "bus",
@@ -1395,7 +1944,12 @@
       "tags": [
         "vehicle",
         "urbano"
-      ]
+      ],
+      "footprint": {
+        "width": 1.3,
+        "height": 0.5,
+        "shape": "rect"
+      }
     },
     {
       "id": "fallen-fernet",
@@ -1715,205 +2269,375 @@
       "id": "classroom-giant-log",
       "name": "Tronco gigante (aula)",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "split-tree-trunk",
       "name": "Árbol roto",
       "kind": "tree",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.75,
+        "height": 0.75,
+        "shape": "circle"
+      }
     },
     {
       "id": "bleach-sound-bomb",
       "name": "Frasco de cloro",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "firecracker-box",
       "name": "Caja de petardos",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "upd-noose-chair",
       "name": "Silla con soga UPD",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "vinchuca-jar",
       "name": "Frasco con vinchuca",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "broken-window-frame",
       "name": "Marco de ventana roto",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "school-locker-hiding",
       "name": "Locker con Willy",
       "kind": "house",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 1.35,
+        "height": 1.1,
+        "shape": "rect"
+      }
     },
     {
       "id": "locker-row",
       "name": "Lockers para esconderse",
       "kind": "house",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 1.35,
+        "height": 1.1,
+        "shape": "rect"
+      }
     },
     {
       "id": "steamy-taxi",
       "name": "Taxi caldeado",
       "kind": "vehicle",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 1.5,
+        "height": 0.75,
+        "shape": "rect"
+      }
     },
     {
       "id": "just-dance-kinect",
       "name": "Kinect + pista Just Dance",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "school-desk-pupitre",
       "name": "Pupitre",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "city-barricade-peed",
       "name": "Coso amarillo meado",
       "kind": "sign",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.2,
+        "shape": "rect"
+      }
     },
     {
       "id": "crumpled-exam-ausente",
       "name": "Examen AUSENTE",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "martina-impact-ball",
       "name": "Pelota del pelotazo",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "teacher-figures",
       "name": "Profesores",
       "kind": "custom",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1,
+        "shape": "rect"
+      }
     },
     {
       "id": "giant-groin-cup",
       "name": "Protector de Javi",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "sleeping-bag",
       "name": "Bolsa de dormir",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "tongue-toy",
       "name": "Lengua loca",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "jony-duck-window",
       "name": "Ventana de Jony",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "flying-chair",
       "name": "Silla voladora",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "kiosk-bag-nofui",
       "name": "Bolsa NO FUI YO",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "tiny-trophy",
       "name": "Trofeo chiquito",
       "kind": "custom",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1,
+        "shape": "rect"
+      }
     },
     {
       "id": "silly-pool-float",
       "name": "Flotador ridículo",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "broken-umbrella",
       "name": "Paraguas roto",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "megaphone",
       "name": "Megáfono",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "stopwatch",
       "name": "Cronómetro",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "lucky-sock",
       "name": "Media de la suerte",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "cursed-calculator",
       "name": "Calculadora maldita",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "giant-pencil",
       "name": "Lápiz gigante",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "sticker-suitcase",
       "name": "Valija con stickers",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "banana-peel-trap",
       "name": "Cáscara de banana",
       "kind": "decor",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 0.7,
+        "height": 0.7,
+        "shape": "circle"
+      }
     },
     {
       "id": "world-cup-trophy",
       "name": "Copa del Mundo",
       "kind": "custom",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1,
+        "shape": "rect"
+      }
     },
     {
       "id": "rain-tent",
       "name": "Carpa que llueve adentro",
       "kind": "custom",
-      "defaultScale": 1
+      "defaultScale": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1,
+        "shape": "rect"
+      }
     }
   ],
   "maps": [
@@ -1984,12 +2708,10 @@
         },
         {
           "id": 5,
-          "type": "minigame",
-          "minigameId": "bostezo",
+          "type": "shop",
           "layout": {
-            "x": 4.3,
-            "y": -0.15,
-            "rot": -15
+            "x": 5,
+            "y": 1.5
           },
           "eventId": "event-bostezo"
         },
@@ -2017,14 +2739,13 @@
         },
         {
           "id": 8,
-          "type": "fate",
-          "fateId": "monedas-bonus",
+          "type": "shop",
+          "label": "SHOP",
           "layout": {
             "x": 7.2,
             "y": 0.7,
             "rot": 20
-          },
-          "eventId": "event-fate-monedas-bonus"
+          }
         },
         {
           "id": 9,
@@ -3678,9 +4399,55 @@
       ],
       "boardShape": {
         "minX": -2,
-        "minY": -2.2,
-        "maxX": 18.5,
-        "maxY": 14
+        "minY": -2,
+        "maxX": 19,
+        "maxY": 14,
+        "borderEdges": [
+          {
+            "id": "edge-top",
+            "from": {
+              "x": -2,
+              "y": -2
+            },
+            "to": {
+              "x": 19,
+              "y": -2
+            }
+          },
+          {
+            "id": "edge-right",
+            "from": {
+              "x": 19,
+              "y": -2
+            },
+            "to": {
+              "x": 19,
+              "y": 14
+            }
+          },
+          {
+            "id": "edge-bottom",
+            "from": {
+              "x": 19,
+              "y": 14
+            },
+            "to": {
+              "x": -2,
+              "y": 14
+            }
+          },
+          {
+            "id": "edge-left",
+            "from": {
+              "x": -2,
+              "y": 14
+            },
+            "to": {
+              "x": -2,
+              "y": -2
+            }
+          }
+        ]
       },
       "terraces": [
         {
@@ -4530,6 +5297,35 @@
           "text": "Move half of the die roll."
         }
       ]
+    },
+    "mochila-half-roll": {
+      "id": "mochila-half-roll",
+      "name": "Mochila de Gaston",
+      "description": "For 2 rounds, advance half of the die roll. If the target rolls 6, they take a shot.",
+      "icon": "🎒",
+      "duration": {
+        "mode": "rounds",
+        "value": 2
+      },
+      "consequences": [
+        {
+          "type": "movementMultiplier",
+          "hook": "beforeMovement",
+          "multiplier": 0.5,
+          "rounding": "ceil",
+          "text": "Move half of the die roll."
+        },
+        {
+          "type": "offlineAction",
+          "hook": "afterRoll",
+          "when": {
+            "rollEquals": 6
+          },
+          "action": "takeShot",
+          "text": "Rolled a 6 with Mochila de Gaston: take a shot."
+        }
+      ],
+      "visualAssetId": "backpack"
     }
   },
   "minigames": {

@@ -97,7 +97,7 @@ export default function CosmeticBuilder() {
   }, [characterIds, selectedCharacterId]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, exportJson);
+    persistCosmeticDraft(exportJson);
     rememberBaseCosmeticIds();
   }, [exportJson]);
 
@@ -167,15 +167,15 @@ export default function CosmeticBuilder() {
   };
 
   const resetDraft = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    const next = cosmeticBuilderContentFrom(BASE_CONTENT);
+    const saved = loadSavedCosmeticContent();
+    const next = saved ?? cosmeticBuilderContentFrom(BASE_CONTENT);
     rememberBaseCosmeticIds();
     setContent(next);
     setSelectedCosmeticId(Object.keys(next.cosmetics ?? {})[0] ?? "");
     setSelectedCharacterId(Object.keys(next.characters ?? {})[0] ?? "");
     setImportText("");
     setJsonOpen(false);
-    setSaveStatus("Reset");
+    setSaveStatus(saved ? "Restored saved draft" : "Reset to content.json");
   };
 
   const copyJson = async () => {
@@ -184,14 +184,14 @@ export default function CosmeticBuilder() {
   };
 
   const saveDraft = async () => {
-    localStorage.setItem(STORAGE_KEY, exportJson);
-    setSaveStatus("Saving...");
+    const stored = persistCosmeticDraft(exportJson);
+    setSaveStatus(stored ? "Saving..." : "Storage full; saving...");
     try {
       await saveContentJsonToDisk(exportJson);
-      setSaveStatus("Saved to PC");
+      setSaveStatus("Saved to content.json");
     } catch (error) {
       console.error("Unable to save content.json", error);
-      setSaveStatus("Draft only");
+      setSaveStatus(stored ? "Saved in browser" : "Save failed");
     }
   };
 
@@ -738,7 +738,7 @@ function JsonModal({
                 Import
               </button>
               <button type="button" onClick={onReset} className="builder-button danger">
-                Reset draft
+                Reset to saved draft
               </button>
             </div>
           </div>
@@ -791,11 +791,26 @@ function EmptyState({ label }: { label: string }) {
 }
 
 function loadInitialContent(): GameContent {
+  return loadSavedCosmeticContent() ?? cosmeticBuilderContentFrom(BASE_CONTENT);
+}
+
+function loadSavedCosmeticContent(): GameContent | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? cosmeticBuilderContentFrom(JSON.parse(saved), { hydrateMissingBaseCosmetics: true }) : cosmeticBuilderContentFrom(BASE_CONTENT);
+    return saved ? cosmeticBuilderContentFrom(JSON.parse(saved), { hydrateMissingBaseCosmetics: true }) : null;
   } catch {
-    return cosmeticBuilderContentFrom(BASE_CONTENT);
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+}
+
+function persistCosmeticDraft(exportJson: string): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, exportJson);
+    return true;
+  } catch (error) {
+    console.warn("Unable to persist cosmetic builder browser draft", error);
+    return false;
   }
 }
 

@@ -34,6 +34,7 @@ import {
 import { applyRig } from "@essence/shared/rig";
 import { ENGINES } from "../minigames";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
+import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 import MinigameHost from "./MinigameHost";
 
 const DEFAULT_EFFECT_ID = "half-roll-2-rounds";
@@ -246,18 +247,26 @@ export default function MinigameBuilder() {
     resetRun();
   };
 
-  const saveDraft = () => {
-    localStorage.setItem(STORAGE_KEY, exportJson);
-    setSaveStatus("Saved");
+  const saveDraft = async () => {
+    const stored = persistEventBuilderDraft(exportJson);
+    setSaveStatus(stored ? "Saving..." : "Storage full; saving...");
+    try {
+      await saveContentJsonToDisk(exportJson);
+      setSaveStatus("Saved to content.json");
+    } catch (error) {
+      console.error("Unable to save content.json", error);
+      setSaveStatus(stored ? "Saved in browser" : "Save failed");
+    }
   };
 
   const resetDraft = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setContent(BASE_CONTENT);
-    setSelectedId(Object.keys(BASE_CONTENT.events ?? {})[0] ?? "");
+    const saved = hasEventBuilderDraft();
+    const next = loadInitialContent();
+    setContent(next);
+    setSelectedId(Object.keys(next.events ?? {})[0] ?? "");
     setImportText("");
     setJsonModalOpen(false);
-    setSaveStatus("Reset");
+    setSaveStatus(saved ? "Restored saved draft" : "Reset to content.json");
     resetRun();
   };
 
@@ -1535,7 +1544,7 @@ function JsonModal({
                 Import
               </button>
               <button type="button" onClick={onReset} className="rounded-md border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-sm font-bold text-rose-100 transition hover:bg-rose-500/15">
-                Reset draft
+                Reset to saved draft
               </button>
             </div>
           </div>
@@ -1928,6 +1937,24 @@ function loadInitialContent(): GameContent {
     return migrateEffectDraft(normalizeContentSchema(JSON.parse(saved)));
   } catch {
     return BASE_CONTENT;
+  }
+}
+
+function persistEventBuilderDraft(exportJson: string): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, exportJson);
+    return true;
+  } catch (error) {
+    console.warn("Unable to persist event builder browser draft", error);
+    return false;
+  }
+}
+
+function hasEventBuilderDraft(): boolean {
+  try {
+    return !!localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return false;
   }
 }
 
@@ -2518,6 +2545,8 @@ function createTestState(
     activeEvent: null,
     reveal: null,
     winnerId: null,
+    artifactShop: null,
+    pendingArtifactUse: null,
     activeEffects: [],
   };
 }

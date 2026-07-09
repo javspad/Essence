@@ -171,6 +171,17 @@ assert.deepEqual(exported.maps?.[0].mapProps, exported.maps?.[0].artifacts);
 assert.equal(slotMaterialStyle("timing" as any).top, "#64748b");
 assert.equal(terrainMaterialStyle("legacy-road" as any).top, "#e6cf9d");
 
+let mapDeleteState = createInitialMapBuilderState(content);
+mapDeleteState = mapBuilderReducer(mapDeleteState, { type: "duplicate_map" });
+const duplicatedMapId = mapDeleteState.activeMapId;
+mapDeleteState = mapBuilderReducer(mapDeleteState, { type: "delete_map" });
+assert.equal(mapDeleteState.content.maps.some((map) => map.id === duplicatedMapId), false);
+assert.equal(mapDeleteState.content.maps.length, 1);
+assert.equal(mapDeleteState.activeMapId, mapDeleteState.content.maps[0].id);
+const protectedMapState = mapBuilderReducer(mapDeleteState, { type: "delete_map" });
+assert.equal(protectedMapState.content.maps.length, 1);
+assert.equal(protectedMapState.activeMapId, mapDeleteState.activeMapId);
+
 const canonicalMapPropImport = normalizeContentSchema({
   ...content,
   activeMapId: "props-map",

@@ -10,10 +10,11 @@ Progress is tracked directly in this file. When an implementation agent finishes
 
 - Multiplayer board game for one friend group, with in-memory **Rooms** and server-authoritative **GameState** in `server/src/room.ts`.
 - Shared contract in `shared/types.ts` for board cells, maps, minigames, events, actions, results, reveal payloads, and socket events.
-- `shared/content.json` currently has 7 player slots, 17 minigames, 3 dares, 2 fates, a 54-cell active map, 56 routes, 9 terraces, 76 decorative map objects, and 24 map assets.
+- `shared/content.json` currently has 3 authored characters, 17 minigames, 22 normalized events, 2 effects, 4 gameplay artifacts, 21 visual cosmetics, 1 active 54-cell map, 56 routes, 9 terraces, 76 decorative map props, 80 map assets, and 2 shop cells.
 - The server already resolves activity results through `server/src/minigames/index.ts`, applies rigging, awards coins, applies event outcomes, and emits reveal screens.
 - `client/src/components/MinigameBuilder.tsx` already edits story, activity type, content JSON, triggers, playtest players, and immediate consequences.
 - `client/src/components/MapBuilder.tsx` already edits maps, cells, routes, terrain, decorative map props, event assignments, and import/export JSON.
+- Builder Save buttons use the local Vite dev endpoint `/api/dev/content` to validate and write normalized `shared/content.json`, with browser draft storage as a fallback and Download as an explicit backup path.
 
 ## Roadmap Principles
 
@@ -65,15 +66,27 @@ Every slice must leave the project in a state that can be inspected by a human.
 
 | Surface | Status | Route or entry point | Purpose |
 | --- | --- | --- | --- |
-| Game | Existing | `/` | Join/create room and play the current board game. |
+| Game | Existing | `/` | Join/create room, choose an authored map, and play the current board game. |
 | Board Camera Controls | Existing | In-game board HUD | Click player tokens, focus characters, and toggle a full-map overview. |
-| Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, and map props. |
+| Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, and map props; save to `shared/content.json`; inspect/search props in the 3D gallery. |
 | Event Builder | Existing, with legacy component/file names | `/event-builder` (`/minigame-builder` legacy alias) | Edit events, activities, stories, and consequences. |
 | Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
-| Character Builder | Existing | `/character-builder` | Edit characters, face photos, anchors, sets, and traits. |
-| Artifact Builder | Planned | `/artifact-builder` | Edit artifact rules, rarity, effects, visuals, animations, and shop simulation. |
+| Character Builder | Existing | `/character-builder` | Edit characters, face photos, anchors, default loadouts, and draft trait ids. |
+| Artifact Builder | Existing | `/artifact-builder` | Edit artifact rules, rarity, effects, visuals, animations, and shop simulation. |
 | Cosmetic Builder | Existing | `/cosmetic-builder` | Edit visual-only items, prices, anchor placement, transforms, compatibility, and previews. |
-| Shop UI | Partial | In-game shop button on the 3D board | Buy/equip cosmetics now; artifact shop tab remains planned for `S4`. |
+| Shop UI | Existing | In-game shop button and shop board cells | Buy/equip cosmetics; auto-open shared artifact shop visits on shop cells; roll, buy, target, and use gameplay artifacts. |
+
+## Authoring Persistence And Map Builder Follow-up
+
+These changes landed while validating the completed S4/S5 builder work and should be treated as part of the current baseline, not future roadmap scope.
+
+- [x] Add Save actions that write validated normalized content to `shared/content.json` in local dev for Map Builder, Event Builder, Character Builder, Cosmetic Builder, and Artifact Builder.
+- [x] Keep browser drafts as fallback/recovery only; Reset draft restores the latest saved browser draft or the current `content.json` baseline rather than acting as the authoritative save path.
+- [x] Keep Download/Copy inside JSON import/export panels so header toolbars stay focused on editing actions.
+- [x] Simplify Map Builder toolbar spacing with a shorter map selector, icon-only map actions, tooltips/ARIA labels, and no direct Game shortcut.
+- [x] Add Map Builder delete-map action with guardrails so the last map cannot be removed.
+- [x] Move the prop 3D viewer into the Props tool area, add prop search, and keep the separate full-map 3D preview available from the preview card instead of a header dropdown.
+- [x] Let room creation choose any map saved in `shared/content.json`, with map stats shown before creating the room.
 
 ## Progress Tracker
 
@@ -85,9 +98,9 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S0` Result and confirmation fixes | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S1` Domain language and schema hardening | [x] | `R-REF` | `npm run test -w server`; `npm run typecheck -w server`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run test -w client`; `npm run build -w client`; `git diff --check`. |
 | `S-CAM` Map camera and character navigation | [x] | `S1` | `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright board-camera QA; `git diff --check`. |
-| `S2` Character identity and character sets | [x] | `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright character flow QA; `git diff --check`. |
+| `S2` Character identity and character slots | [x] | `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright character flow QA; `git diff --check`. |
 | `S3` Reusable consequences and effects | [x] | `S1`, `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright Event Builder QA; `git diff --check`. |
-| `S4` Artifact catalog, builder, and shop | [ ] | `S3`, `S-CAM` | Artifact builder route plus in-game shop purchase/use flow. |
+| `S4` Artifact catalog, builder, and shop | [x] | `S3`, `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build`; Playwright S4 builder/shop QA; `git diff --check`. |
 | `S5` Cosmetics and face anchors | [x] | `S2` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright S5 builder/shop QA; `git diff --check`. |
 | `S6` Character traits | [ ] | `S2`, `S3` | Character builder trait config plus live trait trigger. |
 | `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Coin-source tests plus in-game spending flow. |
@@ -134,7 +147,7 @@ flowchart TD
   R --> B["Slice 1: Domain language and schema hardening"]
   A --> B
   B --> CAM["Slice S-CAM: Map camera and character navigation"]
-  CAM --> C["Slice 2: Character identity and character sets"]
+  CAM --> C["Slice 2: Character identity and character slots"]
   CAM --> D["Slice 3: Reusable consequences and effects"]
   D --> E["Slice 4: Artifact catalog, builder, and shop"]
   C --> F["Slice 5: Cosmetics and face anchors"]
@@ -202,7 +215,7 @@ Suggested fields:
 
 - `GameContent.events`: existing event catalog.
 - `GameContent.assetCatalog`: current map prop assets.
-- Future `GameContent.characters`, `characterSets`, `cosmetics`, `artifacts`, and `effects`.
+- `GameContent.characters`, `cosmetics`, `artifacts`, `effects`, and `maps`.
 
 Verification notes:
 
@@ -270,16 +283,16 @@ Acceptance:
 - Camera modes work during idle turns, movement, event/reveal overlays, and after turn changes without mutating server state.
 - The implementation creates reusable hooks/helpers for future artifact target selection and effect inspection.
 
-## Slice 2 (`S2`): Character Identity And Character Sets
+## Slice 2 (`S2`): Character Identity And Character Slots
 
 Goal: turn fixed player definitions into reusable configurable characters.
 
 Tasks:
 
 - [x] `S2-01` Add `CharacterDef` with id, display name, color, groom flag, face photo reference, face anchors, default loadout, and default traits.
-- [x] `S2-02` Add `CharacterSetDef` so room creation can choose which preloaded characters may join.
-- [x] `S2-03` Update room creation to include a selected character set.
-- [x] `S2-04` Update join logic so a player claims a character slot from the selected set.
+- [x] `S2-02` Add a visible character-slot model so room creation and joining can choose authored characters.
+- [x] `S2-03` Update room creation to include a selected character slot.
+- [x] `S2-04` Update join logic so a player claims an available character slot.
 - [x] `S2-05` Build a Character Builder for creating/editing characters.
 - [x] `S2-06` Make the Character Builder reachable from `/character-builder` and the tools surface.
 - [x] `S2-07` Support downloading and importing the character JSON.
@@ -295,17 +308,17 @@ Face anchor fields:
 
 Verification notes:
 
-- Added shared character contracts and helpers for `CharacterDef`, `CharacterSetDef`, visible room character slots, and character set summaries.
-- `normalizeContentSchema` now migrates legacy `players` into default `characters` and `characterSets`, while Zod-backed character validation checks anchors, set membership, default loadouts, and trait/cosmetic references.
-- Seeded `shared/content.json` with explicit default characters, face/body anchors, empty loadouts, empty traits, and the `Despedida original` character set.
-- Room creation accepts a selected character set; `/api/character-sets` and `/api/rooms` expose set/slot summaries; join/create flows claim a character slot and prevent duplicate connected claims.
-- Added `/character-builder` with character editing, face/body anchor editing, set membership editing, local draft persistence, JSON import/export, and a `/tools` link.
-- Manual QA path: open `/tools`, navigate to `/character-builder`, verify import/export JSON, create a room with `Despedida original`, join as another character slot, start the board, confirm tokens render, and confirm no free-camera control appears.
+- Added shared character contracts and helpers for `CharacterDef` and visible room character slots.
+- `normalizeContentSchema` now migrates legacy `players` into default `characters`, strips legacy `characterSets`, and validates anchors, default loadouts, and trait/cosmetic references.
+- Seeded `shared/content.json` with explicit default characters, face/body anchors, empty loadouts, and empty trait ids.
+- Room creation exposes character slots directly; join/create flows claim a character slot and prevent duplicate connected claims.
+- Added `/character-builder` with character editing, face/body anchor editing, default loadout editing, local draft persistence, JSON import/export, and a `/tools` link.
+- Manual QA path: open `/tools`, navigate to `/character-builder`, verify import/export JSON, create a room, join as another character slot, start the board, confirm tokens render, and confirm no free-camera control appears.
 - Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); Playwright character flow QA with screenshots at `/tmp/essence-s2-character-builder.png` and `/tmp/essence-s2-board.png`; `git diff --check`.
 
 Acceptance:
 
-- A host can create a room with a chosen character set.
+- A host can create a room with a chosen character slot.
 - A character can be imported/exported, edited, joined, and rendered with existing board tokens.
 - Character data can be changed through JSON and through the builder UI.
 
@@ -368,34 +381,35 @@ Goal: implement gameplay items that are bought, used immediately, and can apply 
 
 Tasks:
 
-- [ ] `S4-01` Add `ArtifactDef` with id, name, description, price, rarity, target mode, use flow, immediate consequences, duration effects, optional visuals, and optional animations.
-- [ ] `S4-02` Add rarity buckets: common, epic, legendary.
-- [ ] `S4-03` Add global rarity rates and artifact-specific weight overrides.
-- [ ] `S4-04` Build Artifact Builder UI for listing, editing, previewing, and simulating shop rolls.
-- [ ] `S4-05` Make the Artifact Builder reachable from `/artifact-builder` and the tools surface.
-- [ ] `S4-06` Add shop cell support to map/content.
-- [ ] `S4-07` Add shop UI button beside the roll button.
-- [ ] `S4-08` Implement artifact shop visit flow:
-  - First shop visit starts empty or prompts a roll, depending on final decision.
+- [x] `S4-01` Add `ArtifactDef` with id, name, description, price, rarity, target mode, use flow, immediate consequences, duration effects, optional visuals, and optional animations.
+- [x] `S4-02` Add rarity buckets: common, epic, legendary.
+- [x] `S4-03` Add global rarity rates and artifact-specific weight overrides.
+- [x] `S4-04` Build Artifact Builder UI for listing, editing, previewing, and simulating shop rolls.
+- [x] `S4-05` Make the Artifact Builder reachable from `/artifact-builder` and the tools surface.
+- [x] `S4-06` Add shop cell support to map/content.
+- [x] `S4-07` Add shop UI button beside the roll button.
+- [x] `S4-08` Implement artifact shop visit flow:
+  - Shop visits auto-open a shared Artifacts view for every connected player when the active player reaches a shop cell.
+  - First shop visit starts with a roll prompt for the shop actor.
   - Roll produces four artifact offers.
   - Player can inspect what each artifact does.
   - Player can buy only one artifact per shop visit.
   - Coins are deducted immediately.
-  - Purchase closes the shop and starts the artifact use flow.
-- [ ] `S4-09` Implement target selection UI:
+  - Purchase either resolves an immediate artifact or pivots into the target/use flow in the same shared shop surface.
+- [x] `S4-09` Implement target selection UI:
   - List all players with positions and active effects.
   - Hover/focus highlights target on board by reusing `S-CAM` focused-player primitives.
   - Show trajectory from acting player to target.
   - Center camera on that trajectory with the reusable camera intent model.
-- [ ] `S4-10` Add optional outgoing/incoming animations for artifact use.
-- [ ] `S4-11` Add shared announcement and confirmation flow after artifact use.
-- [ ] `S4-12` Implement the first complete artifact: Mochila de Gaston.
+- [x] `S4-10` Add optional outgoing/incoming animations for artifact use.
+- [x] `S4-11` Add shared announcement and confirmation flow after artifact use.
+- [x] `S4-12` Implement the first complete artifact: Mochila de Gaston.
 
 Mochila de Gaston seed:
 
-- Price and rarity to be decided.
-- Incoming animation: Gaston delivers a backpack.
-- Visual: backpack between the target character's arms, in front of chest.
+- Price: 4 coins. Rarity: common.
+- Incoming animation: `gaston-backpack-drop` metadata with shared announcement/camera presentation.
+- Visual: backpack shown on the target character's front/chest while the active effect is live.
 - Effect: target advances half of die roll movement.
 - Conditional consequence: if target rolls 6, target takes a shot.
 - Duration: 2 rounds.
@@ -404,6 +418,41 @@ Acceptance:
 
 - A player can land on a shop, roll offers, buy one affordable artifact, choose a target when needed, see the use announcement, and see the effect apply across turns.
 - Artifacts can be modified through JSON and through the Artifact Builder without code edits.
+
+Verification notes:
+
+- Added gameplay artifact contracts, rarity rates, target/use flow, shop offers, pending use state, and socket events without reusing decorative `MapArtifact`/Map Props.
+- Added `shared/artifacts.ts` for rarity normalization, weighted unique shop rolls, pricing, target availability, and S3 consequence/effect conversion.
+- Extended content validation for gameplay artifacts, artifact rarity rates, artifact visuals/animations/weight overrides, and the new `shop` tile type.
+- Server room flow now starts an artifact shop from `shop` cells, rolls four offers, enforces one purchase per visit, deducts coins, resolves immediate or targeted artifact use, announces use through the event flow, and reuses S3 actions/effects.
+- The shop UI keeps visual-only Cosmetics and gameplay Artifacts in separate tabs; Artifacts supports catalog inspection, offer rolling, purchase, target selection, target hover/focus, and use.
+- Follow-up shop UX now auto-opens the same artifact shop state for all players, locks controls for spectators, shows the active shop actor and coins, displays the one-purchase-per-visit limit, hides spectator offer-card action buttons, and communicates rarity through card styling instead of extra badges.
+- Target selection reuses S-CAM focus primitives, adds a board trajectory beam, and centers the camera on the acting-player-to-target path without reintroducing manual/free camera controls.
+- Artifact use announcements identify both sender and receiver; the receiving player's event overlay headlines `Vos`, while other viewers see the receiver's name.
+- Added `/artifact-builder` and Tools Hub access for catalog editing, rarity-rate editing, JSON import/export/download/save, validation, selected-artifact restore, compact browser draft fallback, and shop-roll simulation.
+- Seeded `shared/content.json` with a shop tile, artifact rarity rates, four artifacts, and the first complete artifact, `mochila-de-gaston`, backed by the reusable `mochila-half-roll` effect.
+- Mochila halves target movement for two rounds, renders a backpack gameplay visual on the target pawn while active, and triggers a take-shot offline action when the target's physical die face is 6.
+- Follow-up effect notices show item consumed/expired messages when duration effects trigger or end; full S9 notification polish remains open.
+- Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build` (existing Vite large chunk warning only); content load smoke via `npx tsx`; Playwright S4 QA against dev server/client on `PORT=3002` and `CLIENT_PORT=5175`; screenshots at `/tmp/essence-s4-tools.png`, `/tmp/essence-s4-artifact-builder.png`, `/tmp/essence-s4-artifact-shop.png`, `/tmp/essence-s4-artifact-target.png`, and `/tmp/essence-s4-artifact-event.png`; follow-up two-client Playwright smoke for shared shop spectator state, hidden spectator CTAs, target headline `Vos`, and `/tmp/qa_artifact_reconnect_nico.png`; `git diff --check`.
+
+Manual validation checklist:
+
+- [x] Open `/tools` and verify Artifact Builder is reachable.
+- [x] Open `/artifact-builder`, verify seeded artifacts validate, simulate a shop roll, and verify the catalog/export surface stays usable.
+- [x] Start a live room, land on a shop cell, and verify the Artifacts tab opens with a roll prompt.
+- [x] Roll artifact offers and verify four inspectable offers appear.
+- [x] Buy one affordable artifact and verify a second purchase is blocked for the same shop visit.
+- [x] Verify spectators see the same artifact shop state, cannot roll/buy/target, and do not see disabled offer-card action buttons.
+- [x] Buy `Mochila de Gaston`, verify target selection appears, hover/focus a target, and verify board focus/trajectory presentation.
+- [x] Use Mochila on a target and verify the shared event announcement names sender and receiver.
+- [x] Verify the receiver's artifact-use event overlay headlines `Vos`; other viewers see the receiver's name.
+- [x] Verify the target receives the backpack visual and the active effect.
+- [x] Roll while Mochila is active and verify movement uses half of the physical die face.
+- [x] Roll a physical 6 while Mochila is active and verify the take-shot offline action appears.
+- [x] Use only board focus/overview primitives during target selection; verify no manual/free camera control returns.
+- [x] Simulate storage pressure in Artifact Builder and verify compact draft persistence keeps the page usable without crashing.
+
+Manual QA completed by Codex on 2026-07-07; follow-up shared-shop/browser persistence QA completed on 2026-07-08.
 
 ## Slice 5 (`S5`): Cosmetics And Face Anchors
 
@@ -433,14 +482,14 @@ Verification notes:
 - Removed Character Builder's duplicated accessory catalog/editor surface so cosmetics are authored from the shared catalog in Cosmetic Builder.
 - Removed the character set authoring/runtime path; saved `content.characters` is now the single character list used by the builder, room creation, and room slots, while legacy `characterSets` imports are stripped during normalization.
 - Updated 3D token rendering so cosmetics are data-driven and anchored to face/body anchors without affecting movement, events, minigames, artifacts, effects, scoring, or camera behavior.
-- Added an in-game shop button with a Cosmetics tab for buy/equip and a separate Artifacts tab stub for future `S4` integration.
+- Added an in-game shop button with a Cosmetics tab for buy/equip; completed `S4` later filled the separate Artifacts tab with the live gameplay shop flow.
 - Manual/Playwright QA screenshots: `/tmp/essence-s5-tools.png`, `/tmp/essence-s5-cosmetic-builder.png`, `/tmp/essence-s5-character-builder.png`, `/tmp/essence-s5-shop.png`, `/tmp/essence-s5-cosmetic-builder-desktop.png`, `/tmp/essence-s5-cosmetic-builder-mobile.png`, `/tmp/essence-s5-board-canvas.png`.
 - Verification passed: `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing large chunk warning only); content load smoke via `npx tsx`; Playwright S5 builder/shop QA against the built app on `PORT=3002`; Playwright follow-up QA on `http://localhost:5174/cosmetic-builder` and `/character-builder`; desktop/mobile canvas screenshot pixel checks; `git diff --check`.
 
 Merge notes:
 
 - Later `S3` work may touch `shared/types.ts`, `shared/contentValidation.ts`, `server/src/room.ts`, and server tests; S5 changes are intentionally scoped to visual cosmetic ownership/equip state.
-- Later `S4` artifact shop should reuse the visible shop tab placement but keep artifact purchase/use logic separate from visual-only cosmetics.
+- Completed `S4` reused the visible shop tab placement while keeping artifact purchase/use logic separate from visual-only cosmetics.
 - Later `S7` economy balancing should revisit cosmetic prices; S5 keeps one free cosmetic so the buy/equip flow is testable with a new room.
 
 Acceptance:
@@ -561,6 +610,10 @@ Tasks:
 - [ ] `S9-07` Add notifications for effect applied, effect ticked, effect ended, artifact used, and purchase completed.
 - [ ] `S9-08` Tune reveal, target selector, shop, and active effect presentation for desktop and mobile.
 
+Partial baseline:
+
+- Effect ended/consumed notifications now appear for active effects that expire or trigger during gameplay, including artifact-backed effects. Remaining `S9-07` work: applied/ticked notifications, purchase-completed feedback, and final presentation polish.
+
 Acceptance:
 
 - Important state changes have visible and optional audible feedback without blocking gameplay.
@@ -597,7 +650,7 @@ These are captured from the notes and should be handled in Slice 0 unless a task
 - Face anchors for eyes and mouth, including position and angle.
 - Default preloaded characters.
 - Character JSON download/import/edit.
-- Room creation with selectable character set.
+- Room creation with selectable character slot and authored map.
 - Character traits/default effects.
 
 ### Cosmetics
@@ -659,7 +712,7 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 | Show Whack points per player | `S0` | Whack payload already submits hits; reveal needs to expose it. |
 | Group confirmation for prendas | `S0`, `S3` | Starts as bug fix, becomes reusable confirmation consequence. |
 | Voting in input minigame | `S0`, `S3` | Likely combined prompt/vote activity or configurable resolver chain. |
-| Better characters and character builder | `S2` | Includes defaults, room character sets, JSON import/export. |
+| Better characters and character builder | `S2` | Includes defaults, room character slots, JSON import/export. |
 | Face photo, eyes, mouth, anchor angle | `S2`, `S5` | Character anchors power cosmetics and visuals. |
 | Default preloaded players/characters | `S2` | Migrates current `content.players`. |
 | Click characters, find them on the map, full-map overview | `S-CAM` | Adds board inspection before artifacts, effects, and richer character flows depend on it. |
@@ -684,23 +737,25 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 interface GameContent {
   players: PlayerDef[]; // legacy compatibility
   characters?: Record<string, CharacterDef>;
-  characterSets?: Record<string, CharacterSetDef>;
   events?: Record<string, GameEventDef>;
   effects?: Record<string, EffectDef>;
   artifacts?: Record<string, ArtifactDef>;
+  artifactRarityRates?: ArtifactRarityRates;
   cosmetics?: Record<string, CosmeticDef>;
   assetCatalog?: MapAssetDef[]; // decorative map props
+  maps?: MapDefinition[];
 }
 
 interface CharacterDef {
   id: string;
-  name: string;
+  displayName: string;
   color?: string;
   groom?: boolean;
-  facePhoto?: ContentAssetRef;
-  anchors?: CharacterAnchors;
-  defaultCosmetics?: string[];
-  traits?: CharacterTraitDef[];
+  facePhoto?: string;
+  faceAnchors?: Record<string, FaceAnchor>;
+  bodyAnchors?: Record<string, FaceAnchor>;
+  defaultLoadout?: CharacterLoadout;
+  defaultTraits?: string[];
 }
 
 interface ArtifactDef {
@@ -710,10 +765,12 @@ interface ArtifactDef {
   price: number;
   rarity: "common" | "epic" | "legendary";
   targetMode: ArtifactTargetMode;
+  useFlow?: ArtifactUseFlow;
   consequences?: ConsequenceDef[];
   effects?: string[]; // compatibility; prefer reusable consequences/applyEffect rows
   visual?: ItemVisualDef;
   animations?: ArtifactAnimationDef;
+  weightOverrides?: { shop?: number };
 }
 
 interface EffectInstance {
@@ -733,13 +790,11 @@ The exact names should be finalized after the glossary decision, but the relatio
 
 We should grill these one at a time before treating the roadmap as final.
 
-1. Should artifact purchases always be used immediately, or can some artifacts be stored for later?
-2. When a player lands on shop, should the first view be empty until reroll, or should four offers appear immediately?
-3. Should cosmetic ownership persist only within a room, inside imported character JSON, or in a future account/profile store?
-4. For future non-prompt offline actions, should confirmation reuse the prompt confirmer set exactly, or add consequence-specific confirmation rules?
-5. Should character traits be visible to everyone before the game starts, or revealed only when triggered?
-6. Should shots/offline prompts award coins automatically, only after confirmation, or never by default?
-7. Should anecdotes be raw content titles only, or structured story beats with tags, safe display text, and allowed activity types?
+1. Should cosmetic ownership persist only within a room, inside imported character JSON, or in a future account/profile store?
+2. For future non-prompt offline actions, should confirmation reuse the prompt confirmer set exactly, or add consequence-specific confirmation rules?
+3. Should character traits be visible to everyone before the game starts, or revealed only when triggered?
+4. Should shots/offline prompts award coins automatically, only after confirmation, or never by default?
+5. Should anecdotes be raw content titles only, or structured story beats with tags, safe display text, and allowed activity types?
 
 Resolved:
 
@@ -749,7 +804,11 @@ Resolved:
 - Manual camera movement is intentionally out of scope; map inspection uses player focus plus full-map overview.
 - Effect durations: `uses` tick when the effect actually fires, `turns` tick when the target player's turn ends, `rounds` tick when the room round advances, `untilTriggered` expires on a matching trigger, and `game` lasts until the game ends.
 - Effect authoring: effects are user-attached duration-wrapped compositions of the same consequence vocabulary; shot/offline prompts should be modeled as events or immediate consequences, not bundled into the seeded movement effect.
+- Artifact purchase/use: artifacts are bought and used immediately during a shop visit; there is no stored artifact inventory yet.
+- Artifact shop entry: reaching a shop cell opens a shared artifact shop view for everyone; the active shop actor explicitly rolls four offers, while spectators watch the same state with controls locked.
+- Builder persistence: Save writes validated normalized content to `shared/content.json` in local dev; browser storage is a draft/recovery fallback, and Download remains the manual backup path.
+- Room map selection: creating a room can select any map saved in `shared/content.json`.
 
 ## Next Review Step
 
-Start with `S4` Artifact Catalog, Builder, And Shop. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, and `S3` are complete, so the next dependency unlock is gameplay artifacts that reuse the shared consequence/effect engine.
+Start with `S6` Character Traits. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, and `S5` are complete, and `S7` remains blocked on trait work plus economy-balancing decisions.

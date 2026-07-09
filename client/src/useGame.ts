@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { EffectDef, GameState, RevealPayload } from "@essence/shared";
+import type { ArtifactOffer, EffectDef, EffectInstance, GameState, RevealPayload } from "@essence/shared";
 import { normalizeGameState } from "./gameState";
 import { socket } from "./socket";
 
@@ -20,6 +20,12 @@ interface Session {
   characterId?: string;
 }
 
+export interface EffectNotice {
+  id: string;
+  effectInstance: EffectInstance;
+  reason: "expired" | "triggered";
+}
+
 function loadSession(): Session | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -35,6 +41,7 @@ export function useGame() {
   const [playerId, setPlayerId] = useState<string | null>(loadSession()?.playerId ?? null);
   const [error, setError] = useState<string | null>(null);
   const [minigameStart, setMinigameStart] = useState<MinigameStart | null>(null);
+  const [effectNotices, setEffectNotices] = useState<EffectNotice[]>([]);
 
   useEffect(() => {
     const onConnect = () => {
@@ -58,11 +65,19 @@ export function useGame() {
     const onMinigameStart = (m: MinigameStart) => setMinigameStart(m);
     const onReveal = (_r: RevealPayload) => setMinigameStart(null);
     const onError = (e: { message: string }) => setError(e.message);
+    const onEffectEnded = (payload: { effectInstance: EffectInstance; reason: "expired" | "triggered" }) => {
+      const id = `${payload.effectInstance.id}-${Date.now()}`;
+      setEffectNotices((current) => [...current.slice(-2), { id, effectInstance: payload.effectInstance, reason: payload.reason }]);
+      window.setTimeout(() => {
+        setEffectNotices((current) => current.filter((notice) => notice.id !== id));
+      }, 6500);
+    };
     const onRoomClosed = (payload: { message: string }) => {
       localStorage.removeItem(STORAGE_KEY);
       setPlayerId(null);
       setState(null);
       setMinigameStart(null);
+      setEffectNotices([]);
       setError(payload.message);
     };
 
@@ -72,6 +87,7 @@ export function useGame() {
     socket.on("room:closed", onRoomClosed);
     socket.on("minigame:start", onMinigameStart);
     socket.on("minigame:reveal", onReveal);
+    socket.on("effect:ended", onEffectEnded);
     socket.on("error", onError);
 
     return () => {
@@ -81,6 +97,7 @@ export function useGame() {
       socket.off("room:closed", onRoomClosed);
       socket.off("minigame:start", onMinigameStart);
       socket.off("minigame:reveal", onReveal);
+      socket.off("effect:ended", onEffectEnded);
       socket.off("error", onError);
     };
   }, []);
@@ -89,9 +106,9 @@ export function useGame() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ code, name, playerId: pid, characterId }));
   };
 
-  const create = useCallback((name: string, roomName: string, characterId?: string) => {
+  const create = useCallback((name: string, roomName: string, characterId?: string, mapId?: string) => {
     setError(null);
-    socket.emit("room:create", { name, roomName, characterId }, (res) => {
+    socket.emit("room:create", { name, roomName, characterId, mapId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
         persist(res.code, name, res.playerId, characterId ?? res.playerId);
@@ -134,10 +151,44 @@ export function useGame() {
     });
   }, []);
 
+  const rollArtifactShop = useCallback((onResult?: (res: { ok: true; offers: ArtifactOffer[] } | { ok: false; error: string }) => void) => {
+    socket.emit("artifact:rollShop", {}, (res) => {
+      if (!res.ok) setError(res.error);
+      onResult?.(res);
+    });
+  }, []);
+
+  const buyArtifact = useCallback((
+    offerId: string,
+    onResult?: (res: { ok: true; artifactId: string; requiresTarget: boolean } | { ok: false; error: string }) => void
+  ) => {
+    socket.emit("artifact:buy", { offerId }, (res) => {
+      if (!res.ok) setError(res.error);
+      onResult?.(res);
+    });
+  }, []);
+
+  const useArtifact = useCallback((targetPlayerId: string | undefined, onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => {
+    socket.emit("artifact:use", { targetPlayerId }, (res) => {
+      if (!res.ok) setError(res.error);
+      onResult?.(res);
+    });
+  }, []);
+
+  const skipArtifactShop = useCallback((onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => {
+    socket.emit("artifact:skipShop", {}, (res) => {
+      if (!res.ok) setError(res.error);
+      onResult?.(res);
+    });
+  }, []);
+
   const me = state?.players.find((p) => p.id === playerId) ?? null;
   const activeId = state?.turnOrder[state.activeIndex] ?? null;
   const isMyTurn = !!me && me.id === activeId;
   const isHost = !!me?.isHost;
+  const dismissEffectNotice = useCallback((noticeId: string) => {
+    setEffectNotices((current) => current.filter((notice) => notice.id !== noticeId));
+  }, []);
 
   return {
     connected,
@@ -149,6 +200,8 @@ export function useGame() {
     isHost,
     error,
     minigameStart,
+    effectNotices,
+    dismissEffectNotice,
     actions: {
       create,
       join,
@@ -159,6 +212,10 @@ export function useGame() {
       debugApplyEffect: (playerId: string, effect: EffectDef) => socket.emit("debug:applyEffect", { playerId, effectId: effect.id, effect }),
       buyCosmetic,
       equipCosmetic,
+      rollArtifactShop,
+      buyArtifact,
+      useArtifact,
+      skipArtifactShop,
       forceResolve: () => socket.emit("minigame:force"),
       submitResult: (score: number, payload: unknown, outcome?: "win" | "loss") =>
         socket.emit("minigame:result", { score, payload, outcome }),

@@ -7,7 +7,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { normalizeContentSchema, validateGameContent } from "../shared/contentValidation";
 
 const CONTENT_FILE_PATH = resolve(__dirname, "../shared/content.json");
-const MAX_SAVE_BYTES = 2_000_000;
+const MAX_SAVE_BYTES = 10_000_000;
 
 const backendPort = process.env.API_PORT ?? process.env.SERVER_PORT ?? process.env.PORT ?? "3001";
 const backendTarget = process.env.VITE_API_TARGET ?? `http://localhost:${backendPort}`;

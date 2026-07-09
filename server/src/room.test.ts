@@ -152,6 +152,37 @@ const players = [
 }
 
 {
+  const result = validateGameContent({
+    board: [
+      { id: 0, type: "start", layout: { x: 0, y: 0 } },
+      { id: 1, type: "shop", layout: { x: 1, y: 0 } },
+      { id: 2, type: "finish", layout: { x: 2, y: 0 } },
+    ],
+    minigames: {},
+    dares: {},
+    fates: {},
+    players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+    artifactRarityRates: { common: 70, epic: -10, legendary: 0 },
+    artifacts: {
+      bad: {
+        id: "bad",
+        name: "Bad artifact",
+        description: "Invalid artifact for schema regression.",
+        price: -1,
+        rarity: "rare",
+        targetMode: "choosePlayer",
+        effects: ["missing-effect"],
+      },
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.includes("artifactRarityRates.epic")), "rarity rates reject negative weights");
+  assert.ok(result.errors.some((error) => error.includes("artifacts.bad.price")), "artifact prices must be non-negative");
+  assert.ok(result.errors.some((error) => error.includes("artifacts.bad.rarity")), "artifact rarity is limited to S4 buckets");
+  assert.ok(result.errors.some((error) => error.includes("artifacts.bad.effects")), "artifact effect references are validated");
+}
+
+{
   const { io, events } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "QUIT", "Leave test", content);
   assert.deepEqual(room.join("socket-alice", "Alice"), { ok: true, playerId: "alice" });
@@ -167,6 +198,49 @@ const players = [
     event: "room:closed",
     payload: { message: "El host cerró la sala." },
   });
+}
+
+{
+  const mapContent: GameContent = normalizeGameContentEvents({
+    ...content,
+    activeMapId: "short-map",
+    maps: [
+      {
+        id: "short-map",
+        name: "Short map",
+        description: "Default map",
+        board: [
+          { id: 0, type: "start" },
+          { id: 1, type: "finish" },
+        ],
+        routes: [{ id: "short-route", from: 0, to: 1, terrain: "grass" }],
+        artifacts: [],
+      },
+      {
+        id: "long-map",
+        name: "Long map",
+        description: "Selected map",
+        board: [
+          { id: 0, type: "start" },
+          { id: 1, type: "minigame" },
+          { id: 2, type: "finish" },
+        ],
+        routes: [
+          { id: "long-route-a", from: 0, to: 1, terrain: "stone" },
+          { id: "long-route-b", from: 1, to: 2, terrain: "grass" },
+        ],
+        artifacts: [],
+      },
+    ],
+  });
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "MAPS", "Map selection", mapContent, { mapId: "long-map" });
+
+  assert.equal(room.getState().mapId, "long-map");
+  assert.equal(room.getState().boardLength, 3);
+  assert.equal(room.getState().board[1]?.type, "minigame");
+  assert.equal(room.getState().routes?.length, 2);
+  assert.equal(room.summary().mapName, "Long map");
 }
 
 {
@@ -302,6 +376,165 @@ const players = [
   assert.deepEqual(room.equipCosmetic("socket-guest", "party-hat", false), { ok: true });
   assert.deepEqual(guest.cosmeticIds, ["party-goggles", "big-mustache"]);
   assert.deepEqual(room.equipCosmetic("socket-guest", "missing", true), { ok: false, error: "Ese cosmetic no existe" });
+}
+
+const artifactShopContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start", layout: { x: 0, y: 0 } },
+    { id: 1, type: "shop", label: "Shop", layout: { x: 1, y: 0 } },
+    { id: 2, type: "minigame", layout: { x: 2, y: 0 } },
+    { id: 3, type: "minigame", layout: { x: 3, y: 0 } },
+    { id: 4, type: "minigame", layout: { x: 4, y: 0 } },
+    { id: 5, type: "finish", layout: { x: 5, y: 0 } },
+  ],
+  artifactRarityRates: { common: 100, epic: 0, legendary: 0 },
+  artifacts: {
+    "mochila-de-gaston": {
+      id: "mochila-de-gaston",
+      name: "Mochila de Gaston",
+      description: "Gaston delivers a backpack that slows the target for 2 rounds.",
+      price: 4,
+      rarity: "common",
+      targetMode: "choosePlayer",
+      useFlow: "targeted",
+      consequences: [{ type: "applyEffect", effectId: "mochila-half-roll", target: "target" }],
+      visual: { assetId: "backpack", anchorType: "body", anchorId: "chest", label: "Backpack" },
+      animations: { incoming: "gaston-backpack-drop" },
+    },
+    "common-coin": {
+      id: "common-coin",
+      name: "Coin IOU",
+      description: "Gain one coin.",
+      price: 1,
+      rarity: "common",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "coins", value: 1, target: "acting" }],
+    },
+    "common-step": {
+      id: "common-step",
+      name: "Step ticket",
+      description: "Move one cell.",
+      price: 1,
+      rarity: "common",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "move", delta: 1, target: "acting" }],
+    },
+    "common-text": {
+      id: "common-text",
+      name: "Toast note",
+      description: "Announce a toast.",
+      price: 0,
+      rarity: "common",
+      targetMode: "none",
+      useFlow: "immediate",
+      consequences: [{ type: "text", text: "A toast is declared." }],
+    },
+  },
+  effects: {
+    "mochila-half-roll": {
+      id: "mochila-half-roll",
+      name: "Mochila de Gaston",
+      description: "For 2 rounds, advance half of the die roll. If the target rolls 6, they take a shot.",
+      icon: "🎒",
+      duration: { mode: "rounds", value: 2 },
+      consequences: [
+        { type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll." },
+        {
+          type: "offlineAction",
+          hook: "afterRoll",
+          when: { rollEquals: 6 },
+          action: "takeShot",
+          text: "Rolled a 6 with Mochila de Gaston: take a shot.",
+        },
+      ],
+      visualAssetId: "backpack",
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "alice", name: "Alice", color: "#f87171" },
+    { id: "bob", name: "Bob", color: "#60a5fa" },
+  ],
+});
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "ART0", "Artifact shop crossing", artifactShopContent);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.startGame("socket-alice");
+
+  await withRolls([3], async () => room.roll("socket-alice"));
+
+  const alice = room.getState().players.find((player) => player.id === "alice");
+  assert.equal(alice?.position, 1, "passing through a shop stops on the shop cell");
+  assert.equal(room.getState().phase, "shop");
+  assert.equal(room.getState().artifactShop?.playerId, "alice");
+  assert.equal(room.getState().artifactShop?.tileId, 1);
+  assert.equal(room.getState().lastRoll, 3, "the displayed/effective roll remains the rolled value");
+  assert.equal(room.getState().lastMovement, 1, "presentation movement records the interrupted walk distance");
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "ART1", "Artifact shop", artifactShopContent);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.getState().players.find((player) => player.id === "alice")!.coins = 10;
+  room.startGame("socket-alice");
+
+  await withRolls([1], async () => room.roll("socket-alice"));
+  assert.equal(room.getState().phase, "shop");
+  assert.equal(room.getState().artifactShop?.playerId, "alice");
+  assert.deepEqual(room.getState().artifactShop?.offers, []);
+
+  const rollResult = room.rollArtifactShop("socket-alice");
+  assert.equal(rollResult.ok, true);
+  assert.equal(room.getState().artifactShop?.offers.length, 4);
+  const mochilaOffer = room.getState().artifactShop?.offers.find((offer) => offer.artifactId === "mochila-de-gaston");
+  assert.ok(mochilaOffer, "shop roll includes Mochila de Gaston when all four common artifacts are available");
+
+  assert.deepEqual(room.buyArtifact("socket-alice", mochilaOffer.id), {
+    ok: true,
+    artifactId: "mochila-de-gaston",
+    requiresTarget: true,
+  });
+  assert.equal(room.getState().players.find((player) => player.id === "alice")?.coins, 6);
+  assert.equal(room.getState().pendingArtifactUse?.artifactId, "mochila-de-gaston");
+  assert.equal(room.buyArtifact("socket-alice", room.getState().artifactShop!.offers.find((offer) => offer.id !== mochilaOffer.id)!.id).ok, false);
+
+  assert.deepEqual(room.useArtifact("socket-alice", "bob"), { ok: true });
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().activeEvent?.title, "Mochila de Gaston");
+  assert.equal(room.getState().activeEvent?.text, "Alice used Mochila de Gaston on Bob.");
+  assert.equal(room.getState().activeEvent?.story?.prompt, "Alice used Mochila de Gaston on Bob.");
+  assert.deepEqual(room.getState().activeEvent?.artifactUse, {
+    artifactId: "mochila-de-gaston",
+    artifactName: "Mochila de Gaston",
+    sourcePlayerId: "alice",
+    targetPlayerId: "bob",
+    targetMode: "choosePlayer",
+  });
+  assert.equal(room.getState().activeEffects.length, 1);
+  assert.equal(room.getState().activeEffects[0].targetPlayerId, "bob");
+  assert.equal(room.getState().activeEffects[0].effectId, "mochila-half-roll");
+
+  room.next("socket-alice");
+  assert.equal(room.getState().turnOrder[room.getState().activeIndex], "bob");
+
+  await withRolls([6], async () => room.roll("socket-bob"));
+  assert.equal(room.getState().lastBaseRoll, 6);
+  assert.equal(room.getState().lastRoll, 3, "Mochila de Gaston halves Bob's movement roll");
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.position, 1, "Bob stops at the crossed shop before using the rest of the move");
+  assert.equal(room.getState().lastMovement, 1);
+  assert.equal(room.getState().phase, "shop");
+  assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction"), true);
 }
 
 await withRolls([1, 1, 2], async () => {

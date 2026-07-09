@@ -18,6 +18,7 @@ export default function Lobby({ state, isHost, onStart, onLeave }: Props) {
       <Card font="normal" className="w-full border-[#fff4bf] bg-[#171120]/92 text-[#fff8d6] shadow-[0_20px_60px_rgb(0_0_0/0.38)]">
         <CardHeader font="normal" className="text-center">
           <p className="retro text-[10px] uppercase text-[#c7bddc]">{state.roomName || "Sala"}</p>
+          {state.mapName && <p className="retro text-[10px] uppercase text-[#a7f3d0]">Mapa: {state.mapName}</p>}
           <p className="retro text-[10px] uppercase text-[#c7bddc]">Código de sala</p>
           <CardTitle font="normal" className="retro text-4xl text-[#f5d547]">{state.code}</CardTitle>
           <p className="text-xs font-bold text-[#c7bddc]">Compartilo: todos entran con este código</p>

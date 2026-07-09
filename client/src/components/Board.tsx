@@ -17,6 +17,7 @@ const TILE_ICON: Record<TileType, string> = {
   groom: "🤵",
   reaction: "⚡",
   estimate: "🎯",
+  shop: "🛍️",
 };
 
 const TILE_COLOR: Record<TileType, string> = {
@@ -31,6 +32,7 @@ const TILE_COLOR: Record<TileType, string> = {
   groom: "from-amber-200/60 to-yellow-700/70",
   reaction: "from-lime-300/60 to-emerald-700/60",
   estimate: "from-cyan-300/60 to-blue-700/60",
+  shop: "from-emerald-300/60 to-teal-800/70",
 };
 
 interface BoardSlot {
@@ -51,7 +53,7 @@ export default function Board({ state }: { state: GameState }) {
   const activeSlot = slots.find((slot) => slot.tile.id === activePosition);
   const activePoint = activeSlot ? screenPosition(activeSlot.layout, maxX, maxY) : { left: 50, top: 50 };
   const camera = cameraFocus(activePoint);
-  const movementTileIds = new Set(movementPath(activePosition, state.lastRoll, state.boardLength));
+  const movementTileIds = new Set(movementPath(activePosition, state.lastMovement ?? state.lastRoll, state.boardLength));
   const [canLoad3D] = useState(() => supportsWebGL());
   const boardStatus = activePlayer
     ? state.lastRoll
