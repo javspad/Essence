@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { GameState, Player } from "@essence/shared";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Card, CardContent } from "@/components/ui/8bit/card";
 import { Progress } from "@/components/ui/8bit/progress";
+import { useAudioRuntime } from "../audio";
 import { ENGINES, SPECTATE_TYPES } from "../minigames";
 
 interface Props {
@@ -19,6 +20,25 @@ interface Props {
 export default function MinigameHost({ state, me, isHost, onFinish, onAction, onForce, onLeave }: Props) {
   const mg = state.activeMinigame;
   const [finishedMinigameKey, setFinishedMinigameKey] = useState<string | null>(null);
+  const { play: playAudio, stop: stopAudio } = useAudioRuntime();
+
+  useEffect(() => {
+    if (!mg) return;
+    void playAudio("minigame.music", { playerId: me.id, minigameId: mg.id });
+    return () => stopAudio("minigame.music");
+  }, [me.id, mg?.id, playAudio, stopAudio]);
+
+  useEffect(() => {
+    if (!mg) return;
+    const durationMs = minigameDurationMs(mg.content);
+    if (!durationMs || durationMs < 3500) return;
+    const timers = [3000, 2000, 1000].map((remaining) =>
+      window.setTimeout(() => {
+        void playAudio("minigame.timeTick", { playerId: me.id, minigameId: mg.id });
+      }, Math.max(0, durationMs - remaining))
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [me.id, mg?.content, mg?.id, playAudio]);
 
   if (!mg) return null;
 
@@ -90,6 +110,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
   const handleFinish = (score: number, payload: unknown, outcome?: "win" | "loss") => {
     if (finished) return;
     setFinishedMinigameKey(minigameKey);
+    if (outcome === "loss") void playAudio("minigame.playerLost", { playerId: me.id, minigameId: mg.id });
     onFinish(score, payload, outcome);
   };
 
@@ -118,6 +139,13 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
       />
     </div>
   );
+}
+
+function minigameDurationMs(content: unknown): number | null {
+  if (!content || typeof content !== "object") return null;
+  const record = content as { durationMs?: unknown; maxDurationMs?: unknown };
+  const value = typeof record.durationMs === "number" ? record.durationMs : typeof record.maxDurationMs === "number" ? record.maxDurationMs : null;
+  return value && Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function Waiting({

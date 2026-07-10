@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ArtifactOffer, EffectDef, EffectDuration, EffectInstance, EffectLifecycleHook, EventAction, GameContent, GameState, Player } from "@essence/shared";
+import type { AudioTriggerId } from "@essence/shared";
 import { consequenceLabel, durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
 import { rankPlayersByProgress, rankPlayersForFinishedGame } from "@essence/shared/ranking";
 import seedContent from "@shared/content.json";
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 import { cn } from "@/lib/utils";
 import { artifactUseMessage, effectEndedMessage } from "../artifactPresentation";
+import { AudioRuntimeControls, useAudioRuntime } from "../audio";
 import { applyCameraIntent, supportsWebGL, type BoardCameraState, type CameraIntent } from "../board3d";
 import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
 import type { EffectNotice } from "../useGame";
@@ -184,6 +186,14 @@ export default function GameScene3D({
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [cosmeticShopOpen, setCosmeticShopOpen] = useState(false);
   const [artifactTargetPreviewId, setArtifactTargetPreviewId] = useState<string | null>(null);
+  const audio = useAudioRuntime();
+  const lastDiceCueRef = useRef("");
+  const lastMotionStepRef = useRef("");
+  const shopWasOpenRef = useRef(false);
+  const activeEffectIdsRef = useRef<Set<string> | null>(null);
+  const effectNoticeIdsRef = useRef(new Set<string>());
+  const revealAudioKeyRef = useRef("");
+  const finalWinnerAudioKeyRef = useRef("");
   const forcedArtifactShopOpen = state.phase === "shop" && Boolean(state.artifactShop);
   const shopOpen = cosmeticShopOpen || forcedArtifactShopOpen;
   const canAdvance = isHost || isMyTurn;
@@ -221,6 +231,96 @@ export default function GameScene3D({
     setLeaveConfirmOpen(false);
     onLeave();
   }, [onLeave]);
+  const playAudioTrigger = useCallback(
+    (trigger: AudioTriggerId, context: Parameters<typeof audio.play>[1] = {}) => {
+      void audio.play(trigger, context);
+    },
+    [audio]
+  );
+  const playAudioTriggerFirst = useCallback(
+    (triggers: AudioTriggerId[], context: Parameters<typeof audio.playFirst>[1] = {}) => {
+      void audio.playFirst(triggers, context);
+    },
+    [audio]
+  );
+  const playPlayerClick = useCallback(
+    (playerId: string) => {
+      void audio.play("player.clicked", { playerId });
+    },
+    [audio]
+  );
+
+  useEffect(() => {
+    if (!diceCue?.nonce || !diceCue.rolling) return;
+    if (lastDiceCueRef.current === diceCue.nonce) return;
+    lastDiceCueRef.current = diceCue.nonce;
+    void audio.play("dice.roll", { playerId: diceCue.playerId });
+  }, [audio, diceCue?.nonce, diceCue?.playerId, diceCue?.rolling]);
+
+  useEffect(() => {
+    if (!activeMotion?.nonce || activeMotion.kind !== "walk" || activeMotion.path.length <= 1) return;
+    if (lastMotionStepRef.current === activeMotion.nonce) return;
+    lastMotionStepRef.current = activeMotion.nonce;
+    const timers = activeMotion.path.slice(1).map((_, index) =>
+      window.setTimeout(() => {
+        void audio.play("player.step", { playerId: activeMotion.playerId });
+      }, 120 + index * 280)
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [activeMotion?.kind, activeMotion?.nonce, activeMotion?.path, activeMotion?.playerId, audio]);
+
+  useEffect(() => {
+    if (shopOpen && !shopWasOpenRef.current) {
+      void audio.play("shop.opened", { playerId: state.artifactShop?.playerId ?? me.id });
+    }
+    shopWasOpenRef.current = shopOpen;
+  }, [audio, me.id, shopOpen, state.artifactShop?.playerId]);
+
+  useEffect(() => {
+    const current = new Set(state.activeEffects.map((effect) => effect.id));
+    const previous = activeEffectIdsRef.current;
+    if (!previous) {
+      activeEffectIdsRef.current = current;
+      return;
+    }
+    for (const effect of state.activeEffects) {
+      if (!previous.has(effect.id)) void audio.play("effect.applied", { playerId: effect.targetPlayerId, effectId: effect.effectId });
+    }
+    activeEffectIdsRef.current = current;
+  }, [audio, state.activeEffects]);
+
+  useEffect(() => {
+    const seen = effectNoticeIdsRef.current;
+    for (const notice of effectNotices) {
+      if (seen.has(notice.id)) continue;
+      seen.add(notice.id);
+      const trigger = notice.reason === "expired" ? "effect.ended" : "effect.ticked";
+      void audio.play(trigger, {
+        playerId: notice.effectInstance.targetPlayerId,
+        effectId: notice.effectInstance.effectId,
+      });
+    }
+  }, [audio, effectNotices]);
+
+  useEffect(() => {
+    const reveal = state.reveal;
+    if (!reveal) return;
+    const key = `${reveal.eventId ?? reveal.minigameId}:${reveal.ranking.join("|")}:${state.round}`;
+    if (revealAudioKeyRef.current === key) return;
+    revealAudioKeyRef.current = key;
+    const winners = reveal.entries.filter((entry) => entry.rank === 1);
+    for (const winner of winners) {
+      void audio.play("activity.playerWon", { playerId: winner.playerId, minigameId: reveal.minigameId });
+    }
+  }, [audio, state.reveal, state.round]);
+
+  useEffect(() => {
+    if (state.phase !== "finished" || !state.winnerId) return;
+    const key = `${state.winnerId}:${state.round}`;
+    if (finalWinnerAudioKeyRef.current === key) return;
+    finalWinnerAudioKeyRef.current = key;
+    void audio.play("game.finalWinner", { playerId: state.winnerId });
+  }, [audio, state.phase, state.round, state.winnerId]);
 
   const artifactTrajectory =
     state.pendingArtifactUse && activeArtifactTargetPreviewId
@@ -255,6 +355,8 @@ export default function GameScene3D({
             onUseArtifact={onUseArtifact}
             onSkipArtifactShop={onSkipArtifactShop}
             onTargetPreview={previewArtifactTarget}
+            onAudioTrigger={playAudioTrigger}
+            onAudioTriggerFirst={playAudioTriggerFirst}
           />
         )}
         <EffectNoticeStack state={state} me={me} notices={effectNotices} onDismiss={onDismissEffectNotice} />
@@ -291,6 +393,7 @@ export default function GameScene3D({
         cameraMode={cameraState.mode}
         focusedPlayerId={effectiveCameraState.focusedPlayerId}
         onPlayerFocus={focusPlayer}
+        onPlayerClick={playPlayerClick}
         artifactTrajectory={artifactTrajectory}
         className="absolute inset-0 z-0 overflow-hidden bg-[radial-gradient(ellipse_at_45%_-5%,#f2d8a7_0%,#dfa96b_30%,#96602c_62%,#2c1808_100%)]"
       />
@@ -332,6 +435,8 @@ export default function GameScene3D({
           onUseArtifact={onUseArtifact}
           onSkipArtifactShop={onSkipArtifactShop}
           onTargetPreview={previewArtifactTarget}
+          onAudioTrigger={playAudioTrigger}
+          onAudioTriggerFirst={playAudioTriggerFirst}
         />
       )}
       <EffectNoticeStack state={state} me={me} notices={effectNotices} onDismiss={onDismissEffectNotice} />
@@ -421,6 +526,7 @@ function SceneChrome({
         {state.phase !== "finished" && (
           <div className="relative z-30 ml-0 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
             <ShopButton onOpen={onOpenCosmeticShop} />
+            <AudioRuntimeControls />
             {isHost && debugToolsEnabled && (
               <DebugEffectTool
                 players={state.players}

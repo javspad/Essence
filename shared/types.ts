@@ -735,6 +735,90 @@ export interface PendingArtifactUse {
   validTargetIds: string[];
 }
 
+export const AUDIO_TRIGGER_IDS = [
+  "artifact.received",
+  "artifact.sent",
+  "artifact.used.self",
+  "artifact.used",
+  "shop.opened",
+  "shop.roll",
+  "player.step",
+  "player.clicked",
+  "dice.roll",
+  "activity.playerWon",
+  "game.finalWinner",
+  "minigame.music",
+  "minigame.timeTick",
+  "minigame.playerLost",
+  "cosmetic.bought",
+  "cosmetic.equipped",
+  "effect.applied",
+  "effect.ticked",
+  "effect.ended",
+  "purchase.completed",
+] as const;
+
+export type AudioTriggerId = (typeof AUDIO_TRIGGER_IDS)[number];
+export type AudioCategory = "sfx" | "music";
+export type AudioPlaybackMode = "oneShot" | "loop";
+export type AudioOverlapPolicy = "overlap" | "skip" | "interrupt";
+
+export interface AudioAssetDef {
+  id: string;
+  name: string;
+  /** Portable URL or data URL used by the client runtime. */
+  src: string;
+  mimeType?: string;
+  durationMs?: number;
+  /** Non-destructive playback bounds authored by the Sound Builder. */
+  trimStartMs?: number;
+  trimEndMs?: number;
+  kind?: AudioPlaybackMode;
+  tags?: string[];
+}
+
+export type AudioTriggerScopeType =
+  | "global"
+  | "player"
+  | "minigame"
+  | "artifact"
+  | "cosmetic"
+  | "effect"
+  | "purchase";
+
+export interface AudioTriggerScope {
+  type: AudioTriggerScopeType;
+  id?: string;
+}
+
+export interface AudioTriggerVariantDef {
+  assetId: string;
+  weight?: number;
+  volume?: number;
+  playbackRate?: number;
+}
+
+export interface AudioTriggerBindingDef {
+  id?: string;
+  trigger: AudioTriggerId;
+  scope?: AudioTriggerScope;
+  variants: AudioTriggerVariantDef[];
+  enabled?: boolean;
+  category?: AudioCategory;
+  playback?: AudioPlaybackMode;
+  volume?: number;
+  cooldownMs?: number;
+  maxVoices?: number;
+  overlapPolicy?: AudioOverlapPolicy;
+}
+
+export interface AudioSettingsDef {
+  muted?: boolean;
+  masterVolume?: number;
+  musicVolume?: number;
+  sfxVolume?: number;
+}
+
 export interface GameContent {
   board: Tile[];
   activeMapId?: string;
@@ -752,6 +836,9 @@ export interface GameContent {
   artifactRarityRates?: ArtifactRarityRates;
   artifacts?: Record<string, ArtifactDef>;
   effects?: Record<string, EffectDef>;
+  audioAssets?: Record<string, AudioAssetDef>;
+  audioTriggers?: AudioTriggerBindingDef[];
+  audioSettings?: AudioSettingsDef;
   minigames: Record<string, MinigameDef>;
   dares: Record<string, DareDef>;
   fates: Record<string, FateDef>;
@@ -865,6 +952,8 @@ export interface GameState {
   artifactCatalog?: Record<string, ArtifactDef>;
   artifactRarities?: Record<string, ArtifactRarityDef>;
   artifactRarityRates?: ArtifactRarityRates;
+  audioAssets?: Record<string, AudioAssetDef>;
+  audioTriggers?: AudioTriggerBindingDef[];
   artifactShop: ArtifactShopState | null;
   pendingArtifactUse: PendingArtifactUse | null;
   boardShape?: MapBoardShape;

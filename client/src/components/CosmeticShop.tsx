@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import type { ArtifactDef, ArtifactOffer, ArtifactRarityDef, CoinTransaction, CosmeticDef, GameState, Player } from "@essence/shared";
+import type { ArtifactDef, ArtifactOffer, ArtifactRarityDef, AudioTriggerId, CoinTransaction, CosmeticDef, GameState, Player } from "@essence/shared";
+import type { AudioTriggerContext } from "@essence/shared/audio";
 import { artifactActionsForUse, artifactPrice } from "@essence/shared/artifacts";
 import { consequenceLabel } from "@essence/shared/consequences";
 import { cosmeticAnchorRefs, cosmeticAssetKind, cosmeticPrice, isCosmeticCompatibleWithCharacter } from "@essence/shared/cosmetics";
@@ -24,6 +25,8 @@ interface CosmeticShopProps {
   onUseArtifact: (targetPlayerId: string | undefined, onResult?: (res: ArtifactUseResult) => void) => void;
   onSkipArtifactShop: (onResult?: (res: ArtifactUseResult) => void) => void;
   onTargetPreview: (playerId: string | null) => void;
+  onAudioTrigger?: (trigger: AudioTriggerId, context?: Omit<AudioTriggerContext, "trigger">) => void;
+  onAudioTriggerFirst?: (triggers: AudioTriggerId[], context?: Omit<AudioTriggerContext, "trigger">) => void;
 }
 
 export default function CosmeticShop({
@@ -38,6 +41,8 @@ export default function CosmeticShop({
   onUseArtifact,
   onSkipArtifactShop,
   onTargetPreview,
+  onAudioTrigger,
+  onAudioTriggerFirst,
 }: CosmeticShopProps) {
   const [tab, setTab] = useState<"cosmetics" | "artifacts">(state.phase === "shop" ? "artifacts" : "cosmetics");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -62,6 +67,10 @@ export default function CosmeticShop({
     onBuyCosmetic(cosmetic.id, (res) => {
       setBusyId(null);
       setStatus(res.ok ? transactionStatus(res.transaction, "Comprado") : res.error);
+      if (res.ok) {
+        onAudioTrigger?.("cosmetic.bought", { playerId: me.id, cosmeticId: cosmetic.id, purchaseId: cosmetic.id });
+        onAudioTrigger?.("purchase.completed", { playerId: me.id, cosmeticId: cosmetic.id, purchaseId: cosmetic.id });
+      }
     });
   };
 
@@ -71,6 +80,7 @@ export default function CosmeticShop({
     onEquipCosmetic(cosmetic.id, nextEquipped, (res) => {
       setBusyId(null);
       setStatus(res.ok ? (nextEquipped ? "Equipado" : "Guardado") : res.error);
+      if (res.ok && nextEquipped) onAudioTrigger?.("cosmetic.equipped", { playerId: me.id, cosmeticId: cosmetic.id });
     });
   };
 
@@ -225,6 +235,8 @@ export default function CosmeticShop({
             onSkipArtifactShop={onSkipArtifactShop}
             onTargetPreview={onTargetPreview}
             sharedArtifactShop={sharedShopActive}
+            onAudioTrigger={onAudioTrigger}
+            onAudioTriggerFirst={onAudioTriggerFirst}
           />
         )}
 
@@ -250,6 +262,8 @@ function ArtifactShopPanel({
   onSkipArtifactShop,
   onTargetPreview,
   sharedArtifactShop,
+  onAudioTrigger,
+  onAudioTriggerFirst,
 }: {
   state: GameState;
   me: Player;
@@ -263,6 +277,8 @@ function ArtifactShopPanel({
   onSkipArtifactShop: (onResult?: (res: ArtifactUseResult) => void) => void;
   onTargetPreview: (playerId: string | null) => void;
   sharedArtifactShop: boolean;
+  onAudioTrigger?: (trigger: AudioTriggerId, context?: Omit<AudioTriggerContext, "trigger">) => void;
+  onAudioTriggerFirst?: (triggers: AudioTriggerId[], context?: Omit<AudioTriggerContext, "trigger">) => void;
 }) {
   const shop = state.artifactShop;
   const pending = state.pendingArtifactUse;
@@ -288,6 +304,13 @@ function ArtifactShopPanel({
             setBusyId(null);
             setStatus(res.ok ? "Artifact used" : res.error);
             if (res.ok) {
+              playArtifactUseAudio({
+                actorId: pending.playerId,
+                targetId: targetPlayerId,
+                artifactId: pending.artifactId,
+                onAudioTrigger,
+                onAudioTriggerFirst,
+              });
               onTargetPreview(null);
               onClose();
             }
@@ -362,6 +385,7 @@ function ArtifactShopPanel({
                   onRollArtifacts((res) => {
                     setBusyId(null);
                     setStatus(res.ok ? "Offers rolled" : res.error);
+                    if (res.ok) onAudioTrigger?.("shop.roll", { playerId: shop.playerId });
                   });
                 }}
                 className="min-h-11 bg-[#34d399] px-4 text-xs font-black uppercase tracking-wider text-[#052e1a] disabled:bg-white/15 disabled:text-white/45"
@@ -471,7 +495,19 @@ function ArtifactShopPanel({
                       onBuyArtifact(offer.id, (res) => {
                         setBusyId(null);
                         setStatus(res.ok ? transactionStatus(res.transaction, res.requiresTarget ? "Choose target" : "Artifact used") : res.error);
-                        if (res.ok && !res.requiresTarget) onClose();
+                        if (res.ok) {
+                          onAudioTrigger?.("purchase.completed", { playerId: shop.playerId, artifactId: artifact.id, purchaseId: offer.id });
+                          if (!res.requiresTarget) {
+                            playArtifactUseAudio({
+                              actorId: shop.playerId,
+                              targetId: artifact.targetMode === "self" ? shop.playerId : undefined,
+                              artifactId: artifact.id,
+                              onAudioTrigger,
+                              onAudioTriggerFirst,
+                            });
+                            onClose();
+                          }
+                        }
                       });
                     }}
                     className="min-h-9 bg-[#f5d547] px-3 text-[10px] uppercase text-[#201507] disabled:bg-white/15 disabled:text-white/45"
@@ -629,6 +665,32 @@ function ActionSummary({ artifact, effects }: { artifact: ArtifactDef; effects?:
       ))}
     </div>
   );
+}
+
+function playArtifactUseAudio({
+  actorId,
+  targetId,
+  artifactId,
+  onAudioTrigger,
+  onAudioTriggerFirst,
+}: {
+  actorId: string;
+  targetId?: string;
+  artifactId: string;
+  onAudioTrigger?: (trigger: AudioTriggerId, context?: Omit<AudioTriggerContext, "trigger">) => void;
+  onAudioTriggerFirst?: (triggers: AudioTriggerId[], context?: Omit<AudioTriggerContext, "trigger">) => void;
+}) {
+  const context = { playerId: actorId, artifactId };
+  if (targetId && targetId !== actorId) {
+    onAudioTriggerFirst?.(["artifact.sent", "artifact.used"], context);
+    onAudioTrigger?.("artifact.received", { playerId: targetId, artifactId });
+    return;
+  }
+  if (targetId === actorId) {
+    onAudioTriggerFirst?.(["artifact.used.self", "artifact.used"], context);
+    return;
+  }
+  onAudioTrigger?.("artifact.used", context);
 }
 
 function tabClass(active: boolean): string {
