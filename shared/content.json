@@ -2408,6 +2408,85 @@
         "shop": 1
       }
     },
+    "lazo-monedas": {
+      "id": "lazo-monedas",
+      "name": "Lazo de monedas",
+      "description": "Choose a player and steal up to 3 coins from them.",
+      "price": 3,
+      "rarity": "common",
+      "targetMode": "choosePlayer",
+      "useFlow": "targeted",
+      "consequences": [
+        {
+          "type": "coinTransfer",
+          "amount": 3,
+          "from": "target",
+          "target": "acting",
+          "text": "Lazo de monedas: steal up to 3 coins from the chosen player."
+        }
+      ],
+      "visual": {
+        "label": "$",
+        "color": "#facc15"
+      },
+      "weightOverrides": {
+        "shop": 1
+      }
+    },
+    "corona-del-rico": {
+      "id": "corona-del-rico",
+      "name": "Corona del rico",
+      "description": "Steal up to 4 coins from the richest player.",
+      "price": 5,
+      "rarity": "epic",
+      "targetMode": "self",
+      "useFlow": "immediate",
+      "consequences": [
+        {
+          "type": "coinTransfer",
+          "amount": 4,
+          "from": {
+            "coinSelector": "richest"
+          },
+          "target": "acting",
+          "text": "Corona del rico: take up to 4 coins from the richest player."
+        }
+      ],
+      "visual": {
+        "label": "$",
+        "color": "#f59e0b"
+      },
+      "weightOverrides": {
+        "shop": 1
+      }
+    },
+    "vaquita-comunista": {
+      "id": "vaquita-comunista",
+      "name": "Vaquita comunista",
+      "description": "Everyone contributes up to 2 coins to the poorest player.",
+      "price": 4,
+      "rarity": "legendary",
+      "targetMode": "self",
+      "useFlow": "immediate",
+      "consequences": [
+        {
+          "type": "coinRedistribute",
+          "amount": 2,
+          "from": "everyone",
+          "target": {
+            "coinSelector": "poorest"
+          },
+          "text": "Vaquita comunista: everyone gives up to 2 coins to the poorest player."
+        }
+      ],
+      "visual": {
+        "label": "$",
+        "color": "#22c55e"
+      },
+      "weightOverrides": {
+        "shop": 1
+      }
+    },
     "taxi-nocturno": {
       "id": "taxi-nocturno",
       "name": "Taxi nocturno",
@@ -2561,8 +2640,7 @@
       "layout": {
         "x": 5.5,
         "y": 1.5
-      },
-      "eventId": "event-bostezo"
+      }
     },
     {
       "id": 6,
@@ -2814,7 +2892,11 @@
         "y": 8.5,
         "rot": -150
       },
-      "eventId": "event-fate-retroceder-2"
+      "eventId": "event-fate-retroceder-2",
+      "eventIds": [
+        "event-coin-peaje-rico",
+        "event-fate-retroceder-2"
+      ]
     },
     {
       "id": 29,
@@ -2935,7 +3017,11 @@
         "y": 12.4,
         "rot": 10
       },
-      "eventId": "event-fate-monedas-bonus"
+      "eventId": "event-fate-monedas-bonus",
+      "eventIds": [
+        "event-coin-vaquita",
+        "event-fate-monedas-bonus"
+      ]
     },
     {
       "id": 40,
@@ -4234,8 +4320,7 @@
           "layout": {
             "x": 5.5,
             "y": 1.5
-          },
-          "eventId": "event-bostezo"
+          }
         },
         {
           "id": 6,
@@ -4491,7 +4576,11 @@
             "y": 8.5,
             "rot": -150
           },
-          "eventId": "event-fate-retroceder-2"
+          "eventId": "event-fate-retroceder-2",
+          "eventIds": [
+            "event-coin-peaje-rico",
+            "event-fate-retroceder-2"
+          ]
         },
         {
           "id": 29,
@@ -4612,7 +4701,11 @@
             "y": 12.4,
             "rot": 10
           },
-          "eventId": "event-fate-monedas-bonus"
+          "eventId": "event-fate-monedas-bonus",
+          "eventIds": [
+            "event-coin-vaquita",
+            "event-fate-monedas-bonus"
+          ]
         },
         {
           "id": 40,
@@ -7229,32 +7322,6 @@
     }
   },
   "events": {
-    "event-bostezo": {
-      "name": "Tocá cuando no te vea la profe",
-      "kind": "activity",
-      "tags": [
-        "timing",
-        "bostezo"
-      ],
-      "story": {
-        "title": "Tocá cuando no te vea la profe",
-        "prompt": "Tocá cuando no te vea la profe"
-      },
-      "activity": {
-        "type": "timing",
-        "skin": "bostezo",
-        "content": {
-          "windowMs": 350,
-          "label": "Tocá cuando no te vea la profe",
-          "loseFlavor": "Te vio la profe bostezar."
-        },
-        "rigged": {
-          "losers": [
-            "nico"
-          ]
-        }
-      }
-    },
     "event-lujan": {
       "name": "Escribí un mensajito para invitar a Luján Eppens a tomar un helado.",
       "kind": "activity",
@@ -7646,12 +7713,16 @@
           "label": "Destino"
         }
       },
-      "actions": [
+      "consequences": [
         {
-          "type": "move",
-          "delta": -2,
-          "target": "landing",
-          "text": "Retrocede 2 casillero(s)"
+          "appliesTo": "landing",
+          "actions": [
+            {
+              "type": "move",
+              "delta": -2,
+              "text": "Retrocede 2 casillero(s)"
+            }
+          ]
         }
       ]
     },
@@ -7672,14 +7743,134 @@
           "label": "Destino"
         }
       },
-      "actions": [
+      "consequences": [
         {
-          "type": "coins",
-          "value": 5,
-          "target": "landing",
-          "text": "Gana 5 moneda(s)"
+          "appliesTo": "landing",
+          "actions": [
+            {
+              "type": "coins",
+              "value": 5,
+              "text": "Gana 5 moneda(s)"
+            }
+          ]
         }
       ]
+    },
+    "event-coin-peaje-rico": {
+      "name": "Peaje del más rico",
+      "kind": "story",
+      "tags": [
+        "fate",
+        "economy",
+        "coin-cell"
+      ],
+      "story": {
+        "title": "Peaje del más rico",
+        "prompt": "El casillero cobra peaje: el más rico le paga hasta 4 monedas a quien cayó acá."
+      },
+      "activity": {
+        "type": "prompt",
+        "content": {
+          "prompt": "El casillero cobra peaje: el más rico le paga hasta 4 monedas a quien cayó acá.",
+          "label": "Destino"
+        }
+      },
+      "consequences": [
+        {
+          "label": "Peaje del más rico",
+          "appliesTo": "landing",
+          "actions": [
+            {
+              "type": "coinTransfer",
+              "amount": 4,
+              "from": {
+                "coinSelector": "richest"
+              },
+              "text": "Peaje del más rico: transfer up to 4 coins to the landing player."
+            }
+          ]
+        }
+      ]
+    },
+    "event-coin-vaquita": {
+      "name": "Vaquita express",
+      "kind": "story",
+      "tags": [
+        "fate",
+        "economy",
+        "coin-cell"
+      ],
+      "story": {
+        "title": "Vaquita express",
+        "prompt": "Todos ponen hasta 1 moneda para ayudar al jugador con menos monedas."
+      },
+      "activity": {
+        "type": "prompt",
+        "content": {
+          "prompt": "Todos ponen hasta 1 moneda para ayudar al jugador con menos monedas.",
+          "label": "Destino"
+        }
+      },
+      "consequences": [
+        {
+          "label": "Vaquita express",
+          "appliesTo": {
+            "coinSelector": "poorest"
+          },
+          "actions": [
+            {
+              "type": "coinRedistribute",
+              "amount": 1,
+              "from": "everyone",
+              "text": "Vaquita express: everyone gives up to 1 coin to the poorest player."
+            }
+          ]
+        }
+      ]
+    },
+    "event-custom-24": {
+      "name": "NNNNN",
+      "kind": "activity",
+      "trigger": {
+        "type": "anyPlayer"
+      },
+      "story": {
+        "title": "NNNNN",
+        "prompt": "Escribí qué pasa cuando alguien cae acá."
+      },
+      "activity": {
+        "type": "vote",
+        "content": {
+          "question": "Escribí qué pasa cuando alguien cae acá."
+        }
+      },
+      "consequences": []
+    },
+    "event-bostezo": {
+      "name": "Tocá cuando no te vea la profe",
+      "kind": "activity",
+      "tags": [
+        "timing",
+        "bostezo"
+      ],
+      "story": {
+        "title": "Tocá cuando no te vea la profe",
+        "prompt": "Tocá cuando no te vea la profe"
+      },
+      "activity": {
+        "type": "timing",
+        "skin": "bostezo",
+        "content": {
+          "windowMs": 350,
+          "label": "Tocá cuando no te vea la profe",
+          "loseFlavor": "Te vio la profe bostezar."
+        },
+        "rigged": {
+          "losers": [
+            "nico"
+          ]
+        }
+      }
     }
   },
   "characterTraits": {

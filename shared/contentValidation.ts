@@ -6,13 +6,13 @@ import type {
   AudioTriggerBindingDef,
   CharacterDef,
   CharacterTraitDef,
+  ConsequenceRule,
   CosmeticDef,
   EffectDef,
   EffectDuration,
   EffectModifier,
   EventAction,
   EventActionTarget,
-  EventOutcomeBranch,
   FaceAnchor,
   GameContent,
   GameEventDef,
@@ -337,6 +337,7 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   for (const [id, event] of Object.entries(normalized.events ?? {})) {
     validateEvent(`events.${id}`, event, playerIds, effectIds, error);
   }
+  const eventIds = new Set(Object.keys(normalized.events ?? {}));
 
   validateCatalogIds(normalized.cosmetics, "cosmetics", error);
   validateCosmetics(normalized.cosmetics, characterIds, error, warning);
@@ -373,7 +374,7 @@ export function validateGameContent(content: unknown): ContentValidationResult {
     error("activeMapId", `references missing map ${normalized.activeMapId}`);
   }
   for (const map of maps) {
-    validateMapDefinition(map, assetIds, error);
+    validateMapDefinition(map, assetIds, eventIds, error);
   }
 
   const errors = issues.filter((issue) => issue.severity === "error").map(formatIssue);
@@ -489,19 +490,26 @@ function validateEvent(
   if (event.activity && !EVENT_ACTIVITY_TYPES.includes(event.activity.type)) {
     error(`${path}.activity.type`, `is not supported: ${event.activity.type}`);
   }
-  event.actions?.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
-  event.outcomes?.forEach((outcome, index) => validateOutcome(`${path}.outcomes[${index}]`, outcome, playerIds, effectIds, error));
+  event.consequences?.forEach((rule, index) => validateConsequenceRule(`${path}.consequences[${index}]`, rule, playerIds, effectIds, error));
+  event.activity?.rankingPayout?.consequences?.forEach((rule, index) =>
+    validateConsequenceRule(`${path}.activity.rankingPayout.consequences[${index}]`, rule, playerIds, effectIds, error)
+  );
 }
 
-function validateOutcome(
+function validateConsequenceRule(
   path: string,
-  outcome: EventOutcomeBranch,
+  rule: ConsequenceRule,
   playerIds: Set<string>,
   effectIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
-  validateTarget(`${path}.when`, outcome.when, playerIds, error);
-  outcome.actions.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
+  if (!rule.appliesTo) error(`${path}.appliesTo`, "is required");
+  else validateTarget(`${path}.appliesTo`, rule.appliesTo, playerIds, error);
+  if (!Array.isArray(rule.actions) || !rule.actions.length) {
+    error(`${path}.actions`, "must contain at least one action");
+    return;
+  }
+  rule.actions.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
 }
 
 function validateAction(
@@ -513,6 +521,10 @@ function validateAction(
 ) {
   if ("target" in action && action.target) validateTarget(`${path}.target`, action.target, playerIds, error);
   if (action.type === "coins" && !Number.isFinite(action.value)) error(`${path}.value`, "must be a finite number");
+  if (action.type === "coinTransfer" || action.type === "coinRedistribute") {
+    if (!Number.isFinite(action.amount) || action.amount < 0) error(`${path}.amount`, "must be a non-negative finite number");
+    validateTarget(`${path}.from`, action.from, playerIds, error);
+  }
   if (action.type === "move" && !Number.isFinite(action.delta)) error(`${path}.delta`, "must be a finite number");
   if (action.type === "moveTo" && !Number.isInteger(action.tileId)) error(`${path}.tileId`, "must be an integer board cell id");
   if (action.type === "applyEffect" && !effectIds.has(action.effectId)) error(`${path}.effectId`, `references missing effect ${action.effectId}`);
@@ -578,6 +590,20 @@ function validateTarget(
     if (!Number.isInteger(target.rank) || target.rank < 1) error(path, "rank must be a positive integer");
     return;
   }
+  if ("coinSelector" in target) {
+    if (target.coinSelector !== "richest" && target.coinSelector !== "poorest") error(path, "coin selector must be richest or poorest");
+    return;
+  }
+  if ("coinRank" in target) {
+    if (!Number.isInteger(target.coinRank) || target.coinRank < 1) error(path, "coin rank must be a positive integer");
+    return;
+  }
+  if ("coinRankFrom" in target) {
+    if (!Number.isInteger(target.coinRankFrom) || !Number.isInteger(target.coinRankTo) || target.coinRankFrom < 1 || target.coinRankTo < target.coinRankFrom) {
+      error(path, "coin rank range must be positive and ordered");
+    }
+    return;
+  }
   if ("nearest" in target) {
     if (target.nearest !== "ahead" && target.nearest !== "behind") error(path, "nearest must be ahead or behind");
     if (typeof target.from === "object" && !playerIds.has(target.from.playerId)) error(`${path}.from`, `references missing player ${target.from.playerId}`);
@@ -591,6 +617,7 @@ function validateTarget(
 function validateMapDefinition(
   map: MapDefinition,
   assetIds: Set<string>,
+  eventIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
   const path = `maps.${map.id}`;
@@ -601,7 +628,7 @@ function validateMapDefinition(
   for (const tile of map.board) {
     if (tileIds.has(tile.id)) error(`${path}.board.${tile.id}`, "is duplicated");
     tileIds.add(tile.id);
-    validateTile(`${path}.board.${tile.id}`, tile, error);
+    validateTile(`${path}.board.${tile.id}`, tile, eventIds, error);
   }
 
   for (const route of map.routes) {
@@ -616,9 +643,13 @@ function validateMapDefinition(
   validateBoardShape(path, map.boardShape, map.board, error);
 }
 
-function validateTile(path: string, tile: Tile, error: (path: string, message: string) => void) {
+function validateTile(path: string, tile: Tile, eventIds: Set<string>, error: (path: string, message: string) => void) {
   if (!Number.isInteger(tile.id)) error(`${path}.id`, "must be an integer");
   if (!TILE_TYPE_SET.has(tile.type)) error(`${path}.type`, `is not supported: ${tile.type}`);
+  if (tile.eventId && !eventIds.has(tile.eventId)) error(`${path}.eventId`, `references missing event ${tile.eventId}`);
+  tile.eventIds?.forEach((eventId, index) => {
+    if (!eventIds.has(eventId)) error(`${path}.eventIds[${index}]`, `references missing event ${eventId}`);
+  });
   if (!tile.layout) {
     error(`${path}.layout`, "is required");
     return;

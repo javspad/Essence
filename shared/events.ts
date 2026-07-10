@@ -1,16 +1,30 @@
 import type {
+  ArtifactDef,
+  ConsequenceRule,
+  EffectConsequenceDef,
+  EffectDef,
+  EventAction,
   EventActionTarget,
   EventActivity,
   EventActivityType,
+  EventOutcomeBranch,
   EventStory,
   GameContent,
   GameEventDef,
+  ImmediateConsequenceDef,
   Player,
   PlayerDef,
   PlayerEventOverride,
+  RankingPayoutPolicy,
   Tile,
 } from "./types";
-import { resolveTargetPlayerIds } from "./consequences";
+import {
+  defaultDurationForConsequence,
+  effectBodyAction,
+  effectConsequencesFor,
+  isPersistentModifier,
+  resolveTargetPlayerIds,
+} from "./consequences";
 
 export interface ResolvedGameEvent extends GameEventDef {
   id: string;
@@ -39,8 +53,12 @@ export const EVENT_ACTIVITY_TYPES: EventActivityType[] = [
 const LEGACY_MINIGAME_TILE_TYPES = new Set(["minigame", "trivia", "vote", "judge", "groom", "reaction", "estimate"]);
 
 export function normalizeGameContentEvents(content: GameContent): GameContent {
+  const effects = normalizeEffectCatalog(content.effects);
+  const effectIds = new Set(Object.keys(effects));
+  const normalizeActions = (actions: EventAction[], scope: string): ImmediateConsequenceDef[] =>
+    actions.map((action, index) => normalizeAuthoredConsequence(action, `${scope}-action-${index + 1}`, effects, effectIds));
   const events: Record<string, GameEventDef> = Object.fromEntries(
-    Object.entries(content.events ?? {}).map(([id, event]) => [id, normalizeEventDef(event)])
+    Object.entries(content.events ?? {}).map(([id, event]) => [id, normalizeEventDef(event, normalizeActions, `event-${id}`)])
   );
 
   for (const [id, def] of Object.entries(content.minigames ?? {})) {
@@ -60,6 +78,9 @@ export function normalizeGameContentEvents(content: GameContent): GameContent {
         skin: def.skin,
         content: def.content,
         rigged: def.rigged,
+        ...(def.rankingPayout
+          ? { rankingPayout: normalizeRankingPayout(def.rankingPayout, normalizeActions, `legacy-minigame-${id}-payout`) }
+          : {}),
       },
     };
   }
@@ -97,9 +118,13 @@ export function normalizeGameContentEvents(content: GameContent): GameContent {
         type: "prompt",
         content: { prompt: def.text, label: "Destino" },
       },
-      actions: [
-        ...(def.delta ? [{ type: "move" as const, delta: def.delta, target: "landing" as const, text: moveText(def.delta) }] : []),
-        ...(def.coins ? [{ type: "coins" as const, value: def.coins, target: "landing" as const, text: coinsText(def.coins) }] : []),
+      consequences: [
+        ...(def.delta
+          ? [{ appliesTo: "landing" as const, actions: [{ type: "move" as const, delta: def.delta, text: moveText(def.delta) }] }]
+          : []),
+        ...(def.coins
+          ? [{ appliesTo: "landing" as const, actions: [{ type: "coins" as const, value: def.coins, text: coinsText(def.coins) }] }]
+          : []),
       ],
     };
   }
@@ -113,6 +138,27 @@ export function normalizeGameContentEvents(content: GameContent): GameContent {
   return {
     ...content,
     events,
+    effects: Object.keys(effects).length ? effects : content.effects,
+    artifacts: content.artifacts
+      ? Object.fromEntries(
+          Object.entries(content.artifacts).map(([id, artifact]) => [
+            id,
+            normalizeArtifactDef(artifact, normalizeActions, `artifact-${id}`),
+          ])
+        )
+      : content.artifacts,
+    playerStories: content.playerStories
+      ? Object.fromEntries(
+          Object.entries(content.playerStories).map(([playerId, bank]) => [
+            playerId,
+            {
+              overrides: bank.overrides.map((override, index) =>
+                normalizePlayerEventOverride(override, normalizeActions, `player-${playerId}-override-${index + 1}`)
+              ),
+            },
+          ])
+        )
+      : content.playerStories,
     board: content.board.map(normalizeTile),
     maps: content.maps?.map((map) => ({
       ...map,
@@ -164,6 +210,22 @@ export function resolveEventActionTargetIds(
   return resolveTargetPlayerIds(target, context);
 }
 
+type ConsequenceRuleSource = Pick<GameEventDef, "consequences" | "actions" | "outcomes">;
+
+export function consequenceRulesFor(source: ConsequenceRuleSource): ConsequenceRule[] {
+  if (source.consequences !== undefined) return source.consequences;
+  return [
+    ...(source.actions ?? []).map(ruleForLegacyAction),
+    ...(source.outcomes ?? []).map(ruleForLegacyOutcome),
+  ];
+}
+
+export function rankingPayoutConsequencesFor(policy: RankingPayoutPolicy | undefined): ConsequenceRule[] {
+  if (!policy) return [];
+  if (policy.consequences !== undefined) return policy.consequences;
+  return (policy.outcomes ?? []).map(ruleForLegacyOutcome);
+}
+
 type ActivityPlayer = Pick<Player, "id" | "isHost">;
 
 export function resolveActivityParticipantIds(
@@ -194,13 +256,13 @@ export function resolveEventForPlayer(content: GameContent, eventId: string, pla
   const override = bestOverrideForPlayer(normalized, eventId, event, player.id);
   const story = mergeStory(event.story, override?.story);
   const activity = mergeActivity(event.activity, override?.activity);
+  const consequences = override && hasConsequenceConfig(override) ? consequenceRulesFor(override) : consequenceRulesFor(event);
   return {
     ...event,
     id: eventId,
     story,
     ...(activity ? { activity } : {}),
-    actions: override?.actions ?? event.actions,
-    outcomes: override?.outcomes ?? event.outcomes,
+    ...(consequences.length || hasConsequenceConfig(event) ? { consequences } : {}),
   };
 }
 
@@ -260,19 +322,197 @@ function mergeActivity(base?: EventActivity, override?: Partial<EventActivity>):
   if (!base && !override?.type) return undefined;
   const baseContent = isRecord(base?.content) ? base.content : undefined;
   const overrideContent = isRecord(override?.content) ? override.content : undefined;
-  return normalizeActivity({
-    ...(base ?? { type: override?.type ?? "prompt" }),
-    ...override,
-    content: baseContent || overrideContent ? { ...(baseContent ?? {}), ...(overrideContent ?? {}) } : override?.content ?? base?.content,
-    type: toEventActivityType(override?.type ?? base?.type ?? "prompt"),
-  });
+  return normalizeActivity(
+    {
+      ...(base ?? { type: override?.type ?? "prompt" }),
+      ...override,
+      content: baseContent || overrideContent ? { ...(baseContent ?? {}), ...(overrideContent ?? {}) } : override?.content ?? base?.content,
+      type: toEventActivityType(override?.type ?? base?.type ?? "prompt"),
+    },
+    keepImmediateActions,
+    "resolved-activity"
+  );
 }
 
-function normalizeEventDef(event: GameEventDef): GameEventDef {
+type NormalizeActions = (actions: EventAction[], scope: string) => ImmediateConsequenceDef[];
+
+function keepImmediateActions(actions: EventAction[]): ImmediateConsequenceDef[] {
+  return actions as ImmediateConsequenceDef[];
+}
+
+function normalizeConsequenceRules(
+  rules: ConsequenceRule[],
+  normalizeActions: NormalizeActions,
+  scope: string
+): ConsequenceRule[] {
+  return rules.map((rule, index) => ({
+    ...rule,
+    actions: normalizeActions(rule.actions, `${scope}-${index + 1}`),
+  }));
+}
+
+function normalizeEffectCatalog(catalog: Record<string, EffectDef> | undefined): Record<string, EffectDef> {
+  return Object.fromEntries(
+    Object.entries(catalog ?? {}).map(([id, effect]) => {
+      const { actions: _legacyActions, modifiers: _legacyModifiers, ...canonical } = effect;
+      const hadConsequences = effect.consequences !== undefined || effect.actions !== undefined || effect.modifiers !== undefined;
+      const consequences = effectConsequencesFor(effect).map((action) => effectBodyAction(action) as EffectConsequenceDef);
+      return [
+        id,
+        {
+          ...canonical,
+          ...(hadConsequences ? { consequences } : {}),
+        },
+      ];
+    })
+  );
+}
+
+function normalizeArtifactDef(
+  artifact: ArtifactDef,
+  normalizeActions: NormalizeActions,
+  scope: string
+): ArtifactDef {
+  const { effects: legacyEffects, ...canonical } = artifact;
+  const legacyEffectActions: EventAction[] = (legacyEffects ?? []).map((effectId) => ({
+    type: "applyEffect",
+    effectId,
+    target: "target",
+  }));
+  const actions: EventAction[] = [...(artifact.consequences ?? []), ...legacyEffectActions];
   return {
-    ...event,
-    ...(event.activity ? { activity: normalizeActivity(event.activity) } : {}),
+    ...canonical,
+    ...(actions.length || artifact.consequences !== undefined || legacyEffects !== undefined
+      ? { consequences: normalizeActions(actions, `${scope}-consequence`) }
+      : {}),
   };
+}
+
+function normalizeAuthoredConsequence(
+  action: EventAction,
+  scope: string,
+  effects: Record<string, EffectDef>,
+  effectIds: Set<string>
+): ImmediateConsequenceDef {
+  if (action.type === "applyEffect") {
+    const effect = effects[action.effectId];
+    if (action.duration && effect) {
+      const effectId = availableEffectId(`legacy-${scope}-${action.effectId}`, effectIds);
+      effects[effectId] = {
+        ...effect,
+        id: effectId,
+        name: `${effect.name} (imported duration)`,
+        duration: { ...action.duration },
+      };
+      effectIds.add(effectId);
+      return immediateEffectReference(action, effectId);
+    }
+    return immediateEffectReference(action, action.effectId);
+  }
+
+  if (!requiresReusableEffect(action)) return withoutLifecycle(action);
+
+  const effectId = availableEffectId(`legacy-${scope}`, effectIds);
+  const body = withoutActionTarget(effectBodyAction(action)) as EffectConsequenceDef;
+  const label = action.text || titleFromId(effectId);
+  effects[effectId] = {
+    id: effectId,
+    name: label,
+    description: action.text || `Imported ${action.type} effect.`,
+    duration: action.duration ? { ...action.duration } : defaultDurationForConsequence(action),
+    consequences: [body],
+  };
+  effectIds.add(effectId);
+  return immediateEffectReference(action, effectId);
+}
+
+function requiresReusableEffect(action: EventAction): boolean {
+  return Boolean(action.duration || action.hook || action.when || action.expiresOnTrigger !== undefined || isPersistentModifier(action));
+}
+
+function immediateEffectReference(action: EventAction, effectId: string): ImmediateConsequenceDef {
+  return {
+    type: "applyEffect",
+    effectId,
+    ...(action.target ? { target: action.target } : {}),
+    ...(action.text ? { text: action.text } : {}),
+    ...(action.icon ? { icon: action.icon } : {}),
+  };
+}
+
+function withoutLifecycle(action: EventAction): ImmediateConsequenceDef {
+  const {
+    hook: _hook,
+    when: _when,
+    duration: _duration,
+    expiresOnTrigger: _expiresOnTrigger,
+    ...immediate
+  } = action;
+  return immediate as ImmediateConsequenceDef;
+}
+
+function availableEffectId(requested: string, used: Set<string>): string {
+  const base = safeId(requested) || "legacy-inline-effect";
+  if (!used.has(base)) return base;
+  let suffix = 2;
+  while (used.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
+
+function normalizeEventDef(event: GameEventDef, normalizeActions: NormalizeActions, scope: string): GameEventDef {
+  const { actions: _legacyActions, outcomes: _legacyOutcomes, ...canonical } = event;
+  const consequences = normalizeConsequenceRules(consequenceRulesFor(event), normalizeActions, `${scope}-consequence`);
+  return {
+    ...canonical,
+    ...(event.activity ? { activity: normalizeActivity(event.activity, normalizeActions, `${scope}-activity`) } : {}),
+    ...(consequences.length || event.consequences !== undefined ? { consequences } : {}),
+  };
+}
+
+function normalizePlayerEventOverride(
+  override: PlayerEventOverride,
+  normalizeActions: NormalizeActions,
+  scope: string
+): PlayerEventOverride {
+  const { actions: _legacyActions, outcomes: _legacyOutcomes, ...canonical } = override;
+  const consequences = normalizeConsequenceRules(consequenceRulesFor(override), normalizeActions, `${scope}-consequence`);
+  return {
+    ...canonical,
+    ...(override.activity ? { activity: normalizePartialActivity(override.activity, normalizeActions, `${scope}-activity`) } : {}),
+    ...(consequences.length || override.consequences !== undefined ? { consequences } : {}),
+  };
+}
+
+function hasConsequenceConfig(source: ConsequenceRuleSource): boolean {
+  return source.consequences !== undefined || source.actions !== undefined || source.outcomes !== undefined;
+}
+
+function ruleForLegacyAction(action: EventAction): ConsequenceRule {
+  const appliesTo = action.target ?? "landing";
+  return {
+    appliesTo,
+    actions: [withoutActionTarget(action) as ImmediateConsequenceDef],
+  };
+}
+
+function ruleForLegacyOutcome(outcome: EventOutcomeBranch): ConsequenceRule {
+  return {
+    ...(outcome.id !== undefined ? { id: outcome.id } : {}),
+    ...(outcome.label !== undefined ? { label: outcome.label } : {}),
+    appliesTo: outcome.when,
+    actions: outcome.actions.map((action) =>
+      (sameTarget(action.target, outcome.when) ? withoutActionTarget(action) : action) as ImmediateConsequenceDef
+    ),
+  };
+}
+
+function withoutActionTarget(action: EventAction): EventAction {
+  const { target: _target, ...body } = action;
+  return body as EventAction;
+}
+
+function sameTarget(left: EventActionTarget | undefined, right: EventActionTarget): boolean {
+  return left !== undefined && JSON.stringify(left) === JSON.stringify(right);
 }
 
 function defaultParticipantMode(type: EventActivityType): "everyone" | "landing" | "host" {
@@ -311,25 +551,56 @@ function playerIdsForMode(
   return connectedPlayers.map((player) => player.id);
 }
 
-function normalizeActivity(activity: EventActivity): EventActivity {
+function normalizeActivity(activity: EventActivity, normalizeActions: NormalizeActions, scope: string): EventActivity {
+  let normalized: EventActivity;
   if (activity.type !== "prompt") {
-    return withoutResolutionMode(activity);
+    normalized = withoutResolutionMode(activity);
+  } else {
+    const mode = activity.resolutionMode ?? "none";
+    const rest = withoutResolutionMode(activity);
+    if (mode === "hostPick") normalized = { ...rest, type: "hostPick" };
+    else if (mode === "selfTap") normalized = { ...rest, type: "selfTap" };
+    else if (mode === "vote") {
+      const content = isRecord(rest.content) ? rest.content : {};
+      const prompt = promptForActivity(content);
+      normalized = {
+        ...rest,
+        type: "vote",
+        content: prompt ? { ...content, question: typeof content.question === "string" ? content.question : prompt } : rest.content,
+      };
+    } else normalized = rest;
   }
+  return normalizeActivityRankingPayout(normalized, normalizeActions, scope);
+}
 
-  const mode = activity.resolutionMode ?? "none";
-  const rest = withoutResolutionMode(activity);
-  if (mode === "hostPick") return { ...rest, type: "hostPick" };
-  if (mode === "selfTap") return { ...rest, type: "selfTap" };
-  if (mode === "vote") {
-    const content = isRecord(rest.content) ? rest.content : {};
-    const prompt = promptForActivity(content);
-    return {
-      ...rest,
-      type: "vote",
-      content: prompt ? { ...content, question: typeof content.question === "string" ? content.question : prompt } : rest.content,
-    };
-  }
-  return rest;
+function normalizePartialActivity(
+  activity: Partial<EventActivity>,
+  normalizeActions: NormalizeActions,
+  scope: string
+): Partial<EventActivity> {
+  if (!activity.rankingPayout) return { ...activity };
+  return { ...activity, rankingPayout: normalizeRankingPayout(activity.rankingPayout, normalizeActions, `${scope}-payout`) };
+}
+
+function normalizeActivityRankingPayout(
+  activity: EventActivity,
+  normalizeActions: NormalizeActions,
+  scope: string
+): EventActivity {
+  if (!activity.rankingPayout) return activity;
+  return { ...activity, rankingPayout: normalizeRankingPayout(activity.rankingPayout, normalizeActions, `${scope}-payout`) };
+}
+
+function normalizeRankingPayout(
+  policy: RankingPayoutPolicy,
+  normalizeActions: NormalizeActions,
+  scope: string
+): RankingPayoutPolicy {
+  const { outcomes: _legacyOutcomes, ...canonical } = policy;
+  return {
+    ...canonical,
+    consequences: normalizeConsequenceRules(rankingPayoutConsequencesFor(policy), normalizeActions, scope),
+  };
 }
 
 function withoutResolutionMode(activity: EventActivity): EventActivity {
@@ -356,6 +627,14 @@ function promptForActivity(content: unknown): string | undefined {
 
 function safeId(id: string): string {
   return id.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
+}
+
+function titleFromId(id: string): string {
+  return id
+    .split("-")
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -248,6 +248,7 @@ export interface MinigameDef {
   /** preguntas, persona, prompts, etc. (forma depende del motor) */
   content: unknown;
   rigged?: RiggedConfig;
+  rankingPayout?: RankingPayoutPolicy;
 }
 
 export interface DareDef {
@@ -295,6 +296,7 @@ export interface EventActivity {
     playerIds?: string[];
   };
   rigged?: RiggedConfig;
+  rankingPayout?: RankingPayoutPolicy;
 }
 
 export type TargetSelector =
@@ -307,16 +309,40 @@ export type TargetSelector =
   | { playerId: string }
   | { rank: number }
   | { rankFrom: number; rankTo: number }
+  | { coinSelector: "richest" | "poorest" }
+  | { coinRank: number }
+  | { coinRankFrom: number; coinRankTo: number }
   | { nearest: "ahead" | "behind"; from?: "landing" | "acting" | "target" | { playerId: string } };
 
 export type EventActionTarget = TargetSelector;
+
+export type CoinSourceKind = "consequence" | "rankingPayout" | "shopPurchase";
+
+export interface CoinSource {
+  kind: CoinSourceKind;
+  label: string;
+  id?: string;
+}
+
+export interface CoinTransaction {
+  id: string;
+  playerId: string;
+  delta: number;
+  requestedDelta: number;
+  before: number;
+  after: number;
+  source: CoinSource;
+  text: string;
+  counterpartyPlayerId?: string;
+  clamped?: boolean;
+}
 
 export type OfflineActionKind = "takeShot" | "custom";
 
 export type ConsequenceTiming = {
   hook?: EffectLifecycleHook;
   when?: EffectCondition;
-  /** Attach this action to the selected user as a live effect instead of resolving it immediately. */
+  /** Legacy import-only duration; canonical authored content stores duration on EffectDef. */
   duration?: EffectDuration;
   expiresOnTrigger?: boolean;
 };
@@ -328,27 +354,55 @@ export type ConsequencePresentation = {
 export type ConsequenceCore =
   | { type: "text"; text: string; target?: EventActionTarget }
   | { type: "coins"; value: number; target?: EventActionTarget; text?: string }
+  | { type: "coinTransfer"; amount: number; from: EventActionTarget; target?: EventActionTarget; clamp?: boolean; text?: string }
+  | { type: "coinRedistribute"; amount: number; from: EventActionTarget; target?: EventActionTarget; clamp?: boolean; text?: string }
   | { type: "move"; delta: number; target?: EventActionTarget; text?: string }
   | { type: "moveTo"; tileId: number; target?: EventActionTarget; text?: string }
   | { type: "skipTurn"; target?: EventActionTarget; text?: string }
   | { type: "extraTurn"; target?: EventActionTarget; text?: string }
   | { type: "offlineAction"; action: OfflineActionKind; target?: EventActionTarget; text?: string; confirmation?: EventActivity["confirmation"] }
-  | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string; duration?: EffectDuration }
+  | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string }
   | { type: "halfMovement"; target?: EventActionTarget; text?: string; rounding?: "floor" | "ceil" | "round" }
   | { type: "movementMultiplier"; target?: EventActionTarget; text?: string; multiplier: number; rounding?: "floor" | "ceil" | "round" }
   | { type: "diceBias"; target?: EventActionTarget; text?: string; face: number; chanceDeltaPercent: number }
   | { type: "swapPositions"; target?: EventActionTarget; withTarget: EventActionTarget; text?: string }
   | { type: "moveToNearest"; target?: EventActionTarget; direction: "ahead" | "behind"; text?: string };
 
+export type PersistentConsequenceType = "halfMovement" | "movementMultiplier" | "diceBias";
+
+export type ImmediateConsequenceCore = Exclude<ConsequenceCore, { type: PersistentConsequenceType }>;
+
+/** A one-shot state change. Persistent behavior is authored as an Effect and referenced with applyEffect. */
+export type ImmediateConsequenceDef = ImmediateConsequenceCore & ConsequencePresentation;
+
+/** A consequence owned by an Effect. The Effect definition owns duration. */
+export type EffectConsequenceDef = ConsequenceCore & Omit<ConsequenceTiming, "duration"> & ConsequencePresentation;
+
+/** @deprecated Broad import/runtime shape for content authored before Effects owned lifecycle and duration. */
 export type ConsequenceDef = ConsequenceCore & ConsequenceTiming & ConsequencePresentation;
 
 export type EventAction = ConsequenceDef;
 
+export interface ConsequenceRule {
+  id?: string;
+  label?: string;
+  /** Selects the rule subject and supplies the default target for its actions. */
+  appliesTo: EventActionTarget;
+  actions: ImmediateConsequenceDef[];
+}
+
+/** @deprecated Import compatibility for content authored before consequence rules. */
 export interface EventOutcomeBranch {
   id?: string;
   label?: string;
   when: EventActionTarget;
   actions: EventAction[];
+}
+
+export interface RankingPayoutPolicy {
+  consequences?: ConsequenceRule[];
+  /** @deprecated Use consequences. */
+  outcomes?: EventOutcomeBranch[];
 }
 
 export interface GameEventDef {
@@ -359,9 +413,11 @@ export interface GameEventDef {
   trigger?: EventTriggerScope;
   story?: EventStory;
   activity?: EventActivity;
-  /** immediate actions for story-only events */
+  /** Consequences resolved together when the event completes. */
+  consequences?: ConsequenceRule[];
+  /** @deprecated Import compatibility; normalized into consequences. */
   actions?: EventAction[];
-  /** actions applied after an activity resolves to a ranking */
+  /** @deprecated Import compatibility; normalized into consequences. */
   outcomes?: EventOutcomeBranch[];
 }
 
@@ -372,7 +428,10 @@ export interface PlayerEventOverride {
   activityType?: EventActivityType;
   story?: EventStory;
   activity?: Partial<EventActivity>;
+  consequences?: ConsequenceRule[];
+  /** @deprecated Import compatibility; normalized into consequences. */
   actions?: EventAction[];
+  /** @deprecated Import compatibility; normalized into consequences. */
   outcomes?: EventOutcomeBranch[];
 }
 
@@ -612,7 +671,7 @@ export interface EffectDef {
   icon?: string;
   duration: EffectDuration;
   hooks?: EffectLifecycleHook[];
-  consequences?: EventAction[];
+  consequences?: EffectConsequenceDef[];
   /** @deprecated Use consequences. */
   modifiers?: EffectModifier[];
   /** @deprecated Use consequences. */
@@ -629,7 +688,8 @@ export interface ArtifactDef {
   targetMode: ArtifactTargetMode;
   useFlow?: ArtifactUseFlow;
   target?: EventActionTarget;
-  consequences?: EventAction[];
+  consequences?: ImmediateConsequenceDef[];
+  /** @deprecated Use applyEffect consequences. */
   effects?: string[];
   visual?: {
     assetId?: string;
@@ -819,7 +879,7 @@ export interface EffectInstance {
   targetPlayerId: string;
   remaining: EffectDurationState;
   hooks: EffectLifecycleHook[];
-  consequences: EventAction[];
+  consequences: EffectConsequenceDef[];
   icon?: string;
   visualAssetId?: string;
   startedRound: number;
@@ -936,6 +996,7 @@ export interface AppliedEventAction {
   targetPlayerIds: string[];
   text: string;
   value?: number;
+  coinTransactions?: CoinTransaction[];
   tileId?: number;
   effectId?: string;
   effectInstanceIds?: string[];
@@ -968,6 +1029,7 @@ export interface RevealPayload {
   ranking: string[]; // ids de 1ro a último (rig ya aplicado)
   entries: RevealEntry[];
   coins: Record<string, number>;
+  coinTransactions?: CoinTransaction[];
   actions?: AppliedEventAction[];
 }
 
@@ -1023,7 +1085,7 @@ export interface ClientToServerEvents {
   "minigame:result": (payload: { score: number; payload: unknown; outcome?: "win" | "loss" }) => void;
   "cosmetic:buy": (
     payload: { cosmeticId: string },
-    ack: (res: { ok: true } | { ok: false; error: string }) => void
+    ack: (res: { ok: true; transaction?: CoinTransaction } | { ok: false; error: string }) => void
   ) => void;
   "cosmetic:equip": (
     payload: { cosmeticId: string; equipped: boolean },
@@ -1035,7 +1097,7 @@ export interface ClientToServerEvents {
   ) => void;
   "artifact:buy": (
     payload: { offerId: string },
-    ack: (res: { ok: true; artifactId: string; requiresTarget: boolean } | { ok: false; error: string }) => void
+    ack: (res: { ok: true; artifactId: string; requiresTarget: boolean; transaction?: CoinTransaction } | { ok: false; error: string }) => void
   ) => void;
   "artifact:use": (
     payload: { targetPlayerId?: string },
