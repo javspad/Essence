@@ -1,4 +1,4 @@
-import type { GameState, Player } from "@essence/shared";
+import type { CoinTransaction, GameState, Player } from "@essence/shared";
 import { artifactUseMessage } from "../artifactPresentation";
 import { Button } from "@/components/ui/8bit/button";
 import ActivityMediaStrip from "./ActivityMedia";
@@ -49,9 +49,18 @@ export default function EventCard({ state, me, canAdvance, onNext }: Props) {
         {ev.actions?.length ? (
           <div className="mb-4 grid gap-2">
             {ev.actions.map((action, index) => (
-              <p key={`${action.text}-${index}`} className="rounded-sm border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-sm font-black text-amber-100">
-                {action.text}
-              </p>
+              <div key={`${action.text}-${index}`} className="rounded-sm border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-sm font-black text-amber-100">
+                <p>{action.text}</p>
+                {action.coinTransactions?.length ? (
+                  <div className="mt-2 grid gap-1">
+                    {action.coinTransactions.map((transaction) => (
+                      <p key={transaction.id} className="rounded-sm border border-cyan-200/25 bg-cyan-300/10 px-2 py-1 text-xs leading-4 text-cyan-100">
+                        {coinTransactionText(transaction, state)}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             ))}
           </div>
         ) : null}
@@ -69,4 +78,12 @@ export default function EventCard({ state, me, canAdvance, onNext }: Props) {
       </div>
     </div>
   );
+}
+
+function coinTransactionText(transaction: CoinTransaction, state: GameState): string {
+  const playerName = state.players.find((player) => player.id === transaction.playerId)?.name ?? transaction.playerId;
+  const amount = Math.abs(transaction.delta);
+  const verb = transaction.delta >= 0 ? "gained" : "lost";
+  const clamp = transaction.clamped ? `, clamped from ${Math.abs(transaction.requestedDelta)}` : "";
+  return `${playerName} ${verb} ${amount} coin${amount === 1 ? "" : "s"} · ${transaction.source.label}${clamp}`;
 }

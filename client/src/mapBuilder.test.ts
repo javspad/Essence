@@ -22,6 +22,7 @@ import { contentWithCharacterList } from "./components/builderContent";
 import { defaultTokenAnchor, TOKEN_HEAD_DEFAULT_ANCHOR_Z, TOKEN_HEAD_TOP_ANCHOR_Y } from "./characterTokenRig";
 import {
   eventTriggerScore,
+  normalizeGameContentEvents,
   removeEventFromContent,
   resolveEventActionTargetIds,
   resolveEventForPlayer,
@@ -286,7 +287,7 @@ const invalidSchemaResult = validateGameContent({
   ],
 });
 assert.deepEqual(invalidSchemaResult.errors, [
-  "events.bad-target.actions[0].target references missing player missing",
+  "events.bad-target.consequences[0].appliesTo references missing player missing",
   "maps.bad-map.routes.bad-route.to references missing board cell 99",
   "maps.bad-map.mapProps.missing-prop references missing asset missing-asset",
 ]);
@@ -299,7 +300,7 @@ const futureCatalogValidation = validateGameContent({
 });
 assert.deepEqual(futureCatalogValidation.errors, ["effects.bad-effect.duration is required"]);
 
-const overrideContent: GameContent = {
+const overrideContent: GameContent = normalizeGameContentEvents({
   ...content,
   events: {
     "custom-event": {
@@ -323,12 +324,74 @@ const overrideContent: GameContent = {
       ],
     },
   },
-};
+});
 const resolvedOverride = resolveEventForPlayer(overrideContent, "custom-event", { id: "p1" });
 assert.equal(resolvedOverride?.story.prompt, "P1 prompt");
 assert.equal(resolvedOverride?.activity?.type, "selfTap");
 assert.deepEqual(resolvedOverride?.activity?.content, { prompt: "P1 activity prompt" });
-assert.equal(resolvedOverride?.outcomes?.[0].when, "winner");
+assert.equal(resolvedOverride?.consequences?.[0].appliesTo, "winner");
+assert.equal(overrideContent.events?.["custom-event"].actions, undefined);
+assert.equal(overrideContent.events?.["custom-event"].outcomes, undefined);
+assert.equal(overrideContent.playerStories?.p1.overrides[0].outcomes, undefined);
+
+const legacyConsequenceImport = normalizeGameContentEvents({
+  ...content,
+  events: {
+    legacy: {
+      name: "Legacy consequences",
+      activity: {
+        type: "selfTap",
+        rankingPayout: {
+          outcomes: [{ when: "winner", actions: [{ type: "coins", value: 4, target: "winner" }] }],
+        },
+      },
+      actions: [{ type: "move", delta: 1, target: "landing" }],
+      outcomes: [{ when: "loser", actions: [{ type: "move", delta: -1, target: "loser" }] }],
+    },
+  },
+});
+const canonicalLegacyEvent = legacyConsequenceImport.events?.legacy;
+assert.deepEqual(canonicalLegacyEvent?.consequences?.map((rule) => rule.appliesTo), ["landing", "loser"]);
+assert.deepEqual(canonicalLegacyEvent?.consequences?.map((rule) => rule.actions[0]), [
+  { type: "move", delta: 1 },
+  { type: "move", delta: -1 },
+]);
+assert.equal(canonicalLegacyEvent?.actions, undefined);
+assert.equal(canonicalLegacyEvent?.outcomes, undefined);
+assert.deepEqual(canonicalLegacyEvent?.activity?.rankingPayout?.consequences?.[0], {
+  appliesTo: "winner",
+  actions: [{ type: "coins", value: 4 }],
+});
+assert.equal(canonicalLegacyEvent?.activity?.rankingPayout?.outcomes, undefined);
+
+const legacyInlineEffectImport = normalizeGameContentEvents({
+  ...content,
+  events: {
+    "legacy-inline-effect": {
+      name: "Legacy inline effect",
+      actions: [
+        {
+          type: "coins",
+          value: 2,
+          target: "landing",
+          hook: "onTurnEnd",
+          duration: { mode: "rounds", value: 3 },
+          text: "Gain two coins at turn end",
+        },
+      ],
+    },
+  },
+});
+const liftedEffectReference = legacyInlineEffectImport.events?.["legacy-inline-effect"].consequences?.[0]?.actions[0];
+assert.equal(liftedEffectReference?.type, "applyEffect");
+const liftedEffectId = liftedEffectReference?.type === "applyEffect" ? liftedEffectReference.effectId : "";
+assert.deepEqual(legacyInlineEffectImport.effects?.[liftedEffectId]?.duration, { mode: "rounds", value: 3 });
+assert.deepEqual(legacyInlineEffectImport.effects?.[liftedEffectId]?.consequences, [
+  { type: "coins", value: 2, hook: "onTurnEnd", text: "Gain two coins at turn end" },
+]);
+const renormalizedInlineEffectImport = normalizeGameContentEvents(legacyInlineEffectImport);
+assert.equal(renormalizedInlineEffectImport.events?.["legacy-inline-effect"].consequences?.[0]?.actions[0]?.type, "applyEffect");
+assert.equal(Object.keys(renormalizedInlineEffectImport.effects ?? {}).length, Object.keys(legacyInlineEffectImport.effects ?? {}).length);
 
 const explicitVoteContent: GameContent = {
   ...content,
@@ -432,7 +495,11 @@ const migratedUntilTriggeredDurations = normalizeContentSchema({
   },
 });
 assert.deepEqual(migratedUntilTriggeredDurations.effects?.["legacy-next-trigger"]?.duration, { mode: "uses", value: 1 });
-assert.deepEqual(migratedUntilTriggeredDurations.artifacts?.["legacy-attached-consequence"]?.consequences?.[0]?.duration, { mode: "uses", value: 1 });
+const migratedArtifactConsequence = migratedUntilTriggeredDurations.artifacts?.["legacy-attached-consequence"]?.consequences?.[0];
+assert.equal(migratedArtifactConsequence?.type, "applyEffect");
+const migratedArtifactEffectId = migratedArtifactConsequence?.type === "applyEffect" ? migratedArtifactConsequence.effectId : "";
+assert.deepEqual(migratedUntilTriggeredDurations.effects?.[migratedArtifactEffectId]?.duration, { mode: "uses", value: 1 });
+assert.deepEqual(migratedUntilTriggeredDurations.effects?.[migratedArtifactEffectId]?.consequences, [{ type: "coins", value: 1 }]);
 assert.deepEqual(effectConsequencesFor({ id: "half", name: "Half", duration: { mode: "rounds", value: 2 }, consequences: [{ type: "movementMultiplier", multiplier: 0.5 }] }), [
   { type: "movementMultiplier", multiplier: 0.5, hook: "beforeMovement" },
 ]);
@@ -462,7 +529,7 @@ const invalidEffectReference = validateGameContent({
     },
   },
 });
-assert.deepEqual(invalidEffectReference.errors, ["events.bad-effect-ref.actions[0].effectId references missing effect missing-effect"]);
+assert.deepEqual(invalidEffectReference.errors, ["events.bad-effect-ref.consequences[0].actions[0].effectId references missing effect missing-effect"]);
 
 const boundedContent: GameContent = {
   ...content,

@@ -1,4 +1,4 @@
-import { ArrowRight, Gamepad2, Home, Images, Map, Palette, SlidersHorizontal, Sparkles, UserRound, Wrench } from "lucide-react";
+import { ArrowRight, Gamepad2, Home, Images, Map, Palette, SlidersHorizontal, Sparkles, UserRound, Volume2, Wrench } from "lucide-react";
 
 const TOOL_LINKS = [
   {
@@ -24,6 +24,14 @@ const TOOL_LINKS = [
     body: "Activities, stories, consequences",
     icon: Gamepad2,
     accent: "cyan",
+  },
+  {
+    href: "/sound-builder",
+    title: "Sound builder",
+    eyebrow: "Audio triggers",
+    body: "Sound assets, variants, and event cues",
+    icon: Volume2,
+    accent: "amber",
   },
   {
     href: "/asset-library",

@@ -3,6 +3,8 @@ import { Images, Search } from "lucide-react";
 import type {
   ActivityMediaRef,
   AppliedEventAction,
+  CoinTransaction,
+  ConsequenceRule,
   ContentMediaAssetDef,
   EffectDef,
   EffectDuration,
@@ -14,11 +16,11 @@ import type {
   EventConfirmationMode,
   EventParticipantMode,
   EventActivityType,
-  EventOutcomeBranch,
   EventTriggerScope,
   GameContent,
   GameEventDef,
   GameState,
+  ImmediateConsequenceDef,
   Player,
   RevealEntry,
   RevealPayload,
@@ -55,8 +57,22 @@ const PLAYER_POOL = BASE_CONTENT.players;
 const INITIAL_PLAYERS = PLAYER_POOL.slice(0, Math.min(4, PLAYER_POOL.length)).map(toPlayer);
 const STORAGE_KEY = "essence:event-builder:draft:v1";
 
-type TargetKind = "landing" | "acting" | "target" | "winner" | "loser" | "everyone" | "player" | "rank" | "rankRange" | "nearestAhead" | "nearestBehind";
-type ConsequenceTimingMode = "now" | "attached";
+type TargetKind =
+  | "landing"
+  | "acting"
+  | "target"
+  | "winner"
+  | "loser"
+  | "everyone"
+  | "player"
+  | "rank"
+  | "rankRange"
+  | "coinRichest"
+  | "coinPoorest"
+  | "coinRank"
+  | "coinRankRange"
+  | "nearestAhead"
+  | "nearestBehind";
 
 const participantModeOptions: { value: EventParticipantMode; label: string }[] = [
   { value: "everyone", label: "All players" },
@@ -181,6 +197,7 @@ export default function EventBuilder() {
       entries: playtestResolution.entries,
       coins: Object.fromEntries(playtestResolution.entries.map((entry) => [entry.playerId, entry.coins])),
       actions: playtestResolution.actions,
+      coinTransactions: playtestResolution.actions.flatMap((action) => action.coinTransactions ?? []),
     };
   }, [playtestResolution, resolved, selectedId]);
 
@@ -301,7 +318,7 @@ export default function EventBuilder() {
         type,
         content: defaultContentForActivity(type, story),
       },
-      outcomes: [],
+      consequences: [],
     };
     setContent((current) => ({
       ...current,
@@ -391,23 +408,50 @@ export default function EventBuilder() {
     }
   };
 
-  const addOutcome = (branch: EventOutcomeBranch) => {
-    updateEvent((event) => ({ ...event, outcomes: [...(event.outcomes ?? []), branch] }));
+  const removeConsequence = (index: number) => {
+    updateEvent((event) => ({ ...event, consequences: (event.consequences ?? []).filter((_, i) => i !== index) }));
   };
 
-  const removeOutcome = (index: number) => {
-    updateEvent((event) => ({ ...event, outcomes: (event.outcomes ?? []).filter((_, i) => i !== index) }));
-  };
-
-  const updateOutcome = (index: number, updater: (outcome: EventOutcomeBranch) => EventOutcomeBranch) => {
+  const updateConsequence = (index: number, updater: (rule: ConsequenceRule) => ConsequenceRule) => {
     updateEvent((event) => ({
       ...event,
-      outcomes: (event.outcomes ?? []).map((outcome, i) => (i === index ? updater(outcome) : outcome)),
+      consequences: (event.consequences ?? []).map((rule, i) => (i === index ? updater(rule) : rule)),
     }));
   };
 
   const addConsequence = () => {
-    addOutcome({ label: "New consequence", when: "winner", actions: [{ type: "coins", value: 1 }] });
+    updateEvent((event) => ({
+      ...event,
+      consequences: [
+        ...(event.consequences ?? []),
+        { label: "New consequence", appliesTo: "landing", actions: [{ type: "coins", value: 1 }] },
+      ],
+    }));
+  };
+
+  const addRankingPayout = () => {
+    updateActivity({
+      rankingPayout: {
+        consequences: [
+          ...(activity?.rankingPayout?.consequences ?? []),
+          { label: "Rank payout", appliesTo: "winner", actions: [{ type: "coins", value: 3 }] },
+        ],
+      },
+    });
+  };
+
+  const removeRankingPayout = (index: number) => {
+    const next = (activity?.rankingPayout?.consequences ?? []).filter((_, ruleIndex) => ruleIndex !== index);
+    updateActivity({ rankingPayout: next.length ? { consequences: next } : undefined });
+  };
+
+  const updateRankingPayout = (index: number, updater: (rule: ConsequenceRule) => ConsequenceRule) => {
+    const consequences = activity?.rankingPayout?.consequences ?? [];
+    updateActivity({
+      rankingPayout: {
+        consequences: consequences.map((rule, ruleIndex) => (ruleIndex === index ? updater(rule) : rule)),
+      },
+    });
   };
 
   const updateEffect = (effectId: string, updater: (effect: EffectDef) => EffectDef) => {
@@ -460,6 +504,14 @@ export default function EventBuilder() {
     setPlayers((current) => normalizeHosts(current.filter((player) => player.id !== playerId)));
     setSubmitted((current) => current.filter((id) => id !== playerId));
     setResults((current) => current.filter((result) => result.playerId !== playerId));
+  };
+
+  const updatePlayerCoins = (playerId: string, coins: number) => {
+    setPlayers((current) =>
+      current.map((player) =>
+        player.id === playerId ? { ...player, coins: Math.max(0, Math.round(Number.isFinite(coins) ? coins : 0)) } : player
+      )
+    );
   };
 
   const resetPlayers = () => {
@@ -599,7 +651,7 @@ export default function EventBuilder() {
             <div className="relative min-h-0 overflow-hidden rounded-md border border-white/10 bg-[#10131a]">
               {playtestReveal ? (
                 <div className="flex min-h-full items-center justify-center p-6">
-                  <RevealPanel reveal={playtestReveal} mediaAssets={content.mediaAssets} canAdvance onNext={resetRun} />
+                  <RevealPanel reveal={playtestReveal} mediaAssets={content.mediaAssets} players={players} canAdvance onNext={resetRun} />
                 </div>
               ) : state && actor ? (
                 <MinigameHost
@@ -681,6 +733,37 @@ export default function EventBuilder() {
                   />
                 </label>
                 {contentError && <p className="mt-2 rounded-md border border-rose-300/25 bg-rose-500/10 p-2 text-xs font-black text-rose-100">{contentError}</p>}
+                {activity && activity.type !== "prompt" && (
+                  <div className="mt-3 rounded-md border border-amber-200/15 bg-amber-300/10 p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-[0.58rem] font-black uppercase tracking-[0.14em] text-amber-200">Ranking payout</p>
+                        <p className="mt-1 text-xs font-bold text-slate-400">
+                          Reward a rank with coins or another immediate consequence.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addRankingPayout}
+                        className="rounded-md border border-amber-200/25 bg-amber-300/10 px-2.5 py-1 text-xs font-black text-amber-100 transition hover:bg-amber-300/15"
+                      >
+                        Add payout
+                      </button>
+                    </div>
+                    <div className="mt-2 grid gap-2">
+                      {(activity.rankingPayout?.consequences ?? []).map((rule, index) => (
+                        <ConsequenceEditor
+                          key={`${rule.id ?? rule.label ?? targetLabel(rule.appliesTo)}-payout-${index}`}
+                          rule={rule}
+                          players={PLAYER_POOL}
+                          effects={content.effects ?? {}}
+                          onChange={(updater) => updateRankingPayout(index, updater)}
+                          onRemove={() => removeRankingPayout(index)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Panel>
 
               <MediaEditor
@@ -714,7 +797,7 @@ export default function EventBuilder() {
                 return (
                   <div
                     key={player.id}
-                    className={`flex items-center justify-between gap-2 rounded-md border p-1.5 text-left transition ${
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1.5 rounded-md border p-2 text-left transition ${
                       activePreview ? "border-cyan-300/70 bg-cyan-300/14" : "border-white/10 bg-black/15 hover:border-white/25 hover:bg-white/[0.06]"
                     }`}
                   >
@@ -724,6 +807,17 @@ export default function EventBuilder() {
                         {activePreview ? "Playing" : player.isHost ? "Host" : "In game"}
                       </span>
                     </button>
+                    <label className="col-start-1 row-start-2 flex items-center gap-2 px-1 text-[0.58rem] font-black uppercase text-amber-100">
+                      Playtest coins
+                      <input
+                        type="number"
+                        min={0}
+                        value={player.coins}
+                        aria-label={`${player.name} coins`}
+                        onChange={(event) => updatePlayerCoins(player.id, Number(event.target.value))}
+                        className="h-7 w-14 rounded border border-amber-200/25 bg-black/20 px-1.5 text-xs font-black normal-case text-white outline-none focus:border-amber-200"
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={(event) => {
@@ -731,7 +825,7 @@ export default function EventBuilder() {
                         removePlayer(player.id);
                       }}
                       disabled={players.length <= 1}
-                      className="rounded-md border border-rose-200/20 bg-rose-500/10 px-2 py-1 text-xs font-black text-rose-100 transition hover:bg-rose-500/15 disabled:opacity-40"
+                      className="col-start-2 row-span-2 row-start-1 self-start rounded-md border border-rose-200/20 bg-rose-500/10 px-2 py-1 text-xs font-black text-rose-100 transition hover:bg-rose-500/15 disabled:opacity-40"
                     >
                       Remove
                     </button>
@@ -745,7 +839,7 @@ export default function EventBuilder() {
             <ResolutionPanel resolution={playtestResolution} players={players} />
           </Panel>
 
-          <Panel title="Consequences" eyebrow={`${selected?.outcomes?.length ?? 0} branches`}>
+          <Panel title="Consequences" eyebrow={`${selected?.consequences?.length ?? 0} rules`}>
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
@@ -763,14 +857,14 @@ export default function EventBuilder() {
               </a>
             </div>
             <div className="mt-3 space-y-2">
-              {(selected?.outcomes ?? []).map((outcome, index) => (
+              {(selected?.consequences ?? []).map((rule, index) => (
                 <ConsequenceEditor
-                  key={`${outcome.id ?? outcome.label ?? targetLabel(outcome.when)}-${index}`}
-                  outcome={outcome}
+                  key={`${rule.id ?? rule.label ?? targetLabel(rule.appliesTo)}-${index}`}
+                  rule={rule}
                   players={PLAYER_POOL}
                   effects={content.effects ?? {}}
-                  onChange={(updater) => updateOutcome(index, updater)}
-                  onRemove={() => removeOutcome(index)}
+                  onChange={(updater) => updateConsequence(index, updater)}
+                  onRemove={() => removeConsequence(index)}
                 />
               ))}
             </div>
@@ -1220,42 +1314,42 @@ function EffectBuilderPanel({
 }
 
 function ConsequenceEditor({
-  outcome,
+  rule,
   players,
   effects,
   onChange,
   onRemove,
 }: {
-  outcome: EventOutcomeBranch;
+  rule: ConsequenceRule;
   players: GameContent["players"];
   effects: Record<string, EffectDef>;
-  onChange: (updater: (outcome: EventOutcomeBranch) => EventOutcomeBranch) => void;
+  onChange: (updater: (rule: ConsequenceRule) => ConsequenceRule) => void;
   onRemove: () => void;
 }) {
-  const kind = targetKind(outcome.when);
-  const actions = outcomeActions(outcome);
-  const updateAction = (actionIndex: number, action: EventAction) => {
+  const kind = targetKind(rule.appliesTo);
+  const actions = consequenceActions(rule);
+  const updateAction = (actionIndex: number, action: ImmediateConsequenceDef) => {
     onChange((current) => ({
       ...current,
-      actions: outcomeActions(current).map((item, index) => (index === actionIndex ? action : item)),
+      actions: consequenceActions(current).map((item, index) => (index === actionIndex ? action : item)),
     }));
   };
   const removeAction = (actionIndex: number) => {
     onChange((current) => {
-      const next = outcomeActions(current).filter((_, index) => index !== actionIndex);
+      const next = consequenceActions(current).filter((_, index) => index !== actionIndex);
       return { ...current, actions: next.length ? next : [{ type: "coins", value: 1 }] };
     });
   };
   const addAction = () => {
     onChange((current) => ({
       ...current,
-      actions: [...outcomeActions(current), { type: "coins", value: 1 }],
+      actions: [...consequenceActions(current), { type: "coins", value: 1 }],
     }));
   };
   return (
     <details className="rounded-md border border-white/10 bg-black/15 p-2" open>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-black text-white">{consequenceSummary(outcome, players)}</span>
+        <span className="min-w-0 truncate text-sm font-black text-white">{consequenceSummary(rule, players)}</span>
         <button
           type="button"
           onClick={(event) => {
@@ -1282,11 +1376,15 @@ function ConsequenceEditor({
           { value: "player", label: "Specific player" },
           { value: "rank", label: "Rank" },
           { value: "rankRange", label: "Rank range" },
+          { value: "coinRichest", label: "Most coins" },
+          { value: "coinPoorest", label: "Least coins" },
+          { value: "coinRank", label: "Coin rank" },
+          { value: "coinRankRange", label: "Coin rank range" },
         ]}
         onChange={(value) =>
           onChange((current) => ({
             ...current,
-            when: targetForKind(value as TargetKind, players, current.when),
+            appliesTo: targetForKind(value as TargetKind, players, current.appliesTo),
           }))
         }
       />
@@ -1294,29 +1392,50 @@ function ConsequenceEditor({
       {kind === "player" && (
         <SelectInput
           label="Player"
-          value={playerIdForTarget(outcome.when, players)}
+          value={playerIdForTarget(rule.appliesTo, players)}
           options={players.map((player) => ({ value: player.id, label: player.name }))}
-          onChange={(playerId) => onChange((current) => ({ ...current, when: { playerId } }))}
+          onChange={(playerId) => onChange((current) => ({ ...current, appliesTo: { playerId } }))}
         />
       )}
       {kind === "rank" && (
         <NumberInput
           label="Rank"
-          value={rankFromFor(outcome.when)}
-          onChange={(rank) => onChange((current) => ({ ...current, when: { rank: Math.max(1, rank) } }))}
+          value={rankFromFor(rule.appliesTo)}
+          onChange={(rank) => onChange((current) => ({ ...current, appliesTo: { rank: Math.max(1, rank) } }))}
         />
       )}
       {kind === "rankRange" && (
         <div className="grid grid-cols-2 gap-2">
           <NumberInput
             label="From rank"
-            value={rankFromFor(outcome.when)}
-            onChange={(rankFrom) => onChange((current) => ({ ...current, when: { rankFrom: Math.max(1, rankFrom), rankTo: rankToFor(current.when) } }))}
+            value={rankFromFor(rule.appliesTo)}
+            onChange={(rankFrom) => onChange((current) => ({ ...current, appliesTo: { rankFrom: Math.max(1, rankFrom), rankTo: rankToFor(current.appliesTo) } }))}
           />
           <NumberInput
             label="To rank"
-            value={rankToFor(outcome.when)}
-            onChange={(rankTo) => onChange((current) => ({ ...current, when: { rankFrom: rankFromFor(current.when), rankTo: Math.max(1, rankTo) } }))}
+            value={rankToFor(rule.appliesTo)}
+            onChange={(rankTo) => onChange((current) => ({ ...current, appliesTo: { rankFrom: rankFromFor(current.appliesTo), rankTo: Math.max(1, rankTo) } }))}
+          />
+        </div>
+      )}
+      {kind === "coinRank" && (
+        <NumberInput
+          label="Coin rank"
+          value={rankFromFor(rule.appliesTo)}
+          onChange={(coinRank) => onChange((current) => ({ ...current, appliesTo: { coinRank: Math.max(1, Math.round(coinRank)) } }))}
+        />
+      )}
+      {kind === "coinRankRange" && (
+        <div className="grid grid-cols-2 gap-2">
+          <NumberInput
+            label="From coin rank"
+            value={rankFromFor(rule.appliesTo)}
+            onChange={(coinRankFrom) => onChange((current) => ({ ...current, appliesTo: { coinRankFrom: Math.max(1, Math.round(coinRankFrom)), coinRankTo: rankToFor(current.appliesTo) } }))}
+          />
+          <NumberInput
+            label="To coin rank"
+            value={rankToFor(rule.appliesTo)}
+            onChange={(coinRankTo) => onChange((current) => ({ ...current, appliesTo: { coinRankFrom: rankFromFor(current.appliesTo), coinRankTo: Math.max(1, Math.round(coinRankTo)) } }))}
           />
         </div>
       )}
@@ -1346,7 +1465,7 @@ function ConsequenceEditor({
         onClick={addAction}
         className="mt-3 w-full rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15"
       >
-        Add action or effect
+        Add consequence
       </button>
     </details>
   );
@@ -1361,17 +1480,16 @@ function ConsequenceActionEditor({
   onChange,
   onRemove,
 }: {
-  action: EventAction;
+  action: ImmediateConsequenceDef;
   effects: Record<string, EffectDef>;
   players: GameContent["players"];
   actionIndex: number;
   canRemove: boolean;
-  onChange: (action: EventAction) => void;
+  onChange: (action: ImmediateConsequenceDef) => void;
   onRemove: () => void;
 }) {
   const text = action.text ?? "";
   const selectedEffect = action.type === "applyEffect" ? effects[action.effectId] : undefined;
-  const timingMode = consequenceTimingMode(action);
   const typeOptions = consequenceTypeOptions(effects, action);
   return (
     <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-2">
@@ -1396,7 +1514,7 @@ function ConsequenceActionEditor({
               onChange(convertActionToEffect(action, effectIdFromTypeOption(type)));
               return;
             }
-            onChange(convertActionType(action, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">));
+            onChange(convertActionType(action, type as Exclude<ImmediateConsequenceDef["type"], "text" | "offlineAction" | "applyEffect">) as ImmediateConsequenceDef);
           }}
         />
         {(action.type === "coins" || action.type === "move") && (
@@ -1406,44 +1524,22 @@ function ConsequenceActionEditor({
             onChange={(value) => onChange(updateActionAmount(action, value))}
           />
         )}
+        {(action.type === "coinTransfer" || action.type === "coinRedistribute") && (
+          <NumberInput
+            label="Coins"
+            value={action.amount}
+            onChange={(amount) => onChange({ ...action, amount: Math.max(0, Math.round(amount)) })}
+          />
+        )}
         {action.type === "moveTo" && <NumberInput label="Cell" value={action.tileId} onChange={(tileId) => onChange({ ...action, tileId })} />}
-        {action.type === "movementMultiplier" && (
-          <NumberInput label="x" value={action.multiplier} onChange={(multiplier) => onChange({ ...action, multiplier: Math.max(0, multiplier) })} />
-        )}
-        {action.type === "diceBias" && (
-          <NumberInput label="Face" value={action.face} onChange={(face) => onChange({ ...action, face: clampInt(face, 1, 6) })} />
-        )}
-        {action.type !== "coins" && action.type !== "move" && action.type !== "moveTo" && action.type !== "movementMultiplier" && action.type !== "diceBias" && <div />}
+        {action.type !== "coins" && action.type !== "coinTransfer" && action.type !== "coinRedistribute" && action.type !== "move" && action.type !== "moveTo" && <div />}
       </div>
-      {action.type === "movementMultiplier" && (
-        <SelectInput
-          label="Rounding"
-          value={action.rounding ?? "round"}
-          options={[
-            { value: "round", label: "Round" },
-            { value: "ceil", label: "Ceil" },
-            { value: "floor", label: "Floor" },
-          ]}
-          onChange={(rounding) => onChange({ ...action, rounding: rounding as "floor" | "ceil" | "round" })}
-        />
-      )}
-      {action.type === "halfMovement" && (
-        <SelectInput
-          label="Rounding"
-          value={action.rounding ?? "ceil"}
-          options={[
-            { value: "ceil", label: "Ceil" },
-            { value: "round", label: "Round" },
-            { value: "floor", label: "Floor" },
-          ]}
-          onChange={(rounding) => onChange({ ...action, rounding: rounding as "floor" | "ceil" | "round" })}
-        />
-      )}
-      {action.type === "diceBias" && (
-        <NumberInput
-          label="Chance change percent"
-          value={action.chanceDeltaPercent}
-          onChange={(chanceDeltaPercent) => onChange({ ...action, chanceDeltaPercent })}
+      {(action.type === "coinTransfer" || action.type === "coinRedistribute") && (
+        <TargetPicker
+          label={action.type === "coinRedistribute" ? "Collect from" : "Take from"}
+          target={action.from}
+          players={players}
+          onChange={(from) => onChange({ ...action, from })}
         />
       )}
       {action.type === "swapPositions" && (
@@ -1467,32 +1563,6 @@ function ConsequenceActionEditor({
       )}
       {action.type === "applyEffect" && (
         <EffectTypeSummary effect={selectedEffect} effectId={action.effectId} />
-      )}
-      {action.type !== "applyEffect" && (
-        <>
-          <SelectInput
-            label="Timing"
-            value={timingMode}
-            disabled={isModifierEffectAction(action)}
-            options={[
-              { value: "now", label: "Resolve now" },
-              { value: "attached", label: "Attach to user" },
-            ]}
-            onChange={(mode) => onChange(setConsequenceTimingMode(action, mode as ConsequenceTimingMode))}
-          />
-          {timingMode === "attached" && (
-            <div className="rounded-md border border-cyan-200/15 bg-cyan-300/10 p-2">
-              <SelectInput
-                label="Runs"
-                value={hookValueForAction(action)}
-                disabled={isModifierEffectAction(action)}
-                options={hookOptionsForAction(action)}
-                onChange={(hook) => onChange({ ...action, hook: hook as EffectLifecycleHook })}
-              />
-              <DurationEditor duration={action.duration ?? defaultInlineDuration(action)} onChange={(duration) => onChange({ ...action, duration })} />
-            </div>
-          )}
-        </>
       )}
       <TextInput label="Display text" value={text} onChange={(value) => onChange(updateActionText(action, value))} />
       <details className="mt-3 rounded-md border border-white/10 bg-black/20 p-2">
@@ -1645,7 +1715,7 @@ function EffectConsequenceRow({
             { value: "swapPositions", label: "Swap positions" },
             { value: "moveToNearest", label: "Move to nearest" },
           ]}
-          onChange={(type) => onChange(convertActionType(editable, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">))}
+          onChange={(type) => onChange(convertEffectActionType(editable, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">))}
         />
         {(editable.type === "coins" || editable.type === "move") && (
           <NumberInput
@@ -1936,7 +2006,7 @@ function createPlaytestResolution(
       requiredCount: 0,
       ranking: landingPlayerId ? [landingPlayerId] : [],
       entries: landingPlayerId ? [playtestEntry(players, landingPlayerId, 1, 0, null, "Story event")] : [],
-      actions: previewActions(event.actions ?? [], players, { landingPlayerId, ranking: landingPlayerId ? [landingPlayerId] : [] }),
+      actions: previewConsequenceRules(event.consequences ?? [], players, landingPlayerId ? [landingPlayerId] : [], landingPlayerId),
     };
   }
 
@@ -1948,18 +2018,18 @@ function createPlaytestResolution(
   const ranking = playtestRanking(minigame.type, subjects, participants, results, event.activity?.rigged, minigame.judge?.submissions);
   const entries = playtestRevealEntries(minigame.type, event.activity?.content, ranking, subjects, participants, players, results, minigame.judge?.submissions);
   const landingPlayerId = minigame.protagonistId ?? ranking[0];
+  const payoutActions = minigame.type === "prompt"
+    ? []
+    : previewConsequenceRules(event.activity?.rankingPayout?.consequences ?? [], players, ranking, landingPlayerId);
+  const payoutCoins = previewCoinTotals(payoutActions.flatMap((action) => action.coinTransactions ?? []));
+  const entriesWithCoins = entries.map((entry) => ({ ...entry, coins: payoutCoins[entry.playerId] ?? 0 }));
   const actions = complete
     ? [
-        ...(minigame.type === "prompt"
-          ? previewActions(event.actions ?? [], players, {
-              landingPlayerId,
-              ranking: landingPlayerId ? [landingPlayerId] : ranking,
-            })
-          : []),
-        ...previewOutcomeActions(event.outcomes ?? [], players, ranking, landingPlayerId),
+        ...payoutActions,
+        ...previewConsequenceRules(event.consequences ?? [], players, ranking, landingPlayerId),
       ]
     : [];
-  return { complete, submittedCount, requiredCount, ranking, entries, actions };
+  return { complete, submittedCount, requiredCount, ranking, entries: entriesWithCoins, actions };
 }
 
 function playtestRanking(
@@ -2148,15 +2218,15 @@ function playtestResultDisplay(
   return { resultLabel: `Puntaje ${formatScore(score)}`, detailLabel: payloadSummary(payload) };
 }
 
-function previewOutcomeActions(
-  branches: EventOutcomeBranch[],
+function previewConsequenceRules(
+  rules: ConsequenceRule[],
   players: Player[],
   ranking: string[],
   landingPlayerId?: string
 ): AppliedEventAction[] {
-  return branches.flatMap((branch) => {
-    if (!resolvePreviewTargetIds(branch.when, players, { landingPlayerId, ranking }).length) return [];
-    return previewActions(branch.actions, players, { landingPlayerId, ranking, defaultTarget: branch.when });
+  return rules.flatMap((rule) => {
+    if (!resolvePreviewTargetIds(rule.appliesTo, players, { landingPlayerId, ranking }).length) return [];
+    return previewActions(rule.actions, players, { landingPlayerId, ranking, defaultTarget: rule.appliesTo });
   });
 }
 
@@ -2169,11 +2239,16 @@ function previewActions(
     const target = action.target ?? context.defaultTarget ?? "landing";
     const targetPlayerIds = resolvePreviewTargetIds(target, players, context);
     if (action.type !== "text" && targetPlayerIds.length === 0) return [];
-    return [previewAction(action, targetPlayerIds, players)];
+    return [previewAction(action, targetPlayerIds, players, context)];
   });
 }
 
-function previewAction(action: EventAction, targetPlayerIds: string[], players: Player[]): AppliedEventAction {
+function previewAction(
+  action: EventAction,
+  targetPlayerIds: string[],
+  players: Player[],
+  context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string; ranking?: string[]; defaultTarget?: EventActionTarget }
+): AppliedEventAction {
   if (action.type === "text") return { type: action.type, targetPlayerIds, text: action.text };
   if (action.type !== "applyEffect" && (action.duration || isModifierEffectAction(action))) {
     return {
@@ -2183,7 +2258,23 @@ function previewAction(action: EventAction, targetPlayerIds: string[], players: 
     };
   }
   if (action.type === "coins") {
-    return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, players, action.value, "moneda"), value: action.value };
+    const coinTransactions = previewCoinDeltas(targetPlayerIds, action.value, action.text ?? consequenceLabel(action), players);
+    return { type: action.type, targetPlayerIds, text: action.text ?? coinTransactionsText(coinTransactions, players), value: action.value, coinTransactions };
+  }
+  if (action.type === "coinTransfer") {
+    const fromPlayerId = resolvePreviewTargetIds(action.from, players, context)[0];
+    const toPlayerId = targetPlayerIds[0];
+    const coinTransactions = fromPlayerId && toPlayerId ? previewCoinTransfer(fromPlayerId, toPlayerId, action.amount, action.text ?? consequenceLabel(action), players) : [];
+    return { type: action.type, targetPlayerIds: toPlayerId ? [toPlayerId] : [], text: action.text ?? coinTransactionsText(coinTransactions, players), value: action.amount, coinTransactions };
+  }
+  if (action.type === "coinRedistribute") {
+    const toPlayerId = targetPlayerIds[0];
+    const sourceIds = toPlayerId ? resolvePreviewTargetIds(action.from, players, context).filter((id) => id !== toPlayerId) : [];
+    const balances = new Map(players.map((player) => [player.id, player.coins]));
+    const coinTransactions = toPlayerId
+      ? sourceIds.flatMap((fromPlayerId, index) => previewCoinTransfer(fromPlayerId, toPlayerId, action.amount, action.text ?? consequenceLabel(action), players, balances, index * 2))
+      : [];
+    return { type: action.type, targetPlayerIds: toPlayerId ? [toPlayerId] : [], text: action.text ?? coinTransactionsText(coinTransactions, players), value: action.amount, coinTransactions };
   }
   if (action.type === "move") {
     return { type: action.type, targetPlayerIds, text: action.text ?? moveSummary(targetPlayerIds, players, action.delta), value: action.delta };
@@ -2224,17 +2315,86 @@ function previewAction(action: EventAction, targetPlayerIds: string[], players: 
 function resolvePreviewTargetIds(
   target: EventActionTarget,
   players: Player[],
-  context: { landingPlayerId?: string; ranking?: string[] }
+  context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string; ranking?: string[] }
 ): string[] {
   return resolveEventActionTargetIds(target, {
     landingPlayerId: context.landingPlayerId,
-    actingPlayerId: context.landingPlayerId,
-    targetPlayerId: context.landingPlayerId,
+    actingPlayerId: context.actingPlayerId ?? context.landingPlayerId,
+    targetPlayerId: context.targetPlayerId ?? context.landingPlayerId,
     ranking: context.ranking,
     connectedPlayerIds: players.map((player) => player.id),
     playerIds: players.map((player) => player.id),
+    turnOrder: players.map((player) => player.id),
     players,
   });
+}
+
+function previewCoinDeltas(playerIds: string[], delta: number, label: string, players: Player[]): CoinTransaction[] {
+  const balances = new Map(players.map((player) => [player.id, player.coins]));
+  return playerIds.map((playerId, index) => previewCoinDelta(playerId, delta, label, balances, index));
+}
+
+function previewCoinTransfer(
+  fromPlayerId: string,
+  toPlayerId: string,
+  amount: number,
+  label: string,
+  players: Player[],
+  balances = new Map(players.map((player) => [player.id, player.coins])),
+  startIndex = 0
+): CoinTransaction[] {
+  if (fromPlayerId === toPlayerId) return [];
+  const debit = previewCoinDelta(fromPlayerId, -Math.abs(amount), label, balances, startIndex, toPlayerId);
+  const transferred = Math.abs(debit.delta);
+  if (transferred <= 0) return [debit];
+  const credit = previewCoinDelta(toPlayerId, transferred, label, balances, startIndex + 1, fromPlayerId);
+  return [debit, credit];
+}
+
+function previewCoinDelta(
+  playerId: string,
+  delta: number,
+  label: string,
+  balances: Map<string, number>,
+  index: number,
+  counterpartyPlayerId?: string
+): CoinTransaction {
+  const requestedDelta = Math.round(Number.isFinite(delta) ? delta : 0);
+  const before = Math.max(0, Math.round(balances.get(playerId) ?? 0));
+  const actualDelta = requestedDelta < 0 ? -Math.min(before, Math.abs(requestedDelta)) : requestedDelta;
+  const after = Math.max(0, before + actualDelta);
+  balances.set(playerId, after);
+  return {
+    id: `preview-coin-${playerId}-${index}`,
+    playerId,
+    delta: actualDelta,
+    requestedDelta,
+    before,
+    after,
+    source: { kind: "consequence", label },
+    text: label,
+    ...(counterpartyPlayerId ? { counterpartyPlayerId } : {}),
+    ...(actualDelta !== requestedDelta ? { clamped: true } : {}),
+  };
+}
+
+function previewCoinTotals(transactions: CoinTransaction[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const transaction of transactions) {
+    totals[transaction.playerId] = (totals[transaction.playerId] ?? 0) + transaction.delta;
+  }
+  return totals;
+}
+
+function coinTransactionsText(transactions: CoinTransaction[], players: Player[]): string {
+  if (!transactions.length) return "No coins changed.";
+  return transactions.map((transaction) => {
+    const name = nameFor(players, transaction.playerId);
+    const verb = transaction.delta >= 0 ? "gana" : "pierde";
+    const amount = Math.abs(transaction.delta);
+    const clamp = transaction.clamped ? ` (max ${Math.abs(transaction.requestedDelta)})` : "";
+    return `${name} ${verb} ${amount} moneda(s)${clamp}`;
+  }).join(". ");
 }
 
 function loadInitialContent(): GameContent {
@@ -2289,27 +2449,39 @@ function migrateEffectDraft(content: GameContent): GameContent {
 
 function mapEvents(
   events: GameContent["events"],
-  mapAction: (action: EventAction) => EventAction
+  mapAction: (action: ImmediateConsequenceDef) => ImmediateConsequenceDef
 ): GameContent["events"] {
-  if (!events) return events;
   return Object.fromEntries(
     Object.entries(events).map(([id, event]) => [
       id,
       {
         ...event,
-        actions: event.actions?.map(mapAction),
-        outcomes: event.outcomes?.map((outcome) => ({
-          ...outcome,
-          actions: outcome.actions.map(mapAction),
+        consequences: event.consequences?.map((rule) => ({
+          ...rule,
+          actions: rule.actions.map(mapAction),
         })),
+        activity: event.activity
+          ? {
+              ...event.activity,
+              rankingPayout: event.activity.rankingPayout
+                ? {
+                    ...event.activity.rankingPayout,
+                    consequences: event.activity.rankingPayout.consequences?.map((rule) => ({
+                      ...rule,
+                      actions: rule.actions.map(mapAction),
+                    })),
+                  }
+                : undefined,
+            }
+          : undefined,
       },
     ])
   );
 }
 
-function rewriteLegacyEffectAction(action: EventAction): EventAction {
+function rewriteLegacyEffectAction<T extends EventAction>(action: T): T {
   if (action.type !== "applyEffect" || action.effectId !== LEGACY_SHOT_EFFECT_ID) return action;
-  return { ...action, effectId: DEFAULT_EFFECT_ID };
+  return { ...action, effectId: DEFAULT_EFFECT_ID } as T;
 }
 
 function nextEffectId(effects: Record<string, EffectDef>): string {
@@ -2343,9 +2515,9 @@ function removeEffectFromContent(content: GameContent, effectId: string): GameCo
   };
 }
 
-function rewriteDeletedEffectAction(action: EventAction, deletedEffectId: string): EventAction {
+function rewriteDeletedEffectAction<T extends EventAction>(action: T, deletedEffectId: string): T {
   if (action.type !== "applyEffect" || action.effectId !== deletedEffectId) return action;
-  return { type: "coins", value: 1, text: action.text, ...("target" in action && action.target ? { target: action.target } : {}) };
+  return { type: "coins", value: 1, text: action.text, ...("target" in action && action.target ? { target: action.target } : {}) } as T;
 }
 
 function nextEventId(events: Record<string, GameEventDef>): string {
@@ -2379,6 +2551,9 @@ function targetKind(target: EventActionTarget): TargetKind {
   if (target === "landing" || target === "acting" || target === "target" || target === "winner" || target === "loser" || target === "everyone") return target;
   if ("playerId" in target) return "player";
   if ("rank" in target) return "rank";
+  if ("coinSelector" in target) return target.coinSelector === "richest" ? "coinRichest" : "coinPoorest";
+  if ("coinRank" in target) return "coinRank";
+  if ("coinRankFrom" in target) return "coinRankRange";
   if ("nearest" in target) return target.nearest === "ahead" ? "nearestAhead" : "nearestBehind";
   return "rankRange";
 }
@@ -2389,6 +2564,10 @@ function targetForKind(kind: TargetKind, players: GameContent["players"], previo
   if (kind === "nearestBehind") return { nearest: "behind", from: "acting" };
   if (kind === "player") return { playerId: playerIdForTarget(previous, players) };
   if (kind === "rank") return { rank: rankFromFor(previous) };
+  if (kind === "coinRichest") return { coinSelector: "richest" };
+  if (kind === "coinPoorest") return { coinSelector: "poorest" };
+  if (kind === "coinRank") return { coinRank: rankFromFor(previous) };
+  if (kind === "coinRankRange") return { coinRankFrom: rankFromFor(previous), coinRankTo: rankToFor(previous) };
   return {
     rankFrom: rankFromFor(previous),
     rankTo: rankToFor(previous),
@@ -2402,25 +2581,28 @@ function playerIdForTarget(target: EventActionTarget, players: GameContent["play
 function rankFromFor(target: EventActionTarget): number {
   if (typeof target !== "string" && "rankFrom" in target) return target.rankFrom;
   if (typeof target !== "string" && "rank" in target) return target.rank;
+  if (typeof target !== "string" && "coinRankFrom" in target) return target.coinRankFrom;
+  if (typeof target !== "string" && "coinRank" in target) return target.coinRank;
   return 1;
 }
 
 function rankToFor(target: EventActionTarget): number {
   if (typeof target !== "string" && "rankFrom" in target) return target.rankTo;
   if (typeof target !== "string" && "rank" in target) return target.rank;
+  if (typeof target !== "string" && "coinRankFrom" in target) return target.coinRankTo;
+  if (typeof target !== "string" && "coinRank" in target) return target.coinRank;
   return 2;
 }
 
 function consequenceTypeOptions(effects: Record<string, EffectDef>, action: EventAction): { value: string; label: string }[] {
   const base = [
     { value: "coins", label: "Coins" },
+    { value: "coinTransfer", label: "Coin transfer" },
+    { value: "coinRedistribute", label: "Coin redistribution" },
     { value: "move", label: "Move" },
     { value: "moveTo", label: "Move to cell" },
     { value: "skipTurn", label: "Skip turn" },
     { value: "extraTurn", label: "Extra turn" },
-    { value: "halfMovement", label: "Half movement" },
-    { value: "movementMultiplier", label: "Movement multiplier" },
-    { value: "diceBias", label: "Dice bias" },
     { value: "swapPositions", label: "Swap positions" },
     { value: "moveToNearest", label: "Move to nearest" },
   ];
@@ -2447,7 +2629,7 @@ function effectIdFromTypeOption(value: string): string {
   return value.slice("effect:".length);
 }
 
-function convertActionToEffect(action: EventAction, effectId: string): EventAction {
+function convertActionToEffect(action: ImmediateConsequenceDef, effectId: string): ImmediateConsequenceDef {
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
   const icon = action.icon;
@@ -2464,35 +2646,39 @@ function convertActionType(action: EventAction, type: Exclude<EventAction["type"
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
   const icon = action.icon;
-  const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : 1;
+  const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : action.type === "coinTransfer" || action.type === "coinRedistribute" ? action.amount : 1;
   const base = { ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
-  if (type === "coins") return withPreservedTiming({ type, value: amount, ...base }, action);
-  if (type === "move") return withPreservedTiming({ type, delta: amount, ...base }, action);
-  if (type === "moveTo") return withPreservedTiming({ type, tileId: 1, ...base }, action);
-  if (type === "skipTurn") return withPreservedTiming({ type, ...base }, action);
-  if (type === "extraTurn") return withPreservedTiming({ type, ...base }, action);
-  if (type === "offlineAction") return withPreservedTiming({ type, action: "custom", ...base }, action);
+  if (type === "coins") return { type, value: amount, ...base };
+  if (type === "coinTransfer") return { type, amount: Math.abs(amount), from: "target", ...base };
+  if (type === "coinRedistribute") return { type, amount: Math.abs(amount), from: "everyone", ...base };
+  if (type === "move") return { type, delta: amount, ...base };
+  if (type === "moveTo") return { type, tileId: 1, ...base };
+  if (type === "skipTurn") return { type, ...base };
+  if (type === "extraTurn") return { type, ...base };
+  if (type === "offlineAction") return { type, action: "custom", ...base };
   if (type === "halfMovement") return ensureModifierTiming({ type, hook: "beforeMovement", rounding: "ceil", ...base });
   if (type === "movementMultiplier") return ensureModifierTiming({ type, hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", ...base });
   if (type === "diceBias") return ensureModifierTiming({ type, hook: "beforeRoll", face: 5, chanceDeltaPercent: 10, ...base });
-  if (type === "swapPositions") return withPreservedTiming({ type, withTarget: "winner", ...base }, action);
-  if (type === "moveToNearest") return withPreservedTiming({ type, direction: "ahead", ...base }, action);
+  if (type === "swapPositions") return { type, withTarget: "winner", ...base };
+  if (type === "moveToNearest") return { type, direction: "ahead", ...base };
   return { type, effectId: fallbackEffectId ?? DEFAULT_EFFECT_ID, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
 }
 
-function editableConsequenceAction(action: EventAction | undefined): EventAction {
+function editableConsequenceAction(action: ImmediateConsequenceDef | undefined): ImmediateConsequenceDef {
   if (!action) return { type: "coins", value: 1 };
   return action;
 }
 
-function consequenceSummary(outcome: EventOutcomeBranch, players: GameContent["players"]): string {
-  const actions = outcomeActions(outcome);
+function consequenceSummary(rule: ConsequenceRule, players: GameContent["players"]): string {
+  const actions = consequenceActions(rule);
   const suffix = actions.length > 1 ? ` + ${actions.length - 1} more` : "";
-  return `${targetLabel(outcome.when, players)} - ${actionSummary(editableConsequenceAction(actions[0]))}${suffix}`;
+  return `${targetLabel(rule.appliesTo, players)} - ${actionSummary(editableConsequenceAction(actions[0]))}${suffix}`;
 }
 
 function actionSummary(action: EventAction): string {
   if (action.type === "coins") return `${action.value >= 0 ? "+" : ""}${action.value} coins`;
+  if (action.type === "coinTransfer") return `transfer ${action.amount} coins`;
+  if (action.type === "coinRedistribute") return `redistribute ${action.amount} coins`;
   if (action.type === "move") return `${action.delta >= 0 ? "+" : ""}${action.delta} cells`;
   if (action.type === "moveTo") return `move to ${action.tileId}`;
   return consequenceLabel(action);
@@ -2536,6 +2722,16 @@ function effectEditableAction(action: EventAction): EventAction {
   return isModifierEffectAction(action) ? ensureModifierTiming(action) : action;
 }
 
+function convertEffectActionType(
+  action: EventAction,
+  type: Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">
+): EventAction {
+  return {
+    ...convertActionType(action, type),
+    ...effectLifecyclePatch(action),
+  } as EventAction;
+}
+
 function defaultHookForEffectAction(action: EventAction): NonNullable<EventAction["hook"]> {
   return defaultHookForConsequence(action.type);
 }
@@ -2550,57 +2746,27 @@ function hookOptionsForAction(action: EventAction): { value: EffectLifecycleHook
   return hookOptions.filter((option) => option.value === hook);
 }
 
+function updateActionAmount(
+  action: Extract<ImmediateConsequenceDef, { type: "coins" | "move" }>,
+  amount: number
+): ImmediateConsequenceDef;
+function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" }>, amount: number): EventAction;
 function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" }>, amount: number): EventAction {
   if (action.type === "coins") return { ...action, value: amount };
   return { ...action, delta: amount };
 }
 
-function updateActionText(action: EventAction, text: string): EventAction {
+function updateActionText(action: ImmediateConsequenceDef, text: string): ImmediateConsequenceDef {
   if (action.type === "text") return { ...action, text };
   return { ...action, text: text || undefined };
 }
 
-function outcomeActions(outcome: EventOutcomeBranch): EventAction[] {
-  return outcome.actions.length ? outcome.actions : [{ type: "coins", value: 1 }];
-}
-
-function consequenceTimingMode(action: EventAction): ConsequenceTimingMode {
-  if (action.duration || isModifierEffectAction(action)) return "attached";
-  return "now";
-}
-
-function setConsequenceTimingMode(action: EventAction, mode: ConsequenceTimingMode): EventAction {
-  if (isModifierEffectAction(action)) {
-    return ensureModifierTiming({
-      ...action,
-      duration: action.duration ?? defaultInlineDuration(action),
-    } as EventAction);
-  }
-  if (mode === "attached") {
-    return {
-      ...action,
-      hook: action.hook ?? defaultHookForConsequence(action.type),
-      duration: action.duration ?? defaultInlineDuration(action),
-    } as EventAction;
-  }
-  const { duration: _duration, hook: _hook, ...rest } = action;
-  return rest as EventAction;
-}
-
-function defaultInlineDuration(_action: EventAction): EffectDuration {
-  return { mode: "uses", value: 1 };
+function consequenceActions(rule: ConsequenceRule): ImmediateConsequenceDef[] {
+  return rule.actions.length ? rule.actions : [{ type: "coins", value: 1 }];
 }
 
 function isModifierEffectAction(action: EventAction): boolean {
   return action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias";
-}
-
-function withPreservedTiming(next: EventAction, previous: EventAction): EventAction {
-  const merged = {
-    ...next,
-    ...timingPatch(previous),
-  } as EventAction;
-  return isModifierEffectAction(merged) ? ensureModifierTiming(merged) : merged;
 }
 
 function ensureModifierTiming(action: EventAction): EventAction {
@@ -2608,20 +2774,17 @@ function ensureModifierTiming(action: EventAction): EventAction {
   return {
     ...action,
     hook: defaultHookForConsequence(action.type),
-    duration: action.duration ?? defaultInlineDuration(action),
   } as EventAction;
 }
 
-function timingPatch(action: EventAction): {
+function effectLifecyclePatch(action: EventAction): {
   hook?: EventAction["hook"];
   when?: EventAction["when"];
-  duration?: EffectDuration;
   expiresOnTrigger?: boolean;
 } {
   return {
     ...(action.hook ? { hook: action.hook } : {}),
     ...(action.when ? { when: action.when } : {}),
-    ...(action.duration ? { duration: action.duration } : {}),
     ...(action.expiresOnTrigger !== undefined ? { expiresOnTrigger: action.expiresOnTrigger } : {}),
   };
 }
@@ -2680,6 +2843,10 @@ function TargetPicker({
           { value: "player", label: "Specific player" },
           { value: "rank", label: "Rank" },
           { value: "rankRange", label: "Rank range" },
+          { value: "coinRichest", label: "Most coins" },
+          { value: "coinPoorest", label: "Least coins" },
+          { value: "coinRank", label: "Coin rank" },
+          { value: "coinRankRange", label: "Coin rank range" },
         ]}
         onChange={(value) => onChange(targetForKind(value as TargetKind, players, target))}
       />
@@ -2696,6 +2863,15 @@ function TargetPicker({
         <div className="grid grid-cols-2 gap-2">
           <NumberInput label="From rank" value={rankFromFor(target)} onChange={(rankFrom) => onChange({ rankFrom: Math.max(1, Math.round(rankFrom)), rankTo: rankToFor(target) })} />
           <NumberInput label="To rank" value={rankToFor(target)} onChange={(rankTo) => onChange({ rankFrom: rankFromFor(target), rankTo: Math.max(1, Math.round(rankTo)) })} />
+        </div>
+      )}
+      {kind === "coinRank" && (
+        <NumberInput label="Coin rank" value={rankFromFor(target)} onChange={(coinRank) => onChange({ coinRank: Math.max(1, Math.round(coinRank)) })} />
+      )}
+      {kind === "coinRankRange" && (
+        <div className="grid grid-cols-2 gap-2">
+          <NumberInput label="From coin rank" value={rankFromFor(target)} onChange={(coinRankFrom) => onChange({ coinRankFrom: Math.max(1, Math.round(coinRankFrom)), coinRankTo: rankToFor(target) })} />
+          <NumberInput label="To coin rank" value={rankToFor(target)} onChange={(coinRankTo) => onChange({ coinRankFrom: rankFromFor(target), coinRankTo: Math.max(1, Math.round(coinRankTo)) })} />
         </div>
       )}
     </div>
@@ -2989,7 +3165,7 @@ function payloadSummary(payload: unknown): string | undefined {
   return undefined;
 }
 
-function targetLabel(target: EventOutcomeBranch["when"], players: GameContent["players"] = PLAYER_POOL): string {
+function targetLabel(target: EventActionTarget, players: GameContent["players"] = PLAYER_POOL): string {
   if (target === "landing") return "Triggering player";
   if (target === "acting") return "Acting player";
   if (target === "target") return "Selected target";
@@ -2998,6 +3174,9 @@ function targetLabel(target: EventOutcomeBranch["when"], players: GameContent["p
   if (target === "everyone") return "Everyone";
   if ("playerId" in target) return playerName(players, target.playerId);
   if ("rank" in target) return `Rank ${target.rank}`;
+  if ("coinSelector" in target) return target.coinSelector === "richest" ? "Most coins" : "Least coins";
+  if ("coinRank" in target) return `Coin rank ${target.coinRank}`;
+  if ("coinRankFrom" in target) return `Coin ranks ${target.coinRankFrom}-${target.coinRankTo}`;
   if ("nearest" in target) return target.nearest === "ahead" ? "Nearest ahead" : "Nearest behind";
   return `Ranks ${target.rankFrom}-${target.rankTo}`;
 }

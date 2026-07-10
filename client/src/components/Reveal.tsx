@@ -1,4 +1,4 @@
-import type { ContentMediaAssetDef, GameState, RevealPayload } from "@essence/shared";
+import type { CoinTransaction, ContentMediaAssetDef, GameState, RevealPayload } from "@essence/shared";
 import { Button } from "@/components/ui/8bit/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
@@ -18,7 +18,7 @@ export default function Reveal({ state, canAdvance, onNext }: Props) {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center p-6">
-      <RevealPanel reveal={r} mediaAssets={state.mediaAssets} canAdvance={canAdvance} onNext={onNext} />
+      <RevealPanel reveal={r} mediaAssets={state.mediaAssets} players={state.players} canAdvance={canAdvance} onNext={onNext} />
     </div>
   );
 }
@@ -26,11 +26,13 @@ export default function Reveal({ state, canAdvance, onNext }: Props) {
 export function RevealPanel({
   reveal: r,
   mediaAssets,
+  players,
   canAdvance,
   onNext,
 }: {
   reveal: RevealPayload;
   mediaAssets?: Record<string, ContentMediaAssetDef>;
+  players?: GameState["players"];
   canAdvance: boolean;
   onNext: () => void;
 }) {
@@ -64,12 +66,29 @@ export function RevealPanel({
                 </div>
                 <div className="mt-1 flex items-start justify-between gap-3 pl-9">
                   {detail && <p className="min-w-0 text-sm font-bold text-[#c7bddc]">{detail}</p>}
-                  {e.coins > 0 && <span className="shrink-0 font-bold text-[#f5d547]">+🪙{e.coins}</span>}
+                  {e.coins !== 0 && (
+                    <span className={`shrink-0 font-bold ${e.coins > 0 ? "text-[#f5d547]" : "text-[#fb7185]"}`}>
+                      {e.coins > 0 ? "+" : "-"}🪙{Math.abs(e.coins)}
+                    </span>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
+
+        {r.coinTransactions?.length ? (
+          <div className="grid gap-2">
+            {r.coinTransactions.map((transaction, index) => (
+              <p
+                key={`${transaction.id}-${index}`}
+                className="rounded-sm border border-[#7dd3fc]/25 bg-[#0ea5e9]/10 px-3 py-2 text-center text-xs font-black leading-5 text-[#bae6fd]"
+              >
+                {coinTransactionText(transaction, players)}
+              </p>
+            ))}
+          </div>
+        ) : null}
 
         <div className="grid gap-2">
           {r.actions?.length ? (
@@ -97,4 +116,12 @@ export function RevealPanel({
       </CardContent>
     </Card>
   );
+}
+
+function coinTransactionText(transaction: CoinTransaction, players: GameState["players"] = []): string {
+  const playerName = players.find((player) => player.id === transaction.playerId)?.name ?? transaction.playerId;
+  const amount = Math.abs(transaction.delta);
+  const verb = transaction.delta >= 0 ? "gained" : "spent";
+  const clamp = transaction.clamped ? `, clamped from ${Math.abs(transaction.requestedDelta)}` : "";
+  return `${playerName} ${verb} ${amount} coin${amount === 1 ? "" : "s"} · ${transaction.source.label}${clamp}`;
 }

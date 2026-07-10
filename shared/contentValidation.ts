@@ -3,18 +3,19 @@ import type {
   ArtifactDef,
   ArtifactRarityDef,
   ArtifactRarityRates,
-  CameraFramingDef,
+  AudioAssetDef,
+  AudioTriggerBindingDef,
   CharacterDef,
   CharacterTraitDef,
-  ContentMediaAssetDef,
+  CameraFramingDef,
+  ConsequenceRule,
   CosmeticDef,
+  ContentMediaAssetDef,
   EffectDef,
   EffectDuration,
   EffectModifier,
   EventAction,
-  EventActivity,
   EventActionTarget,
-  EventOutcomeBranch,
   FaceAnchor,
   GameContent,
   GameEventDef,
@@ -29,7 +30,8 @@ import type {
   Tile,
 } from "./types";
 import { TILE_TYPES } from "./types";
-import { EVENT_ACTIVITY_TYPES } from "./events";
+import { AUDIO_SCOPE_TYPES, AUDIO_TRIGGER_ID_SET } from "./audio";
+import { EVENT_ACTIVITY_TYPES, normalizeGameContentEvents } from "./events";
 import { playerDefToCharacter } from "./characters";
 import { artifactPrice, artifactRarityDefinitions, artifactRarityRatesFromDefinitions } from "./artifacts";
 import {
@@ -284,16 +286,62 @@ const ArtifactDefSchema = z
   })
   .passthrough();
 
+const AudioAssetDefSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    src: z.string().min(1),
+    mimeType: z.string().optional(),
+    durationMs: z.number().finite().nonnegative().optional(),
+    trimStartMs: z.number().finite().nonnegative().optional(),
+    trimEndMs: z.number().finite().positive().optional(),
+    kind: z.enum(["oneShot", "loop"]).optional(),
+    tags: z.array(z.string().min(1)).optional(),
+  })
+  .passthrough();
+
+const AudioTriggerScopeSchema = z
+  .object({
+    type: z.enum(AUDIO_SCOPE_TYPES),
+    id: z.string().min(1).optional(),
+  })
+  .passthrough();
+
+const AudioTriggerVariantDefSchema = z
+  .object({
+    assetId: z.string().min(1),
+    weight: z.number().finite().nonnegative().optional(),
+    volume: z.number().finite().min(0).max(2).optional(),
+    playbackRate: z.number().finite().positive().optional(),
+  })
+  .passthrough();
+
+const AudioTriggerBindingDefSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    trigger: z.string().min(1),
+    scope: AudioTriggerScopeSchema.optional(),
+    variants: z.array(AudioTriggerVariantDefSchema).min(1),
+    enabled: z.boolean().optional(),
+    category: z.enum(["sfx", "music"]).optional(),
+    playback: z.enum(["oneShot", "loop"]).optional(),
+    volume: z.number().finite().min(0).max(2).optional(),
+    cooldownMs: z.number().finite().nonnegative().optional(),
+    maxVoices: z.number().int().positive().optional(),
+    overlapPolicy: z.enum(["overlap", "skip", "interrupt"]).optional(),
+  })
+  .passthrough();
+
 const TILE_TYPE_SET = new Set<string>(TILE_TYPES);
 
 export function normalizeContentSchema(input: unknown): GameContent {
   const content = input as GameContent;
-  const normalized = content;
+  const normalized = normalizeGameContentEvents({ ...content, events: content.events ?? {} });
   const {
     characterSets: _legacyCharacterSets,
-    minigames: _removedMinigames,
-    dares: _removedDares,
-    fates: _removedFates,
+    minigames: _legacyMinigames,
+    dares: _legacyDares,
+    fates: _legacyFates,
     ...contentWithoutRemovedFields
   } = normalized as GameContent & {
     characterSets?: unknown;
@@ -316,7 +364,12 @@ export function normalizeContentSchema(input: unknown): GameContent {
     artifactRarityRates: artifactRarityRatesFromDefinitions(artifactRarities),
     artifacts: cloneArtifacts(normalized.artifacts),
     playerStories: clonePlayerStories(normalized.playerStories),
-    board: cloneTiles(normalized.board ?? []),
+    mediaAssets: cloneMediaAssets(normalized.mediaAssets),
+    audioAssets: cloneAudioAssets(normalized.audioAssets),
+    audioTriggers: cloneAudioTriggers(normalized.audioTriggers),
+    audioSettings: normalized.audioSettings ? { ...normalized.audioSettings } : undefined,
+    events: cloneEvents(normalized.events),
+    board: cloneTiles(normalized.board),
     maps: normalized.maps?.map((map) => normalizeMapDefinition(map as MapDefinitionImport)),
     assetCatalog: normalized.assetCatalog?.map((asset) => ({
       ...asset,
@@ -330,8 +383,6 @@ export function normalizeContentSchema(input: unknown): GameContent {
         : undefined,
       tags: asset.tags ? [...asset.tags] : undefined,
     })),
-    mediaAssets: cloneMediaAssets(normalized.mediaAssets),
-    events: cloneEvents(normalized.events) ?? {},
   };
 }
 
@@ -364,6 +415,18 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   validateCatalogIds(normalized.artifacts, "artifacts", error);
   validateArtifacts(normalized.artifacts, playerIds, effectIds, new Set(Object.keys(normalized.artifactRarities ?? {})), error);
   validateCatalogIds(normalized.effects, "effects", error);
+  validateCatalogIds(normalized.audioAssets, "audioAssets", error);
+  validateAudioContent(
+    normalized,
+    {
+      players: playerIds,
+      minigames: new Set(Object.keys(normalized.events).filter((id) => Boolean(normalized.events[id]?.activity))),
+      artifacts: new Set(Object.keys(normalized.artifacts ?? {})),
+      cosmetics: new Set(Object.keys(normalized.cosmetics ?? {})),
+      effects: effectIds,
+    },
+    error
+  );
   validateFutureCatalogReferences(normalized, traitIds, error, warning);
 
   const maps = normalized.maps ?? [
@@ -389,11 +452,12 @@ export function validateGameContent(content: unknown): ContentValidationResult {
 }
 
 export function assertValidGameContent(content: unknown, label = "content.json"): GameContent {
-  const result = validateGameContent(content);
+  const normalized = normalizeContentSchema(content);
+  const result = validateGameContent(normalized);
   if (!result.ok) {
     throw new Error(`${label}:\n${result.errors.map((line) => `  - ${line}`).join("\n")}`);
   }
-  return normalizeContentSchema(content);
+  return normalized;
 }
 
 function normalizeMapDefinition(map: MapDefinitionImport): MapDefinition {
@@ -483,40 +547,6 @@ function validateAssetCatalog(content: GameContent, error: (path: string, messag
   return ids;
 }
 
-function validateMediaAssets(
-  mediaAssets: Record<string, ContentMediaAssetDef> | undefined,
-  error: (path: string, message: string) => void
-): Set<string> {
-  const ids = new Set<string>();
-  for (const [id, asset] of Object.entries(mediaAssets ?? {})) {
-    const result = ContentMediaAssetDefSchema.safeParse(asset);
-    if (!result.success) {
-      for (const issue of result.error.issues) {
-        error(zodPath(`mediaAssets.${id}`, issue.path), issue.message);
-      }
-    }
-    if (asset.id && asset.id !== id) error(`mediaAssets.${id}.id`, `must match catalog key ${id}`);
-    if (ids.has(id)) error(`mediaAssets.${id}`, "is duplicated");
-    ids.add(id);
-    if (asset.src && !isPortableImageSrc(asset.src)) {
-      error(`mediaAssets.${id}.src`, "must be a data URL or import/export-safe image URL");
-    }
-  }
-  return ids;
-}
-
-function isPortableImageSrc(src: string): boolean {
-  const trimmed = src.trim();
-  if (!trimmed || /^javascript:/i.test(trimmed)) return false;
-  return (
-    /^data:image\/[a-z0-9.+-]+;base64,/i.test(trimmed) ||
-    /^https?:\/\//i.test(trimmed) ||
-    trimmed.startsWith("/") ||
-    trimmed.startsWith("./") ||
-    trimmed.startsWith("../")
-  );
-}
-
 function validateEvent(
   path: string,
   event: GameEventDef,
@@ -535,8 +565,10 @@ function validateEvent(
   }
   validateMediaRefs(`${path}.media`, event.media, mediaAssetIds, error);
   validateMediaRefs(`${path}.activity.media`, event.activity?.media, mediaAssetIds, error);
-  event.actions?.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
-  event.outcomes?.forEach((outcome, index) => validateOutcome(`${path}.outcomes[${index}]`, outcome, playerIds, effectIds, error));
+  event.consequences?.forEach((rule, index) => validateConsequenceRule(`${path}.consequences[${index}]`, rule, playerIds, effectIds, error));
+  event.activity?.rankingPayout?.consequences?.forEach((rule, index) =>
+    validateConsequenceRule(`${path}.activity.rankingPayout.consequences[${index}]`, rule, playerIds, effectIds, error)
+  );
 }
 
 function validatePlayerStories(
@@ -564,11 +596,8 @@ function validatePlayerStories(
       if (override.activity?.type && !EVENT_ACTIVITY_TYPES.includes(override.activity.type)) {
         error(`${overridePath}.activity.type`, `is not supported: ${override.activity.type}`);
       }
-      override.actions?.forEach((action, actionIndex) =>
-        validateAction(`${overridePath}.actions[${actionIndex}]`, action, playerIds, effectIds, error)
-      );
-      override.outcomes?.forEach((outcome, outcomeIndex) =>
-        validateOutcome(`${overridePath}.outcomes[${outcomeIndex}]`, outcome, playerIds, effectIds, error)
+      override.consequences?.forEach((rule, ruleIndex) =>
+        validateConsequenceRule(`${overridePath}.consequences[${ruleIndex}]`, rule, playerIds, effectIds, error)
       );
     });
   }
@@ -616,13 +645,36 @@ function validateRemovedEventConfiguration(input: unknown, error: (path: string,
 
 function validateRemovedTileFields(path: string, value: unknown, error: (path: string, message: string) => void) {
   if (!Array.isArray(value)) return;
-  const removedFields = ["minigameId", "dareId", "fateId", "eventKind", "eventIds", "storyParams"] as const;
+  const removedFields = ["minigameId", "dareId", "fateId", "eventKind", "storyParams"] as const;
   value.forEach((tile, index) => {
     if (!isRecord(tile)) return;
     removedFields.forEach((field) => {
-      if (field in tile) error(`${path}[${index}].${field}`, "is no longer supported; assign one eventId to the cell");
+      if (field in tile) error(`${path}[${index}].${field}`, "is no longer supported; assign events with eventId or eventIds");
     });
   });
+}
+
+function validateMediaAssets(
+  mediaAssets: Record<string, ContentMediaAssetDef> | undefined,
+  error: (path: string, message: string) => void
+): Set<string> {
+  const ids = new Set<string>();
+  for (const [id, asset] of Object.entries(mediaAssets ?? {})) {
+    const result = ContentMediaAssetDefSchema.safeParse(asset);
+    if (!result.success) {
+      for (const issue of result.error.issues) error(zodPath(`mediaAssets.${id}`, issue.path), issue.message);
+    }
+    if (asset.id && asset.id !== id) error(`mediaAssets.${id}.id`, `must match catalog key ${id}`);
+    ids.add(id);
+    if (asset.src && !isPortableImageSrc(asset.src)) error(`mediaAssets.${id}.src`, "must be a data URL or import/export-safe image URL");
+  }
+  return ids;
+}
+
+function isPortableImageSrc(src: string): boolean {
+  const trimmed = src.trim();
+  if (!trimmed || /^javascript:/i.test(trimmed)) return false;
+  return /^data:image\/[a-z0-9.+-]+;base64,/i.test(trimmed) || /^https?:\/\//i.test(trimmed) || trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../");
 }
 
 function validateMediaRefs(
@@ -634,25 +686,26 @@ function validateMediaRefs(
   media?.forEach((ref, index) => {
     const result = ActivityMediaRefSchema.safeParse(ref);
     if (!result.success) {
-      for (const issue of result.error.issues) {
-        error(zodPath(`${path}[${index}]`, issue.path), issue.message);
-      }
+      for (const issue of result.error.issues) error(zodPath(`${path}[${index}]`, issue.path), issue.message);
     }
-    if (ref.assetId && !mediaAssetIds.has(ref.assetId)) {
-      error(`${path}[${index}].assetId`, `references missing media asset ${ref.assetId}`);
-    }
+    if (ref.assetId && !mediaAssetIds.has(ref.assetId)) error(`${path}[${index}].assetId`, `references missing media asset ${ref.assetId}`);
   });
 }
 
-function validateOutcome(
+function validateConsequenceRule(
   path: string,
-  outcome: EventOutcomeBranch,
+  rule: ConsequenceRule,
   playerIds: Set<string>,
   effectIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
-  validateTarget(`${path}.when`, outcome.when, playerIds, error);
-  outcome.actions.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
+  if (!rule.appliesTo) error(`${path}.appliesTo`, "is required");
+  else validateTarget(`${path}.appliesTo`, rule.appliesTo, playerIds, error);
+  if (!Array.isArray(rule.actions) || !rule.actions.length) {
+    error(`${path}.actions`, "must contain at least one action");
+    return;
+  }
+  rule.actions.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
 }
 
 function validateAction(
@@ -664,6 +717,10 @@ function validateAction(
 ) {
   if ("target" in action && action.target) validateTarget(`${path}.target`, action.target, playerIds, error);
   if (action.type === "coins" && !Number.isFinite(action.value)) error(`${path}.value`, "must be a finite number");
+  if (action.type === "coinTransfer" || action.type === "coinRedistribute") {
+    if (!Number.isFinite(action.amount) || action.amount < 0) error(`${path}.amount`, "must be a non-negative finite number");
+    validateTarget(`${path}.from`, action.from, playerIds, error);
+  }
   if (action.type === "move" && !Number.isFinite(action.delta)) error(`${path}.delta`, "must be a finite number");
   if (action.type === "moveTo" && !Number.isInteger(action.tileId)) error(`${path}.tileId`, "must be an integer board cell id");
   if (action.type === "applyEffect" && !effectIds.has(action.effectId)) error(`${path}.effectId`, `references missing effect ${action.effectId}`);
@@ -729,6 +786,20 @@ function validateTarget(
     if (!Number.isInteger(target.rank) || target.rank < 1) error(path, "rank must be a positive integer");
     return;
   }
+  if ("coinSelector" in target) {
+    if (target.coinSelector !== "richest" && target.coinSelector !== "poorest") error(path, "coin selector must be richest or poorest");
+    return;
+  }
+  if ("coinRank" in target) {
+    if (!Number.isInteger(target.coinRank) || target.coinRank < 1) error(path, "coin rank must be a positive integer");
+    return;
+  }
+  if ("coinRankFrom" in target) {
+    if (!Number.isInteger(target.coinRankFrom) || !Number.isInteger(target.coinRankTo) || target.coinRankFrom < 1 || target.coinRankTo < target.coinRankFrom) {
+      error(path, "coin rank range must be positive and ordered");
+    }
+    return;
+  }
   if ("nearest" in target) {
     if (target.nearest !== "ahead" && target.nearest !== "behind") error(path, "nearest must be ahead or behind");
     if (typeof target.from === "object" && !playerIds.has(target.from.playerId)) error(`${path}.from`, `references missing player ${target.from.playerId}`);
@@ -748,7 +819,7 @@ function validateMapDefinition(
   const path = `maps.${map.id}`;
   if (!map.id) error("maps", "contains a map with no id");
   if (!map.name?.trim()) error(`${path}.name`, "must not be empty");
-  validateCamera(`${path}.defaultCamera`, map.defaultCamera, error);
+  if (map.defaultCamera) validateCamera(`${path}.defaultCamera`, map.defaultCamera, error);
   const cameraPresetIds = new Set(Object.keys(map.cameraPresets ?? {}));
   for (const [id, camera] of Object.entries(map.cameraPresets ?? {})) {
     validateCamera(`${path}.cameraPresets.${id}`, camera, error);
@@ -783,34 +854,26 @@ function validateTile(
 ) {
   if (!Number.isInteger(tile.id)) error(`${path}.id`, "must be an integer");
   if (!TILE_TYPE_SET.has(tile.type)) error(`${path}.type`, `is not supported: ${tile.type}`);
+  if (tile.eventId && !eventIds.has(tile.eventId)) error(`${path}.eventId`, `references missing event ${tile.eventId}`);
+  tile.eventIds?.forEach((eventId, index) => {
+    if (!eventIds.has(eventId)) error(`${path}.eventIds[${index}]`, `references missing event ${eventId}`);
+  });
+  if (tile.cameraPresetId && !cameraPresetIds.has(tile.cameraPresetId)) {
+    error(`${path}.cameraPresetId`, `references missing camera preset ${tile.cameraPresetId}`);
+  }
   if (!tile.layout) {
     error(`${path}.layout`, "is required");
     return;
   }
+  if (tile.camera) validateCamera(`${path}.camera`, tile.camera, error);
   if (!Number.isFinite(tile.layout.x) || !Number.isFinite(tile.layout.y)) {
     error(`${path}.layout`, "must include finite x and y coordinates");
   }
-  if (tile.cameraPresetId && !cameraPresetIds.has(tile.cameraPresetId)) {
-    error(`${path}.cameraPresetId`, `references missing camera preset ${tile.cameraPresetId}`);
-  }
-  if (tile.eventId && !eventIds.has(tile.eventId)) {
-    error(`${path}.eventId`, `references missing event ${tile.eventId}`);
-  }
-  validateCamera(`${path}.camera`, tile.camera, error);
 }
 
-function validateCamera(
-  path: string,
-  camera: CameraFramingDef | undefined,
-  error: (path: string, message: string) => void
-) {
-  if (!camera) return;
+function validateCamera(path: string, camera: CameraFramingDef, error: (path: string, message: string) => void) {
   const result = CameraFramingDefSchema.safeParse(camera);
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      error(zodPath(path, issue.path), issue.message);
-    }
-  }
+  if (!result.success) for (const issue of result.error.issues) error(zodPath(path, issue.path), issue.message);
 }
 
 function validateRoute(
@@ -934,6 +997,96 @@ function validateArtifacts(
       if (!effectIds.has(effectId)) error(`artifacts.${id}.effects`, `references missing effect ${effectId}`);
     }
   }
+}
+
+function validateAudioContent(
+  content: GameContent,
+  ids: {
+    players: Set<string>;
+    minigames: Set<string>;
+    artifacts: Set<string>;
+    cosmetics: Set<string>;
+    effects: Set<string>;
+  },
+  error: (path: string, message: string) => void
+) {
+  const assetIds = new Set(Object.keys(content.audioAssets ?? {}));
+  for (const [id, asset] of Object.entries(content.audioAssets ?? {}) as [string, AudioAssetDef][]) {
+    const result = AudioAssetDefSchema.safeParse(asset);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(`audioAssets.${id}`, issue.path), issue.message);
+      }
+    }
+    if (asset.id && asset.id !== id) error(`audioAssets.${id}.id`, `must match catalog key ${id}`);
+    if (asset.trimStartMs !== undefined && asset.trimEndMs !== undefined && asset.trimStartMs >= asset.trimEndMs) {
+      error(`audioAssets.${id}.trimEndMs`, "must be greater than trimStartMs");
+    }
+    if (asset.durationMs !== undefined && asset.trimStartMs !== undefined && asset.trimStartMs > asset.durationMs) {
+      error(`audioAssets.${id}.trimStartMs`, "must not exceed durationMs");
+    }
+    if (asset.durationMs !== undefined && asset.trimEndMs !== undefined && asset.trimEndMs > asset.durationMs) {
+      error(`audioAssets.${id}.trimEndMs`, "must not exceed durationMs");
+    }
+  }
+
+  content.audioTriggers?.forEach((binding: AudioTriggerBindingDef, index) => {
+    const path = `audioTriggers[${index}]`;
+    const result = AudioTriggerBindingDefSchema.safeParse(binding);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(path, issue.path), issue.message);
+      }
+    }
+    if (!AUDIO_TRIGGER_ID_SET.has(binding.trigger)) error(`${path}.trigger`, `must be a supported audio trigger id`);
+    validateAudioScope(`${path}.scope`, binding.scope, ids, error);
+    if (!binding.variants?.length) error(`${path}.variants`, "must include at least one variant");
+    binding.variants?.forEach((variant, variantIndex) => {
+      const variantPath = `${path}.variants[${variantIndex}]`;
+      if (!assetIds.has(variant.assetId)) error(`${variantPath}.assetId`, `references missing audio asset ${variant.assetId}`);
+      if (variant.weight !== undefined && (!Number.isFinite(variant.weight) || variant.weight < 0)) {
+        error(`${variantPath}.weight`, "must be a non-negative finite number");
+      }
+      if (variant.volume !== undefined && (!Number.isFinite(variant.volume) || variant.volume < 0 || variant.volume > 2)) {
+        error(`${variantPath}.volume`, "must be between 0 and 2");
+      }
+      if (variant.playbackRate !== undefined && (!Number.isFinite(variant.playbackRate) || variant.playbackRate <= 0)) {
+        error(`${variantPath}.playbackRate`, "must be a positive finite number");
+      }
+    });
+  });
+}
+
+function validateAudioScope(
+  path: string,
+  scope: AudioTriggerBindingDef["scope"],
+  ids: {
+    players: Set<string>;
+    minigames: Set<string>;
+    artifacts: Set<string>;
+    cosmetics: Set<string>;
+    effects: Set<string>;
+  },
+  error: (path: string, message: string) => void
+) {
+  if (!scope || scope.type === "global") return;
+  if (!scope.id) {
+    error(path, `${scope.type} scope requires an id`);
+    return;
+  }
+  const catalog =
+    scope.type === "player"
+      ? ids.players
+      : scope.type === "minigame"
+        ? ids.minigames
+        : scope.type === "artifact"
+          ? ids.artifacts
+          : scope.type === "cosmetic"
+            ? ids.cosmetics
+            : scope.type === "effect"
+              ? ids.effects
+              : undefined;
+  if (catalog && !catalog.has(scope.id)) error(`${path}.id`, `references missing ${scope.type} ${scope.id}`);
 }
 
 function validateFutureCatalogReferences(
@@ -1160,8 +1313,7 @@ function cloneArtifacts(artifacts: Record<string, ArtifactDef> | undefined): Rec
   );
 }
 
-function cloneEvents(events: Record<string, GameEventDef> | undefined): Record<string, GameEventDef> | undefined {
-  if (!events) return undefined;
+function cloneEvents(events: Record<string, GameEventDef>): Record<string, GameEventDef> {
   return Object.fromEntries(
     Object.entries(events).map(([id, event]) => [
       id,
@@ -1171,40 +1323,15 @@ function cloneEvents(events: Record<string, GameEventDef> | undefined): Record<s
         media: cloneMediaRefs(event.media),
         story: event.story ? { ...event.story } : undefined,
         activity: event.activity ? cloneActivity(event.activity) : undefined,
-        actions: event.actions?.map(cloneAction),
-        outcomes: event.outcomes?.map((outcome) => ({
-          ...outcome,
-          actions: outcome.actions.map(cloneAction),
-        })),
+        consequences: event.consequences?.map(cloneConsequenceRule),
+        actions: undefined,
+        outcomes: undefined,
       },
     ])
   );
 }
 
-function cloneActivity(activity: EventActivity): EventActivity {
-  return {
-    type: activity.type,
-    skin: activity.skin,
-    content: cloneUnknownRecord(activity.content),
-    media: cloneMediaRefs(activity.media),
-    participants: activity.participants,
-    subjects: activity.subjects,
-    confirmation: activity.confirmation
-      ? {
-          mode: activity.confirmation.mode,
-          playerIds: activity.confirmation.playerIds ? [...activity.confirmation.playerIds] : undefined,
-        }
-      : undefined,
-    rigged: activity.rigged
-      ? {
-          losers: activity.rigged.losers ? [...activity.rigged.losers] : undefined,
-          winners: activity.rigged.winners ? [...activity.rigged.winners] : undefined,
-        }
-      : undefined,
-  };
-}
-
-function cloneActivityOverride(activity: Partial<EventActivity> | undefined): Partial<EventActivity> | undefined {
+function cloneActivity(activity: GameEventDef["activity"]): GameEventDef["activity"] {
   if (!activity) return undefined;
   return {
     type: activity.type,
@@ -1225,6 +1352,17 @@ function cloneActivityOverride(activity: Partial<EventActivity> | undefined): Pa
           winners: activity.rigged.winners ? [...activity.rigged.winners] : undefined,
         }
       : undefined,
+    rankingPayout: activity.rankingPayout
+      ? { consequences: activity.rankingPayout.consequences?.map(cloneConsequenceRule) }
+      : undefined,
+  };
+}
+
+function cloneConsequenceRule(rule: ConsequenceRule): ConsequenceRule {
+  return {
+    ...rule,
+    appliesTo: cloneTarget(rule.appliesTo),
+    actions: rule.actions.map(cloneAction),
   };
 }
 
@@ -1242,49 +1380,37 @@ function clonePlayerStories(
           kind: override.kind,
           activityType: override.activityType,
           story: override.story ? { ...override.story } : undefined,
-          activity: cloneActivityOverride(override.activity),
-          actions: override.actions?.map(cloneAction),
-          outcomes: override.outcomes?.map((outcome) => ({
-            ...outcome,
-            actions: outcome.actions.map(cloneAction),
-          })),
+          activity: override.activity ? cloneActivity({ ...override.activity, type: override.activity.type ?? "prompt" }) : undefined,
+          consequences: override.consequences?.map(cloneConsequenceRule),
         })),
       },
     ])
   );
 }
 
-function cloneMediaAssets(mediaAssets: Record<string, ContentMediaAssetDef> | undefined): Record<string, ContentMediaAssetDef> | undefined {
-  if (!mediaAssets) return undefined;
+function cloneAudioAssets(audioAssets: Record<string, AudioAssetDef> | undefined): Record<string, AudioAssetDef> | undefined {
+  if (!audioAssets) return undefined;
   return Object.fromEntries(
-    Object.entries(mediaAssets).map(([id, asset]) => [
+    Object.entries(audioAssets).map(([id, asset]) => [
       id,
       {
         ...asset,
-        crop: asset.crop ? { ...asset.crop } : undefined,
+        tags: asset.tags ? [...asset.tags] : undefined,
       },
     ])
   );
 }
 
+function cloneAudioTriggers(audioTriggers: AudioTriggerBindingDef[] | undefined): AudioTriggerBindingDef[] | undefined {
+  return audioTriggers?.map((binding) => ({
+    ...binding,
+    scope: binding.scope ? { ...binding.scope } : undefined,
+    variants: (binding.variants ?? []).map((variant) => ({ ...variant })),
+  }));
+}
+
 function cloneMediaRefs(media: ActivityMediaRef[] | undefined): ActivityMediaRef[] | undefined {
   return media?.map((ref) => ({ ...ref }));
-}
-
-function cloneCamera(camera: CameraFramingDef | undefined): CameraFramingDef | undefined {
-  return camera
-    ? {
-        ...camera,
-        focusOffset: camera.focusOffset ? { ...camera.focusOffset } : undefined,
-      }
-    : undefined;
-}
-
-function cloneCameraPresets(
-  cameraPresets: Record<string, CameraFramingDef> | undefined
-): Record<string, CameraFramingDef> | undefined {
-  if (!cameraPresets) return undefined;
-  return Object.fromEntries(Object.entries(cameraPresets).map(([id, camera]) => [id, cloneCamera(camera)!]));
 }
 
 function cloneAction<T extends EventAction>(action: T): T {
@@ -1357,10 +1483,25 @@ function cloneTiles(board: Tile[]): Tile[] {
     layout: tile.layout ? { ...tile.layout } : undefined,
     label: tile.label,
     eventId: tile.eventId,
+    eventIds: tile.eventIds ? [...tile.eventIds] : undefined,
     tags: tile.tags ? [...tile.tags] : undefined,
     cameraPresetId: tile.cameraPresetId,
     camera: cloneCamera(tile.camera),
   }));
+}
+
+function cloneMediaAssets(mediaAssets: Record<string, ContentMediaAssetDef> | undefined): Record<string, ContentMediaAssetDef> | undefined {
+  if (!mediaAssets) return undefined;
+  return Object.fromEntries(Object.entries(mediaAssets).map(([id, asset]) => [id, { ...asset, crop: asset.crop ? { ...asset.crop } : undefined }]));
+}
+
+function cloneCamera(camera: CameraFramingDef | undefined): CameraFramingDef | undefined {
+  return camera ? { ...camera, focusOffset: camera.focusOffset ? { ...camera.focusOffset } : undefined } : undefined;
+}
+
+function cloneCameraPresets(cameraPresets: Record<string, CameraFramingDef> | undefined): Record<string, CameraFramingDef> | undefined {
+  if (!cameraPresets) return undefined;
+  return Object.fromEntries(Object.entries(cameraPresets).map(([id, camera]) => [id, cloneCamera(camera)!]));
 }
 
 function cloneRoutes(routes: MapRoute[]): MapRoute[] {

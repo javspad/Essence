@@ -38,6 +38,7 @@ This glossary is a working draft for Essence, based on the planning notes and th
 | **Ranking** | The server-authoritative ordering of subjects after scores and rigging are applied. | Leaderboard when referring to one resolved activity |
 | **Reveal** | The shared results screen shown after an **Activity** resolves. | Results modal |
 | **Consequence** | An immediate rule outcome that changes game state or asks for an offline action. | Effect, punishment |
+| **Consequence Rule** | One or more **Consequences** that share a selected subject and resolve together when an **Event** completes. | Immediate action, outcome branch |
 | **Confirmation** | A required acknowledgement that an offline action or prompt was completed. | Ready, listo |
 | **Subject** | A **Player** who can be ranked or targeted by an **Activity**. | Participant when the player did not submit input |
 | **Participant** | A **Player** who must submit input to complete an **Activity**. | Subject |
@@ -72,7 +73,7 @@ This glossary is a working draft for Essence, based on the planning notes and th
 | --- | --- | --- |
 | **Content JSON** | The portable data file that defines players, maps, events, minigames, items, and stories. | Config, database |
 | **Map Builder** | The authoring tool for board cells, routes, terrain, and map props. | Board editor |
-| **Event Builder** | The authoring tool for stories, activities, outcomes, and consequences. | Minigame builder when editing non-minigame events |
+| **Event Builder** | The authoring tool for stories, activities, and consequence rules. | Minigame builder when editing non-minigame events |
 | **Character Builder** | The authoring tool for characters, face anchors, default traits, and visual loadouts. | Avatar builder |
 | **Artifact Builder** | The authoring tool for artifact pricing, rarity, targeting, consequences, effects, visuals, and simulations. | Item builder |
 | **Cosmetic Builder** | The authoring tool for cosmetic assets, anchors, prices, and previews. | Visual builder |
@@ -99,7 +100,9 @@ This glossary is a working draft for Essence, based on the planning notes and th
 ## Stable Rules
 
 - A **Consequence** is immediate: it changes state now, awards/removes **Coins**, moves a **Player**, or asks for a confirmed offline action.
+- An **Event** has one list of consequence rules that resolves when the Event completes; ranking selectors become available when an Activity produced a Ranking.
 - An **Effect** has duration: it modifies future interactions for turns, rounds, a trigger window, or the whole **Game**.
+- Events and Artifacts apply persistent behavior by referencing an **Effect**; lifecycle hooks and duration are never authored directly on their Consequences.
 - Spending **Coins** is all-or-nothing: a shop purchase or explicit spend either succeeds with enough balance or fails without changing state.
 - Steal and redistribution **Economy Consequences** may clamp to available **Coins** when configured as an effect, but must never make a balance negative.
 - **Coin Selectors** are different from **Activity Ranking** selectors; if ties occur, the server must use deterministic tie-breaking and log the selected players.

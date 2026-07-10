@@ -10,6 +10,8 @@ export function normalizeGameState(state: GameState): GameState {
     artifactCatalog: state.artifactCatalog ?? {},
     artifactRarities: state.artifactRarities,
     artifactRarityRates: state.artifactRarityRates,
+    audioAssets: state.audioAssets ?? {},
+    audioTriggers: state.audioTriggers ?? [],
     artifactShop: state.artifactShop ?? null,
     pendingArtifactUse: state.pendingArtifactUse ?? null,
   };

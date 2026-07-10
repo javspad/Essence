@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ArtifactDef, ArtifactRarity, ArtifactRarityDef, ArtifactTargetMode, ArtifactUseFlow, CosmeticAnchorType, EffectDuration, EffectLifecycleHook, EventAction, EventActionTarget, GameContent } from "@essence/shared";
+import type { ArtifactDef, ArtifactRarity, ArtifactRarityDef, ArtifactTargetMode, ArtifactUseFlow, CosmeticAnchorType, EventAction, EventActionTarget, GameContent, ImmediateConsequenceDef } from "@essence/shared";
 import { artifactActionsForUse, artifactRarityDefinitions, artifactRarityRatesFromDefinitions, rollArtifactShopOffers } from "@essence/shared/artifacts";
-import { consequenceLabel, defaultHookForConsequence, durationStateFromDef, effectRemainingLabel } from "@essence/shared/consequences";
+import { consequenceLabel } from "@essence/shared/consequences";
 import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";
 import { BODY_COSMETIC_ANCHORS, FACE_COSMETIC_ANCHORS } from "@essence/shared/cosmetics";
 import seedContent from "@shared/content.json";
-import { Copy, Download, ExternalLink, Plus, Save, SlidersHorizontal, Sparkles, Trash2, Upload, Wrench } from "lucide-react";
+import { Copy, Download, Plus, Save, SlidersHorizontal, Sparkles, Trash2, Upload, Wrench } from "lucide-react";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 import { effectBuilderHref } from "./EffectBuilderSurface";
 
@@ -357,28 +357,12 @@ function ArtifactEditor({
   onChange: (updater: (artifact: ArtifactDef) => ArtifactDef) => void;
   onDelete: () => void;
 }) {
-  const effectIds = artifact.effects ?? [];
   const consequences = artifact.consequences ?? [];
-  const availableEffects = effectOptions.filter((effect) => !effectIds.includes(effect.id));
-  const availableKey = availableEffects.map((effect) => effect.id).join("|");
-  const [effectToAdd, setEffectToAdd] = useState(availableEffects[0]?.id ?? "");
-
-  useEffect(() => {
-    if (effectToAdd && availableEffects.some((effect) => effect.id === effectToAdd)) return;
-    setEffectToAdd(availableEffects[0]?.id ?? "");
-  }, [availableKey, effectToAdd]);
-
-  const addEffect = () => {
-    if (!effectToAdd || effectIds.includes(effectToAdd)) return;
-    onChange((current) => ({ ...current, effects: [...(current.effects ?? []), effectToAdd] }));
-  };
-  const removeEffect = (effectId: string) => {
-    onChange((current) => ({ ...current, effects: (current.effects ?? []).filter((id) => id !== effectId) }));
-  };
+  const effectIds = consequences.flatMap((action) => (action.type === "applyEffect" ? [action.effectId] : []));
   const addConsequence = () => {
     onChange((current) => ({ ...current, consequences: [...(current.consequences ?? []), { type: "coins", value: 1 }] }));
   };
-  const updateConsequence = (index: number, action: EventAction) => {
+  const updateConsequence = (index: number, action: ImmediateConsequenceDef) => {
     onChange((current) => ({
       ...current,
       consequences: (current.consequences ?? []).map((existing, actionIndex) => (actionIndex === index ? action : existing)),
@@ -433,63 +417,23 @@ function ArtifactEditor({
       <section className="rounded-md border border-white/10 bg-white/[0.035] p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-sm font-black text-white">Effects and consequences</h3>
-            <p className="mt-1 text-xs font-bold leading-4 text-slate-500">{effectIds.length} reusable effects · {consequences.length} immediate actions</p>
+            <h3 className="text-sm font-black text-white">Consequences</h3>
+            <p className="mt-1 text-xs font-bold leading-4 text-slate-500">
+              {consequences.length} total · {effectIds.length} reusable {effectIds.length === 1 ? "Effect" : "Effects"}
+            </p>
           </div>
           <a href={effectBuilderHref(effectIds[0], "/artifact-builder")} className="builder-button compact preview gap-2">
             <SlidersHorizontal className="h-4 w-4" />
             Effect builder
           </a>
         </div>
-        <div className="mt-3 rounded-md border border-cyan-200/15 bg-cyan-300/10 p-3">
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <SelectInput
-              label="Reusable effect"
-              value={effectToAdd}
-              options={availableEffects.length ? availableEffects.map((effect) => ({ value: effect.id, label: effect.name })) : [{ value: "", label: "No effects available" }]}
-              onChange={setEffectToAdd}
-            />
-            <button type="button" onClick={addEffect} disabled={!effectToAdd || !availableEffects.length} className="builder-button preview mt-5 gap-2 disabled:opacity-40">
-              <Plus className="h-4 w-4" />
-              Add effect
-            </button>
-          </div>
-          <div className="mt-3 grid gap-2">
-            {effectIds.length === 0 && <p className="rounded-sm border border-dashed border-white/10 p-2 text-xs font-bold text-slate-500">No reusable effects selected.</p>}
-            {effectIds.map((effectId) => {
-              const effect = effectOptions.find((option) => option.id === effectId);
-              return (
-                <div key={effectId} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-sm border border-cyan-200/15 bg-black/20 p-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-black text-white">{effect?.name ?? effectId}</p>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      <span className="rounded-sm border border-cyan-200/20 bg-cyan-300/10 px-2 py-0.5 text-[0.58rem] font-black uppercase text-cyan-100">
-                        {effect ? effectRemainingLabel(durationStateFromDef(effect.duration)) : "Missing"}
-                      </span>
-                      <span className="rounded-sm border border-cyan-200/20 bg-cyan-300/10 px-2 py-0.5 text-[0.58rem] font-black uppercase text-cyan-100">
-                        Applies to artifact target
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <a href={effectBuilderHref(effectId, "/artifact-builder")} className="builder-button compact preview" aria-label={`Open ${effect?.name ?? effectId}`}>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                    <button type="button" onClick={() => removeEffect(effectId)} className="builder-button compact danger" aria-label={`Remove ${effect?.name ?? effectId}`}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         <div className="mt-3 rounded-md border border-emerald-200/15 bg-emerald-300/10 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-emerald-200">{consequences.length} actions</p>
-              <h4 className="text-sm font-black text-white">Immediate consequences</h4>
+              <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-emerald-200">
+                {consequences.length} {consequences.length === 1 ? "consequence" : "consequences"}
+              </p>
+              <h4 className="text-sm font-black text-white">Immediate changes and Effects</h4>
             </div>
             <button type="button" onClick={addConsequence} className="builder-button preview gap-2">
               <Plus className="h-4 w-4" />
@@ -497,7 +441,7 @@ function ArtifactEditor({
             </button>
           </div>
           <div className="mt-3 grid gap-2">
-            {consequences.length === 0 && <p className="rounded-sm border border-dashed border-white/10 p-2 text-xs font-bold text-slate-500">No immediate consequences.</p>}
+            {consequences.length === 0 && <p className="rounded-sm border border-dashed border-white/10 p-2 text-xs font-bold text-slate-500">No consequences.</p>}
             {consequences.map((action, index) => (
               <ArtifactActionEditor
                 key={`${action.type}-${index}`}
@@ -517,7 +461,7 @@ function ArtifactEditor({
               {consequenceLabel(action, (effectId) => effectOptions.find((effect) => effect.id === effectId)?.name ?? effectId)}
             </p>
           ))}
-          {!artifactActionsForUse(artifact).length && <p className="rounded-sm border border-dashed border-white/10 p-2 text-xs font-bold text-slate-500">No action preview.</p>}
+          {!artifactActionsForUse(artifact).length && <p className="rounded-sm border border-dashed border-white/10 p-2 text-xs font-bold text-slate-500">No consequence preview.</p>}
         </div>
       </section>
 
@@ -586,21 +530,20 @@ function ArtifactActionEditor({
   onChange,
   onRemove,
 }: {
-  action: EventAction;
+  action: ImmediateConsequenceDef;
   actionIndex: number;
   effectOptions: NonNullable<GameContent["effects"]>[string][];
   players: GameContent["players"];
-  onChange: (action: EventAction) => void;
+  onChange: (action: ImmediateConsequenceDef) => void;
   onRemove: () => void;
 }) {
   const fallbackEffectId = effectOptions[0]?.id ?? "half-roll-2-rounds";
   const editable = editableArtifactAction(action, fallbackEffectId);
-  const timingMode = artifactActionTimingMode(editable);
   return (
     <div className="rounded-md border border-white/10 bg-black/20 p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-black text-white">Action {actionIndex + 1}</p>
+          <p className="truncate text-sm font-black text-white">Consequence {actionIndex + 1}</p>
           <p className="mt-1 truncate text-xs font-bold text-slate-400">{consequenceLabel(editable, (effectId) => effectOptions.find((effect) => effect.id === effectId)?.name ?? effectId)}</p>
         </div>
         <button type="button" onClick={onRemove} className="builder-button danger compact gap-1.5">
@@ -614,7 +557,7 @@ function ArtifactActionEditor({
           label="Type"
           value={editable.type}
           options={artifactActionTypeOptions(effectOptions)}
-          onChange={(type) => onChange(convertArtifactActionType(editable, type as Exclude<EventAction["type"], "text">, fallbackEffectId))}
+          onChange={(type) => onChange(convertArtifactActionType(editable, type as Exclude<ImmediateConsequenceDef["type"], "text">, fallbackEffectId))}
         />
         {(editable.type === "coins" || editable.type === "move") && (
           <NumberInput
@@ -623,11 +566,25 @@ function ArtifactActionEditor({
             onChange={(value) => onChange(updateActionAmount(editable, value))}
           />
         )}
+        {(editable.type === "coinTransfer" || editable.type === "coinRedistribute") && (
+          <NumberInput
+            label="Coins"
+            value={editable.amount}
+            onChange={(amount) => onChange({ ...editable, amount: Math.max(0, Math.round(amount)) })}
+          />
+        )}
         {editable.type === "moveTo" && <NumberInput label="Cell" value={editable.tileId} onChange={(tileId) => onChange({ ...editable, tileId })} />}
-        {editable.type === "movementMultiplier" && <NumberInput label="x" value={editable.multiplier} onChange={(multiplier) => onChange({ ...editable, multiplier: Math.max(0, multiplier) })} />}
-        {editable.type === "diceBias" && <NumberInput label="Face" value={editable.face} onChange={(face) => onChange({ ...editable, face: clampInt(face, 1, 6) })} />}
-        {(editable.type === "skipTurn" || editable.type === "extraTurn" || editable.type === "offlineAction" || editable.type === "applyEffect" || editable.type === "swapPositions" || editable.type === "moveToNearest" || editable.type === "halfMovement") && <div />}
+        {(editable.type === "skipTurn" || editable.type === "extraTurn" || editable.type === "offlineAction" || editable.type === "applyEffect" || editable.type === "swapPositions" || editable.type === "moveToNearest") && <div />}
       </div>
+
+      {(editable.type === "coinTransfer" || editable.type === "coinRedistribute") && (
+        <TargetSelect
+          label={editable.type === "coinRedistribute" ? "Collect from" : "Take from"}
+          target={editable.from}
+          players={players}
+          onChange={(from) => onChange({ ...editable, from })}
+        />
+      )}
 
       {editable.type === "applyEffect" && (
         <SelectInput
@@ -636,33 +593,6 @@ function ArtifactActionEditor({
           options={effectSelectOptions(effectOptions, editable.effectId)}
           onChange={(effectId) => onChange({ ...editable, effectId })}
         />
-      )}
-      {editable.type === "halfMovement" && (
-        <SelectInput
-          label="Rounding"
-          value={editable.rounding ?? "ceil"}
-          options={[
-            { value: "ceil", label: "Ceil" },
-            { value: "round", label: "Round" },
-            { value: "floor", label: "Floor" },
-          ]}
-          onChange={(rounding) => onChange({ ...editable, rounding: rounding as "floor" | "ceil" | "round" })}
-        />
-      )}
-      {editable.type === "movementMultiplier" && (
-        <SelectInput
-          label="Rounding"
-          value={editable.rounding ?? "round"}
-          options={[
-            { value: "round", label: "Round" },
-            { value: "ceil", label: "Ceil" },
-            { value: "floor", label: "Floor" },
-          ]}
-          onChange={(rounding) => onChange({ ...editable, rounding: rounding as "floor" | "ceil" | "round" })}
-        />
-      )}
-      {editable.type === "diceBias" && (
-        <NumberInput label="Chance change percent" value={editable.chanceDeltaPercent} onChange={(chanceDeltaPercent) => onChange({ ...editable, chanceDeltaPercent })} />
       )}
       {editable.type === "offlineAction" && (
         <SelectInput
@@ -688,33 +618,9 @@ function ArtifactActionEditor({
         />
       )}
 
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
+      <div className="mt-3">
         <ArtifactTargetSelect action={editable} players={players} onChange={onChange} />
-        {editable.type !== "applyEffect" && (
-          <SelectInput
-            label="Timing"
-            value={timingMode}
-            disabled={isPersistentModifier(editable)}
-            options={[
-              { value: "now", label: "Resolve on use" },
-              { value: "attached", label: "Attach timed effect" },
-            ]}
-            onChange={(mode) => onChange(setArtifactActionTimingMode(editable, mode as "now" | "attached"))}
-          />
-        )}
       </div>
-      {editable.type !== "applyEffect" && timingMode === "attached" && (
-        <div className="mt-3 rounded-md border border-cyan-200/15 bg-cyan-300/10 p-2">
-          <SelectInput
-            label="Runs"
-            value={hookValueForAction(editable)}
-            disabled={isPersistentModifier(editable)}
-            options={hookOptionsForAction(editable)}
-            onChange={(hook) => onChange({ ...editable, hook: hook as EffectLifecycleHook })}
-          />
-          <DurationEditor duration={editable.duration ?? { mode: "uses", value: 1 }} onChange={(duration) => onChange({ ...editable, duration })} />
-        </div>
-      )}
       <TextInput label="Display text" value={editable.text ?? ""} onChange={(text) => onChange(updateActionText(editable, text))} />
       <details className="mt-3 rounded-md border border-white/10 bg-black/20 p-2">
         <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-300">Advanced JSON</summary>
@@ -724,7 +630,15 @@ function ArtifactActionEditor({
   );
 }
 
-function ArtifactTargetSelect({ action, players, onChange }: { action: EventAction; players: GameContent["players"]; onChange: (action: EventAction) => void }) {
+function ArtifactTargetSelect({
+  action,
+  players,
+  onChange,
+}: {
+  action: ImmediateConsequenceDef;
+  players: GameContent["players"];
+  onChange: (action: ImmediateConsequenceDef) => void;
+}) {
   const target = "target" in action ? action.target : undefined;
   return (
     <div>
@@ -737,19 +651,23 @@ function ArtifactTargetSelect({ action, players, onChange }: { action: EventActi
           { value: "target", label: "Chosen target" },
           { value: "everyone", label: "Everyone" },
           { value: "player", label: "Specific player" },
+          { value: "coinRichest", label: "Most coins" },
+          { value: "coinPoorest", label: "Least coins" },
+          { value: "coinRank", label: "Coin rank" },
+          { value: "coinRankRange", label: "Coin rank range" },
           { value: "nearestAhead", label: "Nearest ahead" },
           { value: "nearestBehind", label: "Nearest behind" },
         ]}
         onChange={(value) => {
           if (value === "artifactTarget") {
-            const { target: _target, ...rest } = action as EventAction & { target?: EventActionTarget };
-            onChange(rest as EventAction);
+            const { target: _target, ...rest } = action;
+            onChange(rest as ImmediateConsequenceDef);
             return;
           }
-          onChange({ ...action, target: targetForValue(value, players, target ?? "target") } as EventAction);
+          onChange({ ...action, target: targetForValue(value, players, target ?? "target") } as ImmediateConsequenceDef);
         }}
       />
-      {target && <TargetDetails target={target} players={players} onChange={(nextTarget) => onChange({ ...action, target: nextTarget } as EventAction)} />}
+      {target && <TargetDetails target={target} players={players} onChange={(nextTarget) => onChange({ ...action, target: nextTarget } as ImmediateConsequenceDef)} />}
     </div>
   );
 }
@@ -765,6 +683,10 @@ function TargetSelect({ label, target, players, onChange }: { label: string; tar
           { value: "target", label: "Chosen target" },
           { value: "everyone", label: "Everyone" },
           { value: "player", label: "Specific player" },
+          { value: "coinRichest", label: "Most coins" },
+          { value: "coinPoorest", label: "Least coins" },
+          { value: "coinRank", label: "Coin rank" },
+          { value: "coinRankRange", label: "Coin rank range" },
           { value: "nearestAhead", label: "Nearest ahead" },
           { value: "nearestBehind", label: "Nearest behind" },
         ]}
@@ -784,6 +706,17 @@ function TargetDetails({ target, players, onChange }: { target: EventActionTarge
         options={players.map((player) => ({ value: player.id, label: player.name }))}
         onChange={(playerId) => onChange({ playerId })}
       />
+    );
+  }
+  if (typeof target !== "string" && "coinRank" in target) {
+    return <NumberInput label="Coin rank" value={target.coinRank} onChange={(coinRank) => onChange({ coinRank: Math.max(1, Math.round(coinRank)) })} />;
+  }
+  if (typeof target !== "string" && "coinRankFrom" in target) {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <NumberInput label="From coin rank" value={target.coinRankFrom} onChange={(coinRankFrom) => onChange({ coinRankFrom: Math.max(1, Math.round(coinRankFrom)), coinRankTo: target.coinRankTo })} />
+        <NumberInput label="To coin rank" value={target.coinRankTo} onChange={(coinRankTo) => onChange({ coinRankFrom: target.coinRankFrom, coinRankTo: Math.max(1, Math.round(coinRankTo)) })} />
+      </div>
     );
   }
   return null;
@@ -1022,46 +955,15 @@ function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\\.0$/, "");
 }
 
-const artifactHookOptions: { value: EffectLifecycleHook; label: string }[] = [
-  { value: "onTurnEnd", label: "Turn end" },
-  { value: "beforeRoll", label: "Before roll" },
-  { value: "afterRoll", label: "After roll" },
-  { value: "beforeMovement", label: "Before movement" },
-  { value: "afterMovement", label: "After movement" },
-  { value: "onCellEnter", label: "Cell enter" },
-  { value: "onActivityResult", label: "Activity result" },
-];
-
-function DurationEditor({ duration, onChange }: { duration: EffectDuration; onChange: (duration: EffectDuration) => void }) {
-  const needsCount = duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses";
-  return (
-    <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_6rem]">
-      <SelectInput
-        label="Duration"
-        value={duration.mode}
-        options={[
-          { value: "uses", label: "Uses" },
-          { value: "rounds", label: "Rounds" },
-          { value: "turns", label: "Turns" },
-          { value: "game", label: "Whole game" },
-        ]}
-        onChange={(mode) => onChange(durationForMode(mode as EffectDuration["mode"], duration))}
-      />
-      {needsCount ? <NumberInput label="Count" value={duration.value} onChange={(value) => onChange({ ...duration, value: Math.max(1, Math.round(value)) } as EffectDuration)} /> : <div />}
-    </div>
-  );
-}
-
 function artifactActionTypeOptions(effectOptions: NonNullable<GameContent["effects"]>[string][]): SelectOption[] {
   return [
     { value: "coins", label: "Coins" },
+    { value: "coinTransfer", label: "Coin transfer" },
+    { value: "coinRedistribute", label: "Coin redistribution" },
     { value: "move", label: "Move" },
     { value: "moveTo", label: "Move to cell" },
     { value: "skipTurn", label: "Skip turn" },
     { value: "extraTurn", label: "Extra turn" },
-    { value: "halfMovement", label: "Half movement" },
-    { value: "movementMultiplier", label: "Movement multiplier" },
-    { value: "diceBias", label: "Dice bias" },
     { value: "swapPositions", label: "Swap positions" },
     { value: "moveToNearest", label: "Move to nearest" },
     { value: "offlineAction", label: "Offline action" },
@@ -1077,92 +979,46 @@ function effectSelectOptions(effectOptions: NonNullable<GameContent["effects"]>[
   return options.length ? options : [{ value: "", label: "No effects" }];
 }
 
-function editableArtifactAction(action: EventAction, fallbackEffectId: string): EventAction {
+function editableArtifactAction(action: ImmediateConsequenceDef, fallbackEffectId: string): ImmediateConsequenceDef {
   if (action.type === "text") return { type: "coins", value: 1, text: action.text };
   if (action.type === "applyEffect" && !action.effectId) return { ...action, effectId: fallbackEffectId };
-  return isPersistentModifier(action) ? ensureModifierTiming(action) : action;
+  return action;
 }
 
-function convertArtifactActionType(action: EventAction, type: Exclude<EventAction["type"], "text">, fallbackEffectId: string): EventAction {
+function convertArtifactActionType(
+  action: ImmediateConsequenceDef,
+  type: Exclude<ImmediateConsequenceDef["type"], "text">,
+  fallbackEffectId: string
+): ImmediateConsequenceDef {
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
   const icon = action.icon;
-  const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : 1;
-  const base = { ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}), ...timingPatch(action) };
-  if (type === "coins") return withCanonicalAction({ type, value: amount, ...base });
-  if (type === "move") return withCanonicalAction({ type, delta: amount, ...base });
-  if (type === "moveTo") return withCanonicalAction({ type, tileId: 1, ...base });
-  if (type === "skipTurn") return withCanonicalAction({ type, ...base });
-  if (type === "extraTurn") return withCanonicalAction({ type, ...base });
-  if (type === "offlineAction") return withCanonicalAction({ type, action: "custom", ...base });
-  if (type === "halfMovement") return ensureModifierTiming({ type, hook: "beforeMovement", rounding: "ceil", ...base });
-  if (type === "movementMultiplier") return ensureModifierTiming({ type, hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", ...base });
-  if (type === "diceBias") return ensureModifierTiming({ type, hook: "beforeRoll", face: 5, chanceDeltaPercent: 10, ...base });
-  if (type === "swapPositions") return withCanonicalAction({ type, withTarget: "target", ...base });
-  if (type === "moveToNearest") return withCanonicalAction({ type, direction: "ahead", ...base });
+  const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : action.type === "coinTransfer" || action.type === "coinRedistribute" ? action.amount : 1;
+  const base = { ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
+  if (type === "coins") return { type, value: amount, ...base };
+  if (type === "coinTransfer") return { type, amount: Math.abs(amount), from: "target", ...base };
+  if (type === "coinRedistribute") return { type, amount: Math.abs(amount), from: "everyone", ...base };
+  if (type === "move") return { type, delta: amount, ...base };
+  if (type === "moveTo") return { type, tileId: 1, ...base };
+  if (type === "skipTurn") return { type, ...base };
+  if (type === "extraTurn") return { type, ...base };
+  if (type === "offlineAction") return { type, action: "custom", ...base };
+  if (type === "swapPositions") return { type, withTarget: "target", ...base };
+  if (type === "moveToNearest") return { type, direction: "ahead", ...base };
   return { type, effectId: fallbackEffectId, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
 }
 
-function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" }>, amount: number): EventAction {
+function updateActionAmount(
+  action: Extract<ImmediateConsequenceDef, { type: "coins" | "move" }>,
+  amount: number
+): ImmediateConsequenceDef {
   if (action.type === "coins") return { ...action, value: amount };
   return { ...action, delta: amount };
 }
 
-function updateActionText(action: EventAction, text: string): EventAction {
+function updateActionText(action: ImmediateConsequenceDef, text: string): ImmediateConsequenceDef {
   if (action.type === "text") return { ...action, text };
   return { ...action, text: text || undefined };
-}
-
-function artifactActionTimingMode(action: EventAction): "now" | "attached" {
-  return action.duration || isPersistentModifier(action) ? "attached" : "now";
-}
-
-function setArtifactActionTimingMode(action: EventAction, mode: "now" | "attached"): EventAction {
-  if (isPersistentModifier(action)) return ensureModifierTiming(action);
-  if (mode === "attached") {
-    return {
-      ...action,
-      hook: action.hook ?? defaultHookForConsequence(action.type),
-      duration: action.duration ?? { mode: "uses", value: 1 },
-    } as EventAction;
-  }
-  const { duration: _duration, hook: _hook, ...rest } = action;
-  return rest as EventAction;
-}
-
-function hookValueForAction(action: EventAction): NonNullable<EventAction["hook"]> {
-  return isPersistentModifier(action) ? defaultHookForConsequence(action.type) : action.hook ?? defaultHookForConsequence(action.type);
-}
-
-function hookOptionsForAction(action: EventAction): { value: EffectLifecycleHook; label: string }[] {
-  if (!isPersistentModifier(action)) return artifactHookOptions;
-  const hook = defaultHookForConsequence(action.type);
-  return artifactHookOptions.filter((option) => option.value === hook);
-}
-
-function withCanonicalAction(action: EventAction): EventAction {
-  return isPersistentModifier(action) ? ensureModifierTiming(action) : action;
-}
-
-function isPersistentModifier(action: EventAction): boolean {
-  return action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias";
-}
-
-function ensureModifierTiming(action: EventAction): EventAction {
-  if (!isPersistentModifier(action)) return action;
-  return { ...action, hook: defaultHookForConsequence(action.type) } as EventAction;
-}
-
-function timingPatch(action: EventAction): {
-  hook?: EventAction["hook"];
-  duration?: EffectDuration;
-  expiresOnTrigger?: boolean;
-} {
-  return {
-    ...(action.hook ? { hook: action.hook } : {}),
-    ...(action.duration ? { duration: action.duration } : {}),
-    ...(action.expiresOnTrigger !== undefined ? { expiresOnTrigger: action.expiresOnTrigger } : {}),
-  };
 }
 
 function targetSelectValue(target: EventActionTarget): string {
@@ -1170,6 +1026,9 @@ function targetSelectValue(target: EventActionTarget): string {
   if (target === "landing") return "acting";
   if (target === "winner" || target === "loser") return "target";
   if (typeof target !== "string" && "playerId" in target) return "player";
+  if (typeof target !== "string" && "coinSelector" in target) return target.coinSelector === "richest" ? "coinRichest" : "coinPoorest";
+  if (typeof target !== "string" && "coinRank" in target) return "coinRank";
+  if (typeof target !== "string" && "coinRankFrom" in target) return "coinRankRange";
   if (typeof target !== "string" && "nearest" in target) return target.nearest === "ahead" ? "nearestAhead" : "nearestBehind";
   return "target";
 }
@@ -1178,21 +1037,16 @@ function targetForValue(value: string, players: GameContent["players"], previous
   if (value === "acting" || value === "target" || value === "everyone") return value;
   if (value === "nearestAhead") return { nearest: "ahead", from: "acting" };
   if (value === "nearestBehind") return { nearest: "behind", from: "acting" };
+  if (value === "coinRichest") return { coinSelector: "richest" };
+  if (value === "coinPoorest") return { coinSelector: "poorest" };
+  if (value === "coinRank") return { coinRank: typeof previous !== "string" && "coinRank" in previous ? previous.coinRank : 1 };
+  if (value === "coinRankRange") {
+    return typeof previous !== "string" && "coinRankFrom" in previous
+      ? { coinRankFrom: previous.coinRankFrom, coinRankTo: previous.coinRankTo }
+      : { coinRankFrom: 1, coinRankTo: 2 };
+  }
   if (value === "player") return { playerId: typeof previous !== "string" && "playerId" in previous ? previous.playerId : players[0]?.id ?? "" };
   return "target";
-}
-
-function durationForMode(mode: EffectDuration["mode"], previous: EffectDuration): EffectDuration {
-  if (mode === "turns" || mode === "rounds" || mode === "uses") return { mode, value: durationValue(previous) };
-  return { mode };
-}
-
-function durationValue(duration: EffectDuration): number {
-  return duration.mode === "turns" || duration.mode === "rounds" || duration.mode === "uses" ? duration.value : 1;
-}
-
-function clampInt(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value)));
 }
 
 function JsonModal({

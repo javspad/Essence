@@ -95,6 +95,7 @@ interface Board3DShellProps {
   freeCameraRefit?: boolean;
   focusedPlayerId?: FocusedPlayerId;
   onPlayerFocus?: (playerId: string) => void;
+  onPlayerClick?: (playerId: string) => void;
   artifactTrajectory?: { fromPlayerId: string; toPlayerId: string } | null;
 }
 
@@ -123,6 +124,7 @@ export default function Board3DShell({
   freeCameraRefit = false,
   focusedPlayerId = null,
   onPlayerFocus,
+  onPlayerClick,
   artifactTrajectory = null,
 }: Board3DShellProps) {
   const reducedMotion = useReducedMotion();
@@ -306,6 +308,7 @@ export default function Board3DShell({
             cosmeticCatalog={cosmetics}
             effectVisuals={effectVisualsByPlayer.get(player.id) ?? []}
             onSelect={onPlayerFocus}
+            onClickSound={onPlayerClick}
             trackRef={player.id === trackedId ? trackedTokenRef : undefined}
           />
         ))}
@@ -4032,6 +4035,7 @@ function PlayerToken({
   cosmeticCatalog,
   effectVisuals,
   onSelect,
+  onClickSound,
   trackRef,
 }: {
   player: Player;
@@ -4044,21 +4048,26 @@ function PlayerToken({
   cosmeticCatalog: Record<string, CosmeticDef>;
   effectVisuals: EffectInstance[];
   onSelect?: (playerId: string) => void;
+  onClickSound?: (playerId: string) => void;
   /** la cámara lee de acá la posición viva del muñeco seguido */
   trackRef?: { current: Vector3 | null };
 }) {
   const { gl } = useThree();
   const group = useRef<Group | null>(null);
+  const visualGroup = useRef<Group | null>(null);
   const markerRef = useRef<Mesh | null>(null);
+  const squishAge = useRef(Number.POSITIVE_INFINITY);
   const segment = useRef(0);
   const progress = useRef(0);
   const selectPlayer = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
       if (!onSelect) return;
       event.stopPropagation();
+      squishAge.current = 0;
+      onClickSound?.(player.id);
       onSelect(player.id);
     },
-    [onSelect, player.id]
+    [onClickSound, onSelect, player.id]
   );
   const setPointerCursor = useCallback(
     (cursor: string) => {
@@ -4115,6 +4124,18 @@ function PlayerToken({
       markerRef.current.position.y = 0.94 + Math.sin(state.clock.elapsedTime * 2.6) * 0.05;
       markerRef.current.rotation.y = state.clock.elapsedTime * 1.6;
     }
+    if (visualGroup.current) {
+      const age = squishAge.current;
+      if (age < 0.22) {
+        const t = age / 0.22;
+        const pulse = Math.sin(t * Math.PI);
+        const rebound = Math.sin(Math.min(1, t * 1.35) * Math.PI) * 0.05;
+        visualGroup.current.scale.set(1 + pulse * 0.18, 1 - pulse * 0.22 + rebound, 1 + pulse * 0.18);
+        squishAge.current += delta;
+      } else {
+        visualGroup.current.scale.lerp(new Vector3(1, 1, 1), frameLerp(delta, 16));
+      }
+    }
   });
 
   const opacity = player.connected ? 1 : 0.45;
@@ -4140,18 +4161,20 @@ function PlayerToken({
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
       )}
-      <PlayerTokenPawn
-        character={player}
-        facePhoto={player.facePhoto}
-        facePhotoAlignment={player.facePhotoAlignment}
-        faceAnchors={player.faceAnchors}
-        bodyAnchors={player.bodyAnchors}
-        cosmeticIds={player.cosmeticIds}
-        cosmeticCatalog={cosmeticCatalog}
-        opacity={opacity}
-        focused={focused}
-      />
-      {hasBackpackArtifact && <TokenArtifactBackpack opacity={opacity} />}
+      <group ref={visualGroup}>
+        <PlayerTokenPawn
+          character={player}
+          facePhoto={player.facePhoto}
+          facePhotoAlignment={player.facePhotoAlignment}
+          faceAnchors={player.faceAnchors}
+          bodyAnchors={player.bodyAnchors}
+          cosmeticIds={player.cosmeticIds}
+          cosmeticCatalog={cosmeticCatalog}
+          opacity={opacity}
+          focused={focused}
+        />
+        {hasBackpackArtifact && <TokenArtifactBackpack opacity={opacity} />}
+      </group>
       {/* Floating turn marker */}
       {active && (
         <mesh ref={markerRef} position={[0, 0.94, 0]} geometry={TOKEN_MARKER_GEOMETRY} dispose={null}>
