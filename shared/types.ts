@@ -710,6 +710,9 @@ export interface AudioAssetDef {
   src: string;
   mimeType?: string;
   durationMs?: number;
+  /** Non-destructive playback bounds authored by the Sound Builder. */
+  trimStartMs?: number;
+  trimEndMs?: number;
   kind?: AudioPlaybackMode;
   tags?: string[];
 }

@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AudioAssetDef, AudioTriggerBindingDef, AudioTriggerId } from "@essence/shared";
 import {
+  audioAssetPlaybackRange,
+  audioBindingCandidates,
   audioBindingId,
   audioScopeKey,
   audioTriggerCandidates,
@@ -27,6 +29,7 @@ interface AudioRuntime {
   setSettings: (updater: (settings: RuntimeAudioSettings) => RuntimeAudioSettings) => void;
   unlock: () => void;
   play: (trigger: AudioTriggerId, context?: Omit<AudioTriggerContext, "trigger">) => Promise<AudioPlayResult>;
+  playBinding: (binding: AudioTriggerBindingDef) => Promise<AudioPlayResult>;
   playFirst: (triggers: AudioTriggerId[], context?: Omit<AudioTriggerContext, "trigger">) => Promise<AudioPlayResult>;
   stop: (trigger?: AudioTriggerId) => void;
 }
@@ -36,6 +39,7 @@ interface ActiveVoice {
   candidate: AudioTriggerCandidate;
   voiceKey: string;
   loopKey?: string;
+  segmentTimer?: number;
 }
 
 const STORAGE_KEY = "essence:audio-settings:v1";
@@ -94,70 +98,99 @@ export function AudioTriggerProvider({
   const stop = useCallback((trigger?: AudioTriggerId) => {
     for (const [loopKey, voice] of loopsRef.current.entries()) {
       if (trigger && !loopKey.startsWith(`${trigger}:`)) continue;
-      voice.audio.pause();
-      voice.audio.currentTime = 0;
+      stopVoice(voice);
       removeActiveVoice(activeVoicesRef.current, voice);
       loopsRef.current.delete(loopKey);
     }
   }, []);
 
-  const play = useCallback(
-    async (trigger: AudioTriggerId, context: Omit<AudioTriggerContext, "trigger"> = {}): Promise<AudioPlayResult> => {
-      const fullContext = { ...context, trigger };
+  const playCandidate = useCallback(
+    async (
+      candidate: AudioTriggerCandidate,
+      trigger: AudioTriggerId,
+      context: Omit<AudioTriggerContext, "trigger"> = {}
+    ): Promise<AudioPlayResult> => {
       const now = Date.now();
-      const candidates = audioTriggerCandidates(bindings, fullContext).filter((candidate) => {
-        const asset = assets[candidate.variant.assetId];
-        if (!asset?.src) return false;
-        const voiceKey = candidateVoiceKey(candidate);
-        const lastPlayed = lastPlayedRef.current.get(voiceKey) ?? 0;
-        return !candidate.cooldownMs || now - lastPlayed >= candidate.cooldownMs;
-      });
-      const candidate = pickWeightedAudioCandidate(candidates);
-      if (!candidate) return { ok: false, reason: "missing" };
       const asset = assets[candidate.variant.assetId];
       if (!asset?.src) return { ok: false, reason: "missing" };
       if (settingsRef.current.muted) return { ok: false, reason: "muted" };
       if (!unlockedRef.current) return { ok: false, reason: "locked" };
 
       const voiceKey = candidateVoiceKey(candidate);
+      const lastPlayed = lastPlayedRef.current.get(voiceKey) ?? 0;
+      if (candidate.cooldownMs && now - lastPlayed < candidate.cooldownMs) return { ok: false, reason: "cooldown" };
       const activeForKey = activeVoicesRef.current.get(voiceKey) ?? [];
       if (candidate.overlapPolicy === "skip" && activeForKey.length > 0) return { ok: false, reason: "voice-limit" };
-      if (activeForKey.length >= candidate.maxVoices) {
-        if (candidate.overlapPolicy !== "interrupt") return { ok: false, reason: "voice-limit" };
-        stopVoices(activeVoicesRef.current, voiceKey);
+      if (candidate.overlapPolicy === "interrupt" && activeForKey.length > 0) {
+        stopVoices(activeVoicesRef.current, loopsRef.current, voiceKey);
+      } else if (activeForKey.length >= candidate.maxVoices) {
+        return { ok: false, reason: "voice-limit" };
       }
 
       const audio = new Audio(asset.src);
-      const loop = candidate.playback === "loop" || asset.kind === "loop";
+      const loop = candidate.playback === "loop";
+      const hasTrim = (asset.trimStartMs ?? 0) > 0 || asset.trimEndMs !== undefined;
       const loopKey = loop ? `${trigger}:${audioScopeKey(candidate.binding.scope)}:${contextIdForLoop(context)}` : undefined;
       if (loop && loopKey) {
         const existing = loopsRef.current.get(loopKey);
         if (existing) return { ok: true, assetId: existing.candidate.variant.assetId, trigger };
       }
-      audio.loop = loop;
+      audio.loop = loop && !hasTrim;
       audio.preload = "auto";
       audio.playbackRate = candidate.variant.playbackRate ?? 1;
 
       const voice: ActiveVoice = { audio, candidate, voiceKey, loopKey };
+      const finishVoice = () => {
+        clearVoiceTimer(voice);
+        removeActiveVoice(activeVoicesRef.current, voice);
+        if (loopKey) loopsRef.current.delete(loopKey);
+      };
       applyVoiceVolume(voice, settingsRef.current);
       addActiveVoice(activeVoicesRef.current, voice);
       if (loopKey) loopsRef.current.set(loopKey, voice);
-      audio.addEventListener("ended", () => {
-        removeActiveVoice(activeVoicesRef.current, voice);
-        if (loopKey) loopsRef.current.delete(loopKey);
-      });
+      audio.addEventListener("ended", finishVoice, { once: true });
+      prepareTrimmedPlayback(voice, asset, loop, finishVoice);
 
       try {
         await audio.play();
         lastPlayedRef.current.set(voiceKey, now);
         return { ok: true, assetId: asset.id, trigger };
       } catch {
-        removeActiveVoice(activeVoicesRef.current, voice);
-        if (loopKey) loopsRef.current.delete(loopKey);
+        finishVoice();
         return { ok: false, reason: "blocked" };
       }
     },
-    [assets, bindings]
+    [assets]
+  );
+
+  const play = useCallback(
+    async (trigger: AudioTriggerId, context: Omit<AudioTriggerContext, "trigger"> = {}): Promise<AudioPlayResult> => {
+      const now = Date.now();
+      const playableCandidates = audioTriggerCandidates(bindings, { ...context, trigger }).filter((candidate) => Boolean(assets[candidate.variant.assetId]?.src));
+      const candidates = playableCandidates.filter((candidate) => {
+        const lastPlayed = lastPlayedRef.current.get(candidateVoiceKey(candidate)) ?? 0;
+        return !candidate.cooldownMs || now - lastPlayed >= candidate.cooldownMs;
+      });
+      const candidate = pickWeightedAudioCandidate(candidates);
+      if (candidate) return playCandidate(candidate, trigger, context);
+      return { ok: false, reason: playableCandidates.length ? "cooldown" : "missing" };
+    },
+    [assets, bindings, playCandidate]
+  );
+
+  const playBinding = useCallback(
+    async (binding: AudioTriggerBindingDef): Promise<AudioPlayResult> => {
+      const now = Date.now();
+      const playableCandidates = audioBindingCandidates(binding).filter((candidate) => Boolean(assets[candidate.variant.assetId]?.src));
+      const candidates = playableCandidates.filter((candidate) => {
+        const lastPlayed = lastPlayedRef.current.get(candidateVoiceKey(candidate)) ?? 0;
+        return !candidate.cooldownMs || now - lastPlayed >= candidate.cooldownMs;
+      });
+      const candidate = pickWeightedAudioCandidate(candidates);
+      if (candidate) return playCandidate(candidate, binding.trigger);
+      return { ok: false, reason: playableCandidates.length ? "cooldown" : "missing" };
+    },
+    [assets, playCandidate]
   );
 
   const playFirst = useCallback(
@@ -176,8 +209,8 @@ export function AudioTriggerProvider({
   }, []);
 
   const value = useMemo<AudioRuntime>(
-    () => ({ unlocked, settings, setSettings, unlock, play, playFirst, stop }),
-    [play, playFirst, settings, setSettings, stop, unlock, unlocked]
+    () => ({ unlocked, settings, setSettings, unlock, play, playBinding, playFirst, stop }),
+    [play, playBinding, playFirst, settings, setSettings, stop, unlock, unlocked]
   );
 
   return <AudioRuntimeContext.Provider value={value}>{children}</AudioRuntimeContext.Provider>;
@@ -280,12 +313,59 @@ function removeActiveVoice(active: Map<string, ActiveVoice[]>, voice: ActiveVoic
   else active.delete(voice.voiceKey);
 }
 
-function stopVoices(active: Map<string, ActiveVoice[]>, voiceKey: string) {
+function stopVoices(active: Map<string, ActiveVoice[]>, loops: Map<string, ActiveVoice>, voiceKey: string) {
   for (const voice of active.get(voiceKey) ?? []) {
-    voice.audio.pause();
-    voice.audio.currentTime = 0;
+    stopVoice(voice);
+    if (voice.loopKey) loops.delete(voice.loopKey);
   }
   active.delete(voiceKey);
+}
+
+function prepareTrimmedPlayback(
+  voice: ActiveVoice,
+  asset: AudioAssetDef,
+  loop: boolean,
+  onFinished: () => void
+) {
+  const hasTrim = (asset.trimStartMs ?? 0) > 0 || asset.trimEndMs !== undefined;
+  if (!hasTrim) return;
+  const range = audioAssetPlaybackRange(asset);
+  const seekToStart = () => {
+    try {
+      voice.audio.currentTime = range.startSeconds;
+    } catch {
+      // Metadata may not be ready yet; loadedmetadata will retry.
+    }
+  };
+  if (voice.audio.readyState >= 1) seekToStart();
+  else voice.audio.addEventListener("loadedmetadata", seekToStart, { once: true });
+  if (range.endSeconds === undefined) return;
+  voice.segmentTimer = window.setInterval(() => {
+    if (voice.audio.currentTime + 0.015 < range.endSeconds!) return;
+    if (loop) {
+      seekToStart();
+      void voice.audio.play().catch(() => undefined);
+      return;
+    }
+    voice.audio.pause();
+    onFinished();
+  }, 25);
+}
+
+function stopVoice(voice: ActiveVoice) {
+  clearVoiceTimer(voice);
+  voice.audio.pause();
+  try {
+    voice.audio.currentTime = 0;
+  } catch {
+    // A voice can be stopped before metadata is available.
+  }
+}
+
+function clearVoiceTimer(voice: ActiveVoice) {
+  if (voice.segmentTimer === undefined) return;
+  window.clearInterval(voice.segmentTimer);
+  voice.segmentTimer = undefined;
 }
 
 function applyVoiceVolume(voice: ActiveVoice, settings: RuntimeAudioSettings) {
@@ -334,6 +414,7 @@ const silentAudioRuntime: AudioRuntime = {
   setSettings: () => undefined,
   unlock: () => undefined,
   play: async () => ({ ok: false, reason: "missing" }),
+  playBinding: async () => ({ ok: false, reason: "missing" }),
   playFirst: async () => ({ ok: false, reason: "missing" }),
   stop: () => undefined,
 };

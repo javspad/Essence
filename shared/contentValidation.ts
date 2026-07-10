@@ -240,6 +240,8 @@ const AudioAssetDefSchema = z
     src: z.string().min(1),
     mimeType: z.string().optional(),
     durationMs: z.number().finite().nonnegative().optional(),
+    trimStartMs: z.number().finite().nonnegative().optional(),
+    trimEndMs: z.number().finite().positive().optional(),
     kind: z.enum(["oneShot", "loop"]).optional(),
     tags: z.array(z.string().min(1)).optional(),
   })
@@ -769,6 +771,15 @@ function validateAudioContent(
       }
     }
     if (asset.id && asset.id !== id) error(`audioAssets.${id}.id`, `must match catalog key ${id}`);
+    if (asset.trimStartMs !== undefined && asset.trimEndMs !== undefined && asset.trimStartMs >= asset.trimEndMs) {
+      error(`audioAssets.${id}.trimEndMs`, "must be greater than trimStartMs");
+    }
+    if (asset.durationMs !== undefined && asset.trimStartMs !== undefined && asset.trimStartMs > asset.durationMs) {
+      error(`audioAssets.${id}.trimStartMs`, "must not exceed durationMs");
+    }
+    if (asset.durationMs !== undefined && asset.trimEndMs !== undefined && asset.trimEndMs > asset.durationMs) {
+      error(`audioAssets.${id}.trimEndMs`, "must not exceed durationMs");
+    }
   }
 
   content.audioTriggers?.forEach((binding: AudioTriggerBindingDef, index) => {

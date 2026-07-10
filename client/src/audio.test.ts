@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { AudioTriggerBindingDef, GameContent } from "@essence/shared";
 import {
+  audioAssetPlaybackRange,
   audioTriggerCandidates,
   pickWeightedAudioCandidate,
 } from "@essence/shared/audio";
@@ -67,6 +68,17 @@ test("weighted audio selection honors candidate weights", () => {
   assert.equal(pickWeightedAudioCandidate(candidates, () => 0.8)?.id, "loud");
 });
 
+test("audio asset playback ranges preserve non-destructive trims", () => {
+  assert.deepEqual(
+    audioAssetPlaybackRange({ durationMs: 5_000, trimStartMs: 750, trimEndMs: 3_250 }),
+    { startSeconds: 0.75, endSeconds: 3.25 }
+  );
+  assert.deepEqual(audioAssetPlaybackRange({ durationMs: 5_000, trimStartMs: 9_000 }), {
+    startSeconds: 5,
+    endSeconds: undefined,
+  });
+});
+
 test("content validation catches missing audio assets and invalid scoped ids", () => {
   const result = validateGameContent({
     ...baseContent,
@@ -92,11 +104,31 @@ test("content validation catches missing audio assets and invalid scoped ids", (
   assert(result.errors.some((error) => error.includes("must be a supported audio trigger id")));
 });
 
+test("content validation rejects inverted and out-of-range audio trims", () => {
+  const result = validateGameContent({
+    ...baseContent,
+    audioAssets: {
+      click: {
+        id: "click",
+        name: "Click",
+        src: "data:audio/wav;base64,AAAA",
+        durationMs: 1_000,
+        trimStartMs: 1_100,
+        trimEndMs: 1_000,
+      },
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert(result.errors.some((error) => error.includes("must be greater than trimStartMs")));
+  assert(result.errors.some((error) => error.includes("trimStartMs") && error.includes("must not exceed durationMs")));
+});
+
 test("normalizeContentSchema preserves audio assets and trigger bindings", () => {
   const content = normalizeContentSchema({
     ...baseContent,
     audioAssets: {
-      click: { id: "click", name: "Click", src: "data:audio/wav;base64,AAAA", tags: ["ui"] },
+      click: { id: "click", name: "Click", src: "data:audio/wav;base64,AAAA", durationMs: 1_000, trimStartMs: 125, trimEndMs: 875, tags: ["ui"] },
     },
     audioTriggers: [
       {
@@ -110,6 +142,8 @@ test("normalizeContentSchema preserves audio assets and trigger bindings", () =>
 
   assert.equal(content.audioAssets?.click?.name, "Click");
   assert.equal(content.audioAssets?.click?.tags?.[0], "ui");
+  assert.equal(content.audioAssets?.click?.trimStartMs, 125);
+  assert.equal(content.audioAssets?.click?.trimEndMs, 875);
   assert.equal(content.audioTriggers?.[0]?.scope?.id, "javi");
   assert.equal(content.audioTriggers?.[0]?.variants[0]?.weight, 2);
 });

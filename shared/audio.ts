@@ -58,6 +58,11 @@ export interface AudioTriggerCandidate {
   overlapPolicy: AudioOverlapPolicy;
 }
 
+export interface AudioAssetPlaybackRange {
+  startSeconds: number;
+  endSeconds?: number;
+}
+
 export function audioTriggerLabel(trigger: AudioTriggerId | string): string {
   const [domain, action] = trigger.split(".");
   return [titleFromId(domain ?? ""), titleFromId(action ?? "")]
@@ -85,21 +90,35 @@ export function audioTriggerCandidates(
 ): AudioTriggerCandidate[] {
   return (bindings ?? [])
     .filter((binding) => binding.enabled !== false && binding.trigger === context.trigger && audioScopeMatchesContext(binding.scope, context))
-    .flatMap((binding) =>
-      (binding.variants ?? [])
-        .filter((variant) => variant.assetId)
-        .map((variant) => ({
-          binding,
-          variant,
-          weight: normalizedWeight(variant.weight),
-          volume: clampVolume((binding.volume ?? 1) * (variant.volume ?? 1)),
-          category: binding.category ?? (binding.playback === "loop" ? "music" : "sfx"),
-          playback: binding.playback ?? "oneShot",
-          cooldownMs: Math.max(0, binding.cooldownMs ?? 0),
-          maxVoices: Math.max(1, Math.round(binding.maxVoices ?? 4)),
-          overlapPolicy: binding.overlapPolicy ?? "overlap",
-        }))
-    );
+    .flatMap(audioBindingCandidates);
+}
+
+export function audioBindingCandidates(binding: AudioTriggerBindingDef): AudioTriggerCandidate[] {
+  if (binding.enabled === false) return [];
+  return (binding.variants ?? [])
+    .filter((variant) => variant.assetId)
+    .map((variant) => ({
+      binding,
+      variant,
+      weight: normalizedWeight(variant.weight),
+      volume: clampVolume((binding.volume ?? 1) * (variant.volume ?? 1)),
+      category: binding.category ?? (binding.playback === "loop" ? "music" : "sfx"),
+      playback: binding.playback ?? "oneShot",
+      cooldownMs: Math.max(0, binding.cooldownMs ?? 0),
+      maxVoices: Math.max(1, Math.round(binding.maxVoices ?? 4)),
+      overlapPolicy: binding.overlapPolicy ?? "overlap",
+    }));
+}
+
+export function audioAssetPlaybackRange(asset: Pick<AudioAssetDef, "durationMs" | "trimStartMs" | "trimEndMs">): AudioAssetPlaybackRange {
+  const durationMs = finiteNonNegative(asset.durationMs);
+  const startMs = Math.min(finiteNonNegative(asset.trimStartMs), durationMs || Number.POSITIVE_INFINITY);
+  const authoredEndMs = finitePositive(asset.trimEndMs);
+  const endMs = authoredEndMs ? Math.min(authoredEndMs, durationMs || authoredEndMs) : durationMs || undefined;
+  return {
+    startSeconds: startMs / 1000,
+    endSeconds: endMs !== undefined && endMs > startMs ? endMs / 1000 : undefined,
+  };
 }
 
 export function pickWeightedAudioCandidate<T extends { weight?: number }>(
@@ -148,6 +167,14 @@ function normalizedWeight(weight: number | undefined): number {
 function clampVolume(volume: number): number {
   if (!Number.isFinite(volume)) return 1;
   return Math.max(0, Math.min(2, volume));
+}
+
+function finiteNonNegative(value: number | undefined): number {
+  return Number.isFinite(value) && value !== undefined ? Math.max(0, value) : 0;
+}
+
+function finitePositive(value: number | undefined): number | undefined {
+  return Number.isFinite(value) && value !== undefined && value > 0 ? value : undefined;
 }
 
 function titleFromId(value: string): string {

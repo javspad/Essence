@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   AudioAssetDef,
   AudioCategory,
@@ -12,15 +12,18 @@ import type {
 import {
   AUDIO_SCOPE_TYPES,
   AUDIO_TRIGGER_IDS,
+  audioAssetPlaybackRange,
   audioScopeLabel,
   audioTriggerLabel,
 } from "@essence/shared/audio";
 import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";
 import seedContent from "@shared/content.json";
-import { Copy, Download, Music, Play, Plus, Save, Trash2, Upload, Volume2, Wrench } from "lucide-react";
+import { Copy, Download, GripVertical, Pause, Play, Plus, RotateCcw, Save, Scissors, Square, Trash2, Upload, Volume2, Wrench, X } from "lucide-react";
+import { AudioTriggerProvider, useAudioRuntime } from "../audio";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 
 const STORAGE_KEY = "essence:sound-builder:draft:v1";
+const AUDIO_ASSET_DRAG_TYPE = "application/x-essence-audio-asset";
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 
 type SoundBuilderDraft = Pick<GameContent, "audioAssets" | "audioTriggers"> & {
@@ -36,11 +39,14 @@ export default function SoundBuilder() {
   const [jsonOpen, setJsonOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
-  const [previewStatus, setPreviewStatus] = useState("");
+  const [trimAssetId, setTrimAssetId] = useState<string | null>(null);
+  const [fileDropActive, setFileDropActive] = useState(false);
+  const [playingAssetId, setPlayingAssetId] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const assetIds = useMemo(() => Object.keys(content.audioAssets ?? {}), [content.audioAssets]);
   const bindings = content.audioTriggers ?? [];
-  const selectedAsset = selectedAssetId ? content.audioAssets?.[selectedAssetId] : undefined;
+  const trimAsset = trimAssetId ? content.audioAssets?.[trimAssetId] : undefined;
   const selectedBinding = bindings[selectedBindingIndex];
   const validation = useMemo(() => validateGameContent(content), [content]);
   const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(content), null, 2), [content]);
@@ -69,32 +75,9 @@ export default function SoundBuilder() {
     return () => window.clearTimeout(timeout);
   }, [saveStatus]);
 
-  useEffect(() => {
-    if (!previewStatus) return;
-    const timeout = window.setTimeout(() => setPreviewStatus(""), 2200);
-    return () => window.clearTimeout(timeout);
-  }, [previewStatus]);
+  useEffect(() => () => stopPreview(previewAudioRef.current), []);
 
-  const createUrlAsset = () => {
-    const id = nextId("sound", content.audioAssets ?? {});
-    const asset: AudioAssetDef = {
-      id,
-      name: "New sound",
-      src: "",
-      kind: "oneShot",
-    };
-    setContent((current) => ({
-      ...current,
-      audioAssets: {
-        ...(current.audioAssets ?? {}),
-        [id]: asset,
-      },
-    }));
-    setSelectedAssetId(id);
-    setSaveStatus("Created");
-  };
-
-  const uploadFiles = async (files: FileList | null) => {
+  const uploadFiles = async (files: FileList | File[] | null) => {
     const uploadList = Array.from(files ?? []);
     if (!uploadList.length) return;
     let firstId = "";
@@ -110,6 +93,13 @@ export default function SoundBuilder() {
     });
     if (firstId) setSelectedAssetId(firstId);
     setSaveStatus(`Uploaded ${assets.length}`);
+  };
+
+  const dropFiles = (event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setFileDropActive(false);
+    const files = Array.from(event.dataTransfer.files).filter((file) => file.type.startsWith("audio/") || !file.type);
+    void uploadFiles(files);
   };
 
   const updateAsset = (id: string, updater: (asset: AudioAssetDef) => AudioAssetDef) => {
@@ -152,21 +142,35 @@ export default function SoundBuilder() {
         .filter((binding) => binding.variants.length > 0);
       return { ...current, audioAssets, audioTriggers };
     });
+    if (trimAssetId === id) setTrimAssetId(null);
+    if (playingAssetId === id) {
+      stopPreview(previewAudioRef.current);
+      previewAudioRef.current = null;
+      setPlayingAssetId(null);
+    }
     setSaveStatus("Deleted");
   };
 
-  const previewAsset = async (asset: AudioAssetDef | undefined) => {
-    if (!asset?.src) {
-      setPreviewStatus("No source");
+  const previewAsset = async (asset: AudioAssetDef) => {
+    if (playingAssetId === asset.id) {
+      stopPreview(previewAudioRef.current);
+      previewAudioRef.current = null;
+      setPlayingAssetId(null);
       return;
     }
+    stopPreview(previewAudioRef.current);
+    const audio = createAssetPreview(asset, () => {
+      previewAudioRef.current = null;
+      setPlayingAssetId(null);
+    });
+    previewAudioRef.current = audio;
+    setPlayingAssetId(asset.id);
     try {
-      const audio = new Audio(asset.src);
-      audio.volume = 0.75;
       await audio.play();
-      setPreviewStatus("Playing");
     } catch {
-      setPreviewStatus("Playback blocked");
+      previewAudioRef.current = null;
+      setPlayingAssetId(null);
+      setSaveStatus("Playback blocked");
     }
   };
 
@@ -263,10 +267,11 @@ export default function SoundBuilder() {
   };
 
   return (
-    <main data-sound-builder="true" className="flex min-h-dvh flex-col bg-[#0d141b] text-slate-100 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
+    <AudioTriggerProvider assets={content.audioAssets} bindings={content.audioTriggers}>
+    <main data-sound-builder="true" className="flex min-h-dvh flex-col bg-[#0b1219] text-slate-100 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
       <header className="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#121a24]/98 px-4 py-3 shadow-lg shadow-black/25">
         <div className="min-w-0">
-          <p className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-sky-200">Essence tools</p>
+          <p className="text-[0.58rem] font-black uppercase text-sky-200">Essence tools</p>
           <h1 className="truncate text-xl font-black tracking-normal text-white">Sound builder</h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -290,12 +295,45 @@ export default function SoundBuilder() {
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:overflow-hidden lg:grid-cols-[18rem_minmax(0,1fr)_20rem]">
-        <aside className="flex flex-col border-b border-white/10 bg-[#0f1722] p-3 lg:min-h-0 lg:border-b-0 lg:border-r">
-          <PanelHeader eyebrow={`${assetIds.length} assets`} title="Audio assets" action={createUrlAsset} actionLabel="Create audio asset" />
-          <label className="builder-button preview mt-3 cursor-pointer gap-2">
-            <Upload className="h-4 w-4" />
-            Upload audio
+      <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:overflow-hidden lg:grid-cols-[19rem_minmax(0,1fr)_20rem]">
+        <aside className="flex flex-col border-b border-white/10 bg-[#101923] p-3 lg:min-h-0 lg:border-b-0 lg:border-r">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[0.58rem] font-black uppercase text-slate-500">{assetIds.length} sounds</p>
+              <h2 className="text-base font-black text-white">Sound library</h2>
+            </div>
+            <label className="builder-button preview grid h-9 w-9 cursor-pointer place-items-center p-0" aria-label="Upload audio" title="Upload audio">
+              <Upload className="h-4 w-4" />
+              <input
+                type="file"
+                accept="audio/*"
+                multiple
+                className="sr-only"
+                onChange={(event) => {
+                  void uploadFiles(event.target.files);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+          </div>
+          <label
+            data-audio-file-dropzone="true"
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setFileDropActive(true);
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDragLeave={() => setFileDropActive(false)}
+            onDrop={dropFiles}
+            className={`mt-3 grid min-h-20 cursor-pointer place-items-center rounded-md border border-dashed px-3 py-3 text-center transition ${
+              fileDropActive ? "border-teal-300 bg-teal-300/12 text-teal-100" : "border-white/15 bg-black/15 text-slate-400 hover:border-teal-300/50 hover:text-slate-200"
+            }`}
+          >
+            <span className="flex items-center gap-2 text-xs font-black">
+              <Upload className="h-4 w-4" />
+              Drop audio files
+            </span>
+            <span className="text-[0.6rem] font-bold text-slate-500">or choose from your computer</span>
             <input
               type="file"
               accept="audio/*"
@@ -307,55 +345,100 @@ export default function SoundBuilder() {
               }}
             />
           </label>
-          <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-y-auto pr-1 lg:min-h-0 lg:max-h-none lg:flex-1">
+          <div className="mt-3 flex max-h-80 flex-col gap-2 overflow-y-auto pr-1 lg:min-h-0 lg:max-h-none lg:flex-1">
             {assetIds.map((id) => {
               const asset = content.audioAssets?.[id];
               if (!asset) return null;
               return (
-                <button
+                <div
                   key={id}
-                  type="button"
                   data-audio-asset-id={id}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "copy";
+                    event.dataTransfer.setData(AUDIO_ASSET_DRAG_TYPE, id);
+                    event.dataTransfer.setData("text/plain", id);
+                  }}
                   onClick={() => setSelectedAssetId(id)}
-                  className={`grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border p-2 text-left transition ${
-                    id === selectedAssetId ? "border-sky-200/70 bg-sky-300/12" : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
+                  className={`group relative grid min-h-12 cursor-grab grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border p-2 text-left transition active:cursor-grabbing ${
+                    id === selectedAssetId ? "border-teal-300/65 bg-teal-300/10" : "border-white/10 bg-white/[0.035] hover:border-white/20 hover:bg-white/[0.06]"
                   }`}
                 >
-                  <span className="grid size-8 place-items-center rounded-sm border border-white/10 bg-sky-300/15 text-sky-100">
-                    {asset.kind === "loop" ? <Music className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void previewAsset(asset);
+                    }}
+                    className="grid size-8 place-items-center rounded-sm border border-teal-200/20 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20"
+                    aria-label={playingAssetId === id ? `Stop ${asset.name}` : `Play ${asset.name}`}
+                    title={playingAssetId === id ? "Stop" : "Play"}
+                  >
+                    {playingAssetId === id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </button>
+                  <input
+                    aria-label={`Name for ${id}`}
+                    value={asset.name}
+                    draggable={false}
+                    onClick={(event) => event.stopPropagation()}
+                    onFocus={() => setSelectedAssetId(id)}
+                    onChange={(event) => updateAsset(id, (current) => ({ ...current, name: event.target.value }))}
+                    className="min-w-0 rounded-sm border border-transparent bg-transparent px-1 py-1 text-sm font-black text-white outline-none hover:border-white/10 focus:border-teal-300/60 focus:bg-black/25"
+                  />
+                  <div className="flex items-center gap-0.5">
+                    <GripVertical className="h-4 w-4 text-slate-600" aria-hidden="true" />
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSelectedAssetId(id);
+                        setTrimAssetId(id);
+                      }}
+                      className="grid size-7 place-items-center rounded-sm text-amber-200 hover:bg-amber-300/15"
+                      aria-label={`Trim ${asset.name}`}
+                      title="Trim"
+                    >
+                      <Scissors className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        deleteAsset(id);
+                      }}
+                      className="grid size-7 place-items-center rounded-sm text-rose-300 hover:bg-rose-400/15"
+                      aria-label={`Delete ${asset.name}`}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <span className="pointer-events-none absolute left-11 top-1/2 z-20 max-w-[calc(100%-7.5rem)] -translate-y-1/2 truncate rounded-sm border border-white/10 bg-[#05090d] px-1.5 py-1 font-mono text-[0.58rem] font-bold text-slate-300 opacity-0 shadow-lg transition group-hover:opacity-100">
+                    {asset.id}
                   </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-black text-white">{asset.name}</span>
-                    <span className="block truncate text-[0.56rem] font-black uppercase tracking-[0.08em] text-slate-500">{asset.id}</span>
-                  </span>
-                  <span className="font-mono text-[0.58rem] font-black text-sky-200">{asset.kind ?? "oneShot"}</span>
-                </button>
+                </div>
               );
             })}
-            {!assetIds.length && <EmptyState label="Upload audio or create a URL asset." />}
+            {!assetIds.length && <EmptyState label="Drop audio above to build your sound library." />}
           </div>
         </aside>
 
         <section className="bg-[#141d29] p-3 lg:min-h-0 lg:overflow-y-auto">
-          {selectedAsset ? (
-            <AssetEditor
-              asset={selectedAsset}
-              previewStatus={previewStatus}
-              onPreview={() => void previewAsset(selectedAsset)}
-              onDelete={() => deleteAsset(selectedAsset.id)}
-              onChange={(updater) => updateAsset(selectedAsset.id, updater)}
+          {trimAsset && (
+            <TrimEditor
+              asset={trimAsset}
+              playing={playingAssetId === trimAsset.id}
+              onPreview={() => void previewAsset(trimAsset)}
+              onClose={() => setTrimAssetId(null)}
+              onChange={(updater) => updateAsset(trimAsset.id, updater)}
             />
-          ) : (
-            <EmptyState label="Add an audio asset to start editing." />
           )}
 
-          <section className="mt-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
+          <section className={trimAsset ? "mt-4" : ""}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="text-sm font-black text-white">Trigger bindings</h2>
-                <p className="mt-1 text-xs font-bold leading-4 text-slate-500">
-                  Default bindings and matching scoped bindings are both included at runtime.
-                </p>
+                <p className="text-[0.58rem] font-black uppercase text-teal-200">Sound behavior</p>
+                <h2 className="text-sm font-black text-white">Selected trigger</h2>
               </div>
               <button type="button" onClick={createBinding} className="builder-button preview gap-2">
                 <Plus className="h-4 w-4" />
@@ -380,7 +463,7 @@ export default function SoundBuilder() {
           </section>
         </section>
 
-        <aside className="border-t border-white/10 bg-[#0f1722] p-3 lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
+        <aside className="border-t border-white/10 bg-[#101923] p-3 lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
           <section className="rounded-md border border-white/10 bg-white/[0.035] p-3">
             <PanelHeader eyebrow={`${bindings.length} bindings`} title="Trigger list" action={createBinding} actionLabel="Create trigger binding" />
             <div className="mt-3 grid gap-2">
@@ -393,9 +476,9 @@ export default function SoundBuilder() {
                     index === selectedBindingIndex ? "border-sky-200/65 bg-sky-300/12" : "border-white/10 bg-black/15 hover:bg-white/[0.06]"
                   }`}
                 >
-                  <p className="truncate text-xs font-black text-white">{audioTriggerLabel(binding.trigger)}</p>
-                  <p className="mt-1 truncate text-[0.58rem] font-black uppercase tracking-wider text-slate-500">
-                    {audioScopeLabel(binding.scope)} · {binding.variants.length} variants
+                  <p className="truncate text-xs font-black text-white">When {audioTriggerLabel(binding.trigger)}</p>
+                  <p className="mt-1 truncate text-[0.58rem] font-black uppercase text-slate-500">
+                    {audioScopeLabel(binding.scope)} · {binding.variants.length} {binding.variants.length === 1 ? "sound" : "sounds"}
                   </p>
                 </button>
               ))}
@@ -433,59 +516,173 @@ export default function SoundBuilder() {
         />
       )}
     </main>
+    </AudioTriggerProvider>
   );
 }
 
-function AssetEditor({
+function TrimEditor({
   asset,
-  previewStatus,
+  playing,
   onPreview,
-  onDelete,
+  onClose,
   onChange,
 }: {
   asset: AudioAssetDef;
-  previewStatus: string;
+  playing: boolean;
   onPreview: () => void;
-  onDelete: () => void;
+  onClose: () => void;
   onChange: (updater: (asset: AudioAssetDef) => AudioAssetDef) => void;
 }) {
+  const [waveform, setWaveform] = useState<number[]>([]);
+  const [decodeStatus, setDecodeStatus] = useState<"loading" | "ready" | "error">("loading");
+  const durationMs = asset.durationMs ?? 0;
+  const startMs = Math.min(asset.trimStartMs ?? 0, durationMs);
+  const endMs = Math.max(startMs, Math.min(asset.trimEndMs ?? durationMs, durationMs));
+  const startPercent = durationMs ? (startMs / durationMs) * 100 : 0;
+  const endPercent = durationMs ? (endMs / durationMs) * 100 : 100;
+
+  useEffect(() => {
+    let cancelled = false;
+    setDecodeStatus("loading");
+    void decodeWaveform(asset.src)
+      .then(({ samples, durationMs: decodedDurationMs }) => {
+        if (cancelled) return;
+        setWaveform(samples);
+        setDecodeStatus("ready");
+        onChange((current) => {
+          if (Math.abs((current.durationMs ?? 0) - decodedDurationMs) < 1) return current;
+          const trimEndMs = current.trimEndMs !== undefined ? Math.min(current.trimEndMs, decodedDurationMs) : undefined;
+          return { ...current, durationMs: decodedDurationMs, trimEndMs };
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setDecodeStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [asset.src]);
+
+  const updateStart = (value: number) => {
+    const nextStart = Math.max(0, Math.min(value, Math.max(0, endMs - 10)));
+    onChange((current) => ({ ...current, trimStartMs: nextStart > 0 ? Math.round(nextStart) : undefined }));
+  };
+
+  const updateEnd = (value: number) => {
+    const nextEnd = Math.max(startMs + 10, Math.min(value, durationMs));
+    onChange((current) => ({ ...current, trimEndMs: nextEnd < durationMs - 1 ? Math.round(nextEnd) : undefined }));
+  };
+
   return (
-    <section className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+    <section data-audio-trim-editor="true" className="rounded-md border border-amber-200/20 bg-amber-300/[0.055] p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-sky-200">Audio asset</p>
-          <h2 className="mt-1 text-lg font-black text-white">{asset.name}</h2>
+        <div className="min-w-0">
+          <p className="text-[0.58rem] font-black uppercase text-amber-200">Trim sound</p>
+          <h2 className="mt-1 truncate text-lg font-black text-white">{asset.name}</h2>
+          <p className="mt-1 font-mono text-[0.62rem] font-bold text-slate-500">{formatTime(startMs)} - {formatTime(endMs)} / {formatTime(durationMs)}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={onPreview} className="builder-button preview gap-2">
-            <Play className="h-4 w-4" />
-            Preview
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onPreview} className="builder-button compact gap-1.5 border-amber-200/30 text-amber-100">
+            {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            {playing ? "Stop" : "Preview cut"}
           </button>
-          <button type="button" onClick={onDelete} className="builder-button danger gap-2">
-            <Trash2 className="h-4 w-4" />
-            Delete
+          <button
+            type="button"
+            onClick={() => onChange((current) => ({ ...current, trimStartMs: undefined, trimEndMs: undefined }))}
+            className="builder-button compact icon"
+            aria-label="Reset trim"
+            title="Reset trim"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" onClick={onClose} className="builder-button compact icon" aria-label="Close trim editor" title="Close">
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
+
+      <div className="relative mt-4 h-36 overflow-hidden rounded-md border border-white/10 bg-[#090f14] px-2 py-4" data-audio-waveform="true">
+        {decodeStatus === "loading" && <div className="absolute inset-0 z-10 grid place-items-center text-xs font-black text-slate-500">Reading waveform...</div>}
+        {decodeStatus === "error" && <div className="absolute inset-0 z-10 grid place-items-center text-xs font-black text-rose-200">Waveform unavailable</div>}
+        <div className="flex h-full items-center gap-px" aria-hidden="true">
+          {waveform.map((peak, index) => {
+            const percent = waveform.length > 1 ? (index / (waveform.length - 1)) * 100 : 0;
+            const selected = percent >= startPercent && percent <= endPercent;
+            return (
+              <span
+                key={index}
+                className={`min-w-px flex-1 rounded-full transition-colors ${selected ? "bg-teal-300" : "bg-slate-700"}`}
+                style={{ height: `${Math.max(5, peak * 100)}%` }}
+              />
+            );
+          })}
+        </div>
+        <div className="pointer-events-none absolute inset-y-0 w-px bg-amber-200 shadow-[0_0_10px_rgb(253_230_138/0.8)]" style={{ left: `${startPercent}%` }} />
+        <div className="pointer-events-none absolute inset-y-0 w-px bg-amber-200 shadow-[0_0_10px_rgb(253_230_138/0.8)]" style={{ left: `${endPercent}%` }} />
+      </div>
+
       <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <TextInput label="Name" value={asset.name} onChange={(name) => onChange((current) => ({ ...current, name }))} />
-        <TextInput label="Id" value={asset.id} onChange={(id) => onChange((current) => ({ ...current, id }))} />
-        <SelectInput
-          label="Kind"
-          value={asset.kind ?? "oneShot"}
-          options={[
-            { value: "oneShot", label: "One-shot" },
-            { value: "loop", label: "Loop" },
-          ]}
-          onChange={(kind) => onChange((current) => ({ ...current, kind: kind as AudioPlaybackMode }))}
+        <TrimControl
+          label="Start"
+          valueMs={startMs}
+          minMs={0}
+          maxMs={Math.max(0, endMs - 10)}
+          durationMs={durationMs}
+          onChange={updateStart}
         />
-        <TextInput label="MIME type" value={asset.mimeType ?? ""} onChange={(mimeType) => onChange((current) => ({ ...current, mimeType: mimeType || undefined }))} />
+        <TrimControl
+          label="End"
+          valueMs={endMs}
+          minMs={Math.min(durationMs, startMs + 10)}
+          maxMs={durationMs}
+          durationMs={durationMs}
+          onChange={updateEnd}
+        />
       </div>
-      <TextArea label="Source URL or data URL" value={asset.src} onChange={(src) => onChange((current) => ({ ...current, src }))} />
-      <p className="mt-2 rounded-md border border-sky-200/15 bg-sky-300/10 p-2 text-[0.68rem] font-bold leading-4 text-sky-50/75">
-        {previewStatus || "Uploaded data URLs stay in exports and saves. Browser backup stores a compact draft."}
-      </p>
     </section>
+  );
+}
+
+function TrimControl({
+  label,
+  valueMs,
+  minMs,
+  maxMs,
+  durationMs,
+  onChange,
+}: {
+  label: string;
+  valueMs: number;
+  minMs: number;
+  maxMs: number;
+  durationMs: number;
+  onChange: (valueMs: number) => void;
+}) {
+  return (
+    <label className="block rounded-md border border-white/10 bg-black/20 p-2 text-[0.62rem] font-black uppercase text-slate-400">
+      <span className="flex items-center justify-between gap-3">
+        {label}
+        <input
+          type="number"
+          min={minMs / 1000}
+          max={maxMs / 1000}
+          step={0.01}
+          value={(valueMs / 1000).toFixed(2)}
+          onChange={(event) => onChange(Number(event.target.value) * 1000)}
+          className="h-7 w-24 rounded-sm border border-white/10 bg-[#0b1118] px-2 text-right font-mono text-xs font-bold normal-case text-white outline-none focus:border-amber-200/60"
+        />
+      </span>
+      <input
+        type="range"
+        min={minMs}
+        max={Math.max(minMs, maxMs)}
+        step={10}
+        value={valueMs}
+        disabled={!durationMs}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-2 h-5 w-full accent-amber-300 disabled:opacity-30"
+      />
+    </label>
   );
 }
 
@@ -504,17 +701,38 @@ function BindingEditor({
   onChange: (updater: (binding: AudioTriggerBindingDef) => AudioTriggerBindingDef) => void;
   onDelete: () => void;
 }) {
+  const audio = useAudioRuntime();
+  const [testStatus, setTestStatus] = useState("");
   const assetOptions = audioAssetOptions(content, selectedAssetId);
   const scopeType = binding.scope?.type ?? "global";
   const scopeOptions = scopeIdOptions(content, scopeType, binding.scope?.id);
 
-  const addVariant = () => {
-    const assetId = selectedAssetId || Object.keys(content.audioAssets ?? {})[0] || "";
+  useEffect(() => {
+    if (!testStatus) return;
+    const timeout = window.setTimeout(() => setTestStatus(""), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [testStatus]);
+
+  const addVariant = (assetId = selectedAssetId || Object.keys(content.audioAssets ?? {})[0] || "") => {
     if (!assetId) return;
     onChange((current) => ({
       ...current,
       variants: [...current.variants, { assetId, weight: 1 }],
     }));
+  };
+
+  const dropVariant = (event: React.DragEvent<HTMLElement>, index?: number) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const assetId = event.dataTransfer.getData(AUDIO_ASSET_DRAG_TYPE) || event.dataTransfer.getData("text/plain");
+    if (!content.audioAssets?.[assetId]) return;
+    if (index === undefined) addVariant(assetId);
+    else updateVariant(index, (current) => ({ ...current, assetId }));
+  };
+
+  const testBinding = async () => {
+    const result = await audio.playBinding(binding);
+    setTestStatus(result.ok ? `Played ${content.audioAssets?.[result.assetId]?.name ?? result.assetId}` : audioTestResultLabel(result.reason));
   };
 
   const updateVariant = (index: number, updater: (variant: NonNullable<AudioTriggerBindingDef["variants"]>[number]) => NonNullable<AudioTriggerBindingDef["variants"]>[number]) => {
@@ -532,16 +750,36 @@ function BindingEditor({
   };
 
   return (
-    <div className="mt-3 rounded-md border border-sky-200/15 bg-sky-300/10 p-3">
+    <div data-audio-binding-editor={bindingIndex} className="mt-3 rounded-md border border-teal-200/15 bg-teal-300/[0.075] p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-sky-200">Binding {bindingIndex + 1}</p>
-          <h3 className="mt-1 truncate text-base font-black text-white">{audioTriggerLabel(binding.trigger)}</h3>
+          <p className="text-[0.58rem] font-black uppercase text-teal-200">Binding {bindingIndex + 1}</p>
+          <h3 className="mt-1 truncate text-base font-black text-white">When {audioTriggerLabel(binding.trigger)}</h3>
         </div>
-        <button type="button" onClick={onDelete} className="builder-button danger compact gap-1.5">
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {testStatus && <span className="rounded-sm border border-amber-200/20 bg-amber-300/10 px-2 py-1 text-[0.65rem] font-black text-amber-100">{testStatus}</span>}
+          <button type="button" onClick={() => void testBinding()} disabled={!binding.variants.length || binding.enabled === false} className="builder-button compact gap-1.5 border-amber-200/30 text-amber-100 disabled:opacity-40">
+            <Play className="h-3.5 w-3.5" />
+            Test trigger
+          </button>
+          {binding.playback === "loop" && (
+            <button
+              type="button"
+              onClick={() => {
+                audio.stop(binding.trigger);
+                setTestStatus("Stopped");
+              }}
+              className="builder-button compact icon"
+              aria-label="Stop trigger test"
+              title="Stop test"
+            >
+              <Square className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button type="button" onClick={onDelete} className="builder-button danger compact icon" aria-label="Delete binding" title="Delete binding">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -621,16 +859,34 @@ function BindingEditor({
         Enabled
       </label>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <h4 className="text-xs font-black uppercase tracking-wider text-sky-100">Variants</h4>
-        <button type="button" onClick={addVariant} disabled={!assetOptions.length} className="builder-button preview compact gap-1.5 disabled:opacity-40">
-          <Plus className="h-3.5 w-3.5" />
-          Add variant
-        </button>
-      </div>
+      <section
+        data-audio-variant-dropzone="true"
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(event) => dropVariant(event)}
+        className="mt-3 border-t border-dashed border-white/15 pt-3 transition hover:border-teal-300/40"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h4 className="text-xs font-black uppercase text-teal-100">Sounds</h4>
+            <span className="text-[0.62rem] font-bold text-slate-500">Drop from the library</span>
+          </div>
+          <button type="button" onClick={() => addVariant()} disabled={!assetOptions.length} className="builder-button preview compact gap-1.5 disabled:opacity-40">
+            <Plus className="h-3.5 w-3.5" />
+            Add sound
+          </button>
+        </div>
       <div className="mt-2 grid gap-2">
         {binding.variants.map((variant, index) => (
-          <div key={`${variant.assetId}-${index}`} className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-2 sm:grid-cols-[minmax(0,1fr)_5rem_5rem_2rem]">
+          <div
+            key={`${variant.assetId}-${index}`}
+            data-audio-variant-index={index}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => dropVariant(event, index)}
+            className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-2 sm:grid-cols-[minmax(0,1fr)_5rem_5rem_2rem]"
+          >
             <SelectInput
               label="Asset"
               value={variant.assetId}
@@ -644,8 +900,9 @@ function BindingEditor({
             </button>
           </div>
         ))}
-        {!binding.variants.length && <p className="rounded-sm border border-dashed border-white/10 p-2 text-xs font-bold text-slate-500">No variants selected.</p>}
+        {!binding.variants.length && <p className="rounded-sm border border-dashed border-white/10 p-4 text-center text-xs font-bold text-slate-500">Drop a sound here</p>}
       </div>
+      </section>
     </div>
   );
 }
@@ -654,7 +911,7 @@ function PanelHeader({ eyebrow, title, action, actionLabel }: { eyebrow: string;
   return (
     <div className="flex items-center justify-between gap-3">
       <div>
-        <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
+        <p className="text-[0.58rem] font-black uppercase text-slate-500">{eyebrow}</p>
         <h2 className="text-base font-black text-white">{title}</h2>
       </div>
       <button type="button" onClick={action} className="builder-button preview h-9 w-9 p-0" aria-label={actionLabel}>
@@ -724,7 +981,7 @@ function JsonModal({
 
 function TextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="block text-[0.62rem] font-black uppercase tracking-wider text-slate-400">
+    <label className="block text-[0.62rem] font-black uppercase text-slate-400">
       {label}
       <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#0b1118] px-3 text-sm font-bold normal-case text-slate-100 outline-none focus:border-sky-300/60" />
     </label>
@@ -733,7 +990,7 @@ function TextInput({ label, value, onChange }: { label: string; value: string; o
 
 function NumberInput({ label, value, step = 1, onChange }: { label: string; value: number; step?: number; onChange: (value: number) => void }) {
   return (
-    <label className="block text-[0.62rem] font-black uppercase tracking-wider text-slate-400">
+    <label className="block text-[0.62rem] font-black uppercase text-slate-400">
       {label}
       <input type="number" step={step} value={Number.isFinite(value) ? value : 0} onChange={(event) => onChange(Number(event.target.value))} className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#0b1118] px-3 text-sm font-bold normal-case text-slate-100 outline-none focus:border-sky-300/60" />
     </label>
@@ -754,7 +1011,7 @@ function SelectInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block text-[0.62rem] font-black uppercase tracking-wider text-slate-400">
+    <label className="block text-[0.62rem] font-black uppercase text-slate-400">
       {label}
       <select
         aria-label={label}
@@ -768,15 +1025,6 @@ function SelectInput({
           </option>
         ))}
       </select>
-    </label>
-  );
-}
-
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="mt-3 block text-[0.62rem] font-black uppercase tracking-wider text-slate-400">
-      {label}
-      <textarea value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 min-h-28 w-full rounded-md border border-white/10 bg-[#0b1118] px-3 py-2 text-sm font-bold normal-case leading-5 text-slate-100 outline-none focus:border-sky-300/60" />
     </label>
   );
 }
@@ -826,17 +1074,7 @@ function scopeTypeLabel(type: AudioTriggerScopeType): string {
 }
 
 function emptyAudioAsset(id: string): AudioAssetDef {
-  return { id, name: "New sound", src: "", kind: "oneShot" };
-}
-
-function nextId(prefix: string, catalog: Record<string, unknown>): string {
-  let index = Object.keys(catalog).length + 1;
-  let id = `${prefix}-${index}`;
-  while (catalog[id]) {
-    index += 1;
-    id = `${prefix}-${index}`;
-  }
-  return id;
+  return { id, name: "New sound", src: "" };
 }
 
 function nextAvailableImportId(baseId: string, catalog: Record<string, unknown>): string {
@@ -861,7 +1099,6 @@ async function fileToAudioAsset(file: File): Promise<AudioAssetDef> {
     name: file.name.replace(/\.[^.]+$/, "") || "Uploaded audio",
     src: await readFileAsDataUrl(file),
     mimeType: file.type || undefined,
-    kind: "oneShot",
   };
 }
 
@@ -949,4 +1186,102 @@ function persistDraft(json: string): boolean {
     console.warn("Unable to persist sound builder draft", error);
     return false;
   }
+}
+
+const previewTimers = new WeakMap<HTMLAudioElement, number>();
+
+function createAssetPreview(asset: AudioAssetDef, onEnded: () => void): HTMLAudioElement {
+  const audio = new Audio(asset.src);
+  const range = audioAssetPlaybackRange(asset);
+  const hasTrim = (asset.trimStartMs ?? 0) > 0 || asset.trimEndMs !== undefined;
+  audio.volume = 0.75;
+  audio.preload = "auto";
+
+  const seekToStart = () => {
+    try {
+      audio.currentTime = range.startSeconds;
+    } catch {
+      // loadedmetadata retries the seek.
+    }
+  };
+  if (audio.readyState >= 1) seekToStart();
+  else audio.addEventListener("loadedmetadata", seekToStart, { once: true });
+
+  const finish = () => {
+    clearPreviewTimer(audio);
+    onEnded();
+  };
+  audio.addEventListener("ended", finish, { once: true });
+  if (hasTrim && range.endSeconds !== undefined) {
+    previewTimers.set(
+      audio,
+      window.setInterval(() => {
+        if (audio.currentTime + 0.015 < range.endSeconds!) return;
+        audio.pause();
+        finish();
+      }, 25)
+    );
+  }
+  return audio;
+}
+
+function stopPreview(audio: HTMLAudioElement | null) {
+  if (!audio) return;
+  clearPreviewTimer(audio);
+  audio.pause();
+  try {
+    audio.currentTime = 0;
+  } catch {
+    // A preview can be stopped before metadata is available.
+  }
+}
+
+function clearPreviewTimer(audio: HTMLAudioElement) {
+  const timer = previewTimers.get(audio);
+  if (timer !== undefined) window.clearInterval(timer);
+  previewTimers.delete(audio);
+}
+
+async function decodeWaveform(src: string): Promise<{ samples: number[]; durationMs: number }> {
+  const response = await fetch(src);
+  if (!response.ok) throw new Error(`Unable to read audio: ${response.status}`);
+  const encoded = await response.arrayBuffer();
+  const context = new AudioContext();
+  try {
+    const decoded = await context.decodeAudioData(encoded.slice(0));
+    const channel = decoded.getChannelData(0);
+    const sampleCount = 120;
+    const blockSize = Math.max(1, Math.floor(channel.length / sampleCount));
+    const peaks = Array.from({ length: sampleCount }, (_, sampleIndex) => {
+      const start = sampleIndex * blockSize;
+      const end = Math.min(channel.length, start + blockSize);
+      let peak = 0;
+      for (let index = start; index < end; index += 1) peak = Math.max(peak, Math.abs(channel[index] ?? 0));
+      return peak;
+    });
+    const maxPeak = Math.max(...peaks, 0.001);
+    return {
+      samples: peaks.map((peak) => peak / maxPeak),
+      durationMs: Math.round(decoded.duration * 1000),
+    };
+  } finally {
+    await context.close();
+  }
+}
+
+function formatTime(valueMs: number): string {
+  if (!Number.isFinite(valueMs)) return "0:00.00";
+  const totalSeconds = Math.max(0, valueMs) / 1000;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds - minutes * 60;
+  return `${minutes}:${seconds.toFixed(2).padStart(5, "0")}`;
+}
+
+function audioTestResultLabel(reason: "missing" | "locked" | "muted" | "cooldown" | "voice-limit" | "blocked"): string {
+  if (reason === "cooldown") return "Cooldown active";
+  if (reason === "voice-limit") return "Voice limit reached";
+  if (reason === "muted") return "Audio is muted";
+  if (reason === "locked") return "Click again to unlock";
+  if (reason === "blocked") return "Playback blocked";
+  return "Add a playable sound";
 }
