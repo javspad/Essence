@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ArtifactOffer, EffectDef, EffectInstance, GameState, RevealPayload } from "@essence/shared";
+import type { ArtifactOffer, EffectDef, EffectInstance, GameState, RevealPayload, ServerToClientEvents } from "@essence/shared";
 import { normalizeGameState } from "./gameState";
 import { socket } from "./socket";
 
-interface MinigameStart {
-  id: string;
-  type: string;
-  skin?: string;
-  content: unknown;
-  participants: string[];
-}
+type MinigameStart = Parameters<ServerToClientEvents["minigame:start"]>[0];
 
 const STORAGE_KEY = "essence:session:v1";
 const LEGACY_STORAGE_KEY = "essence:session";

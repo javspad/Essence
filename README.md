@@ -43,19 +43,20 @@ npm run smoke                       # en otra: simula 3 jugadores una partida en
 
 ## Contenido (lo llenan Javi y los amigos)
 
-Todo el "alma" vive en [`shared/content.json`](shared/content.json): tablero, minijuegos, dares, fates y players. No hace falta tocar código.
+Todo el "alma" vive en [`shared/content.json`](shared/content.json): mapas, eventos, actividades y jugadores. No hace falta tocar código.
 
 - `players`: 7 jugadores con `id`, `name`, `color`, `groom`. **El `id` ata el rig a la persona** (al entrar, si tu nombre coincide con un slot, tomás ese id).
-- `minigames`: cada entrada elige un **motor** (`type`) y le pasa `content` + `rigged`.
+- `events`: cada evento define su story y, cuando tiene gameplay, una `activity` que elige un **motor** (`type`) y le pasa `content` + `rigged`.
+- `board[].eventId` (o `maps[].board[].eventId`): es la única asignación de contenido de un casillero; referencia una entrada de `events`.
 - `rigged: { losers: [...], winners: [...] }`: se aplica **en el server** después de los scores reales. El cliente nunca se entera.
 
 ### Map builder
 
-Abrí `http://localhost:5173/map-builder` para editar mapas visualmente. El builder permite crear/duplicar mapas, mover casilleros, conectar rutas tipo grafo, cambiar terreno, asignar minijuegos/prendas/destinos, colocar map props decorativos y exportar/importar el JSON completo. El modo **Test map** mueve una ficha de prueba por cualquier casillero, ya sea desde el selector, clickeando el mapa o siguiendo rutas salientes. **3D playtest** abre la escena en pantalla completa, como una vista real de partida; también se puede abrir directo con `http://localhost:5173/map-builder?playtest3d=1`. En desarrollo, **Save** guarda un backup local de recuperación y escribe el JSON completo validado en `shared/content.json`; al abrir un builder siempre manda `shared/content.json`, y **Recover browser draft** solo recupera un borrador local si lo pedís explícitamente.
+Abrí `http://localhost:5173/map-builder` para editar mapas visualmente. El builder permite crear/duplicar mapas, mover casilleros, conectar rutas tipo grafo, cambiar terreno, asignar un evento a cada casillero, colocar map props decorativos y exportar/importar el JSON completo. El modo **Test map** mueve una ficha de prueba por cualquier casillero, ya sea desde el selector, clickeando el mapa o siguiendo rutas salientes. **3D playtest** abre la escena en pantalla completa, como una vista real de partida; también se puede abrir directo con `http://localhost:5173/map-builder?playtest3d=1`. En desarrollo, **Save** guarda un backup local de recuperación y escribe el JSON completo validado en `shared/content.json`; al abrir un builder siempre manda `shared/content.json`, y **Recover browser draft** solo recupera un borrador local si lo pedís explícitamente.
 
 ### Event builder
 
-Abrí `http://localhost:5173/event-builder` para editar eventos, actividades, stories, consecuencias y playtests. En desarrollo, **Save** escribe el JSON completo validado en `shared/content.json` y deja una copia local recuperable que no se carga automáticamente. `http://localhost:5173/minigame-builder` queda como alias legado.
+Abrí `http://localhost:5173/event-builder` para editar eventos, actividades, stories, consecuencias y playtests. En desarrollo, **Save** escribe el JSON completo validado en `shared/content.json` y deja una copia local recuperable que no se carga automáticamente.
 
 ### Tools hub
 
@@ -63,9 +64,9 @@ Abrí `http://localhost:5173/tools` para encontrar los builders disponibles. El 
 
 ## Motores de minijuego disponibles
 
-`vote`, `buzzer`, `timing` (skin *bostezo*), `judge` (skin *lujan*, usa Anthropic), `reaction`, `estimate`, `whack`.
+`prompt`, `hostPick`, `selfTap`, `vote`, `judge`, `timing`, `reaction`, `buzzer`, `estimate`, `whack`, `maze`, `flappy`, `snake`, `horserace` y `redlight`.
 
-Agregar un minijuego = una entrada nueva en `content.json` sobre un motor existente. Agregar un motor nuevo = un componente en `client/src/minigames/` + registrarlo en `index.ts` (y si recalcula score en server, un caso en `server/src/minigames/index.ts`).
+Agregar un minijuego = un Event con `activity` en `content.json` sobre un motor existente. Agregar un motor nuevo = un componente en `client/src/minigames/` + registrarlo en `index.ts` (y si recalcula score en server, un caso en `server/src/activities/index.ts`).
 
 ## Deploy (Railway)
 

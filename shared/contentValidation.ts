@@ -1,14 +1,18 @@
 import type {
+  ActivityMediaRef,
   ArtifactDef,
   ArtifactRarityDef,
   ArtifactRarityRates,
+  CameraFramingDef,
   CharacterDef,
   CharacterTraitDef,
+  ContentMediaAssetDef,
   CosmeticDef,
   EffectDef,
   EffectDuration,
   EffectModifier,
   EventAction,
+  EventActivity,
   EventActionTarget,
   EventOutcomeBranch,
   FaceAnchor,
@@ -20,10 +24,12 @@ import type {
   MapRoute,
   MapTerrace,
   PlayerDef,
+  PlayerEventOverride,
+  PlayerStoryBank,
   Tile,
 } from "./types";
 import { TILE_TYPES } from "./types";
-import { EVENT_ACTIVITY_TYPES, normalizeGameContentEvents } from "./events";
+import { EVENT_ACTIVITY_TYPES } from "./events";
 import { playerDefToCharacter } from "./characters";
 import { artifactPrice, artifactRarityDefinitions, artifactRarityRatesFromDefinitions } from "./artifacts";
 import {
@@ -90,6 +96,54 @@ const CharacterDefSchema = z
     defaultLoadout: CharacterLoadoutSchema.optional(),
     defaultCosmetics: z.array(z.string()).optional(),
     defaultTraits: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const CameraFocusOffsetSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite().optional(),
+  z: z.number().finite(),
+});
+
+const CameraFramingDefSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    focus: z.enum(["activePlayer", "cell", "targetPlayer"]),
+    yaw: z.number().finite(),
+    pitch: z.number().finite().min(-85).max(85),
+    distance: z.number().finite().positive().max(80),
+    fov: z.number().finite().min(18).max(80).optional(),
+    focusOffset: CameraFocusOffsetSchema.optional(),
+  })
+  .passthrough();
+
+const ContentMediaCropSchema = z
+  .object({
+    x: z.number().finite().min(0).max(1),
+    y: z.number().finite().min(0).max(1),
+    width: z.number().finite().positive().max(1),
+    height: z.number().finite().positive().max(1),
+  })
+  .refine((crop) => crop.x + crop.width <= 1.0001, { message: "crop must fit within the image width", path: ["width"] })
+  .refine((crop) => crop.y + crop.height <= 1.0001, { message: "crop must fit within the image height", path: ["height"] });
+
+const ContentMediaAssetDefSchema = z
+  .object({
+    id: z.string().min(1),
+    type: z.literal("image"),
+    src: z.string().min(1),
+    caption: z.string().optional(),
+    alt: z.string().optional(),
+    crop: ContentMediaCropSchema.optional(),
+    fit: z.enum(["cover", "contain"]).optional(),
+  })
+  .passthrough();
+
+const ActivityMediaRefSchema = z
+  .object({
+    assetId: z.string().min(1),
+    caption: z.string().optional(),
+    placement: z.enum(["prompt", "reveal", "both"]).optional(),
   })
   .passthrough();
 
@@ -234,16 +288,25 @@ const TILE_TYPE_SET = new Set<string>(TILE_TYPES);
 
 export function normalizeContentSchema(input: unknown): GameContent {
   const content = input as GameContent;
-  const normalized = normalizeGameContentEvents(content);
-  const { characterSets: _legacyCharacterSets, ...contentWithoutCharacterSets } = normalized as GameContent & {
+  const normalized = content;
+  const {
+    characterSets: _legacyCharacterSets,
+    minigames: _removedMinigames,
+    dares: _removedDares,
+    fates: _removedFates,
+    ...contentWithoutRemovedFields
+  } = normalized as GameContent & {
     characterSets?: unknown;
+    minigames?: unknown;
+    dares?: unknown;
+    fates?: unknown;
   };
   const players = clonePlayers(normalized.players ?? []);
   const characters = normalizeCharacters(normalized.characters, players);
   const cosmetics = normalizeCosmeticCatalog(normalized.cosmetics, normalized.characterCosmetics);
   const artifactRarities = cloneArtifactRarities(normalized.artifactRarities, normalized.artifactRarityRates, normalized.artifacts);
   return {
-    ...contentWithoutCharacterSets,
+    ...contentWithoutRemovedFields,
     players,
     characters,
     characterTraits: cloneCharacterTraits(normalized.characterTraits),
@@ -252,7 +315,8 @@ export function normalizeContentSchema(input: unknown): GameContent {
     artifactRarities,
     artifactRarityRates: artifactRarityRatesFromDefinitions(artifactRarities),
     artifacts: cloneArtifacts(normalized.artifacts),
-    board: cloneTiles(normalized.board),
+    playerStories: clonePlayerStories(normalized.playerStories),
+    board: cloneTiles(normalized.board ?? []),
     maps: normalized.maps?.map((map) => normalizeMapDefinition(map as MapDefinitionImport)),
     assetCatalog: normalized.assetCatalog?.map((asset) => ({
       ...asset,
@@ -266,6 +330,8 @@ export function normalizeContentSchema(input: unknown): GameContent {
         : undefined,
       tags: asset.tags ? [...asset.tags] : undefined,
     })),
+    mediaAssets: cloneMediaAssets(normalized.mediaAssets),
+    events: cloneEvents(normalized.events) ?? {},
   };
 }
 
@@ -274,16 +340,21 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   const issues: ContentValidationIssue[] = [];
   const error = (path: string, message: string) => issues.push({ severity: "error", path, message });
   const warning = (path: string, message: string) => issues.push({ severity: "warning", path, message });
+  if (!isRecord(content) || !isRecord(content.events)) error("events", "must be an object");
+  validateRemovedEventConfiguration(content, error);
 
   const legacyPlayerIds = validatePlayers(normalized.players, error);
   const characterIds = validateCharacters(normalized.characters, error);
   const playerIds = new Set([...legacyPlayerIds, ...characterIds]);
   const assetIds = validateAssetCatalog(normalized, error);
+  const mediaAssetIds = validateMediaAssets(normalized.mediaAssets, error);
   const effectIds = new Set(Object.keys(normalized.effects ?? {}));
   const traitIds = validateCharacterTraits(normalized.characterTraits, effectIds, error);
+  const eventIds = new Set(Object.keys(normalized.events));
+  validatePlayerStories(normalized.playerStories, playerIds, eventIds, effectIds, error);
 
-  for (const [id, event] of Object.entries(normalized.events ?? {})) {
-    validateEvent(`events.${id}`, event, playerIds, effectIds, error);
+  for (const [id, event] of Object.entries(normalized.events)) {
+    validateEvent(`events.${id}`, event, playerIds, effectIds, mediaAssetIds, error);
   }
 
   validateCatalogIds(normalized.cosmetics, "cosmetics", error);
@@ -309,7 +380,7 @@ export function validateGameContent(content: unknown): ContentValidationResult {
     error("activeMapId", `references missing map ${normalized.activeMapId}`);
   }
   for (const map of maps) {
-    validateMapDefinition(map, assetIds, error);
+    validateMapDefinition(map, assetIds, eventIds, error);
   }
 
   const errors = issues.filter((issue) => issue.severity === "error").map(formatIssue);
@@ -318,12 +389,11 @@ export function validateGameContent(content: unknown): ContentValidationResult {
 }
 
 export function assertValidGameContent(content: unknown, label = "content.json"): GameContent {
-  const normalized = normalizeContentSchema(content);
-  const result = validateGameContent(normalized);
+  const result = validateGameContent(content);
   if (!result.ok) {
     throw new Error(`${label}:\n${result.errors.map((line) => `  - ${line}`).join("\n")}`);
   }
-  return normalized;
+  return normalizeContentSchema(content);
 }
 
 function normalizeMapDefinition(map: MapDefinitionImport): MapDefinition {
@@ -337,6 +407,8 @@ function normalizeMapDefinition(map: MapDefinitionImport): MapDefinition {
     terraces: map.terraces?.map((terrace) => ({ ...terrace })),
     boardShape: cloneBoardShape(map.boardShape),
     theme: map.theme ? { ...map.theme } : undefined,
+    defaultCamera: cloneCamera(map.defaultCamera),
+    cameraPresets: cloneCameraPresets(map.cameraPresets),
   };
 }
 
@@ -411,22 +483,165 @@ function validateAssetCatalog(content: GameContent, error: (path: string, messag
   return ids;
 }
 
+function validateMediaAssets(
+  mediaAssets: Record<string, ContentMediaAssetDef> | undefined,
+  error: (path: string, message: string) => void
+): Set<string> {
+  const ids = new Set<string>();
+  for (const [id, asset] of Object.entries(mediaAssets ?? {})) {
+    const result = ContentMediaAssetDefSchema.safeParse(asset);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(`mediaAssets.${id}`, issue.path), issue.message);
+      }
+    }
+    if (asset.id && asset.id !== id) error(`mediaAssets.${id}.id`, `must match catalog key ${id}`);
+    if (ids.has(id)) error(`mediaAssets.${id}`, "is duplicated");
+    ids.add(id);
+    if (asset.src && !isPortableImageSrc(asset.src)) {
+      error(`mediaAssets.${id}.src`, "must be a data URL or import/export-safe image URL");
+    }
+  }
+  return ids;
+}
+
+function isPortableImageSrc(src: string): boolean {
+  const trimmed = src.trim();
+  if (!trimmed || /^javascript:/i.test(trimmed)) return false;
+  return (
+    /^data:image\/[a-z0-9.+-]+;base64,/i.test(trimmed) ||
+    /^https?:\/\//i.test(trimmed) ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../")
+  );
+}
+
 function validateEvent(
   path: string,
   event: GameEventDef,
   playerIds: Set<string>,
   effectIds: Set<string>,
+  mediaAssetIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
   if (!event.name?.trim()) error(`${path}.name`, "must not be empty");
+  if (event.kind === "activity" && !event.activity) error(`${path}.activity`, "is required for activity events");
   if (event.trigger?.type === "player" && !playerIds.has(event.trigger.playerId)) {
     error(`${path}.trigger.playerId`, `references missing player ${event.trigger.playerId}`);
   }
   if (event.activity && !EVENT_ACTIVITY_TYPES.includes(event.activity.type)) {
     error(`${path}.activity.type`, `is not supported: ${event.activity.type}`);
   }
+  validateMediaRefs(`${path}.media`, event.media, mediaAssetIds, error);
+  validateMediaRefs(`${path}.activity.media`, event.activity?.media, mediaAssetIds, error);
   event.actions?.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
   event.outcomes?.forEach((outcome, index) => validateOutcome(`${path}.outcomes[${index}]`, outcome, playerIds, effectIds, error));
+}
+
+function validatePlayerStories(
+  playerStories: Record<string, PlayerStoryBank> | undefined,
+  playerIds: Set<string>,
+  eventIds: Set<string>,
+  effectIds: Set<string>,
+  error: (path: string, message: string) => void
+) {
+  for (const [playerId, bank] of Object.entries(playerStories ?? {})) {
+    const path = `playerStories.${playerId}`;
+    if (!playerIds.has(playerId)) error(path, `references missing player ${playerId}`);
+    if (!Array.isArray(bank.overrides)) {
+      error(`${path}.overrides`, "must be an array");
+      continue;
+    }
+    bank.overrides.forEach((override, index) => {
+      const overridePath = `${path}.overrides[${index}]`;
+      if (override.eventId && !eventIds.has(override.eventId)) {
+        error(`${overridePath}.eventId`, `references missing event ${override.eventId}`);
+      }
+      if (override.activityType && !EVENT_ACTIVITY_TYPES.includes(override.activityType)) {
+        error(`${overridePath}.activityType`, `is not supported: ${override.activityType}`);
+      }
+      if (override.activity?.type && !EVENT_ACTIVITY_TYPES.includes(override.activity.type)) {
+        error(`${overridePath}.activity.type`, `is not supported: ${override.activity.type}`);
+      }
+      override.actions?.forEach((action, actionIndex) =>
+        validateAction(`${overridePath}.actions[${actionIndex}]`, action, playerIds, effectIds, error)
+      );
+      override.outcomes?.forEach((outcome, outcomeIndex) =>
+        validateOutcome(`${overridePath}.outcomes[${outcomeIndex}]`, outcome, playerIds, effectIds, error)
+      );
+    });
+  }
+}
+
+function validateRemovedEventConfiguration(input: unknown, error: (path: string, message: string) => void) {
+  if (!isRecord(input)) return;
+  for (const field of ["minigames", "dares", "fates"] as const) {
+    if (field in input) error(field, "is no longer supported; configure content through events and activities");
+  }
+
+  validateRemovedTileFields("board", input.board, error);
+  if (Array.isArray(input.maps)) {
+    input.maps.forEach((map, index) => {
+      if (isRecord(map)) validateRemovedTileFields(`maps[${index}].board`, map.board, error);
+    });
+  }
+
+  if (isRecord(input.events)) {
+    for (const [eventId, event] of Object.entries(input.events)) {
+      if (isRecord(event) && isRecord(event.activity) && "resolutionMode" in event.activity) {
+        error(`events.${eventId}.activity.resolutionMode`, "is no longer supported; use an explicit activity type");
+      }
+    }
+  }
+
+  if (isRecord(input.playerStories)) {
+    for (const [playerId, bank] of Object.entries(input.playerStories)) {
+      if (!isRecord(bank)) continue;
+      if (!Array.isArray(bank.overrides)) {
+        error(`playerStories.${playerId}.overrides`, "must be an array");
+        continue;
+      }
+      bank.overrides.forEach((override, index) => {
+        if (isRecord(override) && isRecord(override.activity) && "resolutionMode" in override.activity) {
+          error(
+            `playerStories.${playerId}.overrides[${index}].activity.resolutionMode`,
+            "is no longer supported; use an explicit activity type"
+          );
+        }
+      });
+    }
+  }
+}
+
+function validateRemovedTileFields(path: string, value: unknown, error: (path: string, message: string) => void) {
+  if (!Array.isArray(value)) return;
+  const removedFields = ["minigameId", "dareId", "fateId", "eventKind", "eventIds", "storyParams"] as const;
+  value.forEach((tile, index) => {
+    if (!isRecord(tile)) return;
+    removedFields.forEach((field) => {
+      if (field in tile) error(`${path}[${index}].${field}`, "is no longer supported; assign one eventId to the cell");
+    });
+  });
+}
+
+function validateMediaRefs(
+  path: string,
+  media: ActivityMediaRef[] | undefined,
+  mediaAssetIds: Set<string>,
+  error: (path: string, message: string) => void
+) {
+  media?.forEach((ref, index) => {
+    const result = ActivityMediaRefSchema.safeParse(ref);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        error(zodPath(`${path}[${index}]`, issue.path), issue.message);
+      }
+    }
+    if (ref.assetId && !mediaAssetIds.has(ref.assetId)) {
+      error(`${path}[${index}].assetId`, `references missing media asset ${ref.assetId}`);
+    }
+  });
 }
 
 function validateOutcome(
@@ -527,17 +742,24 @@ function validateTarget(
 function validateMapDefinition(
   map: MapDefinition,
   assetIds: Set<string>,
+  eventIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
   const path = `maps.${map.id}`;
   if (!map.id) error("maps", "contains a map with no id");
   if (!map.name?.trim()) error(`${path}.name`, "must not be empty");
+  validateCamera(`${path}.defaultCamera`, map.defaultCamera, error);
+  const cameraPresetIds = new Set(Object.keys(map.cameraPresets ?? {}));
+  for (const [id, camera] of Object.entries(map.cameraPresets ?? {})) {
+    validateCamera(`${path}.cameraPresets.${id}`, camera, error);
+    if (camera.id && camera.id !== id) error(`${path}.cameraPresets.${id}.id`, `must match preset key ${id}`);
+  }
 
   const tileIds = new Set<number>();
   for (const tile of map.board) {
     if (tileIds.has(tile.id)) error(`${path}.board.${tile.id}`, "is duplicated");
     tileIds.add(tile.id);
-    validateTile(`${path}.board.${tile.id}`, tile, error);
+    validateTile(`${path}.board.${tile.id}`, tile, cameraPresetIds, eventIds, error);
   }
 
   for (const route of map.routes) {
@@ -552,7 +774,13 @@ function validateMapDefinition(
   validateBoardShape(path, map.boardShape, map.board, error);
 }
 
-function validateTile(path: string, tile: Tile, error: (path: string, message: string) => void) {
+function validateTile(
+  path: string,
+  tile: Tile,
+  cameraPresetIds: Set<string>,
+  eventIds: Set<string>,
+  error: (path: string, message: string) => void
+) {
   if (!Number.isInteger(tile.id)) error(`${path}.id`, "must be an integer");
   if (!TILE_TYPE_SET.has(tile.type)) error(`${path}.type`, `is not supported: ${tile.type}`);
   if (!tile.layout) {
@@ -561,6 +789,27 @@ function validateTile(path: string, tile: Tile, error: (path: string, message: s
   }
   if (!Number.isFinite(tile.layout.x) || !Number.isFinite(tile.layout.y)) {
     error(`${path}.layout`, "must include finite x and y coordinates");
+  }
+  if (tile.cameraPresetId && !cameraPresetIds.has(tile.cameraPresetId)) {
+    error(`${path}.cameraPresetId`, `references missing camera preset ${tile.cameraPresetId}`);
+  }
+  if (tile.eventId && !eventIds.has(tile.eventId)) {
+    error(`${path}.eventId`, `references missing event ${tile.eventId}`);
+  }
+  validateCamera(`${path}.camera`, tile.camera, error);
+}
+
+function validateCamera(
+  path: string,
+  camera: CameraFramingDef | undefined,
+  error: (path: string, message: string) => void
+) {
+  if (!camera) return;
+  const result = CameraFramingDefSchema.safeParse(camera);
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      error(zodPath(path, issue.path), issue.message);
+    }
   }
 }
 
@@ -911,6 +1160,133 @@ function cloneArtifacts(artifacts: Record<string, ArtifactDef> | undefined): Rec
   );
 }
 
+function cloneEvents(events: Record<string, GameEventDef> | undefined): Record<string, GameEventDef> | undefined {
+  if (!events) return undefined;
+  return Object.fromEntries(
+    Object.entries(events).map(([id, event]) => [
+      id,
+      {
+        ...event,
+        tags: event.tags ? [...event.tags] : undefined,
+        media: cloneMediaRefs(event.media),
+        story: event.story ? { ...event.story } : undefined,
+        activity: event.activity ? cloneActivity(event.activity) : undefined,
+        actions: event.actions?.map(cloneAction),
+        outcomes: event.outcomes?.map((outcome) => ({
+          ...outcome,
+          actions: outcome.actions.map(cloneAction),
+        })),
+      },
+    ])
+  );
+}
+
+function cloneActivity(activity: EventActivity): EventActivity {
+  return {
+    type: activity.type,
+    skin: activity.skin,
+    content: cloneUnknownRecord(activity.content),
+    media: cloneMediaRefs(activity.media),
+    participants: activity.participants,
+    subjects: activity.subjects,
+    confirmation: activity.confirmation
+      ? {
+          mode: activity.confirmation.mode,
+          playerIds: activity.confirmation.playerIds ? [...activity.confirmation.playerIds] : undefined,
+        }
+      : undefined,
+    rigged: activity.rigged
+      ? {
+          losers: activity.rigged.losers ? [...activity.rigged.losers] : undefined,
+          winners: activity.rigged.winners ? [...activity.rigged.winners] : undefined,
+        }
+      : undefined,
+  };
+}
+
+function cloneActivityOverride(activity: Partial<EventActivity> | undefined): Partial<EventActivity> | undefined {
+  if (!activity) return undefined;
+  return {
+    type: activity.type,
+    skin: activity.skin,
+    content: cloneUnknownRecord(activity.content),
+    media: cloneMediaRefs(activity.media),
+    participants: activity.participants,
+    subjects: activity.subjects,
+    confirmation: activity.confirmation
+      ? {
+          mode: activity.confirmation.mode,
+          playerIds: activity.confirmation.playerIds ? [...activity.confirmation.playerIds] : undefined,
+        }
+      : undefined,
+    rigged: activity.rigged
+      ? {
+          losers: activity.rigged.losers ? [...activity.rigged.losers] : undefined,
+          winners: activity.rigged.winners ? [...activity.rigged.winners] : undefined,
+        }
+      : undefined,
+  };
+}
+
+function clonePlayerStories(
+  playerStories: Record<string, PlayerStoryBank> | undefined
+): Record<string, PlayerStoryBank> | undefined {
+  if (!playerStories) return undefined;
+  return Object.fromEntries(
+    Object.entries(playerStories).map(([playerId, bank]) => [
+      playerId,
+      {
+        overrides: (Array.isArray(bank.overrides) ? bank.overrides : []).map((override): PlayerEventOverride => ({
+          eventId: override.eventId,
+          tags: override.tags ? [...override.tags] : undefined,
+          kind: override.kind,
+          activityType: override.activityType,
+          story: override.story ? { ...override.story } : undefined,
+          activity: cloneActivityOverride(override.activity),
+          actions: override.actions?.map(cloneAction),
+          outcomes: override.outcomes?.map((outcome) => ({
+            ...outcome,
+            actions: outcome.actions.map(cloneAction),
+          })),
+        })),
+      },
+    ])
+  );
+}
+
+function cloneMediaAssets(mediaAssets: Record<string, ContentMediaAssetDef> | undefined): Record<string, ContentMediaAssetDef> | undefined {
+  if (!mediaAssets) return undefined;
+  return Object.fromEntries(
+    Object.entries(mediaAssets).map(([id, asset]) => [
+      id,
+      {
+        ...asset,
+        crop: asset.crop ? { ...asset.crop } : undefined,
+      },
+    ])
+  );
+}
+
+function cloneMediaRefs(media: ActivityMediaRef[] | undefined): ActivityMediaRef[] | undefined {
+  return media?.map((ref) => ({ ...ref }));
+}
+
+function cloneCamera(camera: CameraFramingDef | undefined): CameraFramingDef | undefined {
+  return camera
+    ? {
+        ...camera,
+        focusOffset: camera.focusOffset ? { ...camera.focusOffset } : undefined,
+      }
+    : undefined;
+}
+
+function cloneCameraPresets(
+  cameraPresets: Record<string, CameraFramingDef> | undefined
+): Record<string, CameraFramingDef> | undefined {
+  if (!cameraPresets) return undefined;
+  return Object.fromEntries(Object.entries(cameraPresets).map(([id, camera]) => [id, cloneCamera(camera)!]));
+}
+
 function cloneAction<T extends EventAction>(action: T): T {
   const copy = { ...action } as EventAction;
   if ("target" in copy && copy.target) copy.target = cloneTarget(copy.target);
@@ -943,6 +1319,15 @@ function cloneTarget<T extends EventActionTarget | undefined>(target: T): T {
   return { ...(target as Exclude<EventActionTarget, string>) } as T;
 }
 
+function cloneUnknownRecord(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  try {
+    return JSON.parse(JSON.stringify(value)) as unknown;
+  } catch {
+    return value;
+  }
+}
+
 function cloneAnchors(anchors: unknown): Record<string, FaceAnchor> | undefined {
   if (!isRecord(anchors)) return undefined;
   const out: Record<string, FaceAnchor> = {};
@@ -967,11 +1352,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function cloneTiles(board: Tile[]): Tile[] {
   return board.map((tile) => ({
-    ...tile,
+    id: tile.id,
+    type: tile.type,
     layout: tile.layout ? { ...tile.layout } : undefined,
-    eventIds: tile.eventIds ? [...tile.eventIds] : undefined,
-    storyParams: tile.storyParams ? { ...tile.storyParams } : undefined,
+    label: tile.label,
+    eventId: tile.eventId,
     tags: tile.tags ? [...tile.tags] : undefined,
+    cameraPresetId: tile.cameraPresetId,
+    camera: cloneCamera(tile.camera),
   }));
 }
 

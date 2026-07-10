@@ -1,4 +1,4 @@
-import type { MapArtifact, MapBoardShape, MapRoute, MapTerrace, MapTerrain, Tile, TileLayout, TileType } from "@essence/shared";
+import type { CameraFramingDef, MapArtifact, MapBoardShape, MapRoute, MapTerrace, MapTerrain, Tile, TileLayout, TileType } from "@essence/shared";
 import { perimeterLayout } from "./boardView";
 
 type Board3DTile = Pick<Tile, "id" | "layout"> & Partial<Pick<Tile, "type">>;
@@ -81,7 +81,16 @@ export type CameraIntent = CameraIntentBase &
 export interface BoardCameraShot {
   position: Vec3;
   look: Vec3;
+  fov?: number;
 }
+
+export const DEFAULT_CAMERA_FRAMING: CameraFramingDef = {
+  focus: "activePlayer",
+  yaw: 0,
+  pitch: 28,
+  distance: 6.6,
+  fov: 42,
+};
 
 export const BOARD_GRID_SPACING = 1.35;
 
@@ -249,6 +258,45 @@ export function cameraFollowPosition(slotPosition: Vec3): Vec3 {
   return [slotPosition[0], round(3.9 + slotPosition[1] * 0.85), slotPosition[2] + 6.6];
 }
 
+export function resolveTileCamera(
+  tile: Pick<Tile, "camera" | "cameraPresetId"> | undefined,
+  presets: Record<string, CameraFramingDef> | undefined
+): CameraFramingDef | undefined {
+  if (tile?.camera) return tile.camera;
+  return tile?.cameraPresetId ? presets?.[tile.cameraPresetId] : undefined;
+}
+
+export function cameraFramingWithDefaults(camera: Partial<CameraFramingDef> | undefined): CameraFramingDef {
+  return {
+    ...DEFAULT_CAMERA_FRAMING,
+    ...(camera ?? {}),
+    focusOffset: camera?.focusOffset ? { ...camera.focusOffset } : undefined,
+  };
+}
+
+export function authoredCameraShot(camera: Partial<CameraFramingDef> | undefined, focus: Vec3): BoardCameraShot {
+  const framing = cameraFramingWithDefaults(camera);
+  const offset = framing.focusOffset ?? { x: 0, y: 0, z: 0 };
+  const look: Vec3 = [
+    round(focus[0] + offset.x),
+    round(focus[1] + 0.45 + (offset.y ?? 0)),
+    round(focus[2] + offset.z),
+  ];
+  const pitch = (clamp(framing.pitch, -85, 85) * Math.PI) / 180;
+  const yaw = (framing.yaw * Math.PI) / 180;
+  const distance = Math.max(0.8, framing.distance);
+  const horizontal = Math.cos(pitch) * distance;
+  return {
+    position: [
+      round(look[0] + Math.sin(yaw) * horizontal),
+      round(look[1] + Math.sin(pitch) * distance),
+      round(look[2] + Math.cos(yaw) * horizontal),
+    ],
+    look,
+    fov: framing.fov,
+  };
+}
+
 export function applyCameraIntent(state: BoardCameraState, intent: CameraIntent): BoardCameraState {
   if (intent.kind === "focusPlayer") return { mode: "followActivePlayer", focusedPlayerId: intent.playerId };
   if (intent.kind === "frameOverview") return { ...state, mode: "overview" };
@@ -333,6 +381,10 @@ function tokenStackOffset(index: number, total: number): Vec3 {
   const x = columns === 1 ? 0 : (column - (columns - 1) / 2) * spacing;
   const z = safeTotal > columns ? (row - 0.5) * spacing : 0;
   return [round(x), round(0.36 + row * 0.08), round(z)];
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function round(value: number): number {

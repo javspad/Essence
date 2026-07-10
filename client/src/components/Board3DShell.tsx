@@ -16,16 +16,18 @@ import {
   TorusGeometry,
   Vector3,
   type Group,
+  type Camera,
   type Mesh,
   type PointLight,
   type Texture,
 } from "three";
-import type { CosmeticDef, EffectInstance, FaceAnchor, FacePhotoAlignment, MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
+import type { CameraFramingDef, CosmeticDef, EffectInstance, FaceAnchor, FacePhotoAlignment, MapArtifact, MapAssetDef, MapBoardShape, MapGridPoint, MapRoute, MapTerrace, Player, Tile } from "@essence/shared";
 import { cosmeticAnchorRefs, cosmeticAssetKind, normalizeCosmeticDef } from "@essence/shared/cosmetics";
 import type { BoardActiveMotion, BoardDiceCue, BoardMotionKind } from "../gamePresentationMachine";
 import { defaultTokenAnchor, tokenAnchorSurface } from "../characterTokenRig";
 import {
   board3DMapBounds,
+  authoredCameraShot,
   boardCameraOverviewShot,
   board3DSlots,
   BOARD_GRID_SPACING,
@@ -85,6 +87,8 @@ interface Board3DShellProps {
   className?: string;
   interactive?: boolean;
   cameraMode?: CameraMode;
+  defaultCamera?: CameraFramingDef;
+  presentationCamera?: CameraFramingDef;
   /** Cámara de órbita libre (arrastrar/zoom/pan): sólo para inspeccionar en el builder. */
   freeCamera?: boolean;
   /** Con cámara libre, reencuadra al cambiar el encuadre general (p. ej. galería al cambiar de prop/tamaño). */
@@ -113,6 +117,8 @@ export default function Board3DShell({
   className,
   interactive = false,
   cameraMode = "followActivePlayer",
+  defaultCamera,
+  presentationCamera,
   freeCamera = false,
   freeCameraRefit = false,
   focusedPlayerId = null,
@@ -150,6 +156,11 @@ export default function Board3DShell({
   const trackedTokenRef = useRef<Vector3 | null>(null);
   const trajectoryCameraRef = useRef<Vector3 | null>(null);
   const overviewShot = useMemo(() => boardCameraOverviewShot(bounds, terraces), [bounds, terraces]);
+  const authoredCamera = cameraMode === "followActivePlayer" ? presentationCamera ?? defaultCamera : undefined;
+  const authoredCameraTarget = useMemo(() => {
+    if (!authoredCamera || authoredCamera.focus !== "cell") return trackedSlot;
+    return slotPositions.get(trackedPlayer?.position ?? activePlayer?.position ?? 0) ?? trackedSlot;
+  }, [activePlayer?.position, authoredCamera, slotPositions, trackedPlayer?.position, trackedSlot]);
   const activePath = new Set(
     activeMotion && activeMotion.playerId === activeId
       ? activeMotion.path
@@ -238,6 +249,8 @@ export default function Board3DShell({
             dice={Boolean(diceCue)}
             turnKey={activeId ?? ""}
             overview={overviewShot}
+            authoredCamera={authoredCamera}
+            authoredTarget={authoredCameraTarget}
           />
         )}
         <ambientLight intensity={0.62} color="#fff8e1" />
@@ -598,6 +611,8 @@ function CinematicCamera({
   dice,
   turnKey,
   overview,
+  authoredCamera,
+  authoredTarget,
 }: {
   mode: CameraMode;
   target: Vec3;
@@ -607,6 +622,8 @@ function CinematicCamera({
   dice: boolean;
   turnKey: string;
   overview: BoardCameraShot;
+  authoredCamera?: CameraFramingDef;
+  authoredTarget: Vec3;
 }) {
   const { camera } = useThree();
   const initialized = useRef(false);
@@ -641,20 +658,29 @@ function CinematicCamera({
     const t = state.clock.elapsedTime;
     const animated = motion.cameraLerpSpeed > 0;
     const live = tokenRef.current;
-    const anchor: Vec3 = animated && live ? [live.x, live.y, live.z] : target;
+    const liveAnchor: Vec3 = animated && live ? [live.x, live.y, live.z] : target;
+    const authoredAnchor: Vec3 = authoredCamera?.focus === "cell" ? authoredTarget : liveAnchor;
 
     if (mode === "overview") {
       desired.current.set(...overview.position);
       desiredLook.current.set(...overview.look);
+      setCameraFov(camera, overview.fov ?? 42);
+    } else if (authoredCamera && !dice) {
+      const shot = authoredCameraShot(authoredCamera, authoredAnchor);
+      desired.current.set(...shot.position);
+      desiredLook.current.set(...shot.look);
+      setCameraFov(camera, shot.fov ?? 42);
     } else if (dice && animated) {
       // Tirada: más cerca, más abajo y con ángulo lateral (alterna por turno).
-      const base = cameraFollowPosition(anchor);
-      desired.current.set(anchor[0] + 1.35 * sideSign.current, base[1] - 0.85, anchor[2] + 4.7);
-      desiredLook.current.set(anchor[0], anchor[1] + 0.75, anchor[2]);
+      const base = cameraFollowPosition(liveAnchor);
+      desired.current.set(liveAnchor[0] + 1.35 * sideSign.current, base[1] - 0.85, liveAnchor[2] + 4.7);
+      desiredLook.current.set(liveAnchor[0], liveAnchor[1] + 0.75, liveAnchor[2]);
+      setCameraFov(camera, 42);
     } else {
-      const base = cameraFollowPosition(anchor);
+      const base = cameraFollowPosition(liveAnchor);
       desired.current.set(base[0], base[1], base[2]);
-      desiredLook.current.set(anchor[0], anchor[1] + 0.45, anchor[2]);
+      desiredLook.current.set(liveAnchor[0], liveAnchor[1] + 0.45, liveAnchor[2]);
+      setCameraFov(camera, 42);
       if (animated && !walking) {
         // Respiración sutil en reposo + costado alternado: nada de cámara clavada.
         desired.current.x += Math.sin(t * 0.32) * 0.3 + 0.55 * sideSign.current;
@@ -679,6 +705,14 @@ function CinematicCamera({
   });
 
   return null;
+}
+
+function setCameraFov(camera: Camera, fov: number) {
+  const perspective = camera as Camera & { fov?: number; updateProjectionMatrix?: () => void };
+  if (typeof perspective.fov !== "number") return;
+  if (Math.abs(perspective.fov - fov) < 0.01) return;
+  perspective.fov = fov;
+  perspective.updateProjectionMatrix?.();
 }
 
 /**
@@ -4067,6 +4101,12 @@ function PlayerToken({
         progress.current = 0;
         token.position.copy(points[next]);
       }
+    }
+    // Keep character faces legible from any authored or gameplay camera angle without pitching them upward.
+    const cameraOffsetX = state.camera.position.x - token.position.x;
+    const cameraOffsetZ = state.camera.position.z - token.position.z;
+    if (cameraOffsetX * cameraOffsetX + cameraOffsetZ * cameraOffsetZ > 0.000001) {
+      token.rotation.y = Math.atan2(cameraOffsetX, cameraOffsetZ);
     }
     // La cámara sigue esta posición viva (no el destino final)
     if (trackRef) trackRef.current = (trackRef.current ?? new Vector3()).copy(token.position);

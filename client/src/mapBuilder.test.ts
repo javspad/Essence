@@ -22,7 +22,7 @@ import { contentWithCharacterList } from "./components/builderContent";
 import { defaultTokenAnchor, TOKEN_HEAD_DEFAULT_ANCHOR_Z, TOKEN_HEAD_TOP_ANCHOR_Y } from "./characterTokenRig";
 import {
   eventTriggerScore,
-  normalizeGameContentEvents,
+  removeEventFromContent,
   resolveEventActionTargetIds,
   resolveEventForPlayer,
   resolveTileEventForPlayer,
@@ -32,17 +32,20 @@ import { normalizeContentSchema, validateGameContent } from "@essence/shared/con
 
 const board: Tile[] = [
   { id: 0, type: "start", layout: { x: 0, y: 0 } },
-  { id: 1, type: "minigame", minigameId: "quiz", layout: { x: 1, y: 0 } },
+  { id: 1, type: "minigame", eventId: "event-quiz", layout: { x: 1, y: 0 } },
   { id: 2, type: "finish", layout: { x: 2, y: 0 } },
 ];
 
 const content: GameContent = {
   board,
-  minigames: {
-    quiz: { type: "vote", content: { question: "test" } },
+  events: {
+    "event-quiz": {
+      name: "Test vote",
+      kind: "activity",
+      story: { title: "Test vote", prompt: "test" },
+      activity: { type: "vote", content: { question: "test" } },
+    },
   },
-  dares: {},
-  fates: {},
   players: [{ id: "p1", name: "P1" }],
 };
 
@@ -53,8 +56,67 @@ assert.equal(builder.maps[0].routes[0].from, 0);
 assert.equal(builder.maps[0].routes[0].to, 1);
 assert.equal(builder.maps[0].board[1].eventId, "event-quiz");
 
-const normalizedEvents = normalizeGameContentEvents(content);
-assert.equal(normalizedEvents.events?.["event-quiz"].activity?.type, "vote");
+assert.equal(content.events["event-quiz"].activity?.type, "vote");
+
+const legacyEventConfigInput = {
+  ...content,
+  minigames: { old: { type: "vote", content: { question: "Old" } } },
+  dares: { old: { text: "Old dare" } },
+  fates: { old: { text: "Old fate" } },
+  board: [
+    board[0],
+    { ...board[1], minigameId: "old", dareId: "old", fateId: "old", storyParams: { prompt: "Old override" } },
+    board[2],
+  ],
+} as unknown;
+const eventOnlyImport = normalizeContentSchema(legacyEventConfigInput);
+assert.equal("minigames" in eventOnlyImport, false);
+assert.equal("dares" in eventOnlyImport, false);
+assert.equal("fates" in eventOnlyImport, false);
+assert.equal("minigameId" in eventOnlyImport.board[1], false);
+assert.equal("dareId" in eventOnlyImport.board[1], false);
+assert.equal("fateId" in eventOnlyImport.board[1], false);
+assert.equal("storyParams" in eventOnlyImport.board[1], false);
+assert.equal(eventOnlyImport.board[1].eventId, "event-quiz");
+const rejectedLegacyConfig = validateGameContent(legacyEventConfigInput);
+assert.equal(rejectedLegacyConfig.ok, false);
+assert.equal(rejectedLegacyConfig.errors.includes("minigames is no longer supported; configure content through events and activities"), true);
+assert.equal(rejectedLegacyConfig.errors.some((error) => error.includes("minigameId is no longer supported")), true);
+
+const removedResolutionModeInput = {
+  ...content,
+  events: {
+    "event-quiz": {
+      ...content.events["event-quiz"],
+      activity: { ...content.events["event-quiz"].activity, resolutionMode: "vote" },
+    },
+  },
+};
+assert.equal(
+  validateGameContent(removedResolutionModeInput).errors.includes(
+    "events.event-quiz.activity.resolutionMode is no longer supported; use an explicit activity type"
+  ),
+  true
+);
+assert.equal("resolutionMode" in normalizeContentSchema(removedResolutionModeInput).events["event-quiz"].activity!, false);
+
+const missingEventReference = validateGameContent({
+  ...content,
+  board: [board[0], { ...board[1], eventId: "missing-event" }, board[2]],
+});
+assert.deepEqual(missingEventReference.errors, ["maps.board.board.1.eventId references missing event missing-event"]);
+
+const missingEventsCatalog = validateGameContent({ board, players: content.players });
+assert.equal(missingEventsCatalog.errors[0], "events must be an object");
+
+const missingOverrideEvent = validateGameContent({
+  ...content,
+  playerStories: { p1: { overrides: [{ eventId: "missing-event" }] } },
+});
+assert.equal(
+  missingOverrideEvent.errors.includes("playerStories.p1.overrides[0].eventId references missing event missing-event"),
+  true
+);
 
 const migratedCharacters = normalizeContentSchema({
   ...content,
@@ -166,7 +228,7 @@ const exported = builderContentToGameContent(content, builder);
 assert.equal(exported.activeMapId, builder.activeMapId);
 assert.equal(exported.board.length, 3);
 assert.equal(exported.board[1].eventId, "event-quiz");
-assert.equal(exported.events?.["event-quiz"].activity?.type, "vote");
+assert.equal(exported.events["event-quiz"].activity?.type, "vote");
 assert.deepEqual(exported.maps?.[0].mapProps, exported.maps?.[0].artifacts);
 assert.equal(slotMaterialStyle("timing" as any).top, "#64748b");
 assert.equal(terrainMaterialStyle("legacy-road" as any).top, "#e6cf9d");
@@ -204,6 +266,7 @@ const invalidSchemaResult = validateGameContent({
   ...content,
   players: [{ id: "p1", name: "P1" }],
   events: {
+    ...content.events,
     "bad-target": {
       name: "Bad target",
       story: { title: "Bad target" },
@@ -236,7 +299,7 @@ const futureCatalogValidation = validateGameContent({
 });
 assert.deepEqual(futureCatalogValidation.errors, ["effects.bad-effect.duration is required"]);
 
-const overrideContent = normalizeGameContentEvents({
+const overrideContent: GameContent = {
   ...content,
   events: {
     "custom-event": {
@@ -244,7 +307,7 @@ const overrideContent = normalizeGameContentEvents({
       kind: "activity",
       tags: ["dare"],
       story: { title: "Default", prompt: "Default prompt" },
-      activity: { type: "prompt", resolutionMode: "selfTap", content: { prompt: "Default prompt" } },
+      activity: { type: "selfTap", content: { prompt: "Default prompt" } },
       outcomes: [{ when: "loser", actions: [{ type: "move", delta: -2, target: "loser" }] }],
     },
   },
@@ -260,31 +323,31 @@ const overrideContent = normalizeGameContentEvents({
       ],
     },
   },
-});
+};
 const resolvedOverride = resolveEventForPlayer(overrideContent, "custom-event", { id: "p1" });
 assert.equal(resolvedOverride?.story.prompt, "P1 prompt");
 assert.equal(resolvedOverride?.activity?.type, "selfTap");
 assert.deepEqual(resolvedOverride?.activity?.content, { prompt: "P1 activity prompt" });
 assert.equal(resolvedOverride?.outcomes?.[0].when, "winner");
 
-const legacyPromptVoteContent = normalizeGameContentEvents({
+const explicitVoteContent: GameContent = {
   ...content,
   events: {
-    "legacy-prompt-vote": {
-      name: "Legacy prompt vote",
+    "prompt-vote": {
+      name: "Prompt vote",
       kind: "activity",
       story: { prompt: "Vote this dare" },
-      activity: { type: "prompt", resolutionMode: "vote", content: { prompt: "Vote this dare" } },
+      activity: { type: "vote", content: { prompt: "Vote this dare", question: "Vote this dare" } },
     },
   },
-});
-assert.equal(legacyPromptVoteContent.events?.["legacy-prompt-vote"].activity?.type, "vote");
-assert.deepEqual(legacyPromptVoteContent.events?.["legacy-prompt-vote"].activity?.content, {
+};
+assert.equal(explicitVoteContent.events["prompt-vote"].activity?.type, "vote");
+assert.deepEqual(explicitVoteContent.events["prompt-vote"].activity?.content, {
   prompt: "Vote this dare",
   question: "Vote this dare",
 });
 
-const scopedContent = normalizeGameContentEvents({
+const scopedContent: GameContent = {
   ...content,
   players: [
     { id: "p1", name: "P1" },
@@ -304,14 +367,14 @@ const scopedContent = normalizeGameContentEvents({
       activity: { type: "prompt", content: { prompt: "P1" } },
     },
   },
-});
-const scopedTile: Tile = { id: 7, type: "dare", eventIds: ["generic", "p1-only"] };
-assert.equal(eventTriggerScore(scopedContent.events!.generic, { id: "p2" }), 1);
-assert.equal(eventTriggerScore(scopedContent.events!["p1-only"], { id: "p1" }), 2);
-assert.equal(eventTriggerScore(scopedContent.events!["p1-only"], { id: "p2" }), 0);
+};
+const scopedTile: Tile = { id: 7, type: "dare", eventId: "p1-only" };
+assert.equal(eventTriggerScore(scopedContent.events.generic, { id: "p2" }), 1);
+assert.equal(eventTriggerScore(scopedContent.events["p1-only"], { id: "p1" }), 2);
+assert.equal(eventTriggerScore(scopedContent.events["p1-only"], { id: "p2" }), 0);
 assert.equal(resolveTileEventForPlayer(scopedContent, scopedTile, { id: "p1" })?.id, "p1-only");
-assert.equal(resolveTileEventForPlayer(scopedContent, scopedTile, { id: "p2" })?.id, "generic");
-assert.equal(resolveTileEventForPlayer(scopedContent, { id: 8, type: "dare", eventIds: ["p1-only"] }, { id: "p2" }), null);
+assert.equal(resolveTileEventForPlayer(scopedContent, scopedTile, { id: "p2" }), null);
+assert.equal(resolveTileEventForPlayer(scopedContent, { id: 8, type: "dare", eventId: "generic" }, { id: "p2" })?.id, "generic");
 assert.deepEqual(resolveEventActionTargetIds({ playerId: "p2" }, { playerIds: ["p1", "p2"] }), ["p2"]);
 assert.deepEqual(resolveEventActionTargetIds("winner", { ranking: ["p1", "p2"] }), ["p1"]);
 assert.deepEqual(resolveEventActionTargetIds("loser", { ranking: ["p1", "p2"] }), ["p2"]);
@@ -391,6 +454,7 @@ assert.equal(effectRemainingLabel({ mode: "uses", remaining: 2 }), "2 uses");
 const invalidEffectReference = validateGameContent({
   ...content,
   events: {
+    ...content.events,
     "bad-effect-ref": {
       name: "Bad effect ref",
       story: { title: "Bad effect ref" },
@@ -492,6 +556,98 @@ const shapedBounds = board3DMapBounds(board, [routeWithPoint], [], {
 });
 assert.equal(shapedBounds.minX, -2);
 assert.equal(shapedBounds.width, 7);
+
+const cameraMediaContent: GameContent = {
+  ...content,
+  activeMapId: "camera-map",
+  mediaAssets: {
+    meme: {
+      id: "meme",
+      type: "image",
+      src: "data:image/png;base64,AAAA",
+      alt: "Tiny meme",
+      crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 },
+      fit: "cover",
+    },
+  },
+  events: {
+    ...content.events,
+    "camera-event": {
+      name: "Camera event",
+      story: { title: "Camera event", prompt: "Look here" },
+      media: [{ assetId: "meme", caption: "Prompt meme", placement: "prompt" }],
+      activity: {
+        type: "prompt",
+        content: { prompt: "Look here" },
+        media: [{ assetId: "meme", caption: "Reveal meme", placement: "reveal" }],
+      },
+    },
+  },
+  maps: [
+    {
+      id: "camera-map",
+      name: "Camera map",
+      board: [{ ...board[0], cameraPresetId: "cell-0-camera" }, board[1], board[2]],
+      routes: [],
+      artifacts: [],
+      defaultCamera: { focus: "activePlayer", yaw: 15, pitch: 26, distance: 7, fov: 40 },
+      cameraPresets: {
+        "cell-0-camera": { id: "cell-0-camera", focus: "activePlayer", yaw: 90, pitch: 30, distance: 8 },
+      },
+    },
+  ],
+};
+assert.equal(validateGameContent(cameraMediaContent).ok, true);
+const cameraBuilder = normalizeBuilderContent(cameraMediaContent);
+assert.equal(cameraBuilder.maps[0].defaultCamera?.yaw, 15);
+assert.equal(cameraBuilder.maps[0].cameraPresets?.["cell-0-camera"].distance, 8);
+const cameraRoundTrip = builderContentToGameContent(cameraMediaContent, cameraBuilder);
+assert.equal(cameraRoundTrip.maps?.[0].cameraPresets?.["cell-0-camera"].pitch, 30);
+assert.equal(cameraRoundTrip.mediaAssets?.meme.crop?.width, 0.5);
+
+const removedCameraEvent = removeEventFromContent(
+  {
+    ...cameraMediaContent,
+    playerStories: {
+      p1: {
+        overrides: [{ eventId: "camera-event", activity: { media: [{ assetId: "meme" }] } }],
+      },
+    },
+  },
+  "camera-event"
+);
+assert.equal("camera-event" in removedCameraEvent.events, false);
+assert.deepEqual(removedCameraEvent.playerStories?.p1.overrides, []);
+assert.equal("meme" in (removedCameraEvent.mediaAssets ?? {}), false);
+
+const invalidCameraMedia = validateGameContent({
+  ...content,
+  mediaAssets: {
+    bad: { id: "bad", type: "image", src: "javascript:alert(1)", crop: { x: 0.8, y: 0, width: 0.4, height: 1 } },
+  },
+  events: {
+    "bad-media": {
+      name: "Bad media",
+      media: [{ assetId: "missing", placement: "elsewhere" }],
+    },
+  },
+  maps: [
+    {
+      id: "bad-camera-map",
+      name: "Bad camera map",
+      board: [{ ...board[0], cameraPresetId: "missing-camera" }, board[1], board[2]],
+      routes: [],
+      artifacts: [],
+      cameraPresets: {
+        "bad-camera": { focus: "activePlayer", yaw: 0, pitch: 99, distance: -1 },
+      },
+    },
+  ],
+});
+assert.ok(invalidCameraMedia.errors.some((error) => error.includes("mediaAssets.bad.src")));
+assert.ok(invalidCameraMedia.errors.some((error) => error.includes("events.bad-media.media[0].assetId references missing media asset missing")));
+assert.ok(invalidCameraMedia.errors.some((error) => error.includes("maps.bad-camera-map.board.0.cameraPresetId references missing camera preset missing-camera")));
+assert.ok(invalidCameraMedia.errors.some((error) => error.includes("maps.bad-camera-map.cameraPresets.bad-camera.pitch")));
 
 // --- Mesetas (terraces) ---
 

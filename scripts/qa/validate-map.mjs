@@ -25,14 +25,8 @@ ok(starts.length === 1 && starts[0].id === 0, "start inválido");
 ok(finishes.length === 1 && finishes[0].id === board.length - 1, "finish inválido");
 
 // --- referencias a catálogos ---
-const minigames = new Set(Object.keys(json.minigames ?? {}));
-const dares = new Set(Object.keys(json.dares ?? {}));
-const fates = new Set(Object.keys(json.fates ?? {}));
 const events = new Set(Object.keys(json.events ?? {}));
 for (const t of board) {
-  if (t.minigameId) ok(minigames.has(t.minigameId), `tile ${t.id}: minigameId inexistente ${t.minigameId}`);
-  if (t.dareId) ok(dares.has(t.dareId), `tile ${t.id}: dareId inexistente ${t.dareId}`);
-  if (t.fateId) ok(fates.has(t.fateId), `tile ${t.id}: fateId inexistente ${t.fateId}`);
   if (t.eventId) ok(events.has(t.eventId), `tile ${t.id}: eventId inexistente ${t.eventId}`);
   ok(t.layout && typeof t.layout.x === "number" && typeof t.layout.y === "number", `tile ${t.id}: layout inválido`);
 }

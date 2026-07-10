@@ -1,4 +1,4 @@
-import { ArrowRight, Gamepad2, Home, Map, Palette, SlidersHorizontal, Sparkles, UserRound, Wrench } from "lucide-react";
+import { ArrowRight, Gamepad2, Home, Images, Map, Palette, SlidersHorizontal, Sparkles, UserRound, Wrench } from "lucide-react";
 
 const TOOL_LINKS = [
   {
@@ -24,6 +24,14 @@ const TOOL_LINKS = [
     body: "Activities, stories, consequences",
     icon: Gamepad2,
     accent: "cyan",
+  },
+  {
+    href: "/asset-library",
+    title: "Asset library",
+    eyebrow: "Images",
+    body: "Reusable images, captions, crop, and fit",
+    icon: Images,
+    accent: "fuchsia",
   },
   {
     href: "/cosmetic-builder",

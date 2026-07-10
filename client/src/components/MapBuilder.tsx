@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type Dispatch, type PointerEvent } from "react";
-import { Copy, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type Dispatch, type PointerEvent, type ReactNode } from "react";
+import { Camera, Copy, Map as MapIcon, MapPin, MousePointer2, Pencil, Plus, RotateCcw, Save, Target, Trash2, User, X } from "lucide-react";
 import type {
+  CameraFramingDef,
   GameContent,
   MapArtifact,
   MapAssetDef,
@@ -27,7 +28,6 @@ import {
 import {
   builderContentToGameContent,
   createInitialMapBuilderState,
-  eventFieldForType,
   getActiveMap,
   getSelectedArtifact,
   getSelectedNode,
@@ -46,14 +46,17 @@ import {
   type MapBuilderState,
   type TerraceCorner,
 } from "../mapBuilder";
-import { normalizeContentSchema } from "@essence/shared/contentValidation";
-import { eventIdsForTile, eventTitle, resolveTileEventForPlayer } from "@essence/shared/events";
+import { assertValidGameContent, normalizeContentSchema } from "@essence/shared/contentValidation";
+import { eventTitle, resolveTileEventForPlayer } from "@essence/shared/events";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
+import { DEFAULT_CAMERA_FRAMING, resolveTileCamera } from "../board3d";
 import Board3DShell from "./Board3DShell";
 
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 const STORAGE_KEY = "essence:map-builder:draft";
 type DraftSaveStatus = "saved" | "dirty" | "saving" | "browser" | "error";
+type InspectorTab = "selection" | "camera" | "map";
+type CameraAuthoringScope = "default" | "cell";
 
 const TILE_LABEL: Record<TileType, string> = {
   start: "Start",
@@ -270,6 +273,8 @@ export default function MapBuilder() {
   const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<DraftSaveStatus>("saved");
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("selection");
+  const [cameraScope, setCameraScope] = useState<CameraAuthoringScope>("default");
   const exportContent = useMemo(() => builderContentToGameContent(BASE_CONTENT, state.content), [state.content]);
   const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
   const draftJson = useMemo(() => JSON.stringify(state.content), [state.content]);
@@ -287,6 +292,27 @@ export default function MapBuilder() {
     if (activeMap.board.some((tile) => tile.id === testCellId)) return;
     setTestCellId(activeMap.board[0]?.id ?? 0);
   }, [activeMap, testCellId]);
+
+  useEffect(() => {
+    if (!selectedNode && cameraScope === "cell") setCameraScope("default");
+  }, [cameraScope, selectedNode]);
+
+  const inspectorPreviewCamera = useMemo(() => {
+    if (inspectorTab !== "camera") return undefined;
+    if (cameraScope === "default") return activeMap.defaultCamera ?? DEFAULT_CAMERA_FRAMING;
+    return resolveTileCamera(selectedNode ?? undefined, activeMap.cameraPresets) ?? activeMap.defaultCamera ?? DEFAULT_CAMERA_FRAMING;
+  }, [activeMap.cameraPresets, activeMap.defaultCamera, cameraScope, inspectorTab, selectedNode]);
+
+  const inspectorPreviewLabel =
+    inspectorTab === "camera"
+      ? cameraScope === "cell" && selectedNode
+        ? `Editing cell ${selectedNode.id} camera`
+        : "Editing board camera"
+      : undefined;
+
+  const changeInspectorTab = (tab: InspectorTab) => {
+    setInspectorTab(tab);
+  };
 
   const copyJson = async () => {
     await navigator.clipboard?.writeText(exportJson);
@@ -326,12 +352,12 @@ export default function MapBuilder() {
 
   const importJson = () => {
     try {
-      const parsed = JSON.parse(importText);
+      const parsed = assertValidGameContent(JSON.parse(importText), "Imported content");
       dispatch({ type: "replace_content", content: normalizeBuilderContent(parsed) });
       setImportText("");
       setJsonModalOpen(false);
-    } catch {
-      window.alert("JSON inválido");
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "JSON inválido");
     }
   };
 
@@ -396,7 +422,7 @@ export default function MapBuilder() {
         />
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_23rem]">
         <section className="min-h-0 min-w-0 bg-[#172218] p-2">
           <div className="relative h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-[#e8e1c6] text-slate-900 shadow-2xl shadow-black/30">
             <MapCanvas
@@ -419,6 +445,8 @@ export default function MapBuilder() {
                 players={previewPlayers}
                 testMode={testMode}
                 testCellId={testCellId}
+                cameraOverride={inspectorPreviewCamera}
+                previewLabel={inspectorPreviewLabel}
                 onOpen={open3DPlaytest}
               />
             )}
@@ -447,6 +475,10 @@ export default function MapBuilder() {
             dispatch={dispatch}
             assetCatalog={state.content.assetCatalog}
             validation={validation}
+            activeTab={inspectorTab}
+            onTabChange={changeInspectorTab}
+            cameraScope={cameraScope}
+            onCameraScopeChange={setCameraScope}
           />
         </aside>
       </div>
@@ -662,11 +694,7 @@ function TestPanel({
       {current && (
         <div className="mt-2 rounded-md border border-white/10 bg-black/20 px-2 py-2 text-xs font-bold text-slate-200">
           <span className="text-emerald-200">{TILE_LABEL[current.type]}</span>
-          {current.eventIds?.length ? <span className="ml-1 text-slate-400">· {current.eventIds.length} events</span> : null}
           {current.eventId && <span className="ml-1 text-slate-400">· {current.eventId}</span>}
-          {current.minigameId && <span className="ml-1 text-slate-400">· {current.minigameId}</span>}
-          {current.dareId && <span className="ml-1 text-slate-400">· {current.dareId}</span>}
-          {current.fateId && <span className="ml-1 text-slate-400">· {current.fateId}</span>}
         </div>
       )}
 
@@ -785,6 +813,8 @@ function Floating3DPreview({
   players,
   testMode,
   testCellId,
+  cameraOverride,
+  previewLabel,
   onOpen,
 }: {
   map: MapDefinition;
@@ -792,8 +822,12 @@ function Floating3DPreview({
   players: Player[];
   testMode: boolean;
   testCellId: number;
+  cameraOverride?: CameraFramingDef;
+  previewLabel?: string;
   onOpen: () => void;
 }) {
+  const previewCell = map.board.find((tile) => tile.id === players[0]?.position) ?? map.board.find((tile) => tile.id === testCellId);
+  const presentationCamera = cameraOverride ?? resolveTileCamera(previewCell, map.cameraPresets);
   return (
     <section data-map-builder-preview="true" className="absolute right-4 top-4 z-20 h-44 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-950/20 bg-[#172114] text-white shadow-2xl shadow-black/35">
       <Board3DShell
@@ -806,10 +840,12 @@ function Floating3DPreview({
         players={players}
         activeId="test-player"
         interactive
+        defaultCamera={map.defaultCamera}
+        presentationCamera={presentationCamera}
         className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
       />
       <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-white/10 bg-black/35 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-white/80 backdrop-blur">
-        {testMode ? `Test cell ${testCellId}` : "3D preview"}
+        {previewLabel ?? (testMode ? `Test cell ${testCellId}` : "3D preview")}
       </div>
       <button
         type="button"
@@ -1642,6 +1678,7 @@ function Playtest3DOverlay({
   const start = map.board.find((tile) => tile.type === "start") ?? map.board[0];
   const finish = map.board.find((tile) => tile.type === "finish") ?? map.board[map.board.length - 1];
   const [freeCamera, setFreeCamera] = useState(false);
+  const presentationCamera = resolveTileCamera(current, map.cameraPresets);
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-[#101510]">
@@ -1655,6 +1692,8 @@ function Playtest3DOverlay({
         players={players}
         activeId="test-player"
         interactive
+        defaultCamera={map.defaultCamera}
+        presentationCamera={presentationCamera}
         freeCamera={freeCamera}
         className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
       />
@@ -1949,6 +1988,10 @@ function Inspector({
   dispatch,
   assetCatalog,
   validation,
+  activeTab,
+  onTabChange,
+  cameraScope,
+  onCameraScopeChange,
 }: {
   state: MapBuilderState;
   map: MapDefinition;
@@ -1959,41 +2002,110 @@ function Inspector({
   dispatch: Dispatch<any>;
   assetCatalog: MapAssetDef[];
   validation: string[];
+  activeTab: InspectorTab;
+  onTabChange: (tab: InspectorTab) => void;
+  cameraScope: CameraAuthoringScope;
+  onCameraScopeChange: (scope: CameraAuthoringScope) => void;
 }) {
+  const selectionLabel = selectedNode
+    ? `Cell ${selectedNode.id} · ${TILE_LABEL[selectedNode.type]}`
+    : selectedRoute
+      ? `Route ${selectedRoute.id}`
+      : selectedArtifact
+        ? selectedArtifact.label ?? selectedArtifact.assetId
+        : selectedTerrace
+          ? `Terrain ${selectedTerrace.label ?? selectedTerrace.id}`
+          : "Nothing selected";
+  const tabs: { id: InspectorTab; label: string; icon: ComponentType<{ className?: string }> }[] = [
+    { id: "selection", label: "Selection", icon: MousePointer2 },
+    { id: "camera", label: "Camera", icon: Camera },
+    { id: "map", label: "Map", icon: MapIcon },
+  ];
+
   return (
-    <div className="grid gap-4">
-      {selectedNode && <NodeInspector tile={selectedNode} dispatch={dispatch} />}
-      {selectedRoute && <RouteInspector route={selectedRoute} board={map.board} dispatch={dispatch} />}
-      {selectedArtifact && <ArtifactInspector artifact={selectedArtifact} assetCatalog={assetCatalog} dispatch={dispatch} />}
-      {selectedTerrace && <TerraceInspector terrace={selectedTerrace} dispatch={dispatch} />}
-      {!selectedNode && !selectedRoute && !selectedArtifact && !selectedTerrace && (
-        <section className="rounded-lg border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">
-          <p className="font-bold text-white">No selection</p>
-          <p className="mt-1">Use Select to inspect nodes, routes, and props. Route mode connects two clicked cells.</p>
-        </section>
+    <div className="min-h-full">
+      <div className="sticky -top-3 z-20 -mx-3 -mt-3 mb-4 border-b border-white/10 bg-[#111811]/95 px-3 pb-3 pt-3 shadow-lg shadow-black/15 backdrop-blur-md">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-emerald-300">Inspector</p>
+            <p className="mt-1 truncate text-sm font-black text-white">{selectionLabel}</p>
+          </div>
+          <span
+            className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${validation.length ? "bg-rose-400" : "bg-emerald-300"}`}
+            title={validation.length ? `${validation.length} validation issue${validation.length === 1 ? "" : "s"}` : "Map is valid"}
+          />
+        </div>
+        <div role="tablist" aria-label="Map inspector" className="grid grid-cols-3 rounded-md border border-white/10 bg-black/20 p-1">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === id}
+              onClick={() => onTabChange(id)}
+              className={`flex min-h-10 items-center justify-center gap-1.5 rounded-sm px-2 text-[0.68rem] font-black transition ${
+                activeTab === id
+                  ? "bg-emerald-300 text-emerald-950 shadow-sm"
+                  : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === "selection" && (
+        <div className="grid gap-4">
+          {selectedNode && <NodeInspector tile={selectedNode} dispatch={dispatch} />}
+          {selectedRoute && <RouteInspector route={selectedRoute} board={map.board} dispatch={dispatch} />}
+          {selectedArtifact && <ArtifactInspector artifact={selectedArtifact} assetCatalog={assetCatalog} dispatch={dispatch} />}
+          {selectedTerrace && <TerraceInspector terrace={selectedTerrace} dispatch={dispatch} />}
+          {!selectedNode && !selectedRoute && !selectedArtifact && !selectedTerrace && (
+            <section className="rounded-md border border-dashed border-white/15 bg-white/[0.025] p-4 text-sm text-slate-300">
+              <MousePointer2 className="h-5 w-5 text-emerald-300" />
+              <p className="mt-3 font-black text-white">Select something on the map</p>
+              <p className="mt-1 leading-5 text-slate-400">Cells, routes, props, and terrain expose their settings here.</p>
+            </section>
+          )}
+
+          {state.selection && (
+            <button type="button" onClick={() => dispatch({ type: "delete_selected" })} className="builder-button danger w-full">
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Delete selected
+            </button>
+          )}
+        </div>
       )}
 
-      <BoardShapeInspector boardShape={map.boardShape} dispatch={dispatch} />
+      {activeTab === "camera" && (
+        <CameraInspector map={map} tile={selectedNode} dispatch={dispatch} scope={cameraScope} onScopeChange={onCameraScopeChange} />
+      )}
 
-      <section>
-        <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Validation</h2>
-        {validation.length === 0 ? (
-          <p className="rounded-md border border-emerald-300/20 bg-emerald-300/10 p-2 text-sm font-bold text-emerald-100">Map graph is valid.</p>
-        ) : (
-          <ul className="grid gap-1 text-sm text-rose-200">
-            {validation.map((error) => (
-              <li key={error} className="rounded-md border border-rose-300/20 bg-rose-300/10 p-2">
-                {error}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {state.selection && (
-        <button type="button" onClick={() => dispatch({ type: "delete_selected" })} className="builder-button danger">
-          Delete selected
-        </button>
+      {activeTab === "map" && (
+        <div className="grid gap-5">
+          <BoardShapeInspector boardShape={map.boardShape} dispatch={dispatch} />
+          <section>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Validation</h2>
+              <span className={`text-[0.62rem] font-black uppercase ${validation.length ? "text-rose-300" : "text-emerald-300"}`}>
+                {validation.length ? `${validation.length} issue${validation.length === 1 ? "" : "s"}` : "Ready"}
+              </span>
+            </div>
+            {validation.length === 0 ? (
+              <p className="rounded-md border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm font-bold text-emerald-100">Map graph is valid.</p>
+            ) : (
+              <ul className="grid gap-1.5 text-sm text-rose-200">
+                {validation.map((error) => (
+                  <li key={error} className="rounded-md border border-rose-300/20 bg-rose-300/10 p-2.5">
+                    {error}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       )}
     </div>
   );
@@ -2047,90 +2159,365 @@ function BoardShapeInspector({ boardShape, dispatch }: { boardShape?: MapBoardSh
   );
 }
 
+function CameraInspector({
+  map,
+  tile,
+  dispatch,
+  scope,
+  onScopeChange,
+}: {
+  map: MapDefinition;
+  tile: Tile | null;
+  dispatch: Dispatch<any>;
+  scope: CameraAuthoringScope;
+  onScopeChange: (scope: CameraAuthoringScope) => void;
+}) {
+  const defaultCamera = map.defaultCamera ?? DEFAULT_CAMERA_FRAMING;
+  const hasCellCamera = Boolean(tile?.cameraPresetId || tile?.camera);
+  const cellCamera = tile ? resolveTileCamera(tile, map.cameraPresets) ?? defaultCamera : defaultCamera;
+
+  const setCellCamera = (camera: CameraFramingDef) => {
+    if (!tile) return;
+    const presetId = tile.cameraPresetId || cameraPresetIdForTile(tile);
+    dispatch({
+      type: "update_map",
+      patch: {
+        cameraPresets: {
+          ...(map.cameraPresets ?? {}),
+          [presetId]: { ...camera, id: presetId },
+        },
+      },
+    });
+    dispatch({ type: "update_node", id: tile.id, patch: { cameraPresetId: presetId, camera: undefined } });
+  };
+
+  const clearCellCamera = () => {
+    if (!tile) return;
+    const presetId = tile.cameraPresetId;
+    if (presetId) {
+      const cameraPresets = { ...(map.cameraPresets ?? {}) };
+      const usedElsewhere = map.board.some((candidate) => candidate.id !== tile.id && candidate.cameraPresetId === presetId);
+      if (!usedElsewhere) delete cameraPresets[presetId];
+      dispatch({ type: "update_map", patch: { cameraPresets: Object.keys(cameraPresets).length ? cameraPresets : undefined } });
+    }
+    dispatch({ type: "update_node", id: tile.id, patch: { cameraPresetId: undefined, camera: undefined } });
+  };
+
+  return (
+    <div className="grid gap-4" data-camera-inspector="true">
+      <header>
+        <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-cyan-300">Presentation</p>
+        <h2 className="mt-1 text-lg font-black text-white">Camera framing</h2>
+        <p className="mt-1 text-xs font-bold leading-5 text-slate-400">Choose which shot you are editing. The floating 3D preview follows this selection.</p>
+      </header>
+
+      <div role="radiogroup" aria-label="Camera scope" className="grid grid-cols-2 rounded-md border border-cyan-200/15 bg-cyan-300/[0.045] p-1">
+        <button
+          type="button"
+          aria-pressed={scope === "default"}
+          onClick={() => onScopeChange("default")}
+          className={`min-w-0 rounded-sm px-3 py-2.5 text-left transition ${
+            scope === "default" ? "bg-cyan-300 text-cyan-950 shadow-sm" : "text-cyan-100 hover:bg-white/[0.05]"
+          }`}
+        >
+          <span className="flex items-center gap-2 text-xs font-black"><Camera className="h-3.5 w-3.5" />Board default</span>
+          <span className={`mt-1 block truncate text-[0.62rem] font-bold ${scope === "default" ? "text-cyan-900/70" : "text-slate-500"}`}>Fallback shot</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={scope === "cell"}
+          disabled={!tile}
+          onClick={() => tile && onScopeChange("cell")}
+          className={`min-w-0 rounded-sm px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+            scope === "cell" ? "bg-cyan-300 text-cyan-950 shadow-sm" : "text-cyan-100 hover:bg-white/[0.05]"
+          }`}
+        >
+          <span className="flex items-center gap-2 text-xs font-black"><MapPin className="h-3.5 w-3.5" />{tile ? `Cell ${tile.id}` : "Select a cell"}</span>
+          <span className={`mt-1 block truncate text-[0.62rem] font-bold ${scope === "cell" ? "text-cyan-900/70" : "text-slate-500"}`}>
+            {tile ? (hasCellCamera ? "Custom shot" : "Uses board default") : "No cell selected"}
+          </span>
+        </button>
+      </div>
+
+      {scope === "cell" && tile && !hasCellCamera ? (
+        <section className="rounded-md border border-cyan-200/20 bg-cyan-300/[0.06] p-4" data-camera-inherited="true">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-cyan-300/15 text-cyan-200">
+              <Copy className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-black text-white">Cell {tile.id} inherits the board camera</h3>
+              <p className="mt-1 text-xs font-bold leading-5 text-slate-400">Board-camera changes continue to affect this cell until you create a custom shot.</p>
+            </div>
+          </div>
+          <CameraReadout camera={cellCamera} />
+          <button type="button" onClick={() => setCellCamera(cellCamera)} className="builder-button preview mt-4 w-full">
+            <Camera className="mr-1.5 h-3.5 w-3.5" />
+            Customize this cell
+          </button>
+        </section>
+      ) : (
+        <CameraEditor
+          title={scope === "cell" && tile ? `Cell ${tile.id} camera` : "Board default camera"}
+          eyebrow={scope === "cell" && tile ? tile.cameraPresetId ?? "Custom framing" : map.defaultCamera ? "Authored default" : "Built-in baseline"}
+          description={
+            scope === "cell" && tile
+              ? "Used temporarily when this cell presents an event, shop, minigame, or reveal."
+              : "Used across the board whenever a cell does not have its own shot."
+          }
+          camera={scope === "cell" ? cellCamera : defaultCamera}
+          onChange={scope === "cell" ? setCellCamera : (camera) => dispatch({ type: "update_map", patch: { defaultCamera: camera } })}
+          onClear={scope === "cell" ? clearCellCamera : () => dispatch({ type: "update_map", patch: { defaultCamera: undefined } })}
+          resetLabel={scope === "cell" ? "Use board default" : "Restore baseline"}
+          canReset={scope === "cell" ? hasCellCamera : Boolean(map.defaultCamera)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CameraReadout({ camera }: { camera: CameraFramingDef }) {
+  const focus = camera.focus === "activePlayer" ? "Player" : camera.focus === "cell" ? "Cell" : "Target";
+  return (
+    <dl className="mt-4 grid grid-cols-3 gap-x-3 gap-y-2 border-t border-white/10 pt-3 text-xs">
+      <div><dt className="text-[0.6rem] font-black uppercase text-slate-500">Focus</dt><dd className="mt-1 font-black text-slate-200">{focus}</dd></div>
+      <div><dt className="text-[0.6rem] font-black uppercase text-slate-500">Direction</dt><dd className="mt-1 font-black text-slate-200">{camera.yaw}°</dd></div>
+      <div><dt className="text-[0.6rem] font-black uppercase text-slate-500">Distance</dt><dd className="mt-1 font-black text-slate-200">{camera.distance}</dd></div>
+      <div><dt className="text-[0.6rem] font-black uppercase text-slate-500">Tilt</dt><dd className="mt-1 font-black text-slate-200">{camera.pitch}°</dd></div>
+      <div><dt className="text-[0.6rem] font-black uppercase text-slate-500">FOV</dt><dd className="mt-1 font-black text-slate-200">{camera.fov ?? 42}°</dd></div>
+    </dl>
+  );
+}
+
 function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any> }) {
   const layout = tile.layout ?? { x: 0, y: 0 };
   const [previewPlayerId, setPreviewPlayerId] = useState(BASE_CONTENT.players[0]?.id ?? "");
   const previewPlayer = BASE_CONTENT.players.find((player) => player.id === previewPlayerId) ?? BASE_CONTENT.players[0];
-  const tileEventIds = eventIdsForTile(tile);
   const resolvedEvent = previewPlayer ? resolveTileEventForPlayer(BASE_CONTENT, tile, previewPlayer) : null;
-  const eventOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.events ?? {}).map((id) => ({ value: id, label: eventTitle(BASE_CONTENT.events![id]) }))];
-  const minigameOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.minigames).map((id) => ({ value: id, label: id }))];
-  const dareOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.dares).map((id) => ({ value: id, label: id }))];
-  const fateOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.fates).map((id) => ({ value: id, label: id }))];
-  const updateStoryParam = (key: string, value: string) => {
-    const next = { ...(tile.storyParams ?? {}) };
-    if (value.trim()) next[key] = value;
-    else delete next[key];
-    dispatch({ type: "update_node", id: tile.id, patch: { storyParams: Object.keys(next).length ? next : undefined } });
+  const eventOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.events).map((id) => ({ value: id, label: eventTitle(BASE_CONTENT.events[id]) }))];
+
+  return (
+    <div className="grid gap-4">
+      <InspectorGroup title="Cell setup" description="What this space is and how it appears on the board.">
+        <SelectInput
+          label="Type"
+          value={tile.type}
+          options={TILE_TYPES.map((type) => ({ value: type, label: TILE_LABEL[type] }))}
+          onChange={(type) => dispatch({ type: "update_node", id: tile.id, patch: { type: type as TileType } })}
+        />
+        <TextInput label="Label" value={tile.label ?? ""} onChange={(label) => dispatch({ type: "update_node", id: tile.id, patch: { label: label || undefined } })} />
+      </InspectorGroup>
+
+      <InspectorGroup title="Content" description="Choose the event this cell runs, then preview it for a player.">
+        <SelectInput
+          label="Event"
+          value={tile.eventId ?? ""}
+          options={optionsWithOrphan(tile.eventId ?? "", eventOptions)}
+          onChange={(eventId) => dispatch({ type: "update_node", id: tile.id, patch: { eventId: eventId || undefined } })}
+        />
+        {tile.eventId && (
+          <div className="mt-3 rounded-md border border-cyan-300/20 bg-cyan-300/[0.07] p-3">
+            <SelectInput
+              label="Preview as"
+              value={previewPlayerId}
+              options={BASE_CONTENT.players.map((player) => ({ value: player.id, label: player.name }))}
+              onChange={setPreviewPlayerId}
+            />
+            <p className="mt-2 text-sm font-black leading-5 text-white">{resolvedEvent ? eventTitle(resolvedEvent) : tile.eventId}</p>
+            {resolvedEvent?.story.prompt && <p className="mt-1 text-xs font-bold leading-5 text-cyan-100/80">{resolvedEvent.story.prompt}</p>}
+            {resolvedEvent?.activity && <p className="mt-2 text-[0.62rem] font-black uppercase tracking-[0.12em] text-cyan-200">{activityLabel(resolvedEvent.activity.type)}</p>}
+            {!resolvedEvent && <p className="mt-1 text-xs font-bold leading-5 text-cyan-100">No event matches this player.</p>}
+          </div>
+        )}
+      </InspectorGroup>
+
+      <InspectorGroup title="Placement" description="Fine-tune the cell after positioning it on the canvas.">
+        <CoordinateInputs
+          layout={layout}
+          onChange={(next) => dispatch({ type: "update_node", id: tile.id, patch: { layout: next } })}
+        />
+      </InspectorGroup>
+    </div>
+  );
+}
+
+function InspectorGroup({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+  return (
+    <section className="border-b border-white/10 pb-4 last:border-b-0 last:pb-0">
+      <h2 className="text-xs font-black uppercase tracking-[0.15em] text-slate-300">{title}</h2>
+      <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-500">{description}</p>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function CameraEditor({
+  title,
+  eyebrow,
+  description,
+  camera,
+  onChange,
+  onClear,
+  resetLabel,
+  canReset,
+}: {
+  title: string;
+  eyebrow: string;
+  description: string;
+  camera: CameraFramingDef;
+  onChange: (camera: CameraFramingDef) => void;
+  onClear: () => void;
+  resetLabel: string;
+  canReset: boolean;
+}) {
+  const focusOffset = camera.focusOffset ?? { x: 0, y: 0, z: 0 };
+  const activeYaw = ((Math.round(camera.yaw) % 360) + 360) % 360;
+  const patch = (next: Partial<CameraFramingDef>) => onChange(normalizeCamera({ ...camera, ...next }));
+  const patchOffset = (next: Partial<NonNullable<CameraFramingDef["focusOffset"]>>) => {
+    const offset = { ...focusOffset, ...next };
+    patch({
+      focusOffset: offset.x || offset.y || offset.z ? offset : undefined,
+    });
   };
 
   return (
-    <section>
-      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Cell {tile.id}</h2>
-      <SelectInput
-        label="Type"
-        value={tile.type}
-        options={TILE_TYPES.map((type) => ({ value: type, label: TILE_LABEL[type] }))}
-        onChange={(type) => dispatch({ type: "update_node", id: tile.id, patch: { type: type as TileType } })}
-      />
-      <TextInput label="Label" value={tile.label ?? ""} onChange={(label) => dispatch({ type: "update_node", id: tile.id, patch: { label: label || undefined } })} />
-      <SelectInput
-        label="Event"
-        value={tile.eventId ?? ""}
-        options={optionsWithOrphan(tile.eventId ?? "", eventOptions)}
-        onChange={(eventId) => dispatch({ type: "update_node", id: tile.id, patch: { eventId: eventId || undefined } })}
-      />
-      {tileEventIds.length > 0 && (
-        <div className="mt-3 rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3">
-          <SelectInput
-            label="Preview player"
-            value={previewPlayerId}
-            options={BASE_CONTENT.players.map((player) => ({ value: player.id, label: player.name }))}
-            onChange={setPreviewPlayerId}
-          />
-          {tileEventIds.length > 1 && <p className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-200">{tileEventIds.length} candidate events</p>}
-          <p className="mt-3 text-sm font-black text-white">{resolvedEvent ? eventTitle(resolvedEvent) : tileEventIds[0]}</p>
-          {resolvedEvent?.story.prompt && <p className="mt-1 text-xs font-bold leading-5 text-cyan-100">{resolvedEvent.story.prompt}</p>}
-          {resolvedEvent?.activity && <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-cyan-200">{activityLabel(resolvedEvent.activity.type)}</p>}
-          {!resolvedEvent && <p className="mt-1 text-xs font-bold leading-5 text-cyan-100">No event matches this preview player.</p>}
+    <section data-camera-editor="true" className="rounded-md border border-cyan-200/15 bg-cyan-300/[0.045] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[0.58rem] font-black uppercase tracking-[0.16em] text-cyan-300/75">{eyebrow}</p>
+          <h2 className="mt-1 text-base font-black text-white">{title}</h2>
+          <p className="mt-1 text-xs font-bold leading-5 text-slate-400">{description}</p>
         </div>
-      )}
-      {eventFieldForType(tile.type, "minigame") && (
-        <SelectInput
-          label="Legacy minigame"
-          value={tile.minigameId ?? ""}
-          options={optionsWithOrphan(tile.minigameId ?? "", minigameOptions)}
-          onChange={(minigameId) => dispatch({ type: "update_node", id: tile.id, patch: { minigameId: minigameId || undefined } })}
-        />
-      )}
-      <div className="mt-3" data-story-params="true">
-        <h3 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Story parameters</h3>
-        <TextInput label="Setup" value={tile.storyParams?.setup ?? ""} onChange={(value) => updateStoryParam("setup", value)} />
-        <TextInput label="Prompt" value={tile.storyParams?.prompt ?? ""} onChange={(value) => updateStoryParam("prompt", value)} />
-        <TextInput label="Reward beat" value={tile.storyParams?.reward ?? ""} onChange={(value) => updateStoryParam("reward", value)} />
+        <button
+          type="button"
+          onClick={canReset ? onClear : undefined}
+          aria-disabled={!canReset || undefined}
+          className={`builder-button compact shrink-0 ${canReset ? "" : "is-disabled"}`}
+        >
+          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+          {resetLabel}
+        </button>
       </div>
-      {eventFieldForType(tile.type, "dare") && (
-        <SelectInput
-          label="Legacy dare"
-          value={tile.dareId ?? ""}
-          options={optionsWithOrphan(tile.dareId ?? "", dareOptions)}
-          onChange={(dareId) => dispatch({ type: "update_node", id: tile.id, patch: { dareId: dareId || undefined } })}
-        />
-      )}
-      {eventFieldForType(tile.type, "fate") && (
-        <SelectInput
-          label="Legacy fate"
-          value={tile.fateId ?? ""}
-          options={optionsWithOrphan(tile.fateId ?? "", fateOptions)}
-          onChange={(fateId) => dispatch({ type: "update_node", id: tile.id, patch: { fateId: fateId || undefined } })}
-        />
-      )}
-      <CoordinateInputs
-        layout={layout}
-        onChange={(next) => dispatch({ type: "update_node", id: tile.id, patch: { layout: next } })}
-      />
+
+      <div className="mt-4 border-t border-white/10 pt-4">
+        <CameraFocusControl value={camera.focus} onChange={(focus) => patch({ focus })} />
+      </div>
+
+      <div className="mt-4 border-t border-white/10 pt-4">
+        <CameraGroupHeading title="Angle" description="Choose the viewing direction, then fine-tune it." />
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <NumberInput label="Direction (yaw)" value={camera.yaw} step={5} onChange={(yaw) => patch({ yaw })} />
+          <NumberInput label="Tilt (pitch)" value={camera.pitch} step={1} onChange={(pitch) => patch({ pitch })} />
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-1.5">
+          {[
+            { yaw: 0, label: "Front" },
+            { yaw: 90, label: "Right" },
+            { yaw: 180, label: "Back" },
+            { yaw: 270, label: "Left" },
+          ].map((angle) => (
+            <button
+              key={angle.yaw}
+              type="button"
+              aria-pressed={activeYaw === angle.yaw}
+              onClick={() => patch({ yaw: angle.yaw })}
+              className={`flex min-h-9 items-center justify-between rounded-md border px-2.5 text-xs font-black transition ${
+                activeYaw === angle.yaw
+                  ? "border-cyan-200/60 bg-cyan-300/20 text-cyan-100"
+                  : "border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.07]"
+              }`}
+            >
+              <span>{angle.label}</span>
+              <span className="text-[0.62rem] opacity-70">{angle.yaw}°</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-white/10 pt-4">
+        <CameraGroupHeading title="Lens" description="Distance changes how close the shot feels; FOV changes how wide it is." />
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <NumberInput label="Distance" value={camera.distance} step={0.25} onChange={(distance) => patch({ distance })} />
+          <NumberInput label="Field of view" value={camera.fov ?? DEFAULT_CAMERA_FRAMING.fov ?? 42} step={1} onChange={(fov) => patch({ fov })} />
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-white/10 pt-4">
+        <CameraGroupHeading title="Target offset" description="Nudge the point kept in frame without moving the map or player." />
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <NumberInput label="X" value={focusOffset.x} step={0.25} onChange={(x) => patchOffset({ x })} />
+          <NumberInput label="Y" value={focusOffset.y ?? 0} step={0.25} onChange={(y) => patchOffset({ y })} />
+          <NumberInput label="Z" value={focusOffset.z} step={0.25} onChange={(z) => patchOffset({ z })} />
+        </div>
+      </div>
     </section>
   );
+}
+
+function CameraFocusControl({ value, onChange }: { value: CameraFramingDef["focus"]; onChange: (focus: CameraFramingDef["focus"]) => void }) {
+  const options: { value: CameraFramingDef["focus"]; label: string; help: string; icon: ComponentType<{ className?: string }> }[] = [
+    { value: "activePlayer", label: "Player", help: "Follows the player taking the turn.", icon: User },
+    { value: "cell", label: "Cell", help: "Keeps the selected cell center in frame.", icon: MapPin },
+    { value: "targetPlayer", label: "Target", help: "Frames the targeted player when the flow has one.", icon: Target },
+  ];
+  const active = options.find((option) => option.value === value) ?? options[0];
+
+  return (
+    <div>
+      <CameraGroupHeading title="Keep in frame" description={active.help} />
+      <div role="radiogroup" aria-label="Camera focus" className="mt-3 grid grid-cols-3 gap-1.5">
+        {options.map(({ value: optionValue, label, icon: Icon }) => (
+          <button
+            key={optionValue}
+            type="button"
+            aria-pressed={value === optionValue}
+            onClick={() => onChange(optionValue)}
+            className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-md border px-2 text-[0.68rem] font-black transition ${
+              value === optionValue
+                ? "border-cyan-200/60 bg-cyan-300/20 text-cyan-100"
+                : "border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.07]"
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CameraGroupHeading({ title, description }: { title: string; description: string }) {
+  return (
+    <div>
+      <h3 className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-slate-300">{title}</h3>
+      <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-500">{description}</p>
+    </div>
+  );
+}
+
+function cameraPresetIdForTile(tile: Pick<Tile, "id">): string {
+  return `cell-${tile.id}-camera`;
+}
+
+function normalizeCamera(camera: CameraFramingDef): CameraFramingDef {
+  return {
+    ...camera,
+    pitch: clampNumber(camera.pitch, -85, 85),
+    distance: clampNumber(camera.distance, 0.8, 80),
+    fov: camera.fov === undefined ? undefined : clampNumber(camera.fov, 18, 80),
+    focusOffset: camera.focusOffset
+      ? {
+          x: roundToStep(camera.focusOffset.x, 0.01),
+          y: camera.focusOffset.y === undefined ? undefined : roundToStep(camera.focusOffset.y, 0.01),
+          z: roundToStep(camera.focusOffset.z, 0.01),
+        }
+      : undefined,
+  };
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
 }
 
 function RouteInspector({ route, board, dispatch }: { route: MapRoute; board: Tile[]; dispatch: Dispatch<any> }) {
@@ -2485,11 +2872,7 @@ function cellSummary(tile: Tile): string {
 }
 
 function tileEventLabel(tile: Tile): string {
-  if (tile.eventIds?.length) return tile.eventIds.length === 1 ? `Event: ${tile.eventIds[0]}` : `Events: ${tile.eventIds.length}`;
   if (tile.eventId) return `Event: ${tile.eventId}`;
-  if (tile.minigameId) return `Minigame: ${tile.minigameId}`;
-  if (tile.dareId) return `Dare: ${tile.dareId}`;
-  if (tile.fateId) return `Fate: ${tile.fateId}`;
   return tile.label ?? "No event assigned";
 }
 

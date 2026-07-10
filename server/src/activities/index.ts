@@ -1,19 +1,16 @@
 import type {
   EventActivity,
-  MinigameDef,
   MinigameResult,
   Player,
   RevealEntry,
   RevealPayload,
 } from "@essence/shared";
 import { applyRig } from "@essence/shared/rig";
-import { toEventActivityType } from "@essence/shared/events";
 import { judgeMessage } from "./judge.js";
 
 interface ResolveArgs {
-  minigameId: string;
-  eventId?: string;
-  def: MinigameDef | EventActivity;
+  eventId: string;
+  activity: EventActivity;
   results: MinigameResult[];
   participants: string[]; // ids que debían jugar
   subjects?: string[]; // ids que se rankean; para host pick puede diferir de participants
@@ -35,8 +32,8 @@ interface ScoredResult {
  * Resuelve un minijuego: calcula scores finales, ordena, aplica rig y reparte monedas.
  * Convención global: SCORE MÁS ALTO = MEJOR. Cada motor del cliente normaliza a eso.
  */
-export async function resolveMinigame(args: ResolveArgs): Promise<RevealPayload> {
-  const { def, participants, players, coinPayout } = args;
+export async function resolveActivityResults(args: ResolveArgs): Promise<RevealPayload> {
+  const { activity: def, participants, players, coinPayout } = args;
   const subjects = args.subjects?.length ? args.subjects : participants;
 
   // Indexar resultados por jugador; los que no enviaron quedan en 0 / último.
@@ -98,9 +95,8 @@ export async function resolveMinigame(args: ResolveArgs): Promise<RevealPayload>
   });
 
   return {
-    minigameId: args.minigameId,
     eventId: args.eventId,
-    type: toEventActivityType(def.type),
+    type: def.type,
     skin: def.skin,
     title: titleFor(def),
     story: args.story,
@@ -164,7 +160,7 @@ function resolveSelfTap(subjects: string[], byId: Map<string, MinigameResult>): 
 }
 
 async function resolveJudge(
-  def: MinigameDef | EventActivity,
+  def: EventActivity,
   participants: string[],
   byId: Map<string, MinigameResult>
 ): Promise<ScoredResult[]> {
@@ -228,7 +224,7 @@ function resolveVote(participants: string[], subjects: string[], byId: Map<strin
 // --- Presentación -----------------------------------------------------------
 
 function formatEntryDisplay(
-  def: MinigameDef | EventActivity,
+  def: EventActivity,
   result: ScoredResult | undefined,
   nameOf: (id: string) => string
 ): Pick<RevealEntry, "resultLabel" | "detailLabel" | "flavor"> {
@@ -323,7 +319,7 @@ function formatVoteDisplay(payload: Record<string, unknown>, nameOf: (id: string
   };
 }
 
-function formatBuzzerDisplay(def: MinigameDef | EventActivity, payload: Record<string, unknown>) {
+function formatBuzzerDisplay(def: EventActivity, payload: Record<string, unknown>) {
   const content = def.content as { options?: unknown; answer?: unknown };
   const options = Array.isArray(content.options) ? content.options.map((option) => String(option)) : [];
   const answerIndex = typeof content.answer === "number" ? content.answer : 0;
@@ -350,7 +346,7 @@ function formatJudgeVoteDisplay(payload: Record<string, unknown>, nameOf: (id: s
   };
 }
 
-function titleFor(def: MinigameDef | EventActivity): string {
+function titleFor(def: EventActivity): string {
   const c = def.content as Record<string, unknown>;
   if (typeof c?.question === "string") return c.question as string;
   if (typeof c?.label === "string") return c.label as string;
@@ -358,7 +354,7 @@ function titleFor(def: MinigameDef | EventActivity): string {
   return def.type;
 }
 
-function formatFlavor(def: MinigameDef | EventActivity, payload: unknown, _id: string): string | undefined {
+function formatFlavor(def: EventActivity, payload: unknown, _id: string): string | undefined {
   const p = (payload ?? {}) as Record<string, unknown>;
   switch (def.type) {
     case "timing":

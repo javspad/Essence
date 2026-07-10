@@ -2504,17 +2504,16 @@
     {
       "id": 0,
       "type": "start",
-      "label": "START",
       "layout": {
         "x": -1.5,
         "y": 0.5,
         "rot": 0
-      }
+      },
+      "label": "START"
     },
     {
       "id": 1,
       "type": "reaction",
-      "minigameId": "reaction-1",
       "layout": {
         "x": -0.2,
         "y": 0.5,
@@ -2525,7 +2524,6 @@
     {
       "id": 2,
       "type": "minigame",
-      "minigameId": "arcade-maze",
       "layout": {
         "x": 1.1,
         "y": 0.5,
@@ -2536,7 +2534,6 @@
     {
       "id": 3,
       "type": "dare",
-      "dareId": "shot-1",
       "layout": {
         "x": 2.35,
         "y": 0.5,
@@ -2547,7 +2544,6 @@
     {
       "id": 4,
       "type": "trivia",
-      "minigameId": "trivia-novio-1",
       "layout": {
         "x": 3.6,
         "y": 0.5,
@@ -2567,18 +2563,20 @@
     {
       "id": 6,
       "type": "minigame",
-      "minigameId": "whack-amigos",
       "layout": {
         "x": 5.7,
         "y": -1.3,
         "rot": -20
       },
-      "eventId": "event-whack-amigos"
+      "label": "BELGRANO 4PM",
+      "eventId": "event-whack-amigos",
+      "tags": [
+        "belgrano-4pm"
+      ]
     },
     {
       "id": 7,
       "type": "minigame",
-      "minigameId": "arcade-flappy",
       "layout": {
         "x": 6.6,
         "y": -1.5,
@@ -2589,17 +2587,16 @@
     {
       "id": 8,
       "type": "shop",
-      "label": "SHOP",
       "layout": {
         "x": 7.2,
         "y": 0.7,
         "rot": 20
-      }
+      },
+      "label": "SHOP"
     },
     {
       "id": 9,
       "type": "judge",
-      "minigameId": "lujan",
       "layout": {
         "x": 8.6,
         "y": -0.2,
@@ -2610,7 +2607,6 @@
     {
       "id": 10,
       "type": "vote",
-      "minigameId": "mas-probable-2",
       "layout": {
         "x": 9.7,
         "y": 0.2,
@@ -2621,7 +2617,6 @@
     {
       "id": 11,
       "type": "estimate",
-      "minigameId": "estimate-noche",
       "layout": {
         "x": 10.8,
         "y": 0.4,
@@ -2632,7 +2627,6 @@
     {
       "id": 12,
       "type": "dare",
-      "dareId": "reto-1",
       "layout": {
         "x": 11.9,
         "y": 0.7,
@@ -2643,7 +2637,6 @@
     {
       "id": 13,
       "type": "trivia",
-      "minigameId": "trivia-novio-1",
       "layout": {
         "x": 13,
         "y": 1.1,
@@ -2654,7 +2647,6 @@
     {
       "id": 14,
       "type": "minigame",
-      "minigameId": "arcade-snake",
       "layout": {
         "x": 13.9,
         "y": 1.9,
@@ -2665,7 +2657,6 @@
     {
       "id": 15,
       "type": "reaction",
-      "minigameId": "reaction-1",
       "layout": {
         "x": 14.45,
         "y": 3.35,
@@ -2676,7 +2667,6 @@
     {
       "id": 16,
       "type": "dare",
-      "dareId": "shot-2",
       "layout": {
         "x": 14.9,
         "y": 3.8,
@@ -2687,7 +2677,6 @@
     {
       "id": 17,
       "type": "estimate",
-      "minigameId": "estimate-frang",
       "layout": {
         "x": 15.3,
         "y": 4.6,
@@ -2698,7 +2687,6 @@
     {
       "id": 18,
       "type": "groom",
-      "minigameId": "trivia-novio-2",
       "layout": {
         "x": 14.7,
         "y": 5.7,
@@ -2709,7 +2697,6 @@
     {
       "id": 19,
       "type": "minigame",
-      "minigameId": "bostezo",
       "layout": {
         "x": 13.9,
         "y": 6,
@@ -2720,7 +2707,6 @@
     {
       "id": 20,
       "type": "vote",
-      "minigameId": "mas-probable-1",
       "layout": {
         "x": 12.2,
         "y": 6,
@@ -2731,7 +2717,6 @@
     {
       "id": 21,
       "type": "judge",
-      "minigameId": "lujan",
       "layout": {
         "x": 10.5,
         "y": 6,
@@ -2742,7 +2727,6 @@
     {
       "id": 22,
       "type": "trivia",
-      "minigameId": "trivia-novio-1",
       "layout": {
         "x": 8.8,
         "y": 6,
@@ -2753,7 +2737,6 @@
     {
       "id": 23,
       "type": "minigame",
-      "minigameId": "whack-amigos",
       "layout": {
         "x": 7.5,
         "y": 6.9,
@@ -2764,7 +2747,6 @@
     {
       "id": 24,
       "type": "estimate",
-      "minigameId": "estimate-noche",
       "layout": {
         "x": 8.8,
         "y": 7.7,
@@ -2775,7 +2757,6 @@
     {
       "id": 25,
       "type": "minigame",
-      "minigameId": "arcade-horserace",
       "layout": {
         "x": 10.5,
         "y": 7.7,
@@ -2786,7 +2767,6 @@
     {
       "id": 26,
       "type": "dare",
-      "dareId": "shot-1",
       "layout": {
         "x": 12.2,
         "y": 7.7,
@@ -2797,7 +2777,6 @@
     {
       "id": 27,
       "type": "reaction",
-      "minigameId": "reaction-1",
       "layout": {
         "x": 13.7,
         "y": 7.7,
@@ -2808,7 +2787,6 @@
     {
       "id": 28,
       "type": "fate",
-      "fateId": "retroceder-2",
       "layout": {
         "x": 13,
         "y": 8.5,
@@ -2819,7 +2797,6 @@
     {
       "id": 29,
       "type": "judge",
-      "minigameId": "lujan",
       "layout": {
         "x": 11.4,
         "y": 9.1,
@@ -2830,7 +2807,6 @@
     {
       "id": 30,
       "type": "vote",
-      "minigameId": "mas-probable-2",
       "layout": {
         "x": 9.4,
         "y": 9.1,
@@ -2841,7 +2817,6 @@
     {
       "id": 31,
       "type": "groom",
-      "minigameId": "trivia-novio-2",
       "layout": {
         "x": 7.4,
         "y": 9.1,
@@ -2852,7 +2827,6 @@
     {
       "id": 32,
       "type": "minigame",
-      "minigameId": "bostezo",
       "layout": {
         "x": 5.4,
         "y": 9.1,
@@ -2863,7 +2837,6 @@
     {
       "id": 33,
       "type": "reaction",
-      "minigameId": "reaction-1",
       "layout": {
         "x": 3.6,
         "y": 9.6,
@@ -2874,7 +2847,6 @@
     {
       "id": 34,
       "type": "estimate",
-      "minigameId": "estimate-frang",
       "layout": {
         "x": 3,
         "y": 10.6,
@@ -2885,7 +2857,6 @@
     {
       "id": 35,
       "type": "minigame",
-      "minigameId": "arcade-redlight",
       "layout": {
         "x": 3.4,
         "y": 11.4,
@@ -2896,7 +2867,6 @@
     {
       "id": 36,
       "type": "dare",
-      "dareId": "reto-1",
       "layout": {
         "x": 4.5,
         "y": 11.9,
@@ -2907,7 +2877,6 @@
     {
       "id": 37,
       "type": "minigame",
-      "minigameId": "whack-amigos",
       "layout": {
         "x": 5.7,
         "y": 11.7,
@@ -2918,7 +2887,6 @@
     {
       "id": 38,
       "type": "reaction",
-      "minigameId": "reaction-1",
       "layout": {
         "x": 6.9,
         "y": 12.1,
@@ -2929,7 +2897,6 @@
     {
       "id": 39,
       "type": "fate",
-      "fateId": "monedas-bonus",
       "layout": {
         "x": 7.9,
         "y": 12.4,
@@ -2940,7 +2907,6 @@
     {
       "id": 40,
       "type": "judge",
-      "minigameId": "lujan",
       "layout": {
         "x": 9.3,
         "y": 12.1,
@@ -2951,7 +2917,6 @@
     {
       "id": 41,
       "type": "vote",
-      "minigameId": "mas-probable-1",
       "layout": {
         "x": 11,
         "y": 11.85,
@@ -2962,7 +2927,6 @@
     {
       "id": 42,
       "type": "trivia",
-      "minigameId": "trivia-novio-1",
       "layout": {
         "x": 11.6,
         "y": 11.3,
@@ -2973,7 +2937,6 @@
     {
       "id": 43,
       "type": "estimate",
-      "minigameId": "estimate-noche",
       "layout": {
         "x": 12.5,
         "y": 10.6,
@@ -2984,7 +2947,6 @@
     {
       "id": 44,
       "type": "dare",
-      "dareId": "shot-2",
       "layout": {
         "x": 12.9,
         "y": 8.9,
@@ -2995,7 +2957,6 @@
     {
       "id": 45,
       "type": "minigame",
-      "minigameId": "bostezo",
       "layout": {
         "x": 14.6,
         "y": 9.3,
@@ -3006,7 +2967,6 @@
     {
       "id": 46,
       "type": "minigame",
-      "minigameId": "arcade-snake",
       "layout": {
         "x": 15.6,
         "y": 9.1,
@@ -3017,7 +2977,6 @@
     {
       "id": 47,
       "type": "minigame",
-      "minigameId": "whack-amigos",
       "layout": {
         "x": 16.5,
         "y": 9.5,
@@ -3028,7 +2987,6 @@
     {
       "id": 48,
       "type": "trivia",
-      "minigameId": "trivia-novio-1",
       "layout": {
         "x": 17.3,
         "y": 10,
@@ -3039,7 +2997,6 @@
     {
       "id": 49,
       "type": "fate",
-      "fateId": "retroceder-2",
       "layout": {
         "x": 17.6,
         "y": 12,
@@ -3050,7 +3007,6 @@
     {
       "id": 50,
       "type": "groom",
-      "minigameId": "trivia-novio-2",
       "layout": {
         "x": 16.1,
         "y": 12.2,
@@ -3061,7 +3017,6 @@
     {
       "id": 51,
       "type": "judge",
-      "minigameId": "lujan",
       "layout": {
         "x": 15.1,
         "y": 12.5,
@@ -3072,7 +3027,6 @@
     {
       "id": 52,
       "type": "minigame",
-      "minigameId": "arcade-horserace",
       "layout": {
         "x": 14.2,
         "y": 12.1,
@@ -3083,12 +3037,12 @@
     {
       "id": 53,
       "type": "finish",
-      "label": "META",
       "layout": {
         "x": 13.9,
         "y": 11.1,
         "rot": 0
-      }
+      },
+      "label": "META"
     }
   ],
   "activeMapId": "farewell-loop",
@@ -4177,17 +4131,16 @@
         {
           "id": 0,
           "type": "start",
-          "label": "START",
           "layout": {
             "x": -1.5,
             "y": 0.5,
             "rot": 0
-          }
+          },
+          "label": "START"
         },
         {
           "id": 1,
           "type": "reaction",
-          "minigameId": "reaction-1",
           "layout": {
             "x": -0.2,
             "y": 0.5,
@@ -4198,7 +4151,6 @@
         {
           "id": 2,
           "type": "minigame",
-          "minigameId": "arcade-maze",
           "layout": {
             "x": 1.1,
             "y": 0.5,
@@ -4209,7 +4161,6 @@
         {
           "id": 3,
           "type": "dare",
-          "dareId": "shot-1",
           "layout": {
             "x": 2.35,
             "y": 0.5,
@@ -4220,7 +4171,6 @@
         {
           "id": 4,
           "type": "trivia",
-          "minigameId": "trivia-novio-1",
           "layout": {
             "x": 3.6,
             "y": 0.5,
@@ -4240,14 +4190,13 @@
         {
           "id": 6,
           "type": "minigame",
-          "minigameId": "whack-amigos",
           "layout": {
             "x": 5.7,
             "y": -1.3,
             "rot": -20
           },
-          "eventId": "event-whack-amigos",
           "label": "BELGRANO 4PM",
+          "eventId": "event-whack-amigos",
           "tags": [
             "belgrano-4pm"
           ]
@@ -4255,7 +4204,6 @@
         {
           "id": 7,
           "type": "minigame",
-          "minigameId": "arcade-flappy",
           "layout": {
             "x": 6.6,
             "y": -1.5,
@@ -4266,17 +4214,16 @@
         {
           "id": 8,
           "type": "shop",
-          "label": "SHOP",
           "layout": {
             "x": 7.2,
             "y": 0.7,
             "rot": 20
-          }
+          },
+          "label": "SHOP"
         },
         {
           "id": 9,
           "type": "judge",
-          "minigameId": "lujan",
           "layout": {
             "x": 8.6,
             "y": -0.2,
@@ -4287,7 +4234,6 @@
         {
           "id": 10,
           "type": "vote",
-          "minigameId": "mas-probable-2",
           "layout": {
             "x": 9.7,
             "y": 0.2,
@@ -4298,7 +4244,6 @@
         {
           "id": 11,
           "type": "estimate",
-          "minigameId": "estimate-noche",
           "layout": {
             "x": 10.8,
             "y": 0.4,
@@ -4309,7 +4254,6 @@
         {
           "id": 12,
           "type": "dare",
-          "dareId": "reto-1",
           "layout": {
             "x": 11.9,
             "y": 0.7,
@@ -4320,7 +4264,6 @@
         {
           "id": 13,
           "type": "trivia",
-          "minigameId": "trivia-novio-1",
           "layout": {
             "x": 13,
             "y": 1.1,
@@ -4331,7 +4274,6 @@
         {
           "id": 14,
           "type": "minigame",
-          "minigameId": "arcade-snake",
           "layout": {
             "x": 13.9,
             "y": 1.9,
@@ -4342,7 +4284,6 @@
         {
           "id": 15,
           "type": "reaction",
-          "minigameId": "reaction-1",
           "layout": {
             "x": 14.45,
             "y": 3.35,
@@ -4353,7 +4294,6 @@
         {
           "id": 16,
           "type": "dare",
-          "dareId": "shot-2",
           "layout": {
             "x": 14.9,
             "y": 3.8,
@@ -4364,7 +4304,6 @@
         {
           "id": 17,
           "type": "estimate",
-          "minigameId": "estimate-frang",
           "layout": {
             "x": 15.3,
             "y": 4.6,
@@ -4375,7 +4314,6 @@
         {
           "id": 18,
           "type": "groom",
-          "minigameId": "trivia-novio-2",
           "layout": {
             "x": 14.7,
             "y": 5.7,
@@ -4386,7 +4324,6 @@
         {
           "id": 19,
           "type": "minigame",
-          "minigameId": "bostezo",
           "layout": {
             "x": 13.9,
             "y": 6,
@@ -4397,7 +4334,6 @@
         {
           "id": 20,
           "type": "vote",
-          "minigameId": "mas-probable-1",
           "layout": {
             "x": 12.2,
             "y": 6,
@@ -4408,7 +4344,6 @@
         {
           "id": 21,
           "type": "judge",
-          "minigameId": "lujan",
           "layout": {
             "x": 10.5,
             "y": 6,
@@ -4419,7 +4354,6 @@
         {
           "id": 22,
           "type": "trivia",
-          "minigameId": "trivia-novio-1",
           "layout": {
             "x": 8.8,
             "y": 6,
@@ -4430,7 +4364,6 @@
         {
           "id": 23,
           "type": "minigame",
-          "minigameId": "whack-amigos",
           "layout": {
             "x": 7.5,
             "y": 6.9,
@@ -4441,7 +4374,6 @@
         {
           "id": 24,
           "type": "estimate",
-          "minigameId": "estimate-noche",
           "layout": {
             "x": 8.8,
             "y": 7.7,
@@ -4452,7 +4384,6 @@
         {
           "id": 25,
           "type": "minigame",
-          "minigameId": "arcade-horserace",
           "layout": {
             "x": 10.5,
             "y": 7.7,
@@ -4463,7 +4394,6 @@
         {
           "id": 26,
           "type": "dare",
-          "dareId": "shot-1",
           "layout": {
             "x": 12.2,
             "y": 7.7,
@@ -4474,7 +4404,6 @@
         {
           "id": 27,
           "type": "reaction",
-          "minigameId": "reaction-1",
           "layout": {
             "x": 13.7,
             "y": 7.7,
@@ -4485,7 +4414,6 @@
         {
           "id": 28,
           "type": "fate",
-          "fateId": "retroceder-2",
           "layout": {
             "x": 13,
             "y": 8.5,
@@ -4496,7 +4424,6 @@
         {
           "id": 29,
           "type": "judge",
-          "minigameId": "lujan",
           "layout": {
             "x": 11.4,
             "y": 9.1,
@@ -4507,7 +4434,6 @@
         {
           "id": 30,
           "type": "vote",
-          "minigameId": "mas-probable-2",
           "layout": {
             "x": 9.4,
             "y": 9.1,
@@ -4518,7 +4444,6 @@
         {
           "id": 31,
           "type": "groom",
-          "minigameId": "trivia-novio-2",
           "layout": {
             "x": 7.4,
             "y": 9.1,
@@ -4529,7 +4454,6 @@
         {
           "id": 32,
           "type": "minigame",
-          "minigameId": "bostezo",
           "layout": {
             "x": 5.4,
             "y": 9.1,
@@ -4540,7 +4464,6 @@
         {
           "id": 33,
           "type": "reaction",
-          "minigameId": "reaction-1",
           "layout": {
             "x": 3.6,
             "y": 9.6,
@@ -4551,7 +4474,6 @@
         {
           "id": 34,
           "type": "estimate",
-          "minigameId": "estimate-frang",
           "layout": {
             "x": 3,
             "y": 10.6,
@@ -4562,7 +4484,6 @@
         {
           "id": 35,
           "type": "minigame",
-          "minigameId": "arcade-redlight",
           "layout": {
             "x": 3.4,
             "y": 11.4,
@@ -4573,7 +4494,6 @@
         {
           "id": 36,
           "type": "dare",
-          "dareId": "reto-1",
           "layout": {
             "x": 4.5,
             "y": 11.9,
@@ -4584,7 +4504,6 @@
         {
           "id": 37,
           "type": "minigame",
-          "minigameId": "whack-amigos",
           "layout": {
             "x": 5.7,
             "y": 11.7,
@@ -4595,7 +4514,6 @@
         {
           "id": 38,
           "type": "reaction",
-          "minigameId": "reaction-1",
           "layout": {
             "x": 6.9,
             "y": 12.1,
@@ -4606,7 +4524,6 @@
         {
           "id": 39,
           "type": "fate",
-          "fateId": "monedas-bonus",
           "layout": {
             "x": 7.9,
             "y": 12.4,
@@ -4617,7 +4534,6 @@
         {
           "id": 40,
           "type": "judge",
-          "minigameId": "lujan",
           "layout": {
             "x": 9.3,
             "y": 12.1,
@@ -4628,7 +4544,6 @@
         {
           "id": 41,
           "type": "vote",
-          "minigameId": "mas-probable-1",
           "layout": {
             "x": 11,
             "y": 11.85,
@@ -4639,7 +4554,6 @@
         {
           "id": 42,
           "type": "trivia",
-          "minigameId": "trivia-novio-1",
           "layout": {
             "x": 11.6,
             "y": 11.3,
@@ -4650,7 +4564,6 @@
         {
           "id": 43,
           "type": "estimate",
-          "minigameId": "estimate-noche",
           "layout": {
             "x": 12.5,
             "y": 10.6,
@@ -4661,7 +4574,6 @@
         {
           "id": 44,
           "type": "dare",
-          "dareId": "shot-2",
           "layout": {
             "x": 12.9,
             "y": 8.9,
@@ -4672,7 +4584,6 @@
         {
           "id": 45,
           "type": "minigame",
-          "minigameId": "bostezo",
           "layout": {
             "x": 14.6,
             "y": 9.3,
@@ -4683,7 +4594,6 @@
         {
           "id": 46,
           "type": "minigame",
-          "minigameId": "arcade-snake",
           "layout": {
             "x": 15.6,
             "y": 9.1,
@@ -4694,7 +4604,6 @@
         {
           "id": 47,
           "type": "minigame",
-          "minigameId": "whack-amigos",
           "layout": {
             "x": 16.5,
             "y": 9.5,
@@ -4705,7 +4614,6 @@
         {
           "id": 48,
           "type": "trivia",
-          "minigameId": "trivia-novio-1",
           "layout": {
             "x": 17.3,
             "y": 10,
@@ -4716,7 +4624,6 @@
         {
           "id": 49,
           "type": "fate",
-          "fateId": "retroceder-2",
           "layout": {
             "x": 17.6,
             "y": 12,
@@ -4727,7 +4634,6 @@
         {
           "id": 50,
           "type": "groom",
-          "minigameId": "trivia-novio-2",
           "layout": {
             "x": 16.1,
             "y": 12.2,
@@ -4738,7 +4644,6 @@
         {
           "id": 51,
           "type": "judge",
-          "minigameId": "lujan",
           "layout": {
             "x": 15.1,
             "y": 12.5,
@@ -4749,7 +4654,6 @@
         {
           "id": 52,
           "type": "minigame",
-          "minigameId": "arcade-horserace",
           "layout": {
             "x": 14.2,
             "y": 12.1,
@@ -4760,12 +4664,12 @@
         {
           "id": 53,
           "type": "finish",
-          "label": "META",
           "layout": {
             "x": 13.9,
             "y": 11.1,
             "rot": 0
-          }
+          },
+          "label": "META"
         }
       ],
       "routes": [
@@ -7049,185 +6953,6 @@
       ]
     }
   },
-  "minigames": {
-    "bostezo": {
-      "type": "timing",
-      "skin": "bostezo",
-      "content": {
-        "windowMs": 350,
-        "label": "Tocá cuando no te vea la profe",
-        "loseFlavor": "Te vio la profe bostezar."
-      },
-      "rigged": {
-        "losers": [
-          "nico"
-        ]
-      }
-    },
-    "lujan": {
-      "type": "judge",
-      "skin": "lujan",
-      "content": {
-        "persona": "lujan",
-        "prompt": "Escribí un mensajito para invitar a Luján Eppens a tomar un helado.",
-        "placeholder": "Hola Luján, ¿te invito un helado...?"
-      },
-      "rigged": {
-        "losers": [
-          "frang"
-        ]
-      }
-    },
-    "mas-probable-1": {
-      "type": "vote",
-      "content": {
-        "question": "¿Quién se queda dormido primero esta noche?"
-      }
-    },
-    "mas-probable-2": {
-      "type": "vote",
-      "content": {
-        "question": "¿Quién es más probable que pierda el celular esta noche?"
-      }
-    },
-    "quien-dijo-1": {
-      "type": "vote",
-      "content": {
-        "question": "¿Quién dijo 'esta es la última y nos vamos' y se quedó 3 horas más?"
-      }
-    },
-    "dos-verdades-1": {
-      "type": "vote",
-      "content": {
-        "question": "Dos verdades y una mentira: ¿cuál creés que es la mentira del novio?"
-      }
-    },
-    "estimate-frang": {
-      "type": "estimate",
-      "content": {
-        "question": "¿Cuántas veces rechazaron a FranG en 15 años?",
-        "unit": "veces",
-        "answer": 42
-      }
-    },
-    "estimate-noche": {
-      "type": "estimate",
-      "content": {
-        "question": "¿A qué hora (en formato 24h, ej. 4 = 4am) se va el primero a dormir?",
-        "unit": "hs",
-        "answer": 5
-      }
-    },
-    "reaction-1": {
-      "type": "reaction",
-      "content": {
-        "label": "Esperá el verde. El primero gana. Si tocás antes, penalización.",
-        "minDelayMs": 1500,
-        "maxDelayMs": 5000
-      }
-    },
-    "trivia-novio-1": {
-      "type": "buzzer",
-      "content": {
-        "question": "¿Cuántas veces dijo Javi 'esta es la última y nos vamos'?",
-        "options": [
-          "3",
-          "7",
-          "infinitas"
-        ],
-        "answer": 2
-      }
-    },
-    "trivia-novio-2": {
-      "type": "buzzer",
-      "skin": "groom",
-      "content": {
-        "question": "¿En qué viaje del grupo Javi se olvidó el bolso en el aeropuerto?",
-        "options": [
-          "Brasil",
-          "Bariloche",
-          "Nunca pasó (mentira: sí pasó)"
-        ],
-        "answer": 0
-      }
-    },
-    "whack-amigos": {
-      "type": "whack",
-      "content": {
-        "label": "¡Golpeá la cara correcta!",
-        "durationMs": 20000,
-        "targets": [
-          "javi",
-          "nico",
-          "frang",
-          "lucho",
-          "tincho",
-          "mati",
-          "seba"
-        ]
-      }
-    },
-    "arcade-maze": {
-      "type": "maze",
-      "content": {
-        "label": "Encontrá la salida del laberinto antes que los pibes",
-        "cols": 13,
-        "rows": 13
-      }
-    },
-    "arcade-flappy": {
-      "type": "flappy",
-      "content": {
-        "label": "Volá entre quilombos de la noche sin pegarte contra nada",
-        "maxDurationMs": 90000
-      }
-    },
-    "arcade-snake": {
-      "type": "snake",
-      "content": {
-        "label": "Sobreviví a la víbora de la previa y dejá afuera a los pibes",
-        "gridSize": 100,
-        "durationMs": 120000
-      }
-    },
-    "arcade-horserace": {
-      "type": "horserace",
-      "content": {
-        "label": "Picá como si cerrara el boliche y ganale al resto",
-        "trackLength": 40,
-        "durationMs": 45000
-      }
-    },
-    "arcade-redlight": {
-      "type": "redlight",
-      "content": {
-        "label": "Avanzá cuando dé verde y no te regalés en rojo",
-        "trackLength": 45,
-        "durationMs": 60000
-      }
-    }
-  },
-  "dares": {
-    "shot-1": {
-      "text": "Tomá un shot. El último que reaccione, dos."
-    },
-    "shot-2": {
-      "text": "Brindis obligatorio: todos toman, el novio elige con qué."
-    },
-    "reto-1": {
-      "text": "Hacé 10 flexiones o tomá un shot. Vos decidís."
-    }
-  },
-  "fates": {
-    "retroceder-2": {
-      "text": "Te volviste a dormir. Retrocedés 2 casilleros.",
-      "delta": -2
-    },
-    "monedas-bonus": {
-      "text": "Carta del destino: ¡ganás 5 monedas!",
-      "coins": 5
-    }
-  },
   "events": {
     "event-bostezo": {
       "name": "Tocá cuando no te vea la profe",
@@ -7238,7 +6963,8 @@
       ],
       "story": {
         "title": "Tocá cuando no te vea la profe",
-        "prompt": "Tocá cuando no te vea la profe"
+        "prompt": "Tocá cuando no te vea la profe",
+        "reveal": "Hello"
       },
       "activity": {
         "type": "timing",
@@ -7253,7 +6979,14 @@
             "nico"
           ]
         }
-      }
+      },
+      "media": [
+        {
+          "assetId": "whatsapp-image-2026-07-05-at-13-48-56",
+          "caption": "WhatsApp Image 2026-07-05 at 13.48.56",
+          "placement": "reveal"
+        }
+      ]
     },
     "event-lujan": {
       "name": "Escribí un mensajito para invitar a Luján Eppens a tomar un helado.",
@@ -7724,6 +7457,41 @@
       "description": "If FranG rolls 4 or more, he gets a finance challenge and moves back 1 if he fails.",
       "effectId": "frang-finance-challenge",
       "icon": "?"
+    }
+  },
+  "artifactRarities": {
+    "common": {
+      "id": "common",
+      "name": "Common",
+      "weight": 70,
+      "color": "#34d399"
+    },
+    "epic": {
+      "id": "epic",
+      "name": "Epic",
+      "weight": 25,
+      "color": "#d946ef"
+    },
+    "legendary": {
+      "id": "legendary",
+      "name": "Legendary",
+      "weight": 5,
+      "color": "#fbbf24"
+    }
+  },
+  "mediaAssets": {
+    "whatsapp-image-2026-07-05-at-13-48-56": {
+      "id": "whatsapp-image-2026-07-05-at-13-48-56",
+      "type": "image",
+      "src": "data:image/jpeg;base64,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AAAAAAABnXYYtqlEwVm0lMemsvHabZ6XnTLfJeRBJFdLHL0aCJAAAAAAAAAAAAAAAAAAAAAAAAAAAAACIsIiw57bJcbaLKTYRIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//aAAwDAQACAAMAAAAh88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888840sMM4408888888888888888888888888884s848gggwUsM4888888888888888888888888488skQwcc8UQ88Y0888888888888888888888s888k8kfGFfugY888088888888888888888888888YEqKcBtbHaM888s88888888888888888808888Lu0RdLqrbd08888o88888888888888888c8888ogmOGTHWrMq08888Y888888888888888s8888o5QNltwEU8dIU88888088888888888884c88888VSxItspZ5Lg888888c8888888888888o8888886VrfMsIscR9888888488888888888880888886IwBOaUckGdp888888s8888888888888088888KP32Re5UR0X+2888888U888888888888c88888oyl7PYRKT9JOd8888888888888888888U88888/TkOds2LhQAY88888888888888888888c88888snh7/HdIM/QV8888888c888888888888Y888888h/mdmdUO+w8888888s88888888888888888888v234TOw9+v8888888o888888888888888888888e+MCz6Ixr8888888c88888888888888c888888zpc956isJ8888884888888888888888s088888PTaeF06We888888U8888888888888888o8884wxy5mOQU/iI4888k888888888888888888c40O6VIMyEwBhsMys0g888888888888888888884OKE8E8U0EchMAqqcc888888888888888888888sMt0Fh6Bua4EEmk88888888888888888888888888gNxS2lB5Bk8888888888888888888888888888888MuM888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888/9oADAMBAAIAAwAAABDzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzjx4JJDTTzzzzzzzzzzzzzzzzzzzzzzzzzzziT7b7aZ0oa57zzzzzzzzzzzzzzzzzzzzzzzzyj76apYoZggo7b5TzzzzzzzzzzzzzzzzzzzzzyT74Y6rEonofv6bbKLzzzzzzzzzzzzzzzzzzzz74LbXHe4NHUlMTY7557TzzzzzzzzzzzzzzzzywL4Lo6evzi+x1ryyr776rTzzzzzzzzzzzzzzzj44r6papqNJq78nBiL5b55zzzzzzzzzzzzzzzwb7777qgNHnl3nEgnWr77667zzzzzzzzzzzzzzh77775pjqMwbAMJdekJr77bZzzzzzzzzzzzzzygLL7L6rbyZqtv4A3EwL7a777rzzzzzzzzzzzzwYI7774IvJGKX0fOc8wJ7L765bzzzzzzzzzzzzwIb777rSiutrv5rrtFwf7777r7Tzzzzzzzzzzzw7777656nmrGmzn8hnDz776777Tzzzzzzzzzzzxb7br7L+OnpWHFV/Ubkapb7775zzzzzzzzzzzzz7764YJKy7zi3QF6Q7VLb77b55Tzzzzzzzzzzzzj7774IKmnCTj8ZJQwk775764rzzzzzzzzzzzzyj77oYIJduEx02GYuNbIIYL77bzzzzzzzzzzzzyzrYYKIZJ0/R3a84aUIIbr777TzzzzzzzzzzzzzygI4oJ6LGUP3UxEy0IJK5r7ZzzzzzzzzzzzzzzzyJ6oKY7OJn0P2Ea0oYJY6pTzzzzzzzzzzzzzzzzxrYIro8tp0Gfzm74YLaq7zzzzzzzzzzzzzz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",
+      "alt": "WhatsApp Image 2026-07-05 at 13.48.56",
+      "fit": "cover",
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1
+      }
     }
   }
 }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/8bit/button";
 import { Card, CardContent } from "@/components/ui/8bit/card";
 import { Progress } from "@/components/ui/8bit/progress";
 import { ENGINES, SPECTATE_TYPES } from "../minigames";
+import ActivityMediaStrip from "./ActivityMedia";
 
 interface Props {
   state: GameState;
@@ -22,7 +23,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
 
   if (!mg) return null;
 
-  const minigameKey = `${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`;
+  const minigameKey = `${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`;
   const Engine = ENGINES[mg.type];
   const amParticipant = mg.participants.includes(me.id);
   const finished = finishedMinigameKey === minigameKey;
@@ -52,8 +53,11 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
     return (
       <div className="relative flex min-h-full w-full flex-col justify-center py-6">
         <ActivityStory story={mg.story} />
+        <div className="mx-auto w-full max-w-xl px-4">
+          <ActivityMediaStrip assets={state.mediaAssets} media={mg.media} placement="prompt" compact />
+        </div>
         <Engine
-          key={`${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}-spectator`}
+          key={`${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}-spectator`}
           content={mg.content}
           players={connectedPlayers}
           participants={participantPlayers}
@@ -104,8 +108,11 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
         Salir
       </Button>
       <ActivityStory story={mg.story} />
+      <div className="mx-auto w-full max-w-xl px-4">
+        <ActivityMediaStrip assets={state.mediaAssets} media={mg.media} placement="prompt" compact />
+      </div>
       <Engine
-        key={`${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`}
+        key={`${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`}
         content={mg.content}
         players={mg.type === "vote" ? subjectPlayers : connectedPlayers}
         participants={participantPlayers}

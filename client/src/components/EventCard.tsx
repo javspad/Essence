@@ -1,6 +1,7 @@
 import type { GameState, Player } from "@essence/shared";
 import { artifactUseMessage } from "../artifactPresentation";
 import { Button } from "@/components/ui/8bit/button";
+import ActivityMediaStrip from "./ActivityMedia";
 
 interface Props {
   state: GameState;
@@ -18,7 +19,7 @@ export default function EventCard({ state, me, canAdvance, onNext }: Props) {
     : undefined;
   const displayPlayer = artifactTarget ?? player;
   const displayName = artifactTarget?.id === me.id ? "Vos" : displayPlayer?.name ?? "Jugador";
-  const isDare = ev.kind === "dare" || ev.story?.title?.toLowerCase().includes("prenda");
+  const isDare = ev.story?.title?.toLowerCase().includes("prenda");
   const title = ev.title ?? ev.story?.title ?? (isDare ? "Prenda" : "Evento");
   const artifactMessage = artifactUseMessage(ev, state.players, me.id);
 
@@ -43,6 +44,7 @@ export default function EventCard({ state, me, canAdvance, onNext }: Props) {
           </p>
         )}
         <p className="text-xl font-semibold mb-4">{ev.story?.prompt ?? ev.text}</p>
+        <ActivityMediaStrip assets={state.mediaAssets} media={ev.media} placement="prompt" compact />
         {ev.story?.reward && <p className="mb-4 text-sm font-black text-amber-200">{ev.story.reward}</p>}
         {ev.actions?.length ? (
           <div className="mb-4 grid gap-2">

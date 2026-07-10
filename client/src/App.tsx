@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/8bit/badge";
 
 const GameScene3D = lazy(() => import("./components/GameScene3D"));
 const MapBuilder = lazy(() => import("./components/MapBuilder"));
-const EventBuilder = lazy(() => import("./components/MinigameBuilder"));
+const EventBuilder = lazy(() => import("./components/EventBuilder"));
+const MediaAssetLibrary = lazy(() => import("./components/MediaAssetLibrary"));
 const CharacterBuilder = lazy(() => import("./components/CharacterBuilder"));
 const CosmeticBuilder = lazy(() => import("./components/CosmeticBuilder"));
 const ArtifactBuilder = lazy(() => import("./components/ArtifactBuilder"));
@@ -21,8 +22,8 @@ export default function App() {
   const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const builderMode =
     path === "/map-builder" || search.has("mapBuilder");
-  const eventBuilderMode =
-    path === "/event-builder" || path === "/minigame-builder" || search.has("eventBuilder") || search.has("minigameBuilder");
+  const eventBuilderMode = path === "/event-builder" || search.has("eventBuilder");
+  const mediaAssetLibraryMode = path === "/asset-library" || search.has("assetLibrary");
   const characterBuilderMode = path === "/character-builder" || search.has("characterBuilder");
   const cosmeticBuilderMode = path === "/cosmetic-builder" || search.has("cosmeticBuilder");
   const artifactBuilderMode = path === "/artifact-builder" || search.has("artifactBuilder");
@@ -49,6 +50,14 @@ export default function App() {
     return (
       <Suspense fallback={<SceneLoading code="EVNT" />}>
         <EventBuilder />
+      </Suspense>
+    );
+  }
+
+  if (mediaAssetLibraryMode) {
+    return (
+      <Suspense fallback={<SceneLoading code="ASST" />}>
+        <MediaAssetLibrary />
       </Suspense>
     );
   }

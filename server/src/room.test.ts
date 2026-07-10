@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import type { GameContent, ServerToClientEvents } from "@essence/shared";
 import { validateGameContent } from "@essence/shared/contentValidation";
-import { normalizeGameContentEvents } from "@essence/shared/events";
-import { resolveMinigame } from "./minigames/index";
+import { resolveEventMediaRefs } from "@essence/shared/events";
+import { resolveActivityResults } from "./activities/index";
 import { GameRoom } from "./room";
 
 type EmittedEvent = {
@@ -10,6 +10,14 @@ type EmittedEvent = {
   event: keyof ServerToClientEvents;
   payload: unknown;
 };
+
+assert.deepEqual(
+  resolveEventMediaRefs(
+    { media: [{ assetId: "portrait", caption: "Portrait", placement: "prompt" }] },
+    { media: [{ assetId: "portrait", placement: "reveal" }] }
+  ),
+  [{ assetId: "portrait", caption: "Portrait", placement: "both" }]
+);
 
 function createIoRecorder(): { io: unknown; events: EmittedEvent[] } {
   const events: EmittedEvent[] = [];
@@ -41,10 +49,10 @@ async function withRolls<T>(rolls: number[], run: () => Promise<T> | T): Promise
   }
 }
 
-const content: GameContent = normalizeGameContentEvents({
+const content: GameContent = ({
   board: [
     { id: 0, type: "start" },
-    { id: 1, type: "minigame", eventIds: ["bob-coin"] },
+    { id: 1, type: "minigame", eventId: "bob-coin" },
     { id: 2, type: "minigame" },
     { id: 3, type: "finish" },
   ],
@@ -57,24 +65,18 @@ const content: GameContent = normalizeGameContentEvents({
       actions: [{ type: "coins", value: 100, target: "landing" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
   ],
 });
 
-const characterContent: GameContent = normalizeGameContentEvents({
+const characterContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "finish" },
   ],
   events: {},
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "legacy-a", name: "Legacy A", color: "#111111" },
     { id: "legacy-b", name: "Legacy B", color: "#222222" },
@@ -127,12 +129,9 @@ const traitBoard = Array.from({ length: 20 }, (_, id) => ({
   ...(id === 6 ? { tags: ["belgrano-4pm"] } : {}),
 }));
 
-const traitContent: GameContent = normalizeGameContentEvents({
+const traitContent: GameContent = ({
   board: traitBoard,
   events: {},
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -220,9 +219,7 @@ const players = [
       { id: 0, type: "start", layout: { x: 0, y: 0 } },
       { id: 1, type: "finish", layout: { x: 1, y: 0 } },
     ],
-    minigames: {},
-    dares: {},
-    fates: {},
+    events: {},
     players: [{ id: "alice", name: "Alice", color: "#f87171" }],
     cosmetics: {
       bad: {
@@ -246,9 +243,7 @@ const players = [
       { id: 1, type: "shop", layout: { x: 1, y: 0 } },
       { id: 2, type: "finish", layout: { x: 2, y: 0 } },
     ],
-    minigames: {},
-    dares: {},
-    fates: {},
+    events: {},
     players: [{ id: "alice", name: "Alice", color: "#f87171" }],
     artifactRarities: {
       common: { id: "common", name: "Common", weight: 80, color: "#34d399" },
@@ -278,9 +273,7 @@ const players = [
       { id: 0, type: "start", layout: { x: 0, y: 0 } },
       { id: 1, type: "finish", layout: { x: 1, y: 0 } },
     ],
-    minigames: {},
-    dares: {},
-    fates: {},
+    events: {},
     players: [{ id: "alice", name: "Alice", color: "#f87171" }],
     characters: {
       alice: { id: "alice", displayName: "Alice", defaultTraits: ["missing-trait"] },
@@ -314,7 +307,7 @@ const players = [
 }
 
 {
-  const mapContent: GameContent = normalizeGameContentEvents({
+  const mapContent: GameContent = ({
     ...content,
     activeMapId: "short-map",
     maps: [
@@ -357,9 +350,9 @@ const players = [
 }
 
 {
-  const reveal = await resolveMinigame({
-    minigameId: "trivia-capital",
-    def: {
+  const reveal = await resolveActivityResults({
+    eventId: "trivia-capital",
+    activity: {
       type: "buzzer",
       content: { question: "Capital?", options: ["Rome", "Paris", "Madrid"], answer: 1 },
     },
@@ -380,9 +373,9 @@ const players = [
 }
 
 {
-  const reveal = await resolveMinigame({
-    minigameId: "whack-amigos",
-    def: { type: "whack", content: { label: "Golpeá al objetivo" } },
+  const reveal = await resolveActivityResults({
+    eventId: "whack-amigos",
+    activity: { type: "whack", content: { label: "Golpeá al objetivo" } },
     results: [
       { playerId: "alice", score: 4, payload: { hits: 4 } },
       { playerId: "bob", score: 9, payload: { hits: 9 } },
@@ -399,9 +392,9 @@ const players = [
 }
 
 {
-  const reveal = await resolveMinigame({
-    minigameId: "group-vote",
-    def: { type: "vote", content: { question: "¿Quién la rompió?" } },
+  const reveal = await resolveActivityResults({
+    eventId: "group-vote",
+    activity: { type: "vote", content: { question: "¿Quién la rompió?" } },
     results: [
       { playerId: "alice", score: 0, payload: { votedFor: "bob" } },
       { playerId: "bob", score: 0, payload: { votedFor: "carla" } },
@@ -543,7 +536,7 @@ await withRolls([4], async () => {
   assert.deepEqual(room.equipCosmetic("socket-guest", "missing", true), { ok: false, error: "Ese cosmetic no existe" });
 }
 
-const artifactShopContent: GameContent = normalizeGameContentEvents({
+const artifactShopContent: GameContent = ({
   board: [
     { id: 0, type: "start", layout: { x: 0, y: 0 } },
     { id: 1, type: "shop", label: "Shop", layout: { x: 1, y: 0 } },
@@ -552,6 +545,7 @@ const artifactShopContent: GameContent = normalizeGameContentEvents({
     { id: 4, type: "minigame", layout: { x: 4, y: 0 } },
     { id: 5, type: "finish", layout: { x: 5, y: 0 } },
   ],
+  events: {},
   artifactRarityRates: { common: 100, epic: 0, legendary: 0 },
   artifacts: {
     "mochila-de-gaston": {
@@ -617,9 +611,6 @@ const artifactShopContent: GameContent = normalizeGameContentEvents({
       visualAssetId: "backpack",
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -725,7 +716,7 @@ await withRolls([1, 1, 2], async () => {
   assert.equal(room.getState().winnerId, "alice", "the first player to reach finish wins before coin ranking");
 });
 
-const moveToFinishContent: GameContent = normalizeGameContentEvents({
+const moveToFinishContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "fate", eventId: "finish-move" },
@@ -739,9 +730,6 @@ const moveToFinishContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "moveTo", tileId: 2, target: "landing" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -766,7 +754,7 @@ await withRolls([1], async () => {
   assert.equal(room.getState().winnerId, "alice", "consequence movement ends the game after the event is acknowledged");
 });
 
-const promptConfirmationContent: GameContent = normalizeGameContentEvents({
+const promptConfirmationContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "dare", eventId: "prenda" },
@@ -781,9 +769,6 @@ const promptConfirmationContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "coins", value: 5, target: "landing" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -791,7 +776,7 @@ const promptConfirmationContent: GameContent = normalizeGameContentEvents({
   ],
 });
 
-const effectContent: GameContent = normalizeGameContentEvents({
+const effectContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "fate", eventId: "apply-half-roll" },
@@ -817,9 +802,6 @@ const effectContent: GameContent = normalizeGameContentEvents({
       consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll." }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 
@@ -856,7 +838,7 @@ await withRolls([1, 5], async () => {
   assert.equal(events.some((event) => event.event === "effect:ended" && (event.payload as { reason?: string }).reason === "expired"), true);
 });
 
-const doubleMovementContent: GameContent = normalizeGameContentEvents({
+const doubleMovementContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "minigame" },
@@ -882,9 +864,6 @@ const doubleMovementContent: GameContent = normalizeGameContentEvents({
       consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 2, rounding: "round", text: "Double movement." }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 
@@ -1001,7 +980,7 @@ await withRolls([5], async () => {
   assert.deepEqual(room.getState().activeEffects[0].remaining, { mode: "rounds", remaining: 2 }, "round-based half movement does not expire on first use");
 });
 
-const timedConsequenceContent: GameContent = normalizeGameContentEvents({
+const timedConsequenceContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "fate", eventId: "attach-coin" },
@@ -1016,9 +995,6 @@ const timedConsequenceContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "coins", value: 3, target: "landing", hook: "onTurnEnd", duration: { mode: "uses", value: 1 }, text: "End-turn coin" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 
@@ -1046,7 +1022,7 @@ await withRolls([1], async () => {
   assert.equal(events.some((event) => event.event === "effect:ended" && (event.payload as { reason?: string }).reason === "triggered"), true);
 });
 
-const diceBiasContent: GameContent = normalizeGameContentEvents({
+const diceBiasContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "fate", eventId: "attach-dice-bias" },
@@ -1065,9 +1041,6 @@ const diceBiasContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "diceBias", face: 5, chanceDeltaPercent: 100, hook: "beforeRoll", duration: { mode: "uses", value: 1 }, target: "landing" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 
@@ -1090,7 +1063,7 @@ await withRolls([1, 1], async () => {
 });
 
 await withRolls([1], async () => {
-  const { io } = createIoRecorder();
+  const { io, events } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TST4", "Test room", promptConfirmationContent);
 
   room.join("socket-alice", "Alice");
@@ -1102,6 +1075,9 @@ await withRolls([1], async () => {
   assert.equal(room.getState().phase, "minigame");
   assert.deepEqual(room.getState().activeMinigame?.participants, ["bob", "carla"]);
   assert.deepEqual(room.getState().activeMinigame?.subjects, ["alice"]);
+  const startPayload = events.find((event) => event.event === "minigame:start")?.payload as { eventId?: string; id?: string };
+  assert.equal(startPayload.eventId, "prenda");
+  assert.equal("id" in startPayload, false);
 
   await room.submitResult("socket-alice", { score: 1, payload: { confirmed: true } });
   assert.deepEqual(room.getState().activeMinigame?.submitted, [], "the acting player cannot self-confirm a group-confirmed prompt");
@@ -1116,6 +1092,50 @@ await withRolls([1], async () => {
   assert.equal(room.getState().reveal?.entries[0].playerId, "alice");
   assert.equal(room.getState().reveal?.entries[0].resultLabel, "2/2 confirmaciones");
   assert.equal(room.getState().reveal?.entries[0].detailLabel, "Confirmaron Bob, Carla");
+});
+
+await withRolls([1], async () => {
+  const promptMediaContent: GameContent = ({
+    ...promptConfirmationContent,
+    mediaAssets: {
+      "prompt-photo": { id: "prompt-photo", type: "image", src: "data:image/png;base64,AAAA", alt: "Prompt photo" },
+      "reveal-photo": { id: "reveal-photo", type: "image", src: "data:image/png;base64,BBBB", alt: "Reveal photo" },
+    },
+    events: {
+      prenda: {
+        ...promptConfirmationContent.events!.prenda,
+        media: [{ assetId: "prompt-photo", caption: "Prompt", placement: "prompt" }],
+        activity: {
+          ...promptConfirmationContent.events!.prenda.activity!,
+          media: [{ assetId: "reveal-photo", caption: "Reveal", placement: "reveal" }],
+        },
+      },
+    },
+  });
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TST4M", "Test room media", promptMediaContent);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.join("socket-carla", "Carla");
+  room.startGame("socket-alice");
+  room.roll("socket-alice");
+
+  assert.equal(room.getState().phase, "minigame");
+  assert.deepEqual(room.getState().activeMinigame?.media, [
+    { assetId: "prompt-photo", caption: "Prompt", placement: "prompt" },
+    { assetId: "reveal-photo", caption: "Reveal", placement: "reveal" },
+  ]);
+  assert.equal(room.getState().mediaAssets?.["prompt-photo"].alt, "Prompt photo");
+
+  await room.submitResult("socket-bob", { score: 1, payload: { confirmed: true } });
+  await room.submitResult("socket-carla", { score: 1, payload: { confirmed: true } });
+
+  assert.equal(room.getState().phase, "reveal");
+  assert.deepEqual(room.getState().reveal?.media, [
+    { assetId: "prompt-photo", caption: "Prompt", placement: "prompt" },
+    { assetId: "reveal-photo", caption: "Reveal", placement: "reveal" },
+  ]);
 });
 
 await withRolls([1], async () => {
@@ -1138,7 +1158,7 @@ await withRolls([1], async () => {
   assert.equal(room.getState().reveal?.entries[0].detailLabel, "Confirmaron Bob · Faltan Carla");
 });
 
-const judgeVoteContent: GameContent = normalizeGameContentEvents({
+const judgeVoteContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "judge", eventId: "best-line" },
@@ -1152,9 +1172,6 @@ const judgeVoteContent: GameContent = normalizeGameContentEvents({
       activity: { type: "judge", content: { prompt: "Write anonymously." } },
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -1208,7 +1225,7 @@ await withRolls([1], async () => {
   room.join("socket-bob", "Bob");
   room.getState().phase = "minigame";
   room.getState().activeMinigame = {
-    id: "manual",
+    eventId: "manual",
     type: "reaction",
     content: {},
     participants: ["alice", "bob"],
@@ -1236,7 +1253,7 @@ await withRolls([1], async () => {
   room.join("socket-bob", "Bob");
   room.getState().phase = "minigame";
   room.getState().activeMinigame = {
-    id: "manual",
+    eventId: "manual",
     type: "reaction",
     content: {},
     participants: ["alice", "bob"],
@@ -1251,7 +1268,7 @@ await withRolls([1], async () => {
   assert.deepEqual(room.getState().activeMinigame?.submitted, ["alice"], "finite scores still submit normally");
 }
 
-const extraTurnContent: GameContent = normalizeGameContentEvents({
+const extraTurnContent: GameContent = ({
   board: [
     { id: 0, type: "start" },
     { id: 1, type: "fate", eventId: "everyone-extra" },
@@ -1265,9 +1282,6 @@ const extraTurnContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "extraTurn", target: "everyone" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },

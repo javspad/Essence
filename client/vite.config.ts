@@ -58,8 +58,7 @@ function localContentSavePlugin(): Plugin {
         try {
           const body = await readBody(req);
           const parsed = JSON.parse(body);
-          const normalized = normalizeContentSchema(parsed);
-          const validation = validateGameContent(normalized);
+          const validation = validateGameContent(parsed);
           if (!validation.ok) {
             sendJson(res, 400, {
               ok: false,
@@ -70,6 +69,7 @@ function localContentSavePlugin(): Plugin {
             return;
           }
 
+          const normalized = normalizeContentSchema(parsed);
           const json = `${JSON.stringify(normalized, null, 2)}\n`;
           await writeFile(CONTENT_FILE_PATH, json, "utf8");
           sendJson(res, 200, {

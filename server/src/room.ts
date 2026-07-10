@@ -47,6 +47,7 @@ import {
   resolveActivityParticipantIds,
   resolveActivitySubjectIds,
   resolveEventActionTargetIds,
+  resolveEventMediaRefs,
   resolveTileEventForPlayer,
   type ResolvedGameEvent,
 } from "@essence/shared/events";
@@ -55,7 +56,7 @@ import {
   isCosmeticCompatibleWithCharacter,
   uniqueCosmeticIds,
 } from "@essence/shared/cosmetics";
-import { resolveMinigame } from "./minigames/index.js";
+import { resolveActivityResults } from "./activities/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -107,6 +108,7 @@ export class GameRoom {
       routes: activeMap?.routes,
       artifacts: activeMap?.artifacts,
       assetCatalog: content.assetCatalog,
+      mediaAssets: content.mediaAssets,
       cosmetics: content.cosmetics,
       artifactCatalog: content.artifacts,
       artifactRarities: content.artifactRarities,
@@ -115,6 +117,8 @@ export class GameRoom {
       pendingArtifactUse: null,
       boardShape: activeMap?.boardShape,
       terraces: activeMap?.terraces,
+      defaultCamera: activeMap?.defaultCamera,
+      cameraPresets: activeMap?.cameraPresets,
       players: [],
       turnOrder: [],
       activeIndex: 0,
@@ -625,7 +629,6 @@ export class GameRoom {
     this.state.pendingArtifactUse = null;
     this.state.phase = "event";
     this.state.activeEvent = {
-      id: `artifact-${artifact.id}`,
       kind: "story",
       title: artifact.name,
       text: verb,
@@ -662,11 +665,11 @@ export class GameRoom {
         ranking: [active.id],
       });
       this.state.activeEvent = {
-        id: event.id,
         kind: event.kind ?? "story",
         title: event.story.title ?? eventTitle(event),
         text: eventText(event),
         story: event.story,
+        media: event.media,
         playerId: active.id,
         actions: [...preludeActions, ...actions],
       };
@@ -689,13 +692,13 @@ export class GameRoom {
       return;
     }
     const active: ActiveMinigame = {
-      id: event.id,
       eventId: event.id,
       protagonistId: activePlayer.id,
       type: activity.type,
       skin: activity.skin,
       content: activityContent(activity, event, activePlayer, subjects, this.state.players),
       story: event.story,
+      media: resolveEventMediaRefs(event, activity),
       participants,
       subjects,
       submitted: [],
@@ -705,7 +708,7 @@ export class GameRoom {
     this.state.phase = "minigame";
     this.broadcast();
     this.io.to(this.code).emit("minigame:start", {
-      id: event.id,
+      eventId: event.id,
       type: activity.type,
       skin: activity.skin,
       content: active.content,
@@ -815,18 +818,17 @@ export class GameRoom {
     this.resolving = true;
     try {
       const event = this.pendingEvent;
-      const def = event?.activity ?? this.content.minigames[mg.id];
-      if (!def) {
+      const activity = event?.activity;
+      if (!event || !activity) {
         this.advanceTurn();
         return;
       }
       const results = mg.type === "judge" && mg.judge?.phase === "voting"
         ? this.judgeVoteResults(mg)
         : [...this.pendingResults.values()];
-      const reveal = await resolveMinigame({
-        minigameId: mg.id,
+      const reveal = await resolveActivityResults({
         eventId: mg.eventId,
-        def,
+        activity,
         results,
         participants: mg.participants,
         subjects: mg.subjects,
@@ -863,7 +865,7 @@ export class GameRoom {
             ...(promptConfirmed ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId) : []),
           ]
         : [];
-      this.state.reveal = { ...reveal, actions };
+      this.state.reveal = { ...reveal, actions, media: mg.media };
       this.state.activeMinigame = null;
       this.state.phase = "reveal";
       this.pendingResults.clear();
