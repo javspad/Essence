@@ -2640,8 +2640,7 @@
       "layout": {
         "x": 5.5,
         "y": 1.5
-      },
-      "eventId": "event-bostezo"
+      }
     },
     {
       "id": 6,
@@ -4321,8 +4320,7 @@
           "layout": {
             "x": 5.5,
             "y": 1.5
-          },
-          "eventId": "event-bostezo"
+          }
         },
         {
           "id": 6,
@@ -7324,32 +7322,6 @@
     }
   },
   "events": {
-    "event-bostezo": {
-      "name": "Tocá cuando no te vea la profe",
-      "kind": "activity",
-      "tags": [
-        "timing",
-        "bostezo"
-      ],
-      "story": {
-        "title": "Tocá cuando no te vea la profe",
-        "prompt": "Tocá cuando no te vea la profe"
-      },
-      "activity": {
-        "type": "timing",
-        "skin": "bostezo",
-        "content": {
-          "windowMs": 350,
-          "label": "Tocá cuando no te vea la profe",
-          "loseFlavor": "Te vio la profe bostezar."
-        },
-        "rigged": {
-          "losers": [
-            "nico"
-          ]
-        }
-      }
-    },
     "event-lujan": {
       "name": "Escribí un mensajito para invitar a Luján Eppens a tomar un helado.",
       "kind": "activity",
@@ -7741,12 +7713,16 @@
           "label": "Destino"
         }
       },
-      "actions": [
+      "consequences": [
         {
-          "type": "move",
-          "delta": -2,
-          "target": "landing",
-          "text": "Retrocede 2 casillero(s)"
+          "appliesTo": "landing",
+          "actions": [
+            {
+              "type": "move",
+              "delta": -2,
+              "text": "Retrocede 2 casillero(s)"
+            }
+          ]
         }
       ]
     },
@@ -7767,12 +7743,16 @@
           "label": "Destino"
         }
       },
-      "actions": [
+      "consequences": [
         {
-          "type": "coins",
-          "value": 5,
-          "target": "landing",
-          "text": "Gana 5 moneda(s)"
+          "appliesTo": "landing",
+          "actions": [
+            {
+              "type": "coins",
+              "value": 5,
+              "text": "Gana 5 moneda(s)"
+            }
+          ]
         }
       ]
     },
@@ -7795,15 +7775,20 @@
           "label": "Destino"
         }
       },
-      "actions": [
+      "consequences": [
         {
-          "type": "coinTransfer",
-          "amount": 4,
-          "from": {
-            "coinSelector": "richest"
-          },
-          "target": "landing",
-          "text": "Peaje del más rico: transfer up to 4 coins to the landing player."
+          "label": "Peaje del más rico",
+          "appliesTo": "landing",
+          "actions": [
+            {
+              "type": "coinTransfer",
+              "amount": 4,
+              "from": {
+                "coinSelector": "richest"
+              },
+              "text": "Peaje del más rico: transfer up to 4 coins to the landing player."
+            }
+          ]
         }
       ]
     },
@@ -7826,17 +7811,66 @@
           "label": "Destino"
         }
       },
-      "actions": [
+      "consequences": [
         {
-          "type": "coinRedistribute",
-          "amount": 1,
-          "from": "everyone",
-          "target": {
+          "label": "Vaquita express",
+          "appliesTo": {
             "coinSelector": "poorest"
           },
-          "text": "Vaquita express: everyone gives up to 1 coin to the poorest player."
+          "actions": [
+            {
+              "type": "coinRedistribute",
+              "amount": 1,
+              "from": "everyone",
+              "text": "Vaquita express: everyone gives up to 1 coin to the poorest player."
+            }
+          ]
         }
       ]
+    },
+    "event-custom-24": {
+      "name": "NNNNN",
+      "kind": "activity",
+      "trigger": {
+        "type": "anyPlayer"
+      },
+      "story": {
+        "title": "NNNNN",
+        "prompt": "Escribí qué pasa cuando alguien cae acá."
+      },
+      "activity": {
+        "type": "vote",
+        "content": {
+          "question": "Escribí qué pasa cuando alguien cae acá."
+        }
+      },
+      "consequences": []
+    },
+    "event-bostezo": {
+      "name": "Tocá cuando no te vea la profe",
+      "kind": "activity",
+      "tags": [
+        "timing",
+        "bostezo"
+      ],
+      "story": {
+        "title": "Tocá cuando no te vea la profe",
+        "prompt": "Tocá cuando no te vea la profe"
+      },
+      "activity": {
+        "type": "timing",
+        "skin": "bostezo",
+        "content": {
+          "windowMs": 350,
+          "label": "Tocá cuando no te vea la profe",
+          "loseFlavor": "Te vio la profe bostezar."
+        },
+        "rigged": {
+          "losers": [
+            "nico"
+          ]
+        }
+      }
     }
   },
   "characterTraits": {
@@ -7881,6 +7915,26 @@
       "description": "If FranG rolls 4 or more, he gets a finance challenge and moves back 1 if he fails.",
       "effectId": "frang-finance-challenge",
       "icon": "?"
+    }
+  },
+  "artifactRarities": {
+    "common": {
+      "id": "common",
+      "name": "Common",
+      "weight": 70,
+      "color": "#34d399"
+    },
+    "epic": {
+      "id": "epic",
+      "name": "Epic",
+      "weight": 25,
+      "color": "#d946ef"
+    },
+    "legendary": {
+      "id": "legendary",
+      "name": "Legendary",
+      "weight": 5,
+      "color": "#fbbf24"
     }
   }
 }

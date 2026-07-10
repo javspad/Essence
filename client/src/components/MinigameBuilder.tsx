@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
   AppliedEventAction,
   CoinTransaction,
+  ConsequenceRule,
   EffectDef,
   EffectDuration,
   EffectDurationState,
@@ -12,10 +13,10 @@ import type {
   EventConfirmationMode,
   EventParticipantMode,
   EventActivityType,
-  EventOutcomeBranch,
   EventTriggerScope,
   GameContent,
   GameEventDef,
+  ImmediateConsequenceDef,
   GameState,
   Player,
   RevealEntry,
@@ -62,8 +63,6 @@ type TargetKind =
   | "coinRankRange"
   | "nearestAhead"
   | "nearestBehind";
-type ConsequenceTimingMode = "now" | "attached";
-
 const participantModeOptions: { value: EventParticipantMode; label: string }[] = [
   { value: "everyone", label: "Everyone" },
   { value: "landing", label: "Acting player" },
@@ -236,7 +235,7 @@ export default function MinigameBuilder() {
         type,
         content: defaultContentForActivity(type, story),
       },
-      outcomes: [],
+      consequences: [],
     };
     setContent((current) => ({
       ...current,
@@ -326,64 +325,48 @@ export default function MinigameBuilder() {
     }
   };
 
-  const addOutcome = (branch: EventOutcomeBranch) => {
-    updateEvent((event) => ({ ...event, outcomes: [...(event.outcomes ?? []), branch] }));
-  };
-
-  const removeOutcome = (index: number) => {
-    updateEvent((event) => ({ ...event, outcomes: (event.outcomes ?? []).filter((_, i) => i !== index) }));
-  };
-
-  const updateOutcome = (index: number, updater: (outcome: EventOutcomeBranch) => EventOutcomeBranch) => {
+  const addConsequence = () => {
     updateEvent((event) => ({
       ...event,
-      outcomes: (event.outcomes ?? []).map((outcome, i) => (i === index ? updater(outcome) : outcome)),
+      consequences: [
+        ...(event.consequences ?? []),
+        { label: "New consequence", appliesTo: "landing", actions: [{ type: "coins", value: 1 }] },
+      ],
     }));
   };
 
-  const updateImmediateAction = (index: number, action: EventAction) => {
+  const removeConsequence = (index: number) => {
+    updateEvent((event) => ({ ...event, consequences: (event.consequences ?? []).filter((_, i) => i !== index) }));
+  };
+
+  const updateConsequence = (index: number, updater: (rule: ConsequenceRule) => ConsequenceRule) => {
     updateEvent((event) => ({
       ...event,
-      actions: (event.actions ?? []).map((item, i) => (i === index ? action : item)),
+      consequences: (event.consequences ?? []).map((rule, i) => (i === index ? updater(rule) : rule)),
     }));
-  };
-
-  const removeImmediateAction = (index: number) => {
-    updateEvent((event) => {
-      const actions = (event.actions ?? []).filter((_, i) => i !== index);
-      return { ...event, actions: actions.length ? actions : undefined };
-    });
-  };
-
-  const addImmediateAction = () => {
-    updateEvent((event) => ({ ...event, actions: [...(event.actions ?? []), { type: "coins", value: 1, target: "landing" }] }));
-  };
-
-  const addOutcomeBranch = () => {
-    addOutcome({ label: "New consequence", when: "winner", actions: [{ type: "coins", value: 1 }] });
   };
 
   const addRankingPayout = () => {
     updateActivity({
       rankingPayout: {
-        outcomes: [
-          ...(activity?.rankingPayout?.outcomes ?? []),
-          { label: "Rank payout", when: "winner", actions: [{ type: "coins", value: 3, target: "winner" }] },
+        consequences: [
+          ...(activity?.rankingPayout?.consequences ?? []),
+          { label: "Rank payout", appliesTo: "winner", actions: [{ type: "coins", value: 3 }] },
         ],
       },
     });
   };
 
   const removeRankingPayout = (index: number) => {
-    const next = (activity?.rankingPayout?.outcomes ?? []).filter((_, outcomeIndex) => outcomeIndex !== index);
-    updateActivity({ rankingPayout: next.length ? { outcomes: next } : undefined });
+    const next = (activity?.rankingPayout?.consequences ?? []).filter((_, ruleIndex) => ruleIndex !== index);
+    updateActivity({ rankingPayout: next.length ? { consequences: next } : undefined });
   };
 
-  const updateRankingPayout = (index: number, updater: (outcome: EventOutcomeBranch) => EventOutcomeBranch) => {
-    const outcomes = activity?.rankingPayout?.outcomes ?? [];
+  const updateRankingPayout = (index: number, updater: (rule: ConsequenceRule) => ConsequenceRule) => {
+    const consequences = activity?.rankingPayout?.consequences ?? [];
     updateActivity({
       rankingPayout: {
-        outcomes: outcomes.map((outcome, outcomeIndex) => (outcomeIndex === index ? updater(outcome) : outcome)),
+        consequences: consequences.map((rule, ruleIndex) => (ruleIndex === index ? updater(rule) : rule)),
       },
     });
   };
@@ -479,18 +462,18 @@ export default function MinigameBuilder() {
   };
 
   return (
-    <main className="h-dvh overflow-hidden bg-[#10131a] text-slate-100">
-      <header className="grid h-14 grid-cols-[12rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 bg-[#151922] px-3">
+    <main className="min-h-dvh bg-[#10131a] text-slate-100 lg:h-dvh lg:overflow-hidden">
+      <header className="flex min-h-14 flex-col gap-2 border-b border-white/10 bg-[#151922] px-3 py-2 lg:grid lg:h-14 lg:grid-cols-[12rem_minmax(0,1fr)_auto] lg:items-center lg:gap-3 lg:py-0">
         <div className="min-w-0">
           <p className="text-[0.55rem] font-black uppercase tracking-[0.18em] text-cyan-200">Essence tools</p>
           <h1 className="truncate text-lg font-black tracking-normal text-white">Event builder</h1>
         </div>
-        <div className="flex min-w-0 items-center justify-center gap-2">
-          <h2 className="truncate text-base font-black text-white md:text-lg">{resolved ? eventTitle(resolved) : "No event selected"}</h2>
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 lg:flex-nowrap lg:justify-center">
+          <h2 className="w-full truncate text-base font-black text-white md:text-lg lg:w-auto">{resolved ? eventTitle(resolved) : "No event selected"}</h2>
           {activity && <ActivityTypeSelect type={activity.type} missing={!hasEngine} onChange={changeActivityType} />}
           {selected && <EventScopeSelect value={scopeSelectValue(selected.trigger)} players={PLAYER_POOL} onChange={updateTrigger} />}
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           <button type="button" onClick={saveDraft} className="h-8 rounded-md border border-cyan-200/25 bg-cyan-300/10 px-2.5 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15">
             {saveStatus || "Save"}
           </button>
@@ -506,8 +489,8 @@ export default function MinigameBuilder() {
         </div>
       </header>
 
-      <div className="grid h-[calc(100dvh-3.5rem)] min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[20rem_minmax(0,1fr)_21rem]">
-        <aside className="flex min-h-0 flex-col overflow-hidden border-b border-white/10 bg-[#111722] p-3 lg:border-b-0 lg:border-r lg:border-white/10">
+      <div className="grid min-h-0 grid-cols-1 lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[20rem_minmax(0,1fr)_21rem] lg:overflow-hidden">
+        <aside className="flex min-h-0 flex-col border-b border-white/10 bg-[#111722] p-3 lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-white/10">
           <SectionTitle eyebrow={`${EVENT_ACTIVITY_TYPES.length} types`} title="Activity types" />
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             <ActivityFilterButton active={activityFilter === "all"} onClick={() => setActivityFilter("all")}>
@@ -527,7 +510,7 @@ export default function MinigameBuilder() {
                 New
               </button>
             </div>
-            <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+            <div className="mt-2 flex max-h-96 min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none">
               {filteredEventIds.length === 0 && (
                 <p className="rounded-md border border-dashed border-white/10 p-3 text-sm font-bold text-slate-400">No events match this type.</p>
               )}
@@ -565,9 +548,9 @@ export default function MinigameBuilder() {
           </div>
         </aside>
 
-        <section className="min-h-0 min-w-0 overflow-hidden bg-[#181d27] p-3">
-          <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="relative min-h-0 overflow-hidden rounded-md border border-white/10 bg-[#10131a]">
+        <section className="min-w-0 bg-[#181d27] p-3 lg:min-h-0 lg:overflow-hidden">
+          <div className="grid min-h-0 gap-3 lg:h-full xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="relative h-[32rem] overflow-hidden rounded-md border border-white/10 bg-[#10131a] lg:h-auto lg:min-h-0">
               {state && actor ? (
                 <MinigameHost
                   key={`${selectedId}-${actor.id}-${runKey}`}
@@ -585,7 +568,7 @@ export default function MinigameBuilder() {
               {playtestResolution?.complete && <ResolutionOverlay resolution={playtestResolution} />}
             </div>
 
-            <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
+            <div className="space-y-3 pr-1 lg:min-h-0 lg:overflow-y-auto">
               <Panel title="Story" eyebrow="default">
                 <TextInput
                   label="Title"
@@ -667,7 +650,7 @@ export default function MinigameBuilder() {
                       <div>
                         <p className="text-[0.58rem] font-black uppercase tracking-[0.14em] text-amber-200">Ranking payout</p>
                         <p className="mt-1 text-xs font-bold text-slate-400">
-                          {(activity.rankingPayout?.outcomes ?? []).length ? "Authored policy overrides legacy coinPayout." : "Uses legacy coinPayout until a policy is added."}
+                          {(activity.rankingPayout?.consequences ?? []).length ? "Authored policy overrides legacy coinPayout." : "Uses legacy coinPayout until a policy is added."}
                         </p>
                       </div>
                       <button
@@ -679,10 +662,10 @@ export default function MinigameBuilder() {
                       </button>
                     </div>
                     <div className="mt-2 grid gap-2">
-                      {(activity.rankingPayout?.outcomes ?? []).map((outcome, index) => (
+                      {(activity.rankingPayout?.consequences ?? []).map((rule, index) => (
                         <ConsequenceEditor
-                          key={`${outcome.id ?? outcome.label ?? targetLabel(outcome.when)}-payout-${index}`}
-                          outcome={outcome}
+                          key={`${rule.id ?? rule.label ?? targetLabel(rule.appliesTo)}-payout-${index}`}
+                          rule={rule}
                           players={PLAYER_POOL}
                           effects={content.effects ?? {}}
                           onChange={(updater) => updateRankingPayout(index, updater)}
@@ -697,7 +680,7 @@ export default function MinigameBuilder() {
           </div>
         </section>
 
-        <aside className="min-h-0 overflow-y-auto border-t border-white/10 bg-[#111722] p-3 lg:border-l lg:border-t-0">
+        <aside className="min-h-0 border-t border-white/10 bg-[#111722] p-3 lg:overflow-y-auto lg:border-l lg:border-t-0">
           <Panel title="Playtest" eyebrow={`${players.length} players`}>
             <SelectInput
               label="Acting player"
@@ -775,26 +758,19 @@ export default function MinigameBuilder() {
             <ResolutionPanel resolution={playtestResolution} players={players} />
           </Panel>
 
-          <Panel title="Consequences" eyebrow={`${selected?.actions?.length ?? 0} immediate · ${selected?.outcomes?.length ?? 0} branches`}>
+          <Panel
+            title="Consequences"
+            eyebrow={consequenceCountLabel(selected?.consequences ?? [])}
+          >
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={addImmediateAction}
+                onClick={addConsequence}
                 disabled={!selected}
                 className="rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/15 disabled:opacity-40"
               >
-                Add immediate action
+                Add consequence
               </button>
-              <button
-                type="button"
-                onClick={addOutcomeBranch}
-                disabled={!selected}
-                className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/10 disabled:opacity-40"
-              >
-                Add outcome branch
-              </button>
-            </div>
-            <div className="mt-2">
               <a
                 href={effectBuilderHref(selectedEffectId || undefined, "/event-builder")}
                 className="flex items-center justify-center rounded-md border border-amber-200/25 bg-amber-300/10 px-3 py-2 text-sm font-bold text-amber-100 transition hover:bg-amber-300/15"
@@ -802,39 +778,25 @@ export default function MinigameBuilder() {
                 Effect builder
               </a>
             </div>
+            <p className="mt-2 text-xs font-bold leading-5 text-slate-400">
+              These resolve together when the event completes. Winner, loser, and rank targets become available after a scored activity.
+            </p>
             <div className="mt-3 space-y-2">
-              <div className="rounded-md border border-cyan-200/15 bg-cyan-300/10 p-2">
-                <p className="text-[0.58rem] font-black uppercase tracking-[0.14em] text-cyan-100">Immediate actions</p>
-                <p className="mt-1 text-xs font-bold leading-5 text-slate-400">These resolve when the event confirms, so story-only coin cells show their actual gameplay effects here.</p>
-                <div className="mt-2 space-y-2">
-                  {(selected?.actions ?? []).map((action, index) => (
-                    <ImmediateActionEditor
-                      key={`${action.type}-${index}`}
-                      action={action}
-                      effects={content.effects ?? {}}
-                      players={PLAYER_POOL}
-                      actionIndex={index}
-                      canRemove
-                      onChange={(next) => updateImmediateAction(index, next)}
-                      onRemove={() => removeImmediateAction(index)}
-                    />
-                  ))}
-                  {!(selected?.actions ?? []).length && <p className="rounded-md border border-dashed border-white/10 p-2 text-xs font-bold text-slate-500">No immediate actions.</p>}
-                </div>
-              </div>
-              <div className="pt-1">
-                <p className="mb-2 text-[0.58rem] font-black uppercase tracking-[0.14em] text-slate-400">Outcome branches</p>
-              </div>
-              {(selected?.outcomes ?? []).map((outcome, index) => (
+              {(selected?.consequences ?? []).map((rule, index) => (
                 <ConsequenceEditor
-                  key={`${outcome.id ?? outcome.label ?? targetLabel(outcome.when)}-${index}`}
-                  outcome={outcome}
+                  key={`${rule.id ?? rule.label ?? targetLabel(rule.appliesTo)}-${index}`}
+                  rule={rule}
                   players={PLAYER_POOL}
                   effects={content.effects ?? {}}
-                  onChange={(updater) => updateOutcome(index, updater)}
-                  onRemove={() => removeOutcome(index)}
+                  onChange={(updater) => updateConsequence(index, updater)}
+                  onRemove={() => removeConsequence(index)}
                 />
               ))}
+              {!(selected?.consequences ?? []).length && (
+                <p className="rounded-md border border-dashed border-white/10 p-3 text-xs font-bold leading-5 text-slate-500">
+                  No consequences. This event only presents its story or activity.
+                </p>
+              )}
             </div>
           </Panel>
 
@@ -1126,88 +1088,49 @@ function EffectBuilderPanel({
           />
         </>
       ) : (
-        <p className="mt-3 rounded-md border border-dashed border-white/10 p-3 text-sm text-slate-400">Create an effect type to use it from consequence actions.</p>
+        <p className="mt-3 rounded-md border border-dashed border-white/10 p-3 text-sm text-slate-400">Create an Effect to reference it from a consequence.</p>
       )}
     </Panel>
   );
 }
 
-function ImmediateActionEditor({
-  action,
-  effects,
-  players,
-  actionIndex,
-  canRemove,
-  onChange,
-  onRemove,
-}: {
-  action: EventAction;
-  effects: Record<string, EffectDef>;
-  players: GameContent["players"];
-  actionIndex: number;
-  canRemove: boolean;
-  onChange: (action: EventAction) => void;
-  onRemove: () => void;
-}) {
-  const target = "target" in action && action.target ? action.target : "landing";
-  return (
-    <div className="rounded-md border border-white/10 bg-black/15 p-2">
-      <TargetPicker
-        label="Target"
-        target={target}
-        players={players}
-        onChange={(nextTarget) => onChange({ ...action, target: nextTarget } as EventAction)}
-      />
-      <ConsequenceActionEditor
-        action={action}
-        effects={effects}
-        players={players}
-        actionIndex={actionIndex}
-        canRemove={canRemove}
-        onChange={onChange}
-        onRemove={onRemove}
-      />
-    </div>
-  );
-}
-
 function ConsequenceEditor({
-  outcome,
+  rule,
   players,
   effects,
   onChange,
   onRemove,
 }: {
-  outcome: EventOutcomeBranch;
+  rule: ConsequenceRule;
   players: GameContent["players"];
   effects: Record<string, EffectDef>;
-  onChange: (updater: (outcome: EventOutcomeBranch) => EventOutcomeBranch) => void;
+  onChange: (updater: (rule: ConsequenceRule) => ConsequenceRule) => void;
   onRemove: () => void;
 }) {
-  const kind = targetKind(outcome.when);
-  const actions = outcomeActions(outcome);
-  const updateAction = (actionIndex: number, action: EventAction) => {
+  const kind = targetKind(rule.appliesTo);
+  const actions = consequenceActions(rule);
+  const updateAction = (actionIndex: number, action: ImmediateConsequenceDef) => {
     onChange((current) => ({
       ...current,
-      actions: outcomeActions(current).map((item, index) => (index === actionIndex ? action : item)),
+      actions: consequenceActions(current).map((item, index) => (index === actionIndex ? action : item)),
     }));
   };
   const removeAction = (actionIndex: number) => {
     onChange((current) => {
-      const next = outcomeActions(current).filter((_, index) => index !== actionIndex);
+      const next = consequenceActions(current).filter((_, index) => index !== actionIndex);
       return { ...current, actions: next.length ? next : [{ type: "coins", value: 1 }] };
     });
   };
   const addAction = () => {
     onChange((current) => ({
       ...current,
-      actions: [...outcomeActions(current), { type: "coins", value: 1 }],
+      actions: [...consequenceActions(current), { type: "coins", value: 1 }],
     }));
   };
   return (
     <details className="rounded-md border border-white/10 bg-black/15 p-2" open>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-black text-white">{consequenceSummary(outcome, players)}</span>
+        <span className="min-w-0 truncate text-sm font-black text-white">{consequenceSummary(rule, players)}</span>
         <button
           type="button"
           onClick={(event) => {
@@ -1242,7 +1165,7 @@ function ConsequenceEditor({
         onChange={(value) =>
           onChange((current) => ({
             ...current,
-            when: targetForKind(value as TargetKind, players, current.when),
+            appliesTo: targetForKind(value as TargetKind, players, current.appliesTo),
           }))
         }
       />
@@ -1250,50 +1173,50 @@ function ConsequenceEditor({
       {kind === "player" && (
         <SelectInput
           label="Player"
-          value={playerIdForTarget(outcome.when, players)}
+          value={playerIdForTarget(rule.appliesTo, players)}
           options={players.map((player) => ({ value: player.id, label: player.name }))}
-          onChange={(playerId) => onChange((current) => ({ ...current, when: { playerId } }))}
+          onChange={(playerId) => onChange((current) => ({ ...current, appliesTo: { playerId } }))}
         />
       )}
       {kind === "rank" && (
         <NumberInput
           label="Rank"
-          value={rankFromFor(outcome.when)}
-          onChange={(rank) => onChange((current) => ({ ...current, when: { rank: Math.max(1, rank) } }))}
+          value={rankFromFor(rule.appliesTo)}
+          onChange={(rank) => onChange((current) => ({ ...current, appliesTo: { rank: Math.max(1, rank) } }))}
         />
       )}
       {kind === "rankRange" && (
         <div className="grid grid-cols-2 gap-2">
           <NumberInput
             label="From rank"
-            value={rankFromFor(outcome.when)}
-            onChange={(rankFrom) => onChange((current) => ({ ...current, when: { rankFrom: Math.max(1, rankFrom), rankTo: rankToFor(current.when) } }))}
+            value={rankFromFor(rule.appliesTo)}
+            onChange={(rankFrom) => onChange((current) => ({ ...current, appliesTo: { rankFrom: Math.max(1, rankFrom), rankTo: rankToFor(current.appliesTo) } }))}
           />
           <NumberInput
             label="To rank"
-            value={rankToFor(outcome.when)}
-            onChange={(rankTo) => onChange((current) => ({ ...current, when: { rankFrom: rankFromFor(current.when), rankTo: Math.max(1, rankTo) } }))}
+            value={rankToFor(rule.appliesTo)}
+            onChange={(rankTo) => onChange((current) => ({ ...current, appliesTo: { rankFrom: rankFromFor(current.appliesTo), rankTo: Math.max(1, rankTo) } }))}
           />
         </div>
       )}
       {kind === "coinRank" && (
         <NumberInput
           label="Coin rank"
-          value={rankFromFor(outcome.when)}
-          onChange={(coinRank) => onChange((current) => ({ ...current, when: { coinRank: Math.max(1, Math.round(coinRank)) } }))}
+          value={rankFromFor(rule.appliesTo)}
+          onChange={(coinRank) => onChange((current) => ({ ...current, appliesTo: { coinRank: Math.max(1, Math.round(coinRank)) } }))}
         />
       )}
       {kind === "coinRankRange" && (
         <div className="grid grid-cols-2 gap-2">
           <NumberInput
             label="From coin rank"
-            value={rankFromFor(outcome.when)}
-            onChange={(coinRankFrom) => onChange((current) => ({ ...current, when: { coinRankFrom: Math.max(1, Math.round(coinRankFrom)), coinRankTo: rankToFor(current.when) } }))}
+            value={rankFromFor(rule.appliesTo)}
+            onChange={(coinRankFrom) => onChange((current) => ({ ...current, appliesTo: { coinRankFrom: Math.max(1, Math.round(coinRankFrom)), coinRankTo: rankToFor(current.appliesTo) } }))}
           />
           <NumberInput
             label="To coin rank"
-            value={rankToFor(outcome.when)}
-            onChange={(coinRankTo) => onChange((current) => ({ ...current, when: { coinRankFrom: rankFromFor(current.when), coinRankTo: Math.max(1, Math.round(coinRankTo)) } }))}
+            value={rankToFor(rule.appliesTo)}
+            onChange={(coinRankTo) => onChange((current) => ({ ...current, appliesTo: { coinRankFrom: rankFromFor(current.appliesTo), coinRankTo: Math.max(1, Math.round(coinRankTo)) } }))}
           />
         </div>
       )}
@@ -1323,7 +1246,7 @@ function ConsequenceEditor({
         onClick={addAction}
         className="mt-3 w-full rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15"
       >
-        Add action or effect
+        Add consequence
       </button>
     </details>
   );
@@ -1338,22 +1261,21 @@ function ConsequenceActionEditor({
   onChange,
   onRemove,
 }: {
-  action: EventAction;
+  action: ImmediateConsequenceDef;
   effects: Record<string, EffectDef>;
   players: GameContent["players"];
   actionIndex: number;
   canRemove: boolean;
-  onChange: (action: EventAction) => void;
+  onChange: (action: ImmediateConsequenceDef) => void;
   onRemove: () => void;
 }) {
   const text = action.text ?? "";
   const selectedEffect = action.type === "applyEffect" ? effects[action.effectId] : undefined;
-  const timingMode = consequenceTimingMode(action);
   const typeOptions = consequenceTypeOptions(effects, action);
   return (
     <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-300">Action {actionIndex + 1}</p>
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-300">Consequence {actionIndex + 1}</p>
         <button
           type="button"
           onClick={onRemove}
@@ -1373,7 +1295,7 @@ function ConsequenceActionEditor({
               onChange(convertActionToEffect(action, effectIdFromTypeOption(type)));
               return;
             }
-            onChange(convertActionType(action, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">));
+            onChange(convertActionType(action, type as Exclude<ImmediateConsequenceDef["type"], "text" | "offlineAction" | "applyEffect">) as ImmediateConsequenceDef);
           }}
         />
         {(action.type === "coins" || action.type === "move") && (
@@ -1391,13 +1313,7 @@ function ConsequenceActionEditor({
           />
         )}
         {action.type === "moveTo" && <NumberInput label="Cell" value={action.tileId} onChange={(tileId) => onChange({ ...action, tileId })} />}
-        {action.type === "movementMultiplier" && (
-          <NumberInput label="x" value={action.multiplier} onChange={(multiplier) => onChange({ ...action, multiplier: Math.max(0, multiplier) })} />
-        )}
-        {action.type === "diceBias" && (
-          <NumberInput label="Face" value={action.face} onChange={(face) => onChange({ ...action, face: clampInt(face, 1, 6) })} />
-        )}
-        {action.type !== "coins" && action.type !== "coinTransfer" && action.type !== "coinRedistribute" && action.type !== "move" && action.type !== "moveTo" && action.type !== "movementMultiplier" && action.type !== "diceBias" && <div />}
+        {action.type !== "coins" && action.type !== "coinTransfer" && action.type !== "coinRedistribute" && action.type !== "move" && action.type !== "moveTo" && <div />}
       </div>
       {(action.type === "coinTransfer" || action.type === "coinRedistribute") && (
         <TargetPicker
@@ -1405,37 +1321,6 @@ function ConsequenceActionEditor({
           target={action.from}
           players={players}
           onChange={(from) => onChange({ ...action, from })}
-        />
-      )}
-      {action.type === "movementMultiplier" && (
-        <SelectInput
-          label="Rounding"
-          value={action.rounding ?? "round"}
-          options={[
-            { value: "round", label: "Round" },
-            { value: "ceil", label: "Ceil" },
-            { value: "floor", label: "Floor" },
-          ]}
-          onChange={(rounding) => onChange({ ...action, rounding: rounding as "floor" | "ceil" | "round" })}
-        />
-      )}
-      {action.type === "halfMovement" && (
-        <SelectInput
-          label="Rounding"
-          value={action.rounding ?? "ceil"}
-          options={[
-            { value: "ceil", label: "Ceil" },
-            { value: "round", label: "Round" },
-            { value: "floor", label: "Floor" },
-          ]}
-          onChange={(rounding) => onChange({ ...action, rounding: rounding as "floor" | "ceil" | "round" })}
-        />
-      )}
-      {action.type === "diceBias" && (
-        <NumberInput
-          label="Chance change percent"
-          value={action.chanceDeltaPercent}
-          onChange={(chanceDeltaPercent) => onChange({ ...action, chanceDeltaPercent })}
         />
       )}
       {action.type === "swapPositions" && (
@@ -1459,32 +1344,6 @@ function ConsequenceActionEditor({
       )}
       {action.type === "applyEffect" && (
         <EffectTypeSummary effect={selectedEffect} effectId={action.effectId} />
-      )}
-      {action.type !== "applyEffect" && (
-        <>
-          <SelectInput
-            label="Timing"
-            value={timingMode}
-            disabled={isModifierEffectAction(action)}
-            options={[
-              { value: "now", label: "Resolve now" },
-              { value: "attached", label: "Attach to user" },
-            ]}
-            onChange={(mode) => onChange(setConsequenceTimingMode(action, mode as ConsequenceTimingMode))}
-          />
-          {timingMode === "attached" && (
-            <div className="rounded-md border border-cyan-200/15 bg-cyan-300/10 p-2">
-              <SelectInput
-                label="Runs"
-                value={hookValueForAction(action)}
-                disabled={isModifierEffectAction(action)}
-                options={hookOptionsForAction(action)}
-                onChange={(hook) => onChange({ ...action, hook: hook as EffectLifecycleHook })}
-              />
-              <DurationEditor duration={action.duration ?? defaultInlineDuration(action)} onChange={(duration) => onChange({ ...action, duration })} />
-            </div>
-          )}
-        </>
       )}
       <TextInput label="Display text" value={text} onChange={(value) => onChange(updateActionText(action, value))} />
       <details className="mt-3 rounded-md border border-white/10 bg-black/20 p-2">
@@ -1539,7 +1398,7 @@ function EffectCompositionEditor({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-black uppercase tracking-[0.12em] text-cyan-100">Timed consequences</p>
-          <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-400">{effect.description ?? "Compose the effect from the same consequence actions."}</p>
+          <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-400">{effect.description ?? "Compose the Effect from lifecycle consequences."}</p>
         </div>
         <span className="shrink-0 rounded-sm border border-cyan-200/25 bg-cyan-300/10 px-2 py-1 text-[0.62rem] font-black uppercase text-cyan-100">
           {effectRemainingLabel(durationPreview(effect.duration))}
@@ -1639,7 +1498,7 @@ function EffectConsequenceRow({
             { value: "swapPositions", label: "Swap positions" },
             { value: "moveToNearest", label: "Move to nearest" },
           ]}
-          onChange={(type) => onChange(convertActionType(editable, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">))}
+          onChange={(type) => onChange(convertEffectActionType(editable, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">))}
         />
         {(editable.type === "coins" || editable.type === "move") && (
           <NumberInput
@@ -1858,7 +1717,7 @@ function createPlaytestResolution(
       requiredCount: 0,
       ranking: landingPlayerId ? [landingPlayerId] : [],
       entries: landingPlayerId ? [playtestEntry(players, landingPlayerId, 1, 0, null, "Story event")] : [],
-      actions: previewActions(event.actions ?? [], players, { landingPlayerId, ranking: landingPlayerId ? [landingPlayerId] : [] }),
+      actions: previewConsequenceRules(event.consequences ?? [], players, landingPlayerId ? [landingPlayerId] : [], landingPlayerId),
     };
   }
 
@@ -1872,19 +1731,13 @@ function createPlaytestResolution(
   const landingPlayerId = minigame.protagonistId ?? ranking[0];
   const payoutActions = minigame.type === "prompt"
     ? []
-    : previewOutcomeActions(event.activity?.rankingPayout?.outcomes ?? [], players, ranking, landingPlayerId);
+    : previewConsequenceRules(event.activity?.rankingPayout?.consequences ?? [], players, ranking, landingPlayerId);
   const payoutCoins = previewCoinTotals(payoutActions.flatMap((action) => action.coinTransactions ?? []));
   const entriesWithCoins = entries.map((entry) => ({ ...entry, coins: payoutCoins[entry.playerId] ?? 0 }));
   const actions = complete
     ? [
         ...payoutActions,
-        ...(minigame.type === "prompt"
-          ? previewActions(event.actions ?? [], players, {
-              landingPlayerId,
-              ranking: landingPlayerId ? [landingPlayerId] : ranking,
-            })
-          : []),
-        ...previewOutcomeActions(event.outcomes ?? [], players, ranking, landingPlayerId),
+        ...previewConsequenceRules(event.consequences ?? [], players, ranking, landingPlayerId),
       ]
     : [];
   return { complete, submittedCount, requiredCount, ranking, entries: entriesWithCoins, actions };
@@ -2076,15 +1929,15 @@ function playtestResultDisplay(
   return { resultLabel: `Puntaje ${formatScore(score)}`, detailLabel: payloadSummary(payload) };
 }
 
-function previewOutcomeActions(
-  branches: EventOutcomeBranch[],
+function previewConsequenceRules(
+  rules: ConsequenceRule[],
   players: Player[],
   ranking: string[],
   landingPlayerId?: string
 ): AppliedEventAction[] {
-  return branches.flatMap((branch) => {
-    if (!resolvePreviewTargetIds(branch.when, players, { landingPlayerId, ranking }).length) return [];
-    return previewActions(branch.actions, players, { landingPlayerId, ranking, defaultTarget: branch.when });
+  return rules.flatMap((rule) => {
+    if (!resolvePreviewTargetIds(rule.appliesTo, players, { landingPlayerId, ranking }).length) return [];
+    return previewActions(rule.actions, players, { landingPlayerId, ranking, defaultTarget: rule.appliesTo });
   });
 }
 
@@ -2307,7 +2160,7 @@ function migrateEffectDraft(content: GameContent): GameContent {
 
 function mapEvents(
   events: GameContent["events"],
-  mapAction: (action: EventAction) => EventAction
+  mapAction: (action: ImmediateConsequenceDef) => ImmediateConsequenceDef
 ): GameContent["events"] {
   if (!events) return events;
   return Object.fromEntries(
@@ -2315,19 +2168,32 @@ function mapEvents(
       id,
       {
         ...event,
-        actions: event.actions?.map(mapAction),
-        outcomes: event.outcomes?.map((outcome) => ({
-          ...outcome,
-          actions: outcome.actions.map(mapAction),
+        consequences: event.consequences?.map((rule) => ({
+          ...rule,
+          actions: rule.actions.map(mapAction),
         })),
+        activity: event.activity
+          ? {
+              ...event.activity,
+              rankingPayout: event.activity.rankingPayout
+                ? {
+                    ...event.activity.rankingPayout,
+                    consequences: event.activity.rankingPayout.consequences?.map((rule) => ({
+                      ...rule,
+                      actions: rule.actions.map(mapAction),
+                    })),
+                  }
+                : undefined,
+            }
+          : undefined,
       },
     ])
   );
 }
 
-function rewriteLegacyEffectAction(action: EventAction): EventAction {
+function rewriteLegacyEffectAction<T extends EventAction>(action: T): T {
   if (action.type !== "applyEffect" || action.effectId !== LEGACY_SHOT_EFFECT_ID) return action;
-  return { ...action, effectId: DEFAULT_EFFECT_ID };
+  return { ...action, effectId: DEFAULT_EFFECT_ID } as T;
 }
 
 function nextEffectId(effects: Record<string, EffectDef>): string {
@@ -2361,9 +2227,14 @@ function removeEffectFromContent(content: GameContent, effectId: string): GameCo
   };
 }
 
-function rewriteDeletedEffectAction(action: EventAction, deletedEffectId: string): EventAction {
+function rewriteDeletedEffectAction<T extends EventAction>(action: T, deletedEffectId: string): T {
   if (action.type !== "applyEffect" || action.effectId !== deletedEffectId) return action;
-  return { type: "coins", value: 1, text: action.text, ...("target" in action && action.target ? { target: action.target } : {}) };
+  return {
+    type: "coins",
+    value: 1,
+    text: action.text,
+    ...("target" in action && action.target ? { target: action.target } : {}),
+  } as T;
 }
 
 function nextEventId(events: Record<string, GameEventDef>): string {
@@ -2471,9 +2342,6 @@ function consequenceTypeOptions(effects: Record<string, EffectDef>, action: Even
     { value: "moveTo", label: "Move to cell" },
     { value: "skipTurn", label: "Skip turn" },
     { value: "extraTurn", label: "Extra turn" },
-    { value: "halfMovement", label: "Half movement" },
-    { value: "movementMultiplier", label: "Movement multiplier" },
-    { value: "diceBias", label: "Dice bias" },
     { value: "swapPositions", label: "Swap positions" },
     { value: "moveToNearest", label: "Move to nearest" },
   ];
@@ -2500,7 +2368,7 @@ function effectIdFromTypeOption(value: string): string {
   return value.slice("effect:".length);
 }
 
-function convertActionToEffect(action: EventAction, effectId: string): EventAction {
+function convertActionToEffect(action: ImmediateConsequenceDef, effectId: string): ImmediateConsequenceDef {
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
   const icon = action.icon;
@@ -2519,31 +2387,36 @@ function convertActionType(action: EventAction, type: Exclude<EventAction["type"
   const icon = action.icon;
   const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : action.type === "coinTransfer" || action.type === "coinRedistribute" ? action.amount : 1;
   const base = { ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
-  if (type === "coins") return withPreservedTiming({ type, value: amount, ...base }, action);
-  if (type === "coinTransfer") return withPreservedTiming({ type, amount: Math.abs(amount), from: "target", ...base }, action);
-  if (type === "coinRedistribute") return withPreservedTiming({ type, amount: Math.abs(amount), from: "everyone", ...base }, action);
-  if (type === "move") return withPreservedTiming({ type, delta: amount, ...base }, action);
-  if (type === "moveTo") return withPreservedTiming({ type, tileId: 1, ...base }, action);
-  if (type === "skipTurn") return withPreservedTiming({ type, ...base }, action);
-  if (type === "extraTurn") return withPreservedTiming({ type, ...base }, action);
-  if (type === "offlineAction") return withPreservedTiming({ type, action: "custom", ...base }, action);
+  if (type === "coins") return { type, value: amount, ...base };
+  if (type === "coinTransfer") return { type, amount: Math.abs(amount), from: "target", ...base };
+  if (type === "coinRedistribute") return { type, amount: Math.abs(amount), from: "everyone", ...base };
+  if (type === "move") return { type, delta: amount, ...base };
+  if (type === "moveTo") return { type, tileId: 1, ...base };
+  if (type === "skipTurn") return { type, ...base };
+  if (type === "extraTurn") return { type, ...base };
+  if (type === "offlineAction") return { type, action: "custom", ...base };
   if (type === "halfMovement") return ensureModifierTiming({ type, hook: "beforeMovement", rounding: "ceil", ...base });
   if (type === "movementMultiplier") return ensureModifierTiming({ type, hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", ...base });
   if (type === "diceBias") return ensureModifierTiming({ type, hook: "beforeRoll", face: 5, chanceDeltaPercent: 10, ...base });
-  if (type === "swapPositions") return withPreservedTiming({ type, withTarget: "winner", ...base }, action);
-  if (type === "moveToNearest") return withPreservedTiming({ type, direction: "ahead", ...base }, action);
+  if (type === "swapPositions") return { type, withTarget: "winner", ...base };
+  if (type === "moveToNearest") return { type, direction: "ahead", ...base };
   return { type, effectId: fallbackEffectId ?? DEFAULT_EFFECT_ID, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
 }
 
-function editableConsequenceAction(action: EventAction | undefined): EventAction {
+function editableConsequenceAction(action: ImmediateConsequenceDef | undefined): ImmediateConsequenceDef {
   if (!action) return { type: "coins", value: 1 };
   return action;
 }
 
-function consequenceSummary(outcome: EventOutcomeBranch, players: GameContent["players"]): string {
-  const actions = outcomeActions(outcome);
+function consequenceSummary(rule: ConsequenceRule, players: GameContent["players"]): string {
+  const actions = consequenceActions(rule);
   const suffix = actions.length > 1 ? ` + ${actions.length - 1} more` : "";
-  return `${targetLabel(outcome.when, players)} - ${actionSummary(editableConsequenceAction(actions[0]))}${suffix}`;
+  return `${targetLabel(rule.appliesTo, players)} - ${actionSummary(editableConsequenceAction(actions[0]))}${suffix}`;
+}
+
+function consequenceCountLabel(rules: ConsequenceRule[]): string {
+  const actionCount = rules.reduce((total, rule) => total + rule.actions.length, 0);
+  return `${rules.length} ${rules.length === 1 ? "rule" : "rules"} · ${actionCount} ${actionCount === 1 ? "consequence" : "consequences"}`;
 }
 
 function actionSummary(action: EventAction): string {
@@ -2593,6 +2466,16 @@ function effectEditableAction(action: EventAction): EventAction {
   return isModifierEffectAction(action) ? ensureModifierTiming(action) : action;
 }
 
+function convertEffectActionType(
+  action: EventAction,
+  type: Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">
+): EventAction {
+  return {
+    ...convertActionType(action, type),
+    ...effectLifecyclePatch(action),
+  } as EventAction;
+}
+
 function defaultHookForEffectAction(action: EventAction): NonNullable<EventAction["hook"]> {
   return defaultHookForConsequence(action.type);
 }
@@ -2607,57 +2490,27 @@ function hookOptionsForAction(action: EventAction): { value: EffectLifecycleHook
   return hookOptions.filter((option) => option.value === hook);
 }
 
+function updateActionAmount(
+  action: Extract<ImmediateConsequenceDef, { type: "coins" | "move" }>,
+  amount: number
+): ImmediateConsequenceDef;
+function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" }>, amount: number): EventAction;
 function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" }>, amount: number): EventAction {
   if (action.type === "coins") return { ...action, value: amount };
   return { ...action, delta: amount };
 }
 
-function updateActionText(action: EventAction, text: string): EventAction {
+function updateActionText(action: ImmediateConsequenceDef, text: string): ImmediateConsequenceDef {
   if (action.type === "text") return { ...action, text };
   return { ...action, text: text || undefined };
 }
 
-function outcomeActions(outcome: EventOutcomeBranch): EventAction[] {
-  return outcome.actions.length ? outcome.actions : [{ type: "coins", value: 1 }];
-}
-
-function consequenceTimingMode(action: EventAction): ConsequenceTimingMode {
-  if (action.duration || isModifierEffectAction(action)) return "attached";
-  return "now";
-}
-
-function setConsequenceTimingMode(action: EventAction, mode: ConsequenceTimingMode): EventAction {
-  if (isModifierEffectAction(action)) {
-    return ensureModifierTiming({
-      ...action,
-      duration: action.duration ?? defaultInlineDuration(action),
-    } as EventAction);
-  }
-  if (mode === "attached") {
-    return {
-      ...action,
-      hook: action.hook ?? defaultHookForConsequence(action.type),
-      duration: action.duration ?? defaultInlineDuration(action),
-    } as EventAction;
-  }
-  const { duration: _duration, hook: _hook, ...rest } = action;
-  return rest as EventAction;
-}
-
-function defaultInlineDuration(_action: EventAction): EffectDuration {
-  return { mode: "uses", value: 1 };
+function consequenceActions(rule: ConsequenceRule): ImmediateConsequenceDef[] {
+  return rule.actions.length ? rule.actions : [{ type: "coins", value: 1 }];
 }
 
 function isModifierEffectAction(action: EventAction): boolean {
   return action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias";
-}
-
-function withPreservedTiming(next: EventAction, previous: EventAction): EventAction {
-  const merged = {
-    ...next,
-    ...timingPatch(previous),
-  } as EventAction;
-  return isModifierEffectAction(merged) ? ensureModifierTiming(merged) : merged;
 }
 
 function ensureModifierTiming(action: EventAction): EventAction {
@@ -2665,20 +2518,17 @@ function ensureModifierTiming(action: EventAction): EventAction {
   return {
     ...action,
     hook: defaultHookForConsequence(action.type),
-    duration: action.duration ?? defaultInlineDuration(action),
   } as EventAction;
 }
 
-function timingPatch(action: EventAction): {
+function effectLifecyclePatch(action: EventAction): {
   hook?: EventAction["hook"];
   when?: EventAction["when"];
-  duration?: EffectDuration;
   expiresOnTrigger?: boolean;
 } {
   return {
     ...(action.hook ? { hook: action.hook } : {}),
     ...(action.when ? { when: action.when } : {}),
-    ...(action.duration ? { duration: action.duration } : {}),
     ...(action.expiresOnTrigger !== undefined ? { expiresOnTrigger: action.expiresOnTrigger } : {}),
   };
 }
@@ -3052,7 +2902,7 @@ function payloadSummary(payload: unknown): string | undefined {
   return undefined;
 }
 
-function targetLabel(target: EventOutcomeBranch["when"], players: GameContent["players"] = PLAYER_POOL): string {
+function targetLabel(target: EventActionTarget, players: GameContent["players"] = PLAYER_POOL): string {
   if (target === "landing") return "Triggering player";
   if (target === "acting") return "Acting player";
   if (target === "target") return "Selected target";

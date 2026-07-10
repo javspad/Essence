@@ -269,7 +269,10 @@ const players = [
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((error) => error.includes("artifactRarities") && error.includes("weights must add to 100")), "rarity weights must add to 100");
   assert.ok(result.errors.some((error) => error.includes("artifacts.bad.price")), "artifact prices must be non-negative");
-  assert.ok(result.errors.some((error) => error.includes("artifacts.bad.effects")), "artifact effect references are validated");
+  assert.ok(
+    result.errors.some((error) => error.includes("artifacts.bad.consequences[0].effectId")),
+    "legacy artifact effect references are normalized and validated through consequences"
+  );
 }
 
 {
@@ -1044,6 +1047,13 @@ const timedConsequenceContent: GameContent = normalizeGameContentEvents({
   fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
+const migratedTimedConsequence = timedConsequenceContent.events?.["attach-coin"].consequences?.[0]?.actions[0];
+assert.equal(migratedTimedConsequence?.type, "applyEffect", "legacy inline timing is lifted to an Effect reference");
+const migratedTimedEffectId = migratedTimedConsequence?.type === "applyEffect" ? migratedTimedConsequence.effectId : "";
+assert.deepEqual(timedConsequenceContent.effects?.[migratedTimedEffectId]?.duration, { mode: "uses", value: 1 });
+assert.deepEqual(timedConsequenceContent.effects?.[migratedTimedEffectId]?.consequences, [
+  { type: "coins", value: 3, hook: "onTurnEnd", text: "End-turn coin" },
+]);
 
 await withRolls([1], async () => {
   const { io, events } = createIoRecorder();
@@ -1067,6 +1077,56 @@ await withRolls([1], async () => {
   assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "coins"), true);
   assert.equal(room.getState().activeEffects.length, 0);
   assert.equal(events.some((event) => event.event === "effect:ended" && (event.payload as { reason?: string }).reason === "triggered"), true);
+});
+
+const playerScopedEffectContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "fate", eventId: "quiet-cell" },
+    { id: 2, type: "finish" },
+  ],
+  events: {
+    "quiet-cell": {
+      name: "Quiet cell",
+      kind: "story",
+      story: { title: "Quiet cell", prompt: "Nothing happens." },
+    },
+  },
+  effects: {
+    "turn-end-coin": {
+      id: "turn-end-coin",
+      name: "Turn-end coin",
+      duration: { mode: "uses", value: 1 },
+      consequences: [{ type: "coins", value: 2, hook: "onTurnEnd" }],
+    },
+  },
+  minigames: {},
+  dares: {},
+  fates: {},
+  players: [
+    { id: "alice", name: "Alice", color: "#f87171" },
+    { id: "bob", name: "Bob", color: "#60a5fa" },
+  ],
+});
+
+await withRolls([1, 1], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "EFFS", "Scoped effects", playerScopedEffectContent);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.startGame("socket-alice");
+  room.debugApplyEffect("socket-alice", { playerId: "bob", effectId: "turn-end-coin" });
+
+  room.roll("socket-alice");
+  room.next("socket-alice");
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.coins, 0, "Bob's effect does not fire at Alice's turn end");
+  assert.equal(room.getState().activeEffects.length, 1, "Bob's use remains available for Bob's lifecycle");
+
+  room.roll("socket-bob");
+  room.next("socket-alice");
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.coins, 2, "Bob's effect fires at Bob's turn end");
+  assert.equal(room.getState().activeEffects.length, 0);
 });
 
 const diceBiasContent: GameContent = normalizeGameContentEvents({
@@ -1389,13 +1449,16 @@ const rankingPayoutPolicyContent: GameContent = normalizeGameContentEvents({
       name: "Ranked self tap",
       kind: "activity",
       story: { title: "Ranked self tap", prompt: "Tap fastest." },
+      consequences: [
+        { label: "Winner event bonus", appliesTo: "winner", actions: [{ type: "coins", value: 1, text: "Winner event bonus." }] },
+      ],
       activity: {
         type: "selfTap",
         content: { label: "Tap fastest." },
         rankingPayout: {
-          outcomes: [
-            { label: "Winner payout", when: "winner", actions: [{ type: "coins", value: 6, target: "winner", text: "Winner payout." }] },
-            { label: "Runner-up payout", when: { rank: 2 }, actions: [{ type: "coins", value: 2, target: { rank: 2 }, text: "Runner-up payout." }] },
+          consequences: [
+            { label: "Winner payout", appliesTo: "winner", actions: [{ type: "coins", value: 6, text: "Winner payout." }] },
+            { label: "Runner-up payout", appliesTo: { rank: 2 }, actions: [{ type: "coins", value: 2, text: "Runner-up payout." }] },
           ],
         },
       },
@@ -1423,13 +1486,16 @@ await withRolls([1], async () => {
   await room.submitResult("socket-bob", { score: 2, payload: { confirmed: true } });
 
   assert.deepEqual(room.getState().reveal?.ranking, ["bob", "alice"]);
-  assert.equal(room.getState().players.find((player) => player.id === "bob")?.coins, 6);
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.coins, 7);
   assert.equal(room.getState().players.find((player) => player.id === "alice")?.coins, 2);
   assert.deepEqual(room.getState().reveal?.entries.map((entry) => [entry.playerId, entry.coins]), [
     ["bob", 6],
     ["alice", 2],
   ]);
   assert.equal(room.getState().reveal?.coinTransactions?.every((transaction: any) => transaction.source.kind === "rankingPayout"), true);
+  const eventBonus = room.getState().reveal?.actions?.find((action) => action.text === "Winner event bonus.");
+  assert.deepEqual(eventBonus?.targetPlayerIds, ["bob"]);
+  assert.equal(eventBonus?.coinTransactions?.[0].source.kind, "consequence");
 });
 
 const legacyPayoutContent: GameContent = normalizeGameContentEvents({

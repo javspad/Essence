@@ -8,6 +8,7 @@ import type {
   ClientToServerEvents,
   CoinSource,
   CoinTransaction,
+  ConsequenceRule,
   EffectDef,
   EffectDuration,
   EffectInstance,
@@ -15,7 +16,6 @@ import type {
   EventAction,
   EventActionTarget,
   EventActivity,
-  EventOutcomeBranch,
   GameContent,
   GameState,
   MinigameResult,
@@ -47,6 +47,7 @@ import {
 import { resolveCharacterTrait } from "@essence/shared/traits";
 import {
   eventTitle,
+  rankingPayoutConsequencesFor,
   resolveActivityParticipantIds,
   resolveActivitySubjectIds,
   resolveEventActionTargetIds,
@@ -682,14 +683,12 @@ export class GameRoom {
     this.pendingEvent = event;
     const activity = event.activity;
     if (!activity) {
-      const actions = this.applyActions(event.actions ?? [], {
-        landingPlayerId: active.id,
-        actingPlayerId: active.id,
-        targetPlayerId: active.id,
-        ranking: [active.id],
-      }, {
-        source: { kind: "consequence", label: eventTitle(event), id: event.id },
-      });
+      const actions = this.applyConsequenceRules(
+        event.consequences ?? [],
+        [active.id],
+        active.id,
+        { source: { kind: "consequence", label: eventTitle(event), id: event.id } }
+      );
       this.state.activeEvent = {
         id: event.id,
         kind: event.kind ?? "story",
@@ -881,18 +880,8 @@ export class GameRoom {
             ...this.pendingActivityPreludeActions,
             ...payoutActions,
             ...activityResultActions,
-            ...(mg.type === "prompt" && promptConfirmed
-              ? this.applyActions(event.actions ?? [], {
-                  landingPlayerId,
-                  actingPlayerId: landingPlayerId,
-                  targetPlayerId: landingPlayerId,
-                  ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
-                }, {
-                  source: { kind: "consequence", label: eventTitle(event), id: event.id },
-                })
-              : []),
             ...(promptConfirmed
-              ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId, {
+              ? this.applyConsequenceRules(event.consequences ?? [], reveal.ranking, landingPlayerId, {
                   source: { kind: "consequence", label: eventTitle(event), id: event.id },
                 })
               : []),
@@ -1029,22 +1018,22 @@ export class GameRoom {
     this.broadcast();
   }
 
-  private applyOutcomeActions(
-    branches: EventOutcomeBranch[],
+  private applyConsequenceRules(
+    rules: ConsequenceRule[],
     ranking: string[],
     landingPlayerId?: string,
     options: ApplyActionOptions = {}
   ): AppliedEventAction[] {
     const actions: AppliedEventAction[] = [];
-    for (const branch of branches) {
-      if (!this.targetPlayerIds(branch.when, { ranking, landingPlayerId }).length) continue;
+    for (const rule of rules) {
+      if (!this.targetPlayerIds(rule.appliesTo, { ranking, landingPlayerId }).length) continue;
       actions.push(
-        ...this.applyActions(branch.actions, {
+        ...this.applyActions(rule.actions, {
           landingPlayerId,
           actingPlayerId: landingPlayerId,
           targetPlayerId: landingPlayerId,
           ranking,
-          defaultTarget: branch.when,
+          defaultTarget: rule.appliesTo,
         }, options)
       );
     }
@@ -1052,22 +1041,23 @@ export class GameRoom {
   }
 
   private applyRankingPayout(policy: RankingPayoutPolicy | undefined, ranking: string[], landingPlayerId?: string): AppliedEventAction[] {
-    const outcomes = policy?.outcomes?.length ? policy.outcomes : this.legacyRankingPayoutOutcomes(ranking.length);
-    if (!outcomes.length) return [];
-    return this.applyOutcomeActions(outcomes, ranking, landingPlayerId ?? ranking[0], {
+    const authored = rankingPayoutConsequencesFor(policy);
+    const rules = authored.length ? authored : this.legacyRankingPayoutConsequences(ranking.length);
+    if (!rules.length) return [];
+    return this.applyConsequenceRules(rules, ranking, landingPlayerId ?? ranking[0], {
       source: { kind: "rankingPayout", label: "Ranking payout" },
     });
   }
 
-  private legacyRankingPayoutOutcomes(rankingLength: number): EventOutcomeBranch[] {
+  private legacyRankingPayoutConsequences(rankingLength: number): ConsequenceRule[] {
     const payouts = this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0];
     return payouts.slice(0, rankingLength).flatMap((value, index) => {
       if (!value) return [];
       const rank = index + 1;
       return [{
         label: `Rank ${rank} payout`,
-        when: { rank },
-        actions: [{ type: "coins", value, target: { rank }, text: `Rank ${rank} payout.` }],
+        appliesTo: { rank },
+        actions: [{ type: "coins", value, text: `Rank ${rank} payout.` }],
       }];
     });
   }
@@ -1423,6 +1413,7 @@ export class GameRoom {
     const applied: AppliedEventAction[] = [];
     const expired = new Map<string, "expired" | "triggered">();
     for (const instance of [...this.state.activeEffects]) {
+      if (context.targetPlayerId && instance.targetPlayerId !== context.targetPlayerId) continue;
       if (!instance.hooks.includes(hook)) continue;
       const targetPlayer = this.state.players.find((player) => player.id === instance.targetPlayerId);
       if (!targetPlayer) continue;

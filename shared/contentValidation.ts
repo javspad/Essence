@@ -4,13 +4,13 @@ import type {
   ArtifactRarityRates,
   CharacterDef,
   CharacterTraitDef,
+  ConsequenceRule,
   CosmeticDef,
   EffectDef,
   EffectDuration,
   EffectModifier,
   EventAction,
   EventActionTarget,
-  EventOutcomeBranch,
   FaceAnchor,
   GameContent,
   GameEventDef,
@@ -426,22 +426,26 @@ function validateEvent(
   if (event.activity && !EVENT_ACTIVITY_TYPES.includes(event.activity.type)) {
     error(`${path}.activity.type`, `is not supported: ${event.activity.type}`);
   }
-  event.actions?.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
-  event.outcomes?.forEach((outcome, index) => validateOutcome(`${path}.outcomes[${index}]`, outcome, playerIds, effectIds, error));
-  event.activity?.rankingPayout?.outcomes.forEach((outcome, index) =>
-    validateOutcome(`${path}.activity.rankingPayout.outcomes[${index}]`, outcome, playerIds, effectIds, error)
+  event.consequences?.forEach((rule, index) => validateConsequenceRule(`${path}.consequences[${index}]`, rule, playerIds, effectIds, error));
+  event.activity?.rankingPayout?.consequences?.forEach((rule, index) =>
+    validateConsequenceRule(`${path}.activity.rankingPayout.consequences[${index}]`, rule, playerIds, effectIds, error)
   );
 }
 
-function validateOutcome(
+function validateConsequenceRule(
   path: string,
-  outcome: EventOutcomeBranch,
+  rule: ConsequenceRule,
   playerIds: Set<string>,
   effectIds: Set<string>,
   error: (path: string, message: string) => void
 ) {
-  validateTarget(`${path}.when`, outcome.when, playerIds, error);
-  outcome.actions.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
+  if (!rule.appliesTo) error(`${path}.appliesTo`, "is required");
+  else validateTarget(`${path}.appliesTo`, rule.appliesTo, playerIds, error);
+  if (!Array.isArray(rule.actions) || !rule.actions.length) {
+    error(`${path}.actions`, "must contain at least one action");
+    return;
+  }
+  rule.actions.forEach((action, index) => validateAction(`${path}.actions[${index}]`, action, playerIds, effectIds, error));
 }
 
 function validateAction(

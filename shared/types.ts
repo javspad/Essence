@@ -342,7 +342,7 @@ export type OfflineActionKind = "takeShot" | "custom";
 export type ConsequenceTiming = {
   hook?: EffectLifecycleHook;
   when?: EffectCondition;
-  /** Attach this action to the selected user as a live effect instead of resolving it immediately. */
+  /** Legacy import-only duration; canonical authored content stores duration on EffectDef. */
   duration?: EffectDuration;
   expiresOnTrigger?: boolean;
 };
@@ -361,17 +361,37 @@ export type ConsequenceCore =
   | { type: "skipTurn"; target?: EventActionTarget; text?: string }
   | { type: "extraTurn"; target?: EventActionTarget; text?: string }
   | { type: "offlineAction"; action: OfflineActionKind; target?: EventActionTarget; text?: string; confirmation?: EventActivity["confirmation"] }
-  | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string; duration?: EffectDuration }
+  | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string }
   | { type: "halfMovement"; target?: EventActionTarget; text?: string; rounding?: "floor" | "ceil" | "round" }
   | { type: "movementMultiplier"; target?: EventActionTarget; text?: string; multiplier: number; rounding?: "floor" | "ceil" | "round" }
   | { type: "diceBias"; target?: EventActionTarget; text?: string; face: number; chanceDeltaPercent: number }
   | { type: "swapPositions"; target?: EventActionTarget; withTarget: EventActionTarget; text?: string }
   | { type: "moveToNearest"; target?: EventActionTarget; direction: "ahead" | "behind"; text?: string };
 
+export type PersistentConsequenceType = "halfMovement" | "movementMultiplier" | "diceBias";
+
+export type ImmediateConsequenceCore = Exclude<ConsequenceCore, { type: PersistentConsequenceType }>;
+
+/** A one-shot state change. Persistent behavior is authored as an Effect and referenced with applyEffect. */
+export type ImmediateConsequenceDef = ImmediateConsequenceCore & ConsequencePresentation;
+
+/** A consequence owned by an Effect. The Effect definition owns duration. */
+export type EffectConsequenceDef = ConsequenceCore & Omit<ConsequenceTiming, "duration"> & ConsequencePresentation;
+
+/** @deprecated Broad import/runtime shape for content authored before Effects owned lifecycle and duration. */
 export type ConsequenceDef = ConsequenceCore & ConsequenceTiming & ConsequencePresentation;
 
 export type EventAction = ConsequenceDef;
 
+export interface ConsequenceRule {
+  id?: string;
+  label?: string;
+  /** Selects the rule subject and supplies the default target for its actions. */
+  appliesTo: EventActionTarget;
+  actions: ImmediateConsequenceDef[];
+}
+
+/** @deprecated Import compatibility for content authored before consequence rules. */
 export interface EventOutcomeBranch {
   id?: string;
   label?: string;
@@ -380,7 +400,9 @@ export interface EventOutcomeBranch {
 }
 
 export interface RankingPayoutPolicy {
-  outcomes: EventOutcomeBranch[];
+  consequences?: ConsequenceRule[];
+  /** @deprecated Use consequences. */
+  outcomes?: EventOutcomeBranch[];
 }
 
 export interface GameEventDef {
@@ -391,9 +413,11 @@ export interface GameEventDef {
   trigger?: EventTriggerScope;
   story?: EventStory;
   activity?: EventActivity;
-  /** immediate actions for story-only events */
+  /** Consequences resolved together when the event completes. */
+  consequences?: ConsequenceRule[];
+  /** @deprecated Import compatibility; normalized into consequences. */
   actions?: EventAction[];
-  /** actions applied after an activity resolves to a ranking */
+  /** @deprecated Import compatibility; normalized into consequences. */
   outcomes?: EventOutcomeBranch[];
 }
 
@@ -404,7 +428,10 @@ export interface PlayerEventOverride {
   activityType?: EventActivityType;
   story?: EventStory;
   activity?: Partial<EventActivity>;
+  consequences?: ConsequenceRule[];
+  /** @deprecated Import compatibility; normalized into consequences. */
   actions?: EventAction[];
+  /** @deprecated Import compatibility; normalized into consequences. */
   outcomes?: EventOutcomeBranch[];
 }
 
@@ -644,7 +671,7 @@ export interface EffectDef {
   icon?: string;
   duration: EffectDuration;
   hooks?: EffectLifecycleHook[];
-  consequences?: EventAction[];
+  consequences?: EffectConsequenceDef[];
   /** @deprecated Use consequences. */
   modifiers?: EffectModifier[];
   /** @deprecated Use consequences. */
@@ -661,7 +688,8 @@ export interface ArtifactDef {
   targetMode: ArtifactTargetMode;
   useFlow?: ArtifactUseFlow;
   target?: EventActionTarget;
-  consequences?: EventAction[];
+  consequences?: ImmediateConsequenceDef[];
+  /** @deprecated Use applyEffect consequences. */
   effects?: string[];
   visual?: {
     assetId?: string;
@@ -764,7 +792,7 @@ export interface EffectInstance {
   targetPlayerId: string;
   remaining: EffectDurationState;
   hooks: EffectLifecycleHook[];
-  consequences: EventAction[];
+  consequences: EffectConsequenceDef[];
   icon?: string;
   visualAssetId?: string;
   startedRound: number;

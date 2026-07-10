@@ -1,5 +1,6 @@
 import type {
   EffectCondition,
+  EffectConsequenceDef,
   EffectDef,
   EffectDuration,
   EffectDurationState,
@@ -78,13 +79,13 @@ export function effectHooksFor(effect: EffectDef): EffectLifecycleHook[] {
   return [...hooks];
 }
 
-export function effectConsequencesFor(effect: EffectDef): EventAction[] {
+export function effectConsequencesFor(effect: EffectDef): EffectConsequenceDef[] {
   if (effect.consequences?.length) return effect.consequences.map(effectBodyAction);
   return [...(effect.actions ?? []), ...(effect.modifiers ?? []).flatMap(effectModifierToConsequences)].map(effectBodyAction);
 }
 
 export function timedConsequenceEffectDef(action: EventAction, id: string): EffectDef {
-  const body = effectBodyAction(action);
+  const body = attachedEffectBodyAction(action);
   return {
     id,
     name: action.text || consequenceLabel(body),
@@ -102,9 +103,14 @@ export function defaultDurationForConsequence(_action: EventAction): EffectDurat
   return { mode: "uses", value: 1 };
 }
 
-export function effectBodyAction(action: EventAction): EventAction {
+export function effectBodyAction(action: EventAction): EffectConsequenceDef {
   const { duration: _duration, ...body } = action;
-  return withCanonicalModifierHook(body as EventAction);
+  return withCanonicalModifierHook(body as EventAction) as EffectConsequenceDef;
+}
+
+function attachedEffectBodyAction(action: EventAction): EffectConsequenceDef {
+  const { target: _target, ...body } = effectBodyAction(action);
+  return body as EffectConsequenceDef;
 }
 
 export function isPersistentModifier(action: EventAction): boolean {

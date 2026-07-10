@@ -9,6 +9,7 @@ import type {
   EventAction,
   EventActionTarget,
   GameContent,
+  ImmediateConsequenceDef,
   Phase,
 } from "@essence/shared";
 import { consequenceLabel, defaultHookForConsequence, effectConsequencesFor, effectHooksFor, effectRemainingLabel } from "@essence/shared/consequences";
@@ -1027,26 +1028,42 @@ function MetaPill({ children }: { children: string }) {
   return <span className="max-w-full truncate rounded-sm border border-cyan-200/20 bg-cyan-300/10 px-2 py-1 text-[0.62rem] font-black uppercase text-cyan-100">{children}</span>;
 }
 
-function mapEvents(events: GameContent["events"], mapAction: (action: EventAction) => EventAction): GameContent["events"] {
+function mapEvents(
+  events: GameContent["events"],
+  mapAction: (action: ImmediateConsequenceDef) => ImmediateConsequenceDef
+): GameContent["events"] {
   if (!events) return events;
   return Object.fromEntries(
     Object.entries(events).map(([id, event]) => [
       id,
       {
         ...event,
-        actions: event.actions?.map(mapAction),
-        outcomes: event.outcomes?.map((outcome) => ({
-          ...outcome,
-          actions: outcome.actions.map(mapAction),
+        consequences: event.consequences?.map((rule) => ({
+          ...rule,
+          actions: rule.actions.map(mapAction),
         })),
+        activity: event.activity
+          ? {
+              ...event.activity,
+              rankingPayout: event.activity.rankingPayout
+                ? {
+                    ...event.activity.rankingPayout,
+                    consequences: event.activity.rankingPayout.consequences?.map((rule) => ({
+                      ...rule,
+                      actions: rule.actions.map(mapAction),
+                    })),
+                  }
+                : undefined,
+            }
+          : undefined,
       },
     ])
   );
 }
 
-function rewriteLegacyEffectAction(action: EventAction): EventAction {
+function rewriteLegacyEffectAction<T extends EventAction>(action: T): T {
   if (action.type !== "applyEffect" || action.effectId !== LEGACY_SHOT_EFFECT_ID) return action;
-  return { ...action, effectId: DEFAULT_EFFECT_ID };
+  return { ...action, effectId: DEFAULT_EFFECT_ID } as T;
 }
 
 function rewriteEffectReferences(effect: EffectDef, deletedEffectId: string): EffectDef {
@@ -1066,9 +1083,14 @@ function rewriteDeletedEffectModifier(modifier: EffectModifier, deletedEffectId:
   };
 }
 
-function rewriteDeletedEffectAction(action: EventAction, deletedEffectId: string): EventAction {
+function rewriteDeletedEffectAction<T extends EventAction>(action: T, deletedEffectId: string): T {
   if (action.type !== "applyEffect" || action.effectId !== deletedEffectId) return action;
-  return { type: "coins", value: 1, text: action.text, ...("target" in action && action.target ? { target: action.target } : {}) };
+  return {
+    type: "coins",
+    value: 1,
+    text: action.text,
+    ...("target" in action && action.target ? { target: action.target } : {}),
+  } as T;
 }
 
 function firstEffectId(effects: Record<string, EffectDef>): string {
