@@ -16,7 +16,22 @@ import { consequenceLabel, defaultHookForConsequence, effectConsequencesFor, eff
 const DEFAULT_EFFECT_ID = "half-roll-2-rounds";
 const LEGACY_SHOT_EFFECT_ID = "half-roll-shot-on-six";
 
-type TargetKind = "landing" | "acting" | "target" | "winner" | "loser" | "everyone" | "player" | "rank" | "rankRange" | "nearestAhead" | "nearestBehind";
+type TargetKind =
+  | "landing"
+  | "acting"
+  | "target"
+  | "winner"
+  | "loser"
+  | "everyone"
+  | "player"
+  | "rank"
+  | "rankRange"
+  | "coinRichest"
+  | "coinPoorest"
+  | "coinRank"
+  | "coinRankRange"
+  | "nearestAhead"
+  | "nearestBehind";
 type TargetOverrideKind = "effectTarget" | TargetKind;
 
 const hookOptions: { value: EffectLifecycleHook; label: string }[] = [
@@ -474,15 +489,27 @@ function EffectConsequenceRow({
           options={effectActionTypeOptions(effects)}
           onChange={(type) => onChange(convertActionType(editable, type as Exclude<EventAction["type"], "text">, firstEffectId(effects)))}
         />
-        {(editable.type === "coins" || editable.type === "move") && (
-          <NumberInput label={editable.type === "coins" ? "Coins" : "Cells"} value={editable.type === "coins" ? editable.value : editable.delta} onChange={(value) => onChange(updateActionAmount(editable, value))} />
+        {(editable.type === "coins" || editable.type === "move" || editable.type === "coinTransfer" || editable.type === "coinRedistribute") && (
+          <NumberInput
+            label={editable.type === "move" ? "Cells" : "Coins"}
+            value={editable.type === "coins" ? editable.value : editable.type === "move" ? editable.delta : editable.amount}
+            onChange={(value) => onChange(updateActionAmount(editable, value))}
+          />
         )}
         {editable.type === "moveTo" && <NumberInput label="Cell" value={editable.tileId} onChange={(tileId) => onChange({ ...editable, tileId })} />}
         {editable.type === "movementMultiplier" && <NumberInput label="x" value={editable.multiplier} onChange={(multiplier) => onChange({ ...editable, multiplier: Math.max(0, multiplier) })} />}
         {editable.type === "diceBias" && <NumberInput label="Face" value={editable.face} onChange={(face) => onChange({ ...editable, face: clampInt(face, 1, 6) })} />}
-        {(editable.type === "skipTurn" || editable.type === "extraTurn" || editable.type === "swapPositions" || editable.type === "moveToNearest" || editable.type === "offlineAction" || editable.type === "applyEffect") && <div />}
+        {(editable.type === "skipTurn" ||
+          editable.type === "extraTurn" ||
+          editable.type === "swapPositions" ||
+          editable.type === "moveToNearest" ||
+          editable.type === "offlineAction" ||
+          editable.type === "applyEffect") && <div />}
       </div>
 
+      {(editable.type === "coinTransfer" || editable.type === "coinRedistribute") && (
+        <TargetPicker label={editable.type === "coinTransfer" ? "Take from" : "Collect from"} target={editable.from} players={players} onChange={(from) => onChange({ ...editable, from })} />
+      )}
       {editable.type === "movementMultiplier" && <RoundingSelect value={editable.rounding ?? "round"} onChange={(rounding) => onChange({ ...editable, rounding })} />}
       {editable.type === "halfMovement" && <RoundingSelect value={editable.rounding ?? "ceil"} onChange={(rounding) => onChange({ ...editable, rounding })} />}
       {editable.type === "diceBias" && <NumberInput label="Chance change percent" value={editable.chanceDeltaPercent} onChange={(chanceDeltaPercent) => onChange({ ...editable, chanceDeltaPercent })} />}
@@ -568,6 +595,10 @@ function TargetOverrideEditor({
           { value: "target", label: "Selected target" },
           { value: "winner", label: "Winner" },
           { value: "loser", label: "Loser" },
+          { value: "coinRichest", label: "Richest player" },
+          { value: "coinPoorest", label: "Poorest player" },
+          { value: "coinRank", label: "Coin rank" },
+          { value: "coinRankRange", label: "Coin rank range" },
           { value: "nearestAhead", label: "Nearest ahead" },
           { value: "nearestBehind", label: "Nearest behind" },
           { value: "everyone", label: "Everyone" },
@@ -613,6 +644,10 @@ function TargetPicker({
           { value: "landing", label: "Triggering player" },
           { value: "acting", label: "Acting player" },
           { value: "target", label: "Selected target" },
+          { value: "coinRichest", label: "Richest player" },
+          { value: "coinPoorest", label: "Poorest player" },
+          { value: "coinRank", label: "Coin rank" },
+          { value: "coinRankRange", label: "Coin rank range" },
           { value: "nearestAhead", label: "Nearest ahead" },
           { value: "nearestBehind", label: "Nearest behind" },
           { value: "everyone", label: "Everyone" },
@@ -642,11 +677,22 @@ function TargetDetails({ target, players, onChange }: { target: EventActionTarge
   if (kind === "rank") {
     return <NumberInput label="Rank" value={rankFromFor(target)} onChange={(rank) => onChange({ rank: Math.max(1, Math.round(rank)) })} />;
   }
+  if (kind === "coinRank") {
+    return <NumberInput label="Coin rank" value={rankFromFor(target)} onChange={(coinRank) => onChange({ coinRank: Math.max(1, Math.round(coinRank)) })} />;
+  }
   if (kind === "rankRange") {
     return (
       <div className="grid grid-cols-2 gap-2">
         <NumberInput label="From rank" value={rankFromFor(target)} onChange={(rankFrom) => onChange({ rankFrom: Math.max(1, Math.round(rankFrom)), rankTo: rankToFor(target) })} />
         <NumberInput label="To rank" value={rankToFor(target)} onChange={(rankTo) => onChange({ rankFrom: rankFromFor(target), rankTo: Math.max(1, Math.round(rankTo)) })} />
+      </div>
+    );
+  }
+  if (kind === "coinRankRange") {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <NumberInput label="From coin rank" value={rankFromFor(target)} onChange={(coinRankFrom) => onChange({ coinRankFrom: Math.max(1, Math.round(coinRankFrom)), coinRankTo: rankToFor(target) })} />
+        <NumberInput label="To coin rank" value={rankToFor(target)} onChange={(coinRankTo) => onChange({ coinRankFrom: rankFromFor(target), coinRankTo: Math.max(1, Math.round(coinRankTo)) })} />
       </div>
     );
   }
@@ -1042,6 +1088,8 @@ function effectSelectOptions(effects: Record<string, EffectDef>, selectedEffectI
 function effectActionTypeOptions(effects: Record<string, EffectDef>): { value: string; label: string }[] {
   return [
     { value: "coins", label: "Coins" },
+    { value: "coinTransfer", label: "Coin transfer" },
+    { value: "coinRedistribute", label: "Coin redistribution" },
     { value: "move", label: "Move" },
     { value: "moveTo", label: "Move to cell" },
     { value: "skipTurn", label: "Skip turn" },
@@ -1112,9 +1160,12 @@ function convertActionType(action: EventAction, type: Exclude<EventAction["type"
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
   const icon = action.icon;
-  const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : 1;
+  const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : action.type === "coinTransfer" || action.type === "coinRedistribute" ? action.amount : 1;
+  const from = "from" in action ? action.from : target ?? "target";
   const base = { ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}), ...timingPatch(action) };
   if (type === "coins") return withCanonicalEditableAction({ type, value: amount, ...base });
+  if (type === "coinTransfer") return withCanonicalEditableAction({ type, amount: Math.max(0, amount), from, ...base });
+  if (type === "coinRedistribute") return withCanonicalEditableAction({ type, amount: Math.max(0, amount), from, ...base });
   if (type === "move") return withCanonicalEditableAction({ type, delta: amount, ...base });
   if (type === "moveTo") return withCanonicalEditableAction({ type, tileId: 1, ...base });
   if (type === "skipTurn") return withCanonicalEditableAction({ type, ...base });
@@ -1132,8 +1183,9 @@ function withCanonicalEditableAction(action: EventAction): EventAction {
   return isModifierEffectAction(action) ? ensureModifierTiming(action) : action;
 }
 
-function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" }>, amount: number): EventAction {
+function updateActionAmount(action: Extract<EventAction, { type: "coins" | "move" | "coinTransfer" | "coinRedistribute" }>, amount: number): EventAction {
   if (action.type === "coins") return { ...action, value: amount };
+  if (action.type === "coinTransfer" || action.type === "coinRedistribute") return { ...action, amount: Math.max(0, amount) };
   return { ...action, delta: amount };
 }
 
@@ -1188,6 +1240,10 @@ function targetHelp(kind: TargetOverrideKind): string {
   if (kind === "winner") return "The first player in the resolved activity ranking.";
   if (kind === "loser") return "The last player in the resolved activity ranking.";
   if (kind === "everyone") return "Every connected player in the room.";
+  if (kind === "coinRichest") return "The connected player with the most coins.";
+  if (kind === "coinPoorest") return "The connected player with the fewest coins.";
+  if (kind === "coinRank") return "One position in the current coin ranking.";
+  if (kind === "coinRankRange") return "A range of positions in the current coin ranking.";
   if (kind === "player") return "One authored player/character slot.";
   if (kind === "rank") return "One position in the resolved activity ranking.";
   if (kind === "rankRange") return "A range of positions in the resolved activity ranking.";
@@ -1215,6 +1271,9 @@ function targetKind(target: EventActionTarget): TargetKind {
   if (target === "landing" || target === "acting" || target === "target" || target === "winner" || target === "loser" || target === "everyone") return target;
   if ("playerId" in target) return "player";
   if ("rank" in target) return "rank";
+  if ("coinSelector" in target) return target.coinSelector === "richest" ? "coinRichest" : "coinPoorest";
+  if ("coinRank" in target) return "coinRank";
+  if ("coinRankFrom" in target) return "coinRankRange";
   if ("nearest" in target) return target.nearest === "ahead" ? "nearestAhead" : "nearestBehind";
   return "rankRange";
 }
@@ -1223,8 +1282,12 @@ function targetForKind(kind: TargetKind, players: GameContent["players"], previo
   if (kind === "landing" || kind === "acting" || kind === "target" || kind === "winner" || kind === "loser" || kind === "everyone") return kind;
   if (kind === "nearestAhead") return { nearest: "ahead", from: "acting" };
   if (kind === "nearestBehind") return { nearest: "behind", from: "acting" };
+  if (kind === "coinRichest") return { coinSelector: "richest" };
+  if (kind === "coinPoorest") return { coinSelector: "poorest" };
   if (kind === "player") return { playerId: playerIdForTarget(previous, players) };
   if (kind === "rank") return { rank: rankFromFor(previous) };
+  if (kind === "coinRank") return { coinRank: rankFromFor(previous) };
+  if (kind === "coinRankRange") return { coinRankFrom: rankFromFor(previous), coinRankTo: rankToFor(previous) };
   return { rankFrom: rankFromFor(previous), rankTo: rankToFor(previous) };
 }
 
@@ -1235,12 +1298,16 @@ function playerIdForTarget(target: EventActionTarget, players: GameContent["play
 function rankFromFor(target: EventActionTarget): number {
   if (typeof target !== "string" && "rankFrom" in target) return target.rankFrom;
   if (typeof target !== "string" && "rank" in target) return target.rank;
+  if (typeof target !== "string" && "coinRankFrom" in target) return target.coinRankFrom;
+  if (typeof target !== "string" && "coinRank" in target) return target.coinRank;
   return 1;
 }
 
 function rankToFor(target: EventActionTarget): number {
   if (typeof target !== "string" && "rankFrom" in target) return target.rankTo;
   if (typeof target !== "string" && "rank" in target) return target.rank;
+  if (typeof target !== "string" && "coinRankFrom" in target) return target.coinRankTo;
+  if (typeof target !== "string" && "coinRank" in target) return target.coinRank;
   return 2;
 }
 

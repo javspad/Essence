@@ -623,11 +623,27 @@ function ArtifactActionEditor({
             onChange={(value) => onChange(updateActionAmount(editable, value))}
           />
         )}
+        {(editable.type === "coinTransfer" || editable.type === "coinRedistribute") && (
+          <NumberInput
+            label="Coins"
+            value={editable.amount}
+            onChange={(amount) => onChange({ ...editable, amount: Math.max(0, Math.round(amount)) })}
+          />
+        )}
         {editable.type === "moveTo" && <NumberInput label="Cell" value={editable.tileId} onChange={(tileId) => onChange({ ...editable, tileId })} />}
         {editable.type === "movementMultiplier" && <NumberInput label="x" value={editable.multiplier} onChange={(multiplier) => onChange({ ...editable, multiplier: Math.max(0, multiplier) })} />}
         {editable.type === "diceBias" && <NumberInput label="Face" value={editable.face} onChange={(face) => onChange({ ...editable, face: clampInt(face, 1, 6) })} />}
         {(editable.type === "skipTurn" || editable.type === "extraTurn" || editable.type === "offlineAction" || editable.type === "applyEffect" || editable.type === "swapPositions" || editable.type === "moveToNearest" || editable.type === "halfMovement") && <div />}
       </div>
+
+      {(editable.type === "coinTransfer" || editable.type === "coinRedistribute") && (
+        <TargetSelect
+          label={editable.type === "coinRedistribute" ? "Collect from" : "Take from"}
+          target={editable.from}
+          players={players}
+          onChange={(from) => onChange({ ...editable, from })}
+        />
+      )}
 
       {editable.type === "applyEffect" && (
         <SelectInput
@@ -737,6 +753,10 @@ function ArtifactTargetSelect({ action, players, onChange }: { action: EventActi
           { value: "target", label: "Chosen target" },
           { value: "everyone", label: "Everyone" },
           { value: "player", label: "Specific player" },
+          { value: "coinRichest", label: "Most coins" },
+          { value: "coinPoorest", label: "Least coins" },
+          { value: "coinRank", label: "Coin rank" },
+          { value: "coinRankRange", label: "Coin rank range" },
           { value: "nearestAhead", label: "Nearest ahead" },
           { value: "nearestBehind", label: "Nearest behind" },
         ]}
@@ -765,6 +785,10 @@ function TargetSelect({ label, target, players, onChange }: { label: string; tar
           { value: "target", label: "Chosen target" },
           { value: "everyone", label: "Everyone" },
           { value: "player", label: "Specific player" },
+          { value: "coinRichest", label: "Most coins" },
+          { value: "coinPoorest", label: "Least coins" },
+          { value: "coinRank", label: "Coin rank" },
+          { value: "coinRankRange", label: "Coin rank range" },
           { value: "nearestAhead", label: "Nearest ahead" },
           { value: "nearestBehind", label: "Nearest behind" },
         ]}
@@ -784,6 +808,17 @@ function TargetDetails({ target, players, onChange }: { target: EventActionTarge
         options={players.map((player) => ({ value: player.id, label: player.name }))}
         onChange={(playerId) => onChange({ playerId })}
       />
+    );
+  }
+  if (typeof target !== "string" && "coinRank" in target) {
+    return <NumberInput label="Coin rank" value={target.coinRank} onChange={(coinRank) => onChange({ coinRank: Math.max(1, Math.round(coinRank)) })} />;
+  }
+  if (typeof target !== "string" && "coinRankFrom" in target) {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <NumberInput label="From coin rank" value={target.coinRankFrom} onChange={(coinRankFrom) => onChange({ coinRankFrom: Math.max(1, Math.round(coinRankFrom)), coinRankTo: target.coinRankTo })} />
+        <NumberInput label="To coin rank" value={target.coinRankTo} onChange={(coinRankTo) => onChange({ coinRankFrom: target.coinRankFrom, coinRankTo: Math.max(1, Math.round(coinRankTo)) })} />
+      </div>
     );
   }
   return null;
@@ -1055,6 +1090,8 @@ function DurationEditor({ duration, onChange }: { duration: EffectDuration; onCh
 function artifactActionTypeOptions(effectOptions: NonNullable<GameContent["effects"]>[string][]): SelectOption[] {
   return [
     { value: "coins", label: "Coins" },
+    { value: "coinTransfer", label: "Coin transfer" },
+    { value: "coinRedistribute", label: "Coin redistribution" },
     { value: "move", label: "Move" },
     { value: "moveTo", label: "Move to cell" },
     { value: "skipTurn", label: "Skip turn" },
@@ -1087,9 +1124,11 @@ function convertArtifactActionType(action: EventAction, type: Exclude<EventActio
   const text = "text" in action ? action.text : undefined;
   const target = "target" in action ? action.target : undefined;
   const icon = action.icon;
-  const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : 1;
+  const amount = action.type === "coins" ? action.value : action.type === "move" ? action.delta : action.type === "coinTransfer" || action.type === "coinRedistribute" ? action.amount : 1;
   const base = { ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}), ...timingPatch(action) };
   if (type === "coins") return withCanonicalAction({ type, value: amount, ...base });
+  if (type === "coinTransfer") return withCanonicalAction({ type, amount: Math.abs(amount), from: "target", ...base });
+  if (type === "coinRedistribute") return withCanonicalAction({ type, amount: Math.abs(amount), from: "everyone", ...base });
   if (type === "move") return withCanonicalAction({ type, delta: amount, ...base });
   if (type === "moveTo") return withCanonicalAction({ type, tileId: 1, ...base });
   if (type === "skipTurn") return withCanonicalAction({ type, ...base });
@@ -1170,6 +1209,9 @@ function targetSelectValue(target: EventActionTarget): string {
   if (target === "landing") return "acting";
   if (target === "winner" || target === "loser") return "target";
   if (typeof target !== "string" && "playerId" in target) return "player";
+  if (typeof target !== "string" && "coinSelector" in target) return target.coinSelector === "richest" ? "coinRichest" : "coinPoorest";
+  if (typeof target !== "string" && "coinRank" in target) return "coinRank";
+  if (typeof target !== "string" && "coinRankFrom" in target) return "coinRankRange";
   if (typeof target !== "string" && "nearest" in target) return target.nearest === "ahead" ? "nearestAhead" : "nearestBehind";
   return "target";
 }
@@ -1178,6 +1220,14 @@ function targetForValue(value: string, players: GameContent["players"], previous
   if (value === "acting" || value === "target" || value === "everyone") return value;
   if (value === "nearestAhead") return { nearest: "ahead", from: "acting" };
   if (value === "nearestBehind") return { nearest: "behind", from: "acting" };
+  if (value === "coinRichest") return { coinSelector: "richest" };
+  if (value === "coinPoorest") return { coinSelector: "poorest" };
+  if (value === "coinRank") return { coinRank: typeof previous !== "string" && "coinRank" in previous ? previous.coinRank : 1 };
+  if (value === "coinRankRange") {
+    return typeof previous !== "string" && "coinRankFrom" in previous
+      ? { coinRankFrom: previous.coinRankFrom, coinRankTo: previous.coinRankTo }
+      : { coinRankFrom: 1, coinRankTo: 2 };
+  }
   if (value === "player") return { playerId: typeof previous !== "string" && "playerId" in previous ? previous.playerId : players[0]?.id ?? "" };
   return "target";
 }

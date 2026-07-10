@@ -6,6 +6,8 @@ import type {
   ArtifactOffer,
   CharacterDef,
   ClientToServerEvents,
+  CoinSource,
+  CoinTransaction,
   EffectDef,
   EffectDuration,
   EffectInstance,
@@ -18,6 +20,7 @@ import type {
   GameState,
   MinigameResult,
   Player,
+  RankingPayoutPolicy,
   RevealPayload,
   ServerToClientEvents,
   Tile,
@@ -55,6 +58,12 @@ import {
   isCosmeticCompatibleWithCharacter,
   uniqueCosmeticIds,
 } from "@essence/shared/cosmetics";
+import {
+  applyCoinDelta,
+  applyCoinTransfer,
+  canSpendCoins,
+  coinTransactionsSummary,
+} from "./economy.js";
 import { resolveMinigame } from "./minigames/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -65,6 +74,11 @@ interface JoinOptions {
 
 interface GameRoomOptions {
   mapId?: string;
+}
+
+interface ApplyActionOptions {
+  fromEffect?: boolean;
+  source?: CoinSource;
 }
 
 export class GameRoom {
@@ -82,6 +96,7 @@ export class GameRoom {
   private extraTurnPlayerId: string | null = null;
   private nextEffectInstanceId = 1;
   private nextArtifactShopVisitId = 1;
+  private nextCoinTransactionId = 1;
   private pendingActivityPreludeActions: AppliedEventAction[] = [];
   private appliedCharacterTraitKeys = new Set<string>();
   private rollHistory = new Map<string, number[]>();
@@ -300,7 +315,7 @@ export class GameRoom {
     return player;
   }
 
-  buyCosmetic(socketId: string, cosmeticId: string): { ok: true } | { ok: false; error: string } {
+  buyCosmetic(socketId: string, cosmeticId: string): { ok: true; transaction?: CoinTransaction } | { ok: false; error: string } {
     const player = this.playerBySocket(socketId);
     if (!player) return { ok: false, error: "No estás en esta sala" };
     const cosmetic = this.content.cosmetics?.[cosmeticId];
@@ -311,11 +326,16 @@ export class GameRoom {
     const owned = new Set(player.ownedCosmeticIds ?? []);
     if (owned.has(cosmeticId)) return { ok: true };
     const price = cosmeticPrice(cosmetic);
-    if (player.coins < price) return { ok: false, error: "No te alcanzan las monedas" };
-    player.coins -= price;
+    if (!canSpendCoins(player, price)) return { ok: false, error: "No te alcanzan las monedas" };
+    const transaction = this.applyCoinDelta(player.id, -price, {
+      kind: "shopPurchase",
+      label: `Bought ${cosmetic.name}`,
+      id: cosmetic.id,
+    }, { allowPartial: false, text: `Bought ${cosmetic.name}` });
+    if (!transaction) return { ok: false, error: "No te alcanzan las monedas" };
     player.ownedCosmeticIds = uniqueCosmeticIds([...(player.ownedCosmeticIds ?? []), cosmeticId]);
     this.broadcast();
-    return { ok: true };
+    return { ok: true, transaction };
   }
 
   equipCosmetic(socketId: string, cosmeticId: string, equipped: boolean): { ok: true } | { ok: false; error: string } {
@@ -353,7 +373,7 @@ export class GameRoom {
     return { ok: true, offers };
   }
 
-  buyArtifact(socketId: string, offerId: string): { ok: true; artifactId: string; requiresTarget: boolean } | { ok: false; error: string } {
+  buyArtifact(socketId: string, offerId: string): { ok: true; artifactId: string; requiresTarget: boolean; transaction?: CoinTransaction } | { ok: false; error: string } {
     const context = this.activeArtifactShopContext(socketId);
     if (!context.ok) return context;
     const { player, shop } = context;
@@ -364,9 +384,14 @@ export class GameRoom {
     const artifact = this.content.artifacts?.[offer.artifactId];
     if (!artifact) return { ok: false, error: "Ese artifact no existe" };
     const price = artifactPrice(artifact);
-    if (player.coins < price) return { ok: false, error: "No te alcanzan las monedas" };
+    if (!canSpendCoins(player, price)) return { ok: false, error: "No te alcanzan las monedas" };
 
-    player.coins -= price;
+    const transaction = this.applyCoinDelta(player.id, -price, {
+      kind: "shopPurchase",
+      label: `Bought ${artifact.name}`,
+      id: artifact.id,
+    }, { allowPartial: false, text: `Bought ${artifact.name}` });
+    if (!transaction) return { ok: false, error: "No te alcanzan las monedas" };
     this.state.artifactShop = {
       ...shop,
       purchasedOfferId: offer.id,
@@ -385,11 +410,11 @@ export class GameRoom {
     if (!artifactRequiresTarget(artifact)) {
       const useResult = this.resolveArtifactUse(player, artifact, targetMode === "self" ? player.id : undefined);
       if (!useResult.ok) return useResult;
-      return { ok: true, artifactId: artifact.id, requiresTarget: false };
+      return { ok: true, artifactId: artifact.id, requiresTarget: false, transaction };
     }
 
     this.broadcast();
-    return { ok: true, artifactId: artifact.id, requiresTarget: true };
+    return { ok: true, artifactId: artifact.id, requiresTarget: true, transaction };
   }
 
   useArtifact(socketId: string, targetPlayerId?: string): { ok: true } | { ok: false; error: string } {
@@ -618,6 +643,8 @@ export class GameRoom {
       targetPlayerId: resolvedTargetId ?? player.id,
       ranking: resolvedTargetId ? [resolvedTargetId, player.id] : [player.id],
       defaultTarget,
+    }, {
+      source: { kind: "consequence", label: artifact.name, id: artifact.id },
     });
     const targetName = resolvedTargetId ? this.state.players.find((candidate) => candidate.id === resolvedTargetId)?.name ?? resolvedTargetId : null;
     const targetText = targetName && targetName !== player.name ? ` on ${targetName}` : targetName === player.name ? " on themselves" : "";
@@ -660,6 +687,8 @@ export class GameRoom {
         actingPlayerId: active.id,
         targetPlayerId: active.id,
         ranking: [active.id],
+      }, {
+        source: { kind: "consequence", label: eventTitle(event), id: event.id },
       });
       this.state.activeEvent = {
         id: event.id,
@@ -831,15 +860,14 @@ export class GameRoom {
         participants: mg.participants,
         subjects: mg.subjects,
         players: this.state.players,
-        coinPayout: mg.type === "prompt" ? [] : this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0],
+        coinPayout: [],
         story: mg.story,
       });
 
-      // Aplicar monedas (y consecuencias configuradas en el evento).
-      for (const [id, c] of Object.entries(reveal.coins)) {
-        const pl = this.state.players.find((x) => x.id === id);
-        if (pl) pl.coins = Math.max(0, pl.coins + c);
-      }
+      const payoutActions = mg.type === "prompt" ? [] : this.applyRankingPayout(def.rankingPayout, reveal.ranking, mg.protagonistId);
+      const payoutTransactions = payoutActions.flatMap((action) => action.coinTransactions ?? []);
+      const payoutCoins = coinTotalsByPlayer(payoutTransactions);
+      const entries = reveal.entries.map((entry) => ({ ...entry, coins: payoutCoins[entry.playerId] ?? 0 }));
       const landingPlayerId = mg.protagonistId ?? reveal.ranking[0];
       const promptConfirmed = mg.type !== "prompt" || promptConfirmationComplete(reveal);
       const activityResultActions = this.applyEffectHook("onActivityResult", {
@@ -851,6 +879,7 @@ export class GameRoom {
       const actions = event
         ? [
             ...this.pendingActivityPreludeActions,
+            ...payoutActions,
             ...activityResultActions,
             ...(mg.type === "prompt" && promptConfirmed
               ? this.applyActions(event.actions ?? [], {
@@ -858,12 +887,18 @@ export class GameRoom {
                   actingPlayerId: landingPlayerId,
                   targetPlayerId: landingPlayerId,
                   ranking: landingPlayerId ? [landingPlayerId] : reveal.ranking,
+                }, {
+                  source: { kind: "consequence", label: eventTitle(event), id: event.id },
                 })
               : []),
-            ...(promptConfirmed ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId) : []),
+            ...(promptConfirmed
+              ? this.applyOutcomeActions(event.outcomes ?? [], reveal.ranking, landingPlayerId, {
+                  source: { kind: "consequence", label: eventTitle(event), id: event.id },
+                })
+              : []),
           ]
-        : [];
-      this.state.reveal = { ...reveal, actions };
+        : payoutActions;
+      this.state.reveal = { ...reveal, entries, coins: payoutCoins, coinTransactions: payoutTransactions, actions };
       this.state.activeMinigame = null;
       this.state.phase = "reveal";
       this.pendingResults.clear();
@@ -994,7 +1029,12 @@ export class GameRoom {
     this.broadcast();
   }
 
-  private applyOutcomeActions(branches: EventOutcomeBranch[], ranking: string[], landingPlayerId?: string): AppliedEventAction[] {
+  private applyOutcomeActions(
+    branches: EventOutcomeBranch[],
+    ranking: string[],
+    landingPlayerId?: string,
+    options: ApplyActionOptions = {}
+  ): AppliedEventAction[] {
     const actions: AppliedEventAction[] = [];
     for (const branch of branches) {
       if (!this.targetPlayerIds(branch.when, { ranking, landingPlayerId }).length) continue;
@@ -1005,10 +1045,31 @@ export class GameRoom {
           targetPlayerId: landingPlayerId,
           ranking,
           defaultTarget: branch.when,
-        })
+        }, options)
       );
     }
     return actions;
+  }
+
+  private applyRankingPayout(policy: RankingPayoutPolicy | undefined, ranking: string[], landingPlayerId?: string): AppliedEventAction[] {
+    const outcomes = policy?.outcomes?.length ? policy.outcomes : this.legacyRankingPayoutOutcomes(ranking.length);
+    if (!outcomes.length) return [];
+    return this.applyOutcomeActions(outcomes, ranking, landingPlayerId ?? ranking[0], {
+      source: { kind: "rankingPayout", label: "Ranking payout" },
+    });
+  }
+
+  private legacyRankingPayoutOutcomes(rankingLength: number): EventOutcomeBranch[] {
+    const payouts = this.content.coinPayout ?? [10, 7, 5, 3, 2, 1, 0];
+    return payouts.slice(0, rankingLength).flatMap((value, index) => {
+      if (!value) return [];
+      const rank = index + 1;
+      return [{
+        label: `Rank ${rank} payout`,
+        when: { rank },
+        actions: [{ type: "coins", value, target: { rank }, text: `Rank ${rank} payout.` }],
+      }];
+    });
   }
 
   private applyActions(
@@ -1020,7 +1081,7 @@ export class GameRoom {
       ranking?: string[];
       defaultTarget?: EventActionTarget;
     },
-    options: { fromEffect?: boolean } = {}
+    options: ApplyActionOptions = {}
   ): AppliedEventAction[] {
     const applied: AppliedEventAction[] = [];
     for (const action of actions) {
@@ -1036,7 +1097,7 @@ export class GameRoom {
     action: EventAction,
     targetPlayerIds: string[],
     context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string } = {},
-    options: { fromEffect?: boolean } = {}
+    options: ApplyActionOptions = {}
   ): AppliedEventAction {
     if (!options.fromEffect && shouldAttachConsequence(action)) {
       const effectInstanceIds = this.applyTimedConsequenceToTargets(action, targetPlayerIds, {
@@ -1053,11 +1114,27 @@ export class GameRoom {
       return { type: action.type, targetPlayerIds, text: action.text };
     }
     if (action.type === "coins") {
-      for (const id of targetPlayerIds) {
-        const player = this.state.players.find((p) => p.id === id);
-        if (player) player.coins = Math.max(0, player.coins + action.value);
-      }
-      return { type: action.type, targetPlayerIds, text: action.text ?? valueText(targetPlayerIds, this.state.players, action.value, "moneda"), value: action.value };
+      const source = options.source ?? this.sourceForConsequence(action, context);
+      const coinTransactions = targetPlayerIds.flatMap((id) => {
+        const transaction = this.applyCoinDelta(id, action.value, source, {
+          text: action.text ?? source.label,
+          allowPartial: true,
+        });
+        return transaction ? [transaction] : [];
+      });
+      return {
+        type: action.type,
+        targetPlayerIds,
+        text: action.text ?? coinTransactionsSummary(coinTransactions, this.state.players),
+        value: action.value,
+        coinTransactions,
+      };
+    }
+    if (action.type === "coinTransfer") {
+      return this.applyCoinTransferAction(action, targetPlayerIds, context, options);
+    }
+    if (action.type === "coinRedistribute") {
+      return this.applyCoinRedistributeAction(action, targetPlayerIds, context, options);
     }
     if (action.type === "move") {
       for (const id of targetPlayerIds) {
@@ -1143,8 +1220,69 @@ export class GameRoom {
       ranking: context.ranking,
       connectedPlayerIds: this.connectedPlayers().map((p) => p.id),
       playerIds: this.state.players.map((p) => p.id),
+      turnOrder: this.state.turnOrder.length ? this.state.turnOrder : this.state.players.map((p) => p.id),
       players: this.state.players,
     });
+  }
+
+  private applyCoinTransferAction(
+    action: Extract<EventAction, { type: "coinTransfer" }>,
+    targetPlayerIds: string[],
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string; ranking?: string[] },
+    options: ApplyActionOptions
+  ): AppliedEventAction {
+    const source = options.source ?? this.sourceForConsequence(action, context);
+    const fromPlayerId = this.targetPlayerIds(action.from, context)[0];
+    const toPlayerId = targetPlayerIds[0];
+    const coinTransactions = fromPlayerId && toPlayerId
+      ? applyCoinTransfer(this.state.players, {
+          nextId: () => this.nextCoinTransactionIdString(),
+          fromPlayerId,
+          toPlayerId,
+          amount: action.amount,
+          source,
+          text: action.text ?? source.label,
+          allowPartial: action.clamp !== false,
+        })
+      : [];
+    return {
+      type: action.type,
+      targetPlayerIds: toPlayerId ? [toPlayerId] : [],
+      text: action.text ?? coinTransactionsSummary(coinTransactions, this.state.players),
+      value: action.amount,
+      coinTransactions,
+    };
+  }
+
+  private applyCoinRedistributeAction(
+    action: Extract<EventAction, { type: "coinRedistribute" }>,
+    targetPlayerIds: string[],
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string; ranking?: string[] },
+    options: ApplyActionOptions
+  ): AppliedEventAction {
+    const source = options.source ?? this.sourceForConsequence(action, context);
+    const toPlayerId = targetPlayerIds[0];
+    const fromPlayerIds = toPlayerId ? this.targetPlayerIds(action.from, context).filter((id) => id !== toPlayerId) : [];
+    const coinTransactions = toPlayerId
+      ? fromPlayerIds.flatMap((fromPlayerId) =>
+          applyCoinTransfer(this.state.players, {
+            nextId: () => this.nextCoinTransactionIdString(),
+            fromPlayerId,
+            toPlayerId,
+            amount: action.amount,
+            source,
+            text: action.text ?? source.label,
+            allowPartial: action.clamp !== false,
+          })
+        )
+      : [];
+    return {
+      type: action.type,
+      targetPlayerIds: toPlayerId ? [toPlayerId] : [],
+      text: action.text ?? coinTransactionsSummary(coinTransactions, this.state.players),
+      value: action.amount,
+      coinTransactions,
+    };
   }
 
   private applySwapPositions(
@@ -1310,7 +1448,10 @@ export class GameRoom {
           ...this.applyActions([action], {
             ...hookContext,
             defaultTarget: "target",
-          }, { fromEffect: true })
+          }, {
+            fromEffect: true,
+            source: { kind: "consequence", label: instance.name, id: instance.effectId },
+          })
         );
         if (action.expiresOnTrigger) expired.set(instance.id, "triggered");
       }
@@ -1352,6 +1493,38 @@ export class GameRoom {
   private recordHistory(history: Map<string, number[]>, playerId: string, value: number | null | undefined) {
     if (value === null || value === undefined || !Number.isFinite(value)) return;
     history.set(playerId, [...(history.get(playerId) ?? []), value].slice(-8));
+  }
+
+  private applyCoinDelta(
+    playerId: string,
+    delta: number,
+    source: CoinSource,
+    options: { allowPartial?: boolean; text?: string; counterpartyPlayerId?: string } = {}
+  ): CoinTransaction | null {
+    return applyCoinDelta(this.state.players, {
+      id: this.nextCoinTransactionIdString(),
+      playerId,
+      delta,
+      source,
+      text: options.text,
+      allowPartial: options.allowPartial,
+      counterpartyPlayerId: options.counterpartyPlayerId,
+    });
+  }
+
+  private nextCoinTransactionIdString(): string {
+    return `coin-tx-${this.nextCoinTransactionId++}`;
+  }
+
+  private sourceForConsequence(
+    action: EventAction,
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string } = {}
+  ): CoinSource {
+    return {
+      kind: "consequence",
+      label: action.text ?? consequenceLabel(action),
+      id: context.actingPlayerId ?? context.landingPlayerId ?? context.targetPlayerId,
+    };
   }
 
   private effectTargetName(instance: EffectInstance): string {
@@ -1415,6 +1588,14 @@ function namesFor(ids: string[], players: Player[]): string {
 function valueText(ids: string[], players: Player[], value: number, noun: string): string {
   const verb = value >= 0 ? "gana" : "pierde";
   return `${namesFor(ids, players)} ${verb} ${Math.abs(value)} ${noun}(s)`;
+}
+
+function coinTotalsByPlayer(transactions: CoinTransaction[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const transaction of transactions) {
+    totals[transaction.playerId] = (totals[transaction.playerId] ?? 0) + transaction.delta;
+  }
+  return totals;
 }
 
 function moveSummary(ids: string[], players: Player[], delta: number): string {

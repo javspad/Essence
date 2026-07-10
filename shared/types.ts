@@ -248,6 +248,7 @@ export interface MinigameDef {
   /** preguntas, persona, prompts, etc. (forma depende del motor) */
   content: unknown;
   rigged?: RiggedConfig;
+  rankingPayout?: RankingPayoutPolicy;
 }
 
 export interface DareDef {
@@ -295,6 +296,7 @@ export interface EventActivity {
     playerIds?: string[];
   };
   rigged?: RiggedConfig;
+  rankingPayout?: RankingPayoutPolicy;
 }
 
 export type TargetSelector =
@@ -307,9 +309,33 @@ export type TargetSelector =
   | { playerId: string }
   | { rank: number }
   | { rankFrom: number; rankTo: number }
+  | { coinSelector: "richest" | "poorest" }
+  | { coinRank: number }
+  | { coinRankFrom: number; coinRankTo: number }
   | { nearest: "ahead" | "behind"; from?: "landing" | "acting" | "target" | { playerId: string } };
 
 export type EventActionTarget = TargetSelector;
+
+export type CoinSourceKind = "consequence" | "rankingPayout" | "shopPurchase";
+
+export interface CoinSource {
+  kind: CoinSourceKind;
+  label: string;
+  id?: string;
+}
+
+export interface CoinTransaction {
+  id: string;
+  playerId: string;
+  delta: number;
+  requestedDelta: number;
+  before: number;
+  after: number;
+  source: CoinSource;
+  text: string;
+  counterpartyPlayerId?: string;
+  clamped?: boolean;
+}
 
 export type OfflineActionKind = "takeShot" | "custom";
 
@@ -328,6 +354,8 @@ export type ConsequencePresentation = {
 export type ConsequenceCore =
   | { type: "text"; text: string; target?: EventActionTarget }
   | { type: "coins"; value: number; target?: EventActionTarget; text?: string }
+  | { type: "coinTransfer"; amount: number; from: EventActionTarget; target?: EventActionTarget; clamp?: boolean; text?: string }
+  | { type: "coinRedistribute"; amount: number; from: EventActionTarget; target?: EventActionTarget; clamp?: boolean; text?: string }
   | { type: "move"; delta: number; target?: EventActionTarget; text?: string }
   | { type: "moveTo"; tileId: number; target?: EventActionTarget; text?: string }
   | { type: "skipTurn"; target?: EventActionTarget; text?: string }
@@ -349,6 +377,10 @@ export interface EventOutcomeBranch {
   label?: string;
   when: EventActionTarget;
   actions: EventAction[];
+}
+
+export interface RankingPayoutPolicy {
+  outcomes: EventOutcomeBranch[];
 }
 
 export interface GameEventDef {
@@ -847,6 +879,7 @@ export interface AppliedEventAction {
   targetPlayerIds: string[];
   text: string;
   value?: number;
+  coinTransactions?: CoinTransaction[];
   tileId?: number;
   effectId?: string;
   effectInstanceIds?: string[];
@@ -879,6 +912,7 @@ export interface RevealPayload {
   ranking: string[]; // ids de 1ro a último (rig ya aplicado)
   entries: RevealEntry[];
   coins: Record<string, number>;
+  coinTransactions?: CoinTransaction[];
   actions?: AppliedEventAction[];
 }
 
@@ -934,7 +968,7 @@ export interface ClientToServerEvents {
   "minigame:result": (payload: { score: number; payload: unknown; outcome?: "win" | "loss" }) => void;
   "cosmetic:buy": (
     payload: { cosmeticId: string },
-    ack: (res: { ok: true } | { ok: false; error: string }) => void
+    ack: (res: { ok: true; transaction?: CoinTransaction } | { ok: false; error: string }) => void
   ) => void;
   "cosmetic:equip": (
     payload: { cosmeticId: string; equipped: boolean },
@@ -946,7 +980,7 @@ export interface ClientToServerEvents {
   ) => void;
   "artifact:buy": (
     payload: { offerId: string },
-    ack: (res: { ok: true; artifactId: string; requiresTarget: boolean } | { ok: false; error: string }) => void
+    ack: (res: { ok: true; artifactId: string; requiresTarget: boolean; transaction?: CoinTransaction } | { ok: false; error: string }) => void
   ) => void;
   "artifact:use": (
     payload: { targetPlayerId?: string },

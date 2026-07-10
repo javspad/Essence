@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ArtifactOffer, EffectDef, EffectInstance, GameState, RevealPayload } from "@essence/shared";
+import type { ArtifactOffer, CoinTransaction, EffectDef, EffectInstance, GameState, RevealPayload } from "@essence/shared";
 import { normalizeGameState } from "./gameState";
 import { socket } from "./socket";
 
@@ -164,7 +164,7 @@ export function useGame() {
     setState(null);
   }, []);
 
-  const buyCosmetic = useCallback((cosmeticId: string, onResult?: (res: { ok: true } | { ok: false; error: string }) => void) => {
+  const buyCosmetic = useCallback((cosmeticId: string, onResult?: (res: { ok: true; transaction?: CoinTransaction } | { ok: false; error: string }) => void) => {
     socket.emit("cosmetic:buy", { cosmeticId }, (res) => {
       if (!res.ok) setError(res.error);
       onResult?.(res);
@@ -191,7 +191,7 @@ export function useGame() {
 
   const buyArtifact = useCallback((
     offerId: string,
-    onResult?: (res: { ok: true; artifactId: string; requiresTarget: boolean } | { ok: false; error: string }) => void
+    onResult?: (res: { ok: true; artifactId: string; requiresTarget: boolean; transaction?: CoinTransaction } | { ok: false; error: string }) => void
   ) => {
     socket.emit("artifact:buy", { offerId }, (res) => {
       if (!res.ok) setError(res.error);
