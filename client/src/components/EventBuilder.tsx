@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Images, Search } from "lucide-react";
 import type {
+  ActivityMediaRef,
   AppliedEventAction,
   CoinTransaction,
   ConsequenceRule,
+  ContentMediaAssetDef,
   EffectDef,
   EffectDuration,
   EffectDurationState,
@@ -16,33 +19,40 @@ import type {
   EventTriggerScope,
   GameContent,
   GameEventDef,
-  ImmediateConsequenceDef,
   GameState,
+  ImmediateConsequenceDef,
   Player,
   RevealEntry,
+  RevealPayload,
 } from "@essence/shared";
 import { consequenceLabel, defaultHookForConsequence, effectConsequencesFor, effectRemainingLabel } from "@essence/shared/consequences";
 import seedContent from "@shared/content.json";
-import { normalizeContentSchema } from "@essence/shared/contentValidation";
+import { assertValidGameContent, normalizeContentSchema } from "@essence/shared/contentValidation";
 import {
   EVENT_ACTIVITY_TYPES,
   eventTitle,
+  pruneUnusedMediaAssets,
+  removeEventFromContent,
   resolveActivityParticipantIds,
   resolveActivitySubjectIds,
   resolveEventActionTargetIds,
   resolveEventForPlayer,
+  resolveEventMediaRefs,
   type ResolvedGameEvent,
 } from "@essence/shared/events";
 import { applyRig } from "@essence/shared/rig";
 import { ENGINES } from "../minigames";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
+import ActivityMediaStrip, { ActivityMediaFigure } from "./ActivityMedia";
 import { effectBuilderHref } from "./EffectBuilderSurface";
+import { MediaAssetPickerModal, mediaAssetName } from "./MediaAssetLibrary";
 import MinigameHost from "./MinigameHost";
+import { RevealPanel } from "./Reveal";
 
 const DEFAULT_EFFECT_ID = "half-roll-2-rounds";
 const LEGACY_SHOT_EFFECT_ID = "half-roll-shot-on-six";
-const BASE_CONTENT = migrateEffectDraft(normalizeContentSchema(seedContent));
+const BASE_CONTENT = consolidateContentMedia(migrateEffectDraft(normalizeContentSchema(seedContent)));
 const PLAYER_POOL = BASE_CONTENT.players;
 const INITIAL_PLAYERS = PLAYER_POOL.slice(0, Math.min(4, PLAYER_POOL.length)).map(toPlayer);
 const STORAGE_KEY = "essence:event-builder:draft:v1";
@@ -63,10 +73,11 @@ type TargetKind =
   | "coinRankRange"
   | "nearestAhead"
   | "nearestBehind";
+
 const participantModeOptions: { value: EventParticipantMode; label: string }[] = [
-  { value: "everyone", label: "Everyone" },
-  { value: "landing", label: "Acting player" },
-  { value: "host", label: "Host" },
+  { value: "everyone", label: "All players" },
+  { value: "landing", label: "Landing player only" },
+  { value: "host", label: "Host only" },
 ];
 
 const hookOptions: { value: EffectLifecycleHook; label: string }[] = [
@@ -95,16 +106,16 @@ interface PlaytestResolution {
   actions: AppliedEventAction[];
 }
 
-export default function MinigameBuilder() {
+export default function EventBuilder() {
   const [content, setContent] = useState<GameContent>(() => loadInitialContent());
-  const eventIds = useMemo(() => Object.keys(content.events ?? {}), [content.events]);
+  const eventIds = useMemo(() => Object.keys(content.events), [content.events]);
   const effectIds = useMemo(() => Object.keys(content.effects ?? {}), [content.effects]);
   const [selectedId, setSelectedId] = useState(eventIds[0] ?? "");
   const [selectedEffectId, setSelectedEffectId] = useState(effectIds[0] ?? DEFAULT_EFFECT_ID);
   const [activityFilter, setActivityFilter] = useState<EventActivityType | "all">("all");
+  const [eventSearch, setEventSearch] = useState("");
   const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
   const [protagonistId, setProtagonistId] = useState(INITIAL_PLAYERS[0]?.id ?? "");
-  const [actorId, setActorId] = useState(INITIAL_PLAYERS[0]?.id ?? "");
   const [submitted, setSubmitted] = useState<string[]>([]);
   const [results, setResults] = useState<RunResult[]>([]);
   const [runKey, setRunKey] = useState(1);
@@ -114,20 +125,27 @@ export default function MinigameBuilder() {
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
+  const [assetPickerOpen, setAssetPickerOpen] = useState(false);
 
-  const selected = selectedId ? content.events?.[selectedId] : undefined;
+  const selected = selectedId ? content.events[selectedId] : undefined;
   const protagonist = players.find((player) => player.id === protagonistId) ?? players[0];
-  const actor = players.find((player) => player.id === actorId) ?? players[0];
+  const actor = protagonist;
   const resolved = selected && protagonist ? resolveEventForPlayer(content, selectedId, protagonist) : null;
   const activity = resolved?.activity;
   const hasEngine = activity ? Boolean(ENGINES[activity.type]) : false;
-  const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(content), null, 2), [content]);
+  const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(consolidateContentMedia(content)), null, 2), [content]);
   const filteredEventIds = useMemo(
     () =>
-      activityFilter === "all"
-        ? eventIds
-        : eventIds.filter((id) => content.events?.[id]?.activity?.type === activityFilter),
-    [activityFilter, content.events, eventIds]
+      eventIds.filter((id) => {
+        const event = content.events[id];
+        if (!event || (activityFilter !== "all" && event.activity?.type !== activityFilter)) return false;
+        const query = eventSearch.trim().toLocaleLowerCase();
+        if (!query) return true;
+        return `${eventTitle(event)} ${event.story?.prompt ?? ""} ${event.activity ? activityLabel(event.activity.type) : ""}`
+          .toLocaleLowerCase()
+          .includes(query);
+      }),
+    [activityFilter, content.events, eventIds, eventSearch]
   );
 
   useEffect(() => {
@@ -148,11 +166,6 @@ export default function MinigameBuilder() {
   }, [selectedId, activity?.type]);
 
   useEffect(() => {
-    if (players.some((player) => player.id === actorId)) return;
-    setActorId(players[0]?.id ?? "");
-  }, [actorId, players]);
-
-  useEffect(() => {
     if (players.some((player) => player.id === protagonistId)) return;
     setProtagonistId(players[0]?.id ?? "");
   }, [players, protagonistId]);
@@ -165,20 +178,36 @@ export default function MinigameBuilder() {
 
   const state = useMemo<GameState | null>(() => {
     if (!resolved || !activity || !protagonist || players.length === 0) return null;
-    return createTestState(selectedId, resolved, players, submitted, results, runKey, protagonist.id);
-  }, [activity, players, protagonist, resolved, results, runKey, selectedId, submitted]);
+    return createTestState(selectedId, resolved, players, submitted, results, runKey, protagonist.id, content.mediaAssets);
+  }, [activity, content.mediaAssets, players, protagonist, resolved, results, runKey, selectedId, submitted]);
   const playtestResolution = useMemo(
     () => createPlaytestResolution(resolved, state, players, results),
     [players, resolved, results, state]
   );
+  const playtestReveal = useMemo<RevealPayload | null>(() => {
+    if (!resolved || !playtestResolution?.complete) return null;
+    return {
+      eventId: selectedId,
+      type: resolved.activity?.type ?? "prompt",
+      ...(resolved.activity?.skin ? { skin: resolved.activity.skin } : {}),
+      title: eventTitle(resolved),
+      story: resolved.story,
+      media: resolveEventMediaRefs(resolved, resolved.activity),
+      ranking: playtestResolution.ranking,
+      entries: playtestResolution.entries,
+      coins: Object.fromEntries(playtestResolution.entries.map((entry) => [entry.playerId, entry.coins])),
+      actions: playtestResolution.actions,
+      coinTransactions: playtestResolution.actions.flatMap((action) => action.coinTransactions ?? []),
+    };
+  }, [playtestResolution, resolved, selectedId]);
 
   const updateEvent = (updater: (event: GameEventDef) => GameEventDef) => {
     if (!selectedId || !selected) return;
     setContent((current) => ({
       ...current,
       events: {
-        ...(current.events ?? {}),
-        [selectedId]: updater(current.events?.[selectedId] ?? selected),
+        ...current.events,
+        [selectedId]: updater(current.events[selectedId] ?? selected),
       },
     }));
   };
@@ -195,12 +224,66 @@ export default function MinigameBuilder() {
     updateEvent((event) => ({
       ...event,
       kind: "activity",
-      activity: stripLegacyResolution({
+      activity: {
         type: "prompt",
         ...(event.activity ?? {}),
         ...patch,
-      }),
+      },
     }));
+  };
+
+  const addMediaFile = (file: File) => {
+    if (!selectedId || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = typeof reader.result === "string" ? reader.result : "";
+      if (!src) return;
+      setContent((current) => addMediaToContent(current, selectedId, file, src));
+      setSaveStatus("Media added");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const attachExistingMedia = (assetId: string) => {
+    if (!selectedId) return;
+    setContent((current) => {
+      const event = current.events[selectedId];
+      if (!event || !current.mediaAssets?.[assetId]) return current;
+      const canonical = consolidateEventMedia(event);
+      if (canonical.media?.some((ref) => ref.assetId === assetId)) {
+        return { ...current, events: { ...current.events, [selectedId]: canonical } };
+      }
+      return {
+        ...current,
+        events: {
+          ...current.events,
+          [selectedId]: appendMediaRef(canonical, {
+            assetId,
+            placement: "both",
+          }),
+        },
+      };
+    });
+    setSaveStatus("Image attached");
+  };
+
+  const updateMediaRef = (index: number, ref: ActivityMediaRef) => {
+    updateEvent((event) => updateMediaRefInEvent(event, index, ref));
+  };
+
+  const removeMediaRef = (index: number) => {
+    if (!selectedId) return;
+    setContent((current) => {
+      const event = current.events[selectedId];
+      if (!event) return current;
+      return pruneUnusedMediaAssets({
+        ...current,
+        events: {
+          ...current.events,
+          [selectedId]: removeMediaRefFromEvent(event, index),
+        },
+      });
+    });
   };
 
   const updateTrigger = (value: string) => {
@@ -224,7 +307,7 @@ export default function MinigameBuilder() {
 
   const createEvent = () => {
     const type = activityFilter === "all" ? "prompt" : activityFilter;
-    const id = nextEventId(content.events ?? {});
+    const id = nextEventId(content.events);
     const story = { title: "Nuevo evento", prompt: "Escribí qué pasa cuando alguien cae acá." };
     const event: GameEventDef = {
       name: story.title,
@@ -240,7 +323,7 @@ export default function MinigameBuilder() {
     setContent((current) => ({
       ...current,
       events: {
-        ...(current.events ?? {}),
+        ...current.events,
         [id]: event,
       },
     }));
@@ -251,7 +334,7 @@ export default function MinigameBuilder() {
   };
 
   const deleteEvent = (id: string) => {
-    const event = content.events?.[id];
+    const event = content.events[id];
     if (!event) return;
     const title = eventTitle(event);
     if (!window.confirm(`Delete "${title}"?`)) return;
@@ -278,7 +361,7 @@ export default function MinigameBuilder() {
     const saved = loadSavedEventBuilderContent();
     const next = saved ?? loadInitialContent();
     setContent(next);
-    setSelectedId(Object.keys(next.events ?? {})[0] ?? "");
+    setSelectedId(Object.keys(next.events)[0] ?? "");
     setImportText("");
     setJsonModalOpen(false);
     setSaveStatus(saved ? "Recovered browser draft" : "Loaded content.json");
@@ -302,16 +385,16 @@ export default function MinigameBuilder() {
 
   const importJson = () => {
     try {
-      const parsed = migrateEffectDraft(normalizeContentSchema(JSON.parse(importText)));
-      const ids = Object.keys(parsed.events ?? {});
+      const parsed = consolidateContentMedia(migrateEffectDraft(assertValidGameContent(JSON.parse(importText), "Imported content")));
+      const ids = Object.keys(parsed.events);
       setContent(parsed);
       setSelectedId(ids[0] ?? "");
       setImportText("");
       setJsonModalOpen(false);
       setSaveStatus("Imported");
       resetRun();
-    } catch {
-      window.alert("Invalid JSON");
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Invalid JSON");
     }
   };
 
@@ -325,16 +408,6 @@ export default function MinigameBuilder() {
     }
   };
 
-  const addConsequence = () => {
-    updateEvent((event) => ({
-      ...event,
-      consequences: [
-        ...(event.consequences ?? []),
-        { label: "New consequence", appliesTo: "landing", actions: [{ type: "coins", value: 1 }] },
-      ],
-    }));
-  };
-
   const removeConsequence = (index: number) => {
     updateEvent((event) => ({ ...event, consequences: (event.consequences ?? []).filter((_, i) => i !== index) }));
   };
@@ -343,6 +416,16 @@ export default function MinigameBuilder() {
     updateEvent((event) => ({
       ...event,
       consequences: (event.consequences ?? []).map((rule, i) => (i === index ? updater(rule) : rule)),
+    }));
+  };
+
+  const addConsequence = () => {
+    updateEvent((event) => ({
+      ...event,
+      consequences: [
+        ...(event.consequences ?? []),
+        { label: "New consequence", appliesTo: "landing", actions: [{ type: "coins", value: 1 }] },
+      ],
     }));
   };
 
@@ -425,14 +508,15 @@ export default function MinigameBuilder() {
 
   const updatePlayerCoins = (playerId: string, coins: number) => {
     setPlayers((current) =>
-      current.map((player) => (player.id === playerId ? { ...player, coins: Math.max(0, Math.round(Number.isFinite(coins) ? coins : 0)) } : player))
+      current.map((player) =>
+        player.id === playerId ? { ...player, coins: Math.max(0, Math.round(Number.isFinite(coins) ? coins : 0)) } : player
+      )
     );
   };
 
   const resetPlayers = () => {
     const next = PLAYER_POOL.slice(0, Math.min(4, PLAYER_POOL.length)).map(toPlayer);
     setPlayers(next);
-    setActorId(next[0]?.id ?? "");
     setProtagonistId(next[0]?.id ?? "");
     resetRun();
   };
@@ -462,21 +546,25 @@ export default function MinigameBuilder() {
   };
 
   return (
-    <main className="min-h-dvh bg-[#10131a] text-slate-100 lg:h-dvh lg:overflow-hidden">
-      <header className="flex min-h-14 flex-col gap-2 border-b border-white/10 bg-[#151922] px-3 py-2 lg:grid lg:h-14 lg:grid-cols-[12rem_minmax(0,1fr)_auto] lg:items-center lg:gap-3 lg:py-0">
+    <main className="h-dvh overflow-hidden bg-[#10131a] text-slate-100">
+      <header className="grid h-14 grid-cols-[12rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 bg-[#151922] px-3">
         <div className="min-w-0">
           <p className="text-[0.55rem] font-black uppercase tracking-[0.18em] text-cyan-200">Essence tools</p>
           <h1 className="truncate text-lg font-black tracking-normal text-white">Event builder</h1>
         </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 lg:flex-nowrap lg:justify-center">
-          <h2 className="w-full truncate text-base font-black text-white md:text-lg lg:w-auto">{resolved ? eventTitle(resolved) : "No event selected"}</h2>
+        <div className="flex min-w-0 items-center justify-center gap-2">
+          <h2 className="truncate text-base font-black text-white md:text-lg">{resolved ? eventTitle(resolved) : "No event selected"}</h2>
           {activity && <ActivityTypeSelect type={activity.type} missing={!hasEngine} onChange={changeActivityType} />}
           {selected && <EventScopeSelect value={scopeSelectValue(selected.trigger)} players={PLAYER_POOL} onChange={updateTrigger} />}
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={saveDraft} className="h-8 rounded-md border border-cyan-200/25 bg-cyan-300/10 px-2.5 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/15">
             {saveStatus || "Save"}
           </button>
+          <a href="/asset-library" className="flex h-8 items-center gap-1.5 rounded-md border border-violet-200/25 bg-violet-300/10 px-2.5 text-xs font-black text-violet-100 transition hover:bg-violet-300/15">
+            <Images className="h-3.5 w-3.5" />
+            Assets
+          </a>
           <button type="button" onClick={() => setJsonModalOpen(true)} className="h-8 rounded-md border border-white/15 bg-white/5 px-2.5 text-xs font-black text-slate-100 transition hover:bg-white/10">
             Import/export
           </button>
@@ -489,8 +577,8 @@ export default function MinigameBuilder() {
         </div>
       </header>
 
-      <div className="grid min-h-0 grid-cols-1 lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[20rem_minmax(0,1fr)_21rem] lg:overflow-hidden">
-        <aside className="flex min-h-0 flex-col border-b border-white/10 bg-[#111722] p-3 lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-white/10">
+      <div className="grid h-[calc(100dvh-3.5rem)] min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[20rem_minmax(0,1fr)_21rem]">
+        <aside className="flex min-h-0 flex-col overflow-hidden border-b border-white/10 bg-[#111722] p-3 lg:border-b-0 lg:border-r lg:border-white/10">
           <SectionTitle eyebrow={`${EVENT_ACTIVITY_TYPES.length} types`} title="Activity types" />
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             <ActivityFilterButton active={activityFilter === "all"} onClick={() => setActivityFilter("all")}>
@@ -510,12 +598,22 @@ export default function MinigameBuilder() {
                 New
               </button>
             </div>
-            <div className="mt-2 flex max-h-96 min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none">
+            <label className="relative mt-2 block">
+              <span className="sr-only">Search events</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={eventSearch}
+                onChange={(event) => setEventSearch(event.target.value)}
+                placeholder="Search events"
+                className="h-10 w-full rounded-md border border-white/15 bg-[#0f141d] pl-9 pr-3 text-sm font-bold text-white outline-none placeholder:text-slate-500 focus:border-cyan-300"
+              />
+            </label>
+            <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
               {filteredEventIds.length === 0 && (
-                <p className="rounded-md border border-dashed border-white/10 p-3 text-sm font-bold text-slate-400">No events match this type.</p>
+                <p className="rounded-md border border-dashed border-white/10 p-3 text-sm font-bold text-slate-400">No events match this search.</p>
               )}
               {filteredEventIds.map((id) => {
-                const event = content.events?.[id];
+                const event = content.events[id];
                 const active = id === selectedId;
                 if (!event) return null;
                 return (
@@ -548,10 +646,14 @@ export default function MinigameBuilder() {
           </div>
         </aside>
 
-        <section className="min-w-0 bg-[#181d27] p-3 lg:min-h-0 lg:overflow-hidden">
-          <div className="grid min-h-0 gap-3 lg:h-full xl:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="relative h-[32rem] overflow-hidden rounded-md border border-white/10 bg-[#10131a] lg:h-auto lg:min-h-0">
-              {state && actor ? (
+        <section className="min-h-0 min-w-0 overflow-hidden bg-[#181d27] p-3">
+          <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="relative min-h-0 overflow-hidden rounded-md border border-white/10 bg-[#10131a]">
+              {playtestReveal ? (
+                <div className="flex min-h-full items-center justify-center p-6">
+                  <RevealPanel reveal={playtestReveal} mediaAssets={content.mediaAssets} players={players} canAdvance onNext={resetRun} />
+                </div>
+              ) : state && actor ? (
                 <MinigameHost
                   key={`${selectedId}-${actor.id}-${runKey}`}
                   state={state}
@@ -563,12 +665,11 @@ export default function MinigameBuilder() {
                   onLeave={() => undefined}
                 />
               ) : (
-                <StoryPreview resolved={resolved} />
+                <StoryPreview resolved={resolved} assets={content.mediaAssets} />
               )}
-              {playtestResolution?.complete && <ResolutionOverlay resolution={playtestResolution} />}
             </div>
 
-            <div className="space-y-3 pr-1 lg:min-h-0 lg:overflow-y-auto">
+            <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
               <Panel title="Story" eyebrow="default">
                 <TextInput
                   label="Title"
@@ -605,13 +706,14 @@ export default function MinigameBuilder() {
               <Panel title="Activity" eyebrow={activity ? activityLabel(activity.type) : "none"}>
                 {activity && activity.type === "prompt" && (
                   <SelectInput
-                    label="Prompt confirmation"
+                    label="Who confirms"
+                    hint="A prompt does not run a scored game. These people must confirm before the event resolves."
                     value={activity.confirmation?.mode ?? "rest"}
                     options={[
-                      { value: "rest", label: "Rest of group" },
-                      { value: "everyone", label: "Everyone" },
-                      { value: "host", label: "Host" },
-                      { value: "self", label: "Acting player" },
+                      { value: "rest", label: "Everyone except the landing player" },
+                      { value: "everyone", label: "All players" },
+                      { value: "host", label: "Host only" },
+                      { value: "self", label: "Landing player only" },
                     ]}
                     onChange={(mode) =>
                       updateActivity({ confirmation: { ...(activity.confirmation ?? {}), mode: mode as EventConfirmationMode } })
@@ -619,20 +721,7 @@ export default function MinigameBuilder() {
                   />
                 )}
                 {activity && activity.type !== "prompt" && (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <SelectInput
-                      label="Participants"
-                      value={activity.participants ?? defaultParticipantMode(activity.type)}
-                      options={participantModeOptions}
-                      onChange={(mode) => updateActivity({ participants: mode as EventParticipantMode })}
-                    />
-                    <SelectInput
-                      label="Ranked subjects"
-                      value={activity.subjects ?? "default"}
-                      options={[{ value: "default", label: "Default" }, ...participantModeOptions]}
-                      onChange={(mode) => updateActivity({ subjects: mode === "default" ? undefined : (mode as EventParticipantMode) })}
-                    />
-                  </div>
+                  <ActivityAudienceEditor activity={activity} onUpdate={updateActivity} />
                 )}
                 <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
                   Content JSON
@@ -650,7 +739,7 @@ export default function MinigameBuilder() {
                       <div>
                         <p className="text-[0.58rem] font-black uppercase tracking-[0.14em] text-amber-200">Ranking payout</p>
                         <p className="mt-1 text-xs font-bold text-slate-400">
-                          {(activity.rankingPayout?.consequences ?? []).length ? "Authored policy overrides legacy coinPayout." : "Uses legacy coinPayout until a policy is added."}
+                          Reward a rank with coins or another immediate consequence.
                         </p>
                       </div>
                       <button
@@ -676,24 +765,21 @@ export default function MinigameBuilder() {
                   </div>
                 )}
               </Panel>
+
+              <MediaEditor
+                assets={content.mediaAssets}
+                media={selected ? resolveEventMediaRefs(selected, selected.activity) : undefined}
+                onOpenLibrary={() => setAssetPickerOpen(true)}
+                onUpdateRef={updateMediaRef}
+                onRemoveRef={removeMediaRef}
+              />
             </div>
           </div>
         </section>
 
-        <aside className="min-h-0 border-t border-white/10 bg-[#111722] p-3 lg:overflow-y-auto lg:border-l lg:border-t-0">
+        <aside className="min-h-0 overflow-y-auto border-t border-white/10 bg-[#111722] p-3 lg:border-l lg:border-t-0">
           <Panel title="Playtest" eyebrow={`${players.length} players`}>
-            <SelectInput
-              label="Acting player"
-              value={protagonistId}
-              options={players.map((player) => ({ value: player.id, label: player.name }))}
-              onChange={setProtagonistId}
-            />
-            <SelectInput
-              label="Preview as"
-              value={actorId}
-              options={players.map((player) => ({ value: player.id, label: player.name }))}
-              onChange={setActorId}
-            />
+            <p className="text-xs font-bold leading-5 text-slate-400">Choose the player who lands on this event. The preview follows that player, including their personal story version.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" onClick={addPlayer} disabled={players.length >= PLAYER_POOL.length} className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/10 disabled:opacity-40">
                 Add player
@@ -707,36 +793,31 @@ export default function MinigameBuilder() {
             </div>
             <div className="mt-3 space-y-2">
               {players.map((player) => {
-                const activePreview = player.id === actorId;
+                const activePreview = player.id === protagonistId;
                 return (
                   <div
                     key={player.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={activePreview}
-                    onClick={() => setActorId(player.id)}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter" && event.key !== " ") return;
-                      event.preventDefault();
-                      setActorId(player.id);
-                    }}
-                    className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border p-2 text-left transition ${
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1.5 rounded-md border p-2 text-left transition ${
                       activePreview ? "border-cyan-300/70 bg-cyan-300/14" : "border-white/10 bg-black/15 hover:border-white/25 hover:bg-white/[0.06]"
                     }`}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-black text-white">{player.name}</span>
-                      <label className="mt-1 inline-flex items-center gap-1 text-[0.6rem] font-black uppercase tracking-[0.1em] text-amber-100">
-                        Coins
-                        <input
-                          type="number"
-                          value={player.coins}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) => updatePlayerCoins(player.id, Number(event.target.value))}
-                          className="h-7 w-16 rounded border border-amber-200/25 bg-black/20 px-2 text-xs font-black normal-case text-white outline-none focus:border-amber-200"
-                        />
-                      </label>
-                    </span>
+                    <button type="button" onClick={() => setProtagonistId(player.id)} className="flex min-w-0 flex-1 items-center gap-2 px-1 text-left">
+                      <span className="truncate text-sm font-black text-white">{player.name}</span>
+                      <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[0.58rem] font-black uppercase ${activePreview ? "bg-cyan-200 text-cyan-950" : player.isHost ? "bg-amber-200/15 text-amber-100" : "bg-white/8 text-slate-400"}`}>
+                        {activePreview ? "Playing" : player.isHost ? "Host" : "In game"}
+                      </span>
+                    </button>
+                    <label className="col-start-1 row-start-2 flex items-center gap-2 px-1 text-[0.58rem] font-black uppercase text-amber-100">
+                      Playtest coins
+                      <input
+                        type="number"
+                        min={0}
+                        value={player.coins}
+                        aria-label={`${player.name} coins`}
+                        onChange={(event) => updatePlayerCoins(player.id, Number(event.target.value))}
+                        className="h-7 w-14 rounded border border-amber-200/25 bg-black/20 px-1.5 text-xs font-black normal-case text-white outline-none focus:border-amber-200"
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={(event) => {
@@ -744,7 +825,7 @@ export default function MinigameBuilder() {
                         removePlayer(player.id);
                       }}
                       disabled={players.length <= 1}
-                      className="rounded-md border border-rose-200/20 bg-rose-500/10 px-2 py-1 text-xs font-black text-rose-100 transition hover:bg-rose-500/15 disabled:opacity-40"
+                      className="col-start-2 row-span-2 row-start-1 self-start rounded-md border border-rose-200/20 bg-rose-500/10 px-2 py-1 text-xs font-black text-rose-100 transition hover:bg-rose-500/15 disabled:opacity-40"
                     >
                       Remove
                     </button>
@@ -758,10 +839,7 @@ export default function MinigameBuilder() {
             <ResolutionPanel resolution={playtestResolution} players={players} />
           </Panel>
 
-          <Panel
-            title="Consequences"
-            eyebrow={consequenceCountLabel(selected?.consequences ?? [])}
-          >
+          <Panel title="Consequences" eyebrow={`${selected?.consequences?.length ?? 0} rules`}>
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
@@ -778,9 +856,6 @@ export default function MinigameBuilder() {
                 Effect builder
               </a>
             </div>
-            <p className="mt-2 text-xs font-bold leading-5 text-slate-400">
-              These resolve together when the event completes. Winner, loser, and rank targets become available after a scored activity.
-            </p>
             <div className="mt-3 space-y-2">
               {(selected?.consequences ?? []).map((rule, index) => (
                 <ConsequenceEditor
@@ -792,11 +867,6 @@ export default function MinigameBuilder() {
                   onRemove={() => removeConsequence(index)}
                 />
               ))}
-              {!(selected?.consequences ?? []).length && (
-                <p className="rounded-md border border-dashed border-white/10 p-3 text-xs font-bold leading-5 text-slate-500">
-                  No consequences. This event only presents its story or activity.
-                </p>
-              )}
             </div>
           </Panel>
 
@@ -827,6 +897,17 @@ export default function MinigameBuilder() {
           </Panel>
         </aside>
       </div>
+      {assetPickerOpen && (
+        <MediaAssetPickerModal
+          assets={content.mediaAssets}
+          onChoose={(assetId) => {
+            attachExistingMedia(assetId);
+            setAssetPickerOpen(false);
+          }}
+          onUpload={addMediaFile}
+          onClose={() => setAssetPickerOpen(false)}
+        />
+      )}
       {jsonModalOpen && (
         <JsonModal
           exportJson={exportJson}
@@ -843,7 +924,7 @@ export default function MinigameBuilder() {
   );
 }
 
-function StoryPreview({ resolved }: { resolved: ResolvedGameEvent | null }) {
+function StoryPreview({ resolved, assets }: { resolved: ResolvedGameEvent | null; assets?: Record<string, ContentMediaAssetDef> }) {
   return (
     <div className="flex min-h-full items-center justify-center p-6">
       <div className="w-full max-w-xl rounded-md border border-white/10 bg-white/[0.035] p-6 text-center">
@@ -851,33 +932,8 @@ function StoryPreview({ resolved }: { resolved: ResolvedGameEvent | null }) {
         <h2 className="mt-2 text-3xl font-black text-white">{resolved ? eventTitle(resolved) : "No event"}</h2>
         {resolved?.story.setup && <p className="mt-4 text-sm font-black leading-6 text-slate-300">{resolved.story.setup}</p>}
         <p className="mt-4 text-xl font-black leading-8 text-white">{resolved?.story.prompt ?? "Select an event."}</p>
+        <ActivityMediaStrip assets={assets} media={resolved?.media} placement="prompt" compact />
         {resolved?.story.reward && <p className="mt-4 text-sm font-black text-amber-200">{resolved.story.reward}</p>}
-      </div>
-    </div>
-  );
-}
-
-function ResolutionOverlay({ resolution }: { resolution: PlaytestResolution }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 rounded-md border border-emerald-200/30 bg-[#10131a]/94 p-3 shadow-2xl shadow-black/45 backdrop-blur">
-      <p className="text-[0.58rem] font-black uppercase tracking-[0.16em] text-emerald-200">Playtest resolved</p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {resolution.entries.slice(0, 3).map((entry) => (
-          <span key={entry.playerId} className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-xs font-black text-white">
-            #{entry.rank} {entry.name}: {revealEntryResult(entry)}
-          </span>
-        ))}
-      </div>
-      <div className="mt-2 space-y-1">
-        {resolution.actions.length ? (
-          resolution.actions.slice(0, 3).map((action, index) => (
-            <p key={`${action.type}-${index}`} className="text-sm font-bold leading-5 text-slate-100">
-              {action.text}
-            </p>
-          ))
-        ) : (
-          <p className="text-sm font-bold text-slate-300">No configured consequences fired.</p>
-        )}
       </div>
     </div>
   );
@@ -935,6 +991,169 @@ function ResolutionPanel({ resolution, players }: { resolution: PlaytestResoluti
       </div>
     </div>
   );
+}
+
+function MediaEditor({
+  assets,
+  media,
+  onOpenLibrary,
+  onUpdateRef,
+  onRemoveRef,
+}: {
+  assets?: Record<string, ContentMediaAssetDef>;
+  media?: ActivityMediaRef[];
+  onOpenLibrary: () => void;
+  onUpdateRef: (index: number, ref: ActivityMediaRef) => void;
+  onRemoveRef: (index: number) => void;
+}) {
+  return (
+    <Panel title="Images" eyebrow={`${media?.length ?? 0} attached`}>
+      <div className="border border-cyan-200/30 bg-cyan-300/10 p-3">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div>
+            <p className="text-sm font-black text-white">One image list for the whole event</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-cyan-100/80">Choose an image, then decide whether it appears with the prompt, on results, or in both places.</p>
+          </div>
+          <button type="button" onClick={onOpenLibrary} className="builder-button preview h-10 gap-2">
+            <Images className="h-4 w-4" />
+            Choose image
+          </button>
+        </div>
+        <a href="/asset-library" className="mt-2 inline-flex text-xs font-black text-cyan-100 underline decoration-cyan-200/40 underline-offset-4 hover:text-white">
+          Manage names, captions, fit, and crop in Asset library
+        </a>
+      </div>
+
+      <MediaRefList
+        refs={media}
+        assets={assets}
+        onUpdateRef={onUpdateRef}
+        onRemoveRef={onRemoveRef}
+      />
+    </Panel>
+  );
+}
+
+function MediaRefList({
+  refs,
+  assets,
+  onUpdateRef,
+  onRemoveRef,
+}: {
+  refs?: ActivityMediaRef[];
+  assets?: Record<string, ContentMediaAssetDef>;
+  onUpdateRef: (index: number, ref: ActivityMediaRef) => void;
+  onRemoveRef: (index: number) => void;
+}) {
+  return (
+    <div className="mt-3">
+      <div className="mt-2 grid gap-2">
+        {(refs ?? []).length === 0 && <p className="rounded-md border border-dashed border-white/10 p-3 text-sm text-slate-400">No images attached.</p>}
+        {(refs ?? []).map((ref, index) => (
+          <MediaAttachmentRow
+            key={`${ref.assetId}-${index}`}
+            refDef={ref}
+            asset={assets?.[ref.assetId]}
+            index={index}
+            onUpdateRef={onUpdateRef}
+            onRemoveRef={onRemoveRef}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MediaAttachmentRow({
+  refDef,
+  asset,
+  index,
+  onUpdateRef,
+  onRemoveRef,
+}: {
+  refDef: ActivityMediaRef;
+  asset?: ContentMediaAssetDef;
+  index: number;
+  onUpdateRef: (index: number, ref: ActivityMediaRef) => void;
+  onRemoveRef: (index: number) => void;
+}) {
+  const patchRef = (patch: Partial<ActivityMediaRef>) => onUpdateRef(index, { ...refDef, ...patch });
+  return (
+    <div className="rounded-md border border-white/10 bg-black/18 p-2">
+      <div className="grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)]">
+        <ActivityMediaFigure asset={asset} refDef={refDef} compact surface="tool" />
+        <div className="min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 truncate text-xs font-black text-white">{mediaAssetName(asset, refDef.assetId)}</p>
+            <button type="button" onClick={() => onRemoveRef(index)} className="builder-button icon danger shrink-0" aria-label={`Remove ${mediaAssetName(asset, refDef.assetId)}`} title="Remove image">
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+          <SelectInput
+            label="Show during"
+            value={refDef.placement ?? "both"}
+            options={[
+              { value: "prompt", label: "Prompt only" },
+              { value: "reveal", label: "Results only" },
+              { value: "both", label: "Prompt and results" },
+            ]}
+            onChange={(placement) => patchRef({ placement: placement as ActivityMediaRef["placement"] })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityAudienceEditor({
+  activity,
+  onUpdate,
+}: {
+  activity: EventActivity;
+  onUpdate: (patch: Partial<EventActivity>) => void;
+}) {
+  const participants = activity.participants ?? defaultParticipantMode(activity.type);
+  const defaultSubjects = activity.type === "hostPick" || activity.type === "vote" ? "everyone" : participants;
+  const subjects = activity.subjects ?? defaultSubjects;
+
+  return (
+    <div className="mt-3 rounded-md border border-cyan-200/20 bg-cyan-300/[0.06] p-3">
+      <div>
+        <p className="text-sm font-black text-white">Participation and results</p>
+        <p className="mt-1 text-xs font-bold leading-5 text-slate-400">
+          First choose who receives the activity. Then choose whose score is ranked, which is what winner, loser, and rank consequences use.
+        </p>
+      </div>
+      <div className="mt-1 grid gap-2 sm:grid-cols-2">
+        <SelectInput
+          label="Who plays"
+          hint="These players receive the activity and submit or play it."
+          value={participants}
+          options={participantModeOptions}
+          onChange={(mode) => onUpdate({ participants: mode as EventParticipantMode })}
+        />
+        <SelectInput
+          label="Who gets a result"
+          hint="These players are ranked. Consequences can target the winner, loser, or a rank."
+          value={activity.subjects ?? "default"}
+          options={[
+            { value: "default", label: `Default: ${participantModeLabel(defaultSubjects)}` },
+            ...participantModeOptions,
+          ]}
+          onChange={(mode) => onUpdate({ subjects: mode === "default" ? undefined : (mode as EventParticipantMode) })}
+        />
+      </div>
+      <p className="mt-3 rounded-md border border-white/10 bg-black/15 px-3 py-2 text-xs font-bold leading-5 text-cyan-100">
+        This event asks <span className="font-black text-white">{participantModeLabel(participants)}</span> to play and creates results for <span className="font-black text-white">{participantModeLabel(subjects)}</span>.
+      </p>
+    </div>
+  );
+}
+
+function participantModeLabel(mode: EventParticipantMode): string {
+  if (mode === "landing") return "the landing player";
+  if (mode === "host") return "the host";
+  return "all players";
 }
 
 function Panel({ eyebrow, title, children }: { eyebrow: string; title: string; children: ReactNode }) {
@@ -1088,7 +1307,7 @@ function EffectBuilderPanel({
           />
         </>
       ) : (
-        <p className="mt-3 rounded-md border border-dashed border-white/10 p-3 text-sm text-slate-400">Create an Effect to reference it from a consequence.</p>
+        <p className="mt-3 rounded-md border border-dashed border-white/10 p-3 text-sm text-slate-400">Create an effect type to use it from consequence actions.</p>
       )}
     </Panel>
   );
@@ -1275,7 +1494,7 @@ function ConsequenceActionEditor({
   return (
     <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-300">Consequence {actionIndex + 1}</p>
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-300">Action {actionIndex + 1}</p>
         <button
           type="button"
           onClick={onRemove}
@@ -1398,7 +1617,7 @@ function EffectCompositionEditor({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-black uppercase tracking-[0.12em] text-cyan-100">Timed consequences</p>
-          <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-400">{effect.description ?? "Compose the Effect from lifecycle consequences."}</p>
+          <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-400">{effect.description ?? "Compose the effect from the same consequence actions."}</p>
         </div>
         <span className="shrink-0 rounded-sm border border-cyan-200/25 bg-cyan-300/10 px-2 py-1 text-[0.62rem] font-black uppercase text-cyan-100">
           {effectRemainingLabel(durationPreview(effect.duration))}
@@ -1491,8 +1710,6 @@ function EffectConsequenceRow({
             { value: "skipTurn", label: "Skip turn" },
             { value: "extraTurn", label: "Extra turn" },
             { value: "coins", label: "Coins" },
-            { value: "coinTransfer", label: "Coin transfer" },
-            { value: "coinRedistribute", label: "Coin redistribution" },
             { value: "move", label: "Move" },
             { value: "moveTo", label: "Move to cell" },
             { value: "swapPositions", label: "Swap positions" },
@@ -1507,13 +1724,6 @@ function EffectConsequenceRow({
             onChange={(value) => onChange(updateActionAmount(editable, value))}
           />
         )}
-        {(editable.type === "coinTransfer" || editable.type === "coinRedistribute") && (
-          <NumberInput
-            label="Coins"
-            value={editable.amount}
-            onChange={(amount) => onChange({ ...editable, amount: Math.max(0, Math.round(amount)) })}
-          />
-        )}
         {editable.type === "moveTo" && <NumberInput label="Cell" value={editable.tileId} onChange={(tileId) => onChange({ ...editable, tileId })} />}
         {editable.type === "movementMultiplier" && (
           <NumberInput label="x" value={editable.multiplier} onChange={(multiplier) => onChange({ ...editable, multiplier: Math.max(0, multiplier) })} />
@@ -1521,16 +1731,8 @@ function EffectConsequenceRow({
         {editable.type === "diceBias" && (
           <NumberInput label="Face" value={editable.face} onChange={(face) => onChange({ ...editable, face: clampInt(face, 1, 6) })} />
         )}
-        {editable.type !== "coins" && editable.type !== "coinTransfer" && editable.type !== "coinRedistribute" && editable.type !== "move" && editable.type !== "moveTo" && editable.type !== "movementMultiplier" && editable.type !== "diceBias" && <div />}
+        {editable.type !== "coins" && editable.type !== "move" && editable.type !== "moveTo" && editable.type !== "movementMultiplier" && editable.type !== "diceBias" && <div />}
       </div>
-      {(editable.type === "coinTransfer" || editable.type === "coinRedistribute") && (
-        <TargetPicker
-          label={editable.type === "coinRedistribute" ? "Collect from" : "Take from"}
-          target={editable.from}
-          players={players}
-          onChange={(from) => onChange({ ...editable, from })}
-        />
-      )}
       {editable.type === "movementMultiplier" && (
         <SelectInput
           label="Rounding"
@@ -1695,10 +1897,97 @@ function MetaPill({ children }: { children: ReactNode }) {
   return <span className="rounded-full border border-white/10 bg-black/15 px-2 py-0.5 text-[0.65rem] font-bold text-slate-300">{children}</span>;
 }
 
-function stripLegacyResolution(activity: EventActivity): EventActivity {
-  const next = { ...activity };
-  delete next.resolutionMode;
-  return next;
+function addMediaToContent(
+  content: GameContent,
+  eventId: string,
+  file: File,
+  src: string
+): GameContent {
+  const event = content.events[eventId];
+  if (!event) return content;
+  const id = nextMediaAssetId(content.mediaAssets ?? {}, file.name);
+  const asset: ContentMediaAssetDef = {
+    id,
+    type: "image",
+    src,
+    alt: file.name.replace(/\.[^.]+$/, ""),
+    fit: "cover",
+    crop: { x: 0, y: 0, width: 1, height: 1 },
+  };
+  const ref: ActivityMediaRef = {
+    assetId: id,
+    caption: asset.alt,
+    placement: "both",
+  };
+  return {
+    ...content,
+    mediaAssets: {
+      ...(content.mediaAssets ?? {}),
+      [id]: asset,
+    },
+    events: {
+      ...content.events,
+      [eventId]: appendMediaRef(event, ref),
+    },
+  };
+}
+
+function appendMediaRef(event: GameEventDef, ref: ActivityMediaRef): GameEventDef {
+  const canonical = consolidateEventMedia(event);
+  return { ...canonical, media: [...(canonical.media ?? []), ref] };
+}
+
+function updateMediaRefInEvent(
+  event: GameEventDef,
+  index: number,
+  ref: ActivityMediaRef
+): GameEventDef {
+  const canonical = consolidateEventMedia(event);
+  return { ...canonical, media: compactMediaRefs((canonical.media ?? []).map((item, itemIndex) => (itemIndex === index ? ref : item))) };
+}
+
+function removeMediaRefFromEvent(event: GameEventDef, index: number): GameEventDef {
+  const canonical = consolidateEventMedia(event);
+  return { ...canonical, media: compactMediaRefs((canonical.media ?? []).filter((_, itemIndex) => itemIndex !== index)) };
+}
+
+function compactMediaRefs(media: ActivityMediaRef[]): ActivityMediaRef[] | undefined {
+  return media.length ? media : undefined;
+}
+
+function consolidateContentMedia(content: GameContent): GameContent {
+  return {
+    ...content,
+    events: Object.fromEntries(Object.entries(content.events).map(([id, event]) => [id, consolidateEventMedia(event)])),
+  };
+}
+
+function consolidateEventMedia(event: GameEventDef): GameEventDef {
+  const media = resolveEventMediaRefs(event, event.activity);
+  if (!event.activity?.media?.length) return { ...event, media };
+  return {
+    ...event,
+    media,
+    activity: {
+      ...event.activity,
+      media: undefined,
+    },
+  };
+}
+
+function nextMediaAssetId(existing: Record<string, ContentMediaAssetDef>, fileName: string): string {
+  const base = slugifyMediaId(fileName.replace(/\.[^.]+$/, "")) || "media";
+  let id = base;
+  let index = 2;
+  while (existing[id]) {
+    id = `${base}-${index}`;
+    index += 1;
+  }
+  return id;
+}
+
+function slugifyMediaId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
 }
 
 function createPlaytestResolution(
@@ -2116,7 +2405,7 @@ function loadSavedEventBuilderContent(): GameContent | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return null;
-    return migrateEffectDraft(normalizeContentSchema(JSON.parse(saved)));
+    return consolidateContentMedia(migrateEffectDraft(normalizeContentSchema(JSON.parse(saved))));
   } catch {
     localStorage.removeItem(STORAGE_KEY);
     return null;
@@ -2162,7 +2451,6 @@ function mapEvents(
   events: GameContent["events"],
   mapAction: (action: ImmediateConsequenceDef) => ImmediateConsequenceDef
 ): GameContent["events"] {
-  if (!events) return events;
   return Object.fromEntries(
     Object.entries(events).map(([id, event]) => [
       id,
@@ -2229,12 +2517,7 @@ function removeEffectFromContent(content: GameContent, effectId: string): GameCo
 
 function rewriteDeletedEffectAction<T extends EventAction>(action: T, deletedEffectId: string): T {
   if (action.type !== "applyEffect" || action.effectId !== deletedEffectId) return action;
-  return {
-    type: "coins",
-    value: 1,
-    text: action.text,
-    ...("target" in action && action.target ? { target: action.target } : {}),
-  } as T;
+  return { type: "coins", value: 1, text: action.text, ...("target" in action && action.target ? { target: action.target } : {}) } as T;
 }
 
 function nextEventId(events: Record<string, GameEventDef>): string {
@@ -2245,28 +2528,6 @@ function nextEventId(events: Record<string, GameEventDef>): string {
     id = `event-custom-${index}`;
   }
   return id;
-}
-
-function removeEventFromContent(content: GameContent, eventId: string): GameContent {
-  const { [eventId]: _deleted, ...events } = content.events ?? {};
-  return {
-    ...content,
-    events,
-    board: content.board.map((tile) => removeEventFromTile(tile, eventId)),
-    maps: content.maps?.map((map) => ({
-      ...map,
-      board: map.board.map((tile) => removeEventFromTile(tile, eventId)),
-    })),
-  };
-}
-
-function removeEventFromTile(tile: GameContent["board"][number], eventId: string): GameContent["board"][number] {
-  const eventIds = tile.eventIds?.filter((id) => id !== eventId);
-  return {
-    ...tile,
-    eventId: tile.eventId === eventId ? undefined : tile.eventId,
-    eventIds: eventIds?.length ? eventIds : undefined,
-  };
 }
 
 function scopeSelectValue(trigger?: EventTriggerScope): string {
@@ -2412,11 +2673,6 @@ function consequenceSummary(rule: ConsequenceRule, players: GameContent["players
   const actions = consequenceActions(rule);
   const suffix = actions.length > 1 ? ` + ${actions.length - 1} more` : "";
   return `${targetLabel(rule.appliesTo, players)} - ${actionSummary(editableConsequenceAction(actions[0]))}${suffix}`;
-}
-
-function consequenceCountLabel(rules: ConsequenceRule[]): string {
-  const actionCount = rules.reduce((total, rule) => total + rule.actions.length, 0);
-  return `${rules.length} ${rules.length === 1 ? "rule" : "rules"} · ${actionCount} ${actionCount === 1 ? "consequence" : "consequences"}`;
 }
 
 function actionSummary(action: EventAction): string {
@@ -2609,7 +2865,9 @@ function TargetPicker({
           <NumberInput label="To rank" value={rankToFor(target)} onChange={(rankTo) => onChange({ rankFrom: rankFromFor(target), rankTo: Math.max(1, Math.round(rankTo)) })} />
         </div>
       )}
-      {kind === "coinRank" && <NumberInput label="Coin rank" value={rankFromFor(target)} onChange={(coinRank) => onChange({ coinRank: Math.max(1, Math.round(coinRank)) })} />}
+      {kind === "coinRank" && (
+        <NumberInput label="Coin rank" value={rankFromFor(target)} onChange={(coinRank) => onChange({ coinRank: Math.max(1, Math.round(coinRank)) })} />
+      )}
       {kind === "coinRankRange" && (
         <div className="grid grid-cols-2 gap-2">
           <NumberInput label="From coin rank" value={rankFromFor(target)} onChange={(coinRankFrom) => onChange({ coinRankFrom: Math.max(1, Math.round(coinRankFrom)), coinRankTo: rankToFor(target) })} />
@@ -2664,12 +2922,14 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
 
 function SelectInput({
   label,
+  hint,
   value,
   options,
   disabled,
   onChange,
 }: {
   label: string;
+  hint?: string;
   value: string;
   options: { value: string; label: string }[];
   disabled?: boolean;
@@ -2678,6 +2938,7 @@ function SelectInput({
   return (
     <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
       {label}
+      {hint && <span className="mt-1 block text-[0.68rem] normal-case leading-4 tracking-normal text-slate-500">{hint}</span>}
       <select
         value={value}
         disabled={disabled}
@@ -2701,7 +2962,8 @@ function createTestState(
   submitted: string[],
   results: RunResult[],
   runKey: number,
-  protagonistId: string
+  protagonistId: string,
+  mediaAssets?: Record<string, ContentMediaAssetDef>
 ): GameState {
   const activity = event.activity!;
   const participants = activityParticipants(activity, players, protagonistId);
@@ -2712,6 +2974,7 @@ function createTestState(
     roomName: "Event builder",
     phase: "minigame",
     board: [],
+    mediaAssets,
     players,
     turnOrder: players.map((player) => player.id),
     activeIndex: 0,
@@ -2720,7 +2983,6 @@ function createTestState(
     lastBaseRoll: null,
     lastRoll: null,
     activeMinigame: {
-      id: eventId,
       eventId,
       protagonistId,
       type: activity.type,
@@ -2736,6 +2998,7 @@ function createTestState(
         subjectPlayerNames: subjects.map((id) => nameFor(players, id)),
       },
       story: event.story,
+      media: resolveEventMediaRefs(event, activity),
       participants,
       subjects,
       submitted: judgePlaytest?.submitted ?? submitted,

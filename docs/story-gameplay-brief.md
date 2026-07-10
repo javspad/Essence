@@ -6,13 +6,13 @@ This brief is for the person expanding the game's story, map, player personaliti
 
 - The game is a synchronized board game with server-authoritative state and local minigames.
 - Content lives mainly in `shared/content.json`.
-- The active map is `farewell-loop`: 54 board cells, 56 routes, 9 terraces, and 76 decorative Map Props.
-- Current authored activity entries: 17.
+- The active map is `farewell-loop`: 54 board cells, 56 routes, 9 terraces, and 78 decorative Map Props.
+- Current authored events: 22.
 - Current reusable activity engines: 15.
-- Current characters/player slots in this checkout: 3 (`Javi`, `Nico`, `FranG`). The roadmap target expects a richer friend-group roster, so adding the missing players/characters is part of the content work.
-- Current cosmetics: 21, visual-only.
-- Current gameplay artifacts: 0 in this checkout. The roadmap defines the artifact system and first seed artifact, but it is not present in this local `main` checkout yet.
-- Current reusable effects: 1 (`half-roll-2-rounds`).
+- Current characters/player slots: 10.
+- Current cosmetics: 76, visual-only.
+- Current gameplay artifacts: 6.
+- Current reusable effects: 8.
 
 ## Vocabulary Boundaries
 
@@ -32,25 +32,25 @@ These are the authored entries already in `shared/content.json`.
 
 | ID | Engine | Current content hook | Best story/content extension |
 | --- | --- | --- | --- |
-| `bostezo` | `timing` | Tap when the professor is not watching. | Swap label/lose text/images for classroom, work, party, or inside-joke timing moments. |
-| `lujan` | `judge` | Write a message inviting Lujan for ice cream. | Add judge personas and prompts where the funniest written answer wins. |
-| `mas-probable-1` | `vote` | Who falls asleep first tonight? | Add "most likely to..." accusations tied to players. |
-| `mas-probable-2` | `vote` | Who loses their phone tonight? | Same as above. |
-| `quien-dijo-1` | `vote` | Who said "last one and we leave"? | Use quotes and recurring group phrases. |
-| `dos-verdades-1` | `vote` | Two truths and one lie about the groom. | Add anecdote-based liar/truth prompts. |
-| `estimate-frang` | `estimate` | How many rejections did FranG get in 15 years? | Add numeric lore questions with units and exact answers. |
-| `estimate-noche` | `estimate` | What time will the first person go to sleep? | Add prediction/guessing questions about the night. |
-| `reaction-1` | `reaction` | Wait for green, fastest wins, false start loses. | Re-skin as reflex tests around real group moments. |
-| `trivia-novio-1` | `buzzer` | Groom trivia with multiple choice. | Add funny groom/player trivia with correct answers. |
-| `trivia-novio-2` | `buzzer` | Groom trip/airport-bag trivia. | Add story-specific multiple choice questions. |
-| `whack-amigos` | `whack` | Hit the correct face. | Use real faces/images, themed targets, decoys, and phrase variants. |
-| `arcade-maze` | `maze` | Find the maze exit. | Re-theme walls/exit around story locations. |
-| `arcade-flappy` | `flappy` | Fly through the night's chaos. | Re-theme obstacles, label, and imagery. |
-| `arcade-snake` | `snake` | Survive the previous-party snake. | Re-theme arena, food, danger, and fail text. |
-| `arcade-horserace` | `horserace` | Mash the indicated arrows to race. | Re-theme as running to the club, catching a bus, escaping a story scene. |
-| `arcade-redlight` | `redlight` | Move on green, stop on red. | Re-theme as not being caught, not moving in class, not revealing a prank. |
+| `event-bostezo` | `timing` | Tap when the professor is not watching. | Swap label/lose text/images for classroom, work, party, or inside-joke timing moments. |
+| `event-lujan` | `judge` | Write a message inviting Lujan for ice cream. | Add judge personas and prompts where the funniest written answer wins. |
+| `event-mas-probable-1` | `vote` | Who falls asleep first tonight? | Add "most likely to..." accusations tied to players. |
+| `event-mas-probable-2` | `vote` | Who loses their phone tonight? | Same as above. |
+| `event-quien-dijo-1` | `vote` | Who said "last one and we leave"? | Use quotes and recurring group phrases. |
+| `event-dos-verdades-1` | `vote` | Two truths and one lie about the groom. | Add anecdote-based liar/truth prompts. |
+| `event-estimate-frang` | `estimate` | How many rejections did FranG get in 15 years? | Add numeric lore questions with units and exact answers. |
+| `event-estimate-noche` | `estimate` | What time will the first person go to sleep? | Add prediction/guessing questions about the night. |
+| `event-reaction-1` | `reaction` | Wait for green, fastest wins, false start loses. | Re-skin as reflex tests around real group moments. |
+| `event-trivia-novio-1` | `buzzer` | Groom trivia with multiple choice. | Add funny groom/player trivia with correct answers. |
+| `event-trivia-novio-2` | `buzzer` | Groom trip/airport-bag trivia. | Add story-specific multiple choice questions. |
+| `event-whack-amigos` | `whack` | Hit the correct face. | Use real faces/images, themed targets, decoys, and phrase variants. |
+| `event-arcade-maze` | `maze` | Find the maze exit. | Re-theme walls/exit around story locations. |
+| `event-arcade-flappy` | `flappy` | Fly through the night's chaos. | Re-theme obstacles, label, and imagery. |
+| `event-arcade-snake` | `snake` | Survive the previous-party snake. | Re-theme arena, food, danger, and fail text. |
+| `event-arcade-horserace` | `horserace` | Mash the indicated arrows to race. | Re-theme as running to the club, catching a bus, escaping a story scene. |
+| `event-arcade-redlight` | `redlight` | Move on green, stop on red. | Re-theme as not being caught, not moving in class, not revealing a prank. |
 
-The engine list also includes `prompt`, `hostPick`, and `selfTap`. These are used for dares, confirmation flows, host decisions, and quick offline actions even if they are not currently listed as standalone minigame catalog entries.
+The activity engine list also includes `prompt`, `hostPick`, and `selfTap`. These are configured directly inside events for dares, confirmation flows, host decisions, and quick offline actions.
 
 ## Current Board Events
 
@@ -59,7 +59,7 @@ The active board already uses these categories:
 - Competitive/local minigames: timing, reaction, buzzer/trivia, estimate, whack, maze, flappy, snake, horserace, redlight.
 - Voting events: most-likely, who-said-it, two-truths-style prompts.
 - Judge events: written answer evaluated by a persona or vote phase.
-- Dares/prendas: `shot-1`, `shot-2`, `reto-1`.
+- Dares/prendas: `event-dare-shot-1`, `event-dare-shot-2`, `event-dare-reto-1`.
 - Fate events: move back 2, gain 5 coins.
 - Groom-specific cells: currently reuse groom trivia.
 - Finish cell: first player to reach finish wins; coins are secondary ranking/tie-breaker.
@@ -98,7 +98,7 @@ The content person can safely create or propose:
 - New `whack` target lists and visual concepts.
 - New arcade labels, durations, grid sizes, track lengths, and obstacle themes where supported.
 - New prompt/prenda text and confirmation rules.
-- New board-cell story parameters and map-zone labels.
+- New event story text and map-zone labels.
 - New cosmetics as visual-only anchored items.
 - New Story Beat tags that connect anecdotes to players, places, activity types, artifacts, and traits.
 

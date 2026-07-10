@@ -1,4 +1,5 @@
 import type {
+  CameraFramingDef,
   GameContent,
   MapArtifact,
   MapAssetDef,
@@ -57,7 +58,7 @@ export type MapBuilderEvent =
   | { type: "create_map" }
   | { type: "duplicate_map" }
   | { type: "delete_map" }
-  | { type: "update_map"; patch: Partial<Pick<MapDefinition, "name" | "description" | "theme">> }
+  | { type: "update_map"; patch: Partial<Pick<MapDefinition, "name" | "description" | "theme" | "defaultCamera" | "cameraPresets">> }
   | { type: "update_board_shape"; patch: Partial<MapBoardShape> }
   | { type: "toggle_blocked_cell"; point: MapGridPoint }
   | { type: "add_border_edge"; edge?: Partial<MapBorderEdge> }
@@ -212,6 +213,8 @@ export function normalizeBuilderContent(content: GameContent): BuilderContent {
       mapProps: cloneArtifacts(map.artifacts ?? []),
       terraces: cloneTerraces(map.terraces),
       boardShape: normalizeBoardShape(cloneBoardShape(map.boardShape) ?? createDefaultBoardShape(map.board.length ? map.board : normalizedContent.board)),
+      defaultCamera: cloneCamera(map.defaultCamera),
+      cameraPresets: cloneCameraPresets(map.cameraPresets),
     }))
     : [
         {
@@ -754,6 +757,18 @@ export function validateMap(map: MapDefinition): string[] {
   }
   if (!map.board.some((tile) => tile.type === "start")) errors.push("Falta un casillero start");
   if (!map.board.some((tile) => tile.type === "finish")) errors.push("Falta un casillero finish");
+  validateCameraFraming(map.defaultCamera, "Cámara default", errors);
+  const cameraPresetIds = new Set(Object.keys(map.cameraPresets ?? {}));
+  for (const [id, camera] of Object.entries(map.cameraPresets ?? {})) {
+    validateCameraFraming(camera, `Preset de cámara ${id}`, errors);
+    if (camera.id && camera.id !== id) errors.push(`Preset de cámara ${id} tiene id interno distinto`);
+  }
+  for (const tile of map.board) {
+    if (tile.cameraPresetId && !cameraPresetIds.has(tile.cameraPresetId)) {
+      errors.push(`Casillero ${tile.id} referencia cámara inexistente: ${tile.cameraPresetId}`);
+    }
+    validateCameraFraming(tile.camera, `Cámara del casillero ${tile.id}`, errors);
+  }
   const terraceIds = new Set<string>();
   for (const terrace of map.terraces ?? []) {
     if (terraceIds.has(terrace.id)) errors.push(`Meseta duplicada: ${terrace.id}`);
@@ -766,6 +781,19 @@ export function validateMap(map: MapDefinition): string[] {
     }
   }
   return errors;
+}
+
+function validateCameraFraming(camera: CameraFramingDef | undefined, label: string, errors: string[]) {
+  if (!camera) return;
+  if (camera.focus !== "activePlayer" && camera.focus !== "cell" && camera.focus !== "targetPlayer") errors.push(`${label} tiene foco inválido`);
+  if (!Number.isFinite(camera.yaw)) errors.push(`${label} tiene yaw inválido`);
+  if (!Number.isFinite(camera.pitch) || camera.pitch < -85 || camera.pitch > 85) errors.push(`${label} tiene pitch fuera de rango (-85 a 85)`);
+  if (!Number.isFinite(camera.distance) || camera.distance <= 0 || camera.distance > 80) errors.push(`${label} tiene distancia fuera de rango`);
+  if (camera.fov !== undefined && (!Number.isFinite(camera.fov) || camera.fov < 18 || camera.fov > 80)) errors.push(`${label} tiene FOV fuera de rango (18 a 80)`);
+  if (camera.focusOffset) {
+    if (!Number.isFinite(camera.focusOffset.x) || !Number.isFinite(camera.focusOffset.z)) errors.push(`${label} tiene offset inválido`);
+    if (camera.focusOffset.y !== undefined && !Number.isFinite(camera.focusOffset.y)) errors.push(`${label} tiene offset vertical inválido`);
+  }
 }
 
 function updateActiveMapState(
@@ -818,16 +846,7 @@ function deleteSelection(state: MapBuilderState): MapBuilderState {
 function normalizeTilePatch(tile: Tile, patch: Partial<Tile>): Tile {
   const next: Tile = { ...tile, ...patch };
   if (patch.layout) next.layout = { ...(tile.layout ?? { x: 0, y: 0 }), ...roundLayout(patch.layout) };
-  if (patch.type && !eventFieldForType(patch.type, "minigame")) next.minigameId = undefined;
-  if (patch.type !== "dare") next.dareId = undefined;
-  if (patch.type !== "fate") next.fateId = undefined;
   return next;
-}
-
-export function eventFieldForType(type: TileType, field: "minigame" | "dare" | "fate"): boolean {
-  if (field === "dare") return type === "dare";
-  if (field === "fate") return type === "fate";
-  return ["minigame", "trivia", "vote", "judge", "groom", "reaction", "estimate"].includes(type);
 }
 
 function createLinearRoutes(board: Tile[]): MapRoute[] {
@@ -919,6 +938,8 @@ function cloneMap(map: MapDefinition): MapDefinition {
     mapProps: cloneArtifacts(artifacts),
     terraces: cloneTerraces(map.terraces),
     boardShape: cloneBoardShape(map.boardShape),
+    defaultCamera: cloneCamera(map.defaultCamera),
+    cameraPresets: cloneCameraPresets(map.cameraPresets),
   };
 }
 
@@ -967,8 +988,23 @@ function cloneTiles(board: Tile[]): Tile[] {
   return board.map((tile) => ({
     ...tile,
     layout: tile.layout ? { ...tile.layout } : undefined,
-    storyParams: tile.storyParams ? { ...tile.storyParams } : undefined,
+    tags: tile.tags ? [...tile.tags] : undefined,
+    camera: cloneCamera(tile.camera),
   }));
+}
+
+function cloneCamera(camera: CameraFramingDef | undefined): CameraFramingDef | undefined {
+  return camera
+    ? {
+        ...camera,
+        focusOffset: camera.focusOffset ? { ...camera.focusOffset } : undefined,
+      }
+    : undefined;
+}
+
+function cloneCameraPresets(cameraPresets: Record<string, CameraFramingDef> | undefined): Record<string, CameraFramingDef> | undefined {
+  if (!cameraPresets) return undefined;
+  return Object.fromEntries(Object.entries(cameraPresets).map(([id, camera]) => [id, cloneCamera(camera)!]));
 }
 
 function cloneRoutes(routes: MapRoute[]): MapRoute[] {

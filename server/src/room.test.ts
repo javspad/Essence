@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import type { GameContent, ServerToClientEvents } from "@essence/shared";
 import { validateGameContent } from "@essence/shared/contentValidation";
-import { normalizeGameContentEvents } from "@essence/shared/events";
-import { resolveMinigame } from "./minigames/index";
+import { normalizeGameContentEvents, resolveEventMediaRefs } from "@essence/shared/events";
+import { resolveActivityResults } from "./activities/index";
 import { GameRoom } from "./room";
 
 type EmittedEvent = {
@@ -10,6 +10,14 @@ type EmittedEvent = {
   event: keyof ServerToClientEvents;
   payload: unknown;
 };
+
+assert.deepEqual(
+  resolveEventMediaRefs(
+    { media: [{ assetId: "portrait", caption: "Portrait", placement: "prompt" }] },
+    { media: [{ assetId: "portrait", placement: "reveal" }] }
+  ),
+  [{ assetId: "portrait", caption: "Portrait", placement: "both" }]
+);
 
 function createIoRecorder(): { io: unknown; events: EmittedEvent[] } {
   const events: EmittedEvent[] = [];
@@ -57,9 +65,6 @@ const content: GameContent = normalizeGameContentEvents({
       actions: [{ type: "coins", value: 100, target: "landing" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -72,9 +77,6 @@ const characterContent: GameContent = normalizeGameContentEvents({
     { id: 1, type: "finish" },
   ],
   events: {},
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "legacy-a", name: "Legacy A", color: "#111111" },
     { id: "legacy-b", name: "Legacy B", color: "#222222" },
@@ -130,9 +132,6 @@ const traitBoard = Array.from({ length: 20 }, (_, id) => ({
 const traitContent: GameContent = normalizeGameContentEvents({
   board: traitBoard,
   events: {},
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -220,9 +219,6 @@ const players = [
       { id: 0, type: "start", layout: { x: 0, y: 0 } },
       { id: 1, type: "finish", layout: { x: 1, y: 0 } },
     ],
-    minigames: {},
-    dares: {},
-    fates: {},
     players: [{ id: "alice", name: "Alice", color: "#f87171" }],
     cosmetics: {
       bad: {
@@ -246,9 +242,6 @@ const players = [
       { id: 1, type: "shop", layout: { x: 1, y: 0 } },
       { id: 2, type: "finish", layout: { x: 2, y: 0 } },
     ],
-    minigames: {},
-    dares: {},
-    fates: {},
     players: [{ id: "alice", name: "Alice", color: "#f87171" }],
     artifactRarities: {
       common: { id: "common", name: "Common", weight: 80, color: "#34d399" },
@@ -283,9 +276,6 @@ const players = [
       { id: 2, type: "finish", layout: { x: 2, y: 0 } },
     ],
     events: {},
-    minigames: {},
-    dares: {},
-    fates: {},
     players: [{ id: "alice", name: "Alice", color: "#f87171" }],
   });
   assert.equal(result.ok, false);
@@ -298,9 +288,6 @@ const players = [
       { id: 0, type: "start", layout: { x: 0, y: 0 } },
       { id: 1, type: "finish", layout: { x: 1, y: 0 } },
     ],
-    minigames: {},
-    dares: {},
-    fates: {},
     players: [{ id: "alice", name: "Alice", color: "#f87171" }],
     characters: {
       alice: { id: "alice", displayName: "Alice", defaultTraits: ["missing-trait"] },
@@ -377,9 +364,9 @@ const players = [
 }
 
 {
-  const reveal = await resolveMinigame({
-    minigameId: "trivia-capital",
-    def: {
+  const reveal = await resolveActivityResults({
+    eventId: "trivia-capital",
+    activity: {
       type: "buzzer",
       content: { question: "Capital?", options: ["Rome", "Paris", "Madrid"], answer: 1 },
     },
@@ -400,9 +387,9 @@ const players = [
 }
 
 {
-  const reveal = await resolveMinigame({
-    minigameId: "whack-amigos",
-    def: { type: "whack", content: { label: "Golpeá al objetivo" } },
+  const reveal = await resolveActivityResults({
+    eventId: "whack-amigos",
+    activity: { type: "whack", content: { label: "Golpeá al objetivo" } },
     results: [
       { playerId: "alice", score: 4, payload: { hits: 4 } },
       { playerId: "bob", score: 9, payload: { hits: 9 } },
@@ -419,9 +406,9 @@ const players = [
 }
 
 {
-  const reveal = await resolveMinigame({
-    minigameId: "group-vote",
-    def: { type: "vote", content: { question: "¿Quién la rompió?" } },
+  const reveal = await resolveActivityResults({
+    eventId: "group-vote",
+    activity: { type: "vote", content: { question: "¿Quién la rompió?" } },
     results: [
       { playerId: "alice", score: 0, payload: { votedFor: "bob" } },
       { playerId: "bob", score: 0, payload: { votedFor: "carla" } },
@@ -576,6 +563,7 @@ const artifactShopContent: GameContent = normalizeGameContentEvents({
     { id: 4, type: "minigame", layout: { x: 4, y: 0 } },
     { id: 5, type: "finish", layout: { x: 5, y: 0 } },
   ],
+  events: {},
   artifactRarityRates: { common: 100, epic: 0, legendary: 0 },
   artifacts: {
     "mochila-de-gaston": {
@@ -641,9 +629,6 @@ const artifactShopContent: GameContent = normalizeGameContentEvents({
       visualAssetId: "backpack",
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -765,9 +750,6 @@ const moveToFinishContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "moveTo", tileId: 2, target: "landing" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -807,9 +789,6 @@ const promptConfirmationContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "coins", value: 5, target: "landing" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -843,9 +822,6 @@ const effectContent: GameContent = normalizeGameContentEvents({
       consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 0.5, rounding: "ceil", text: "Move half of the die roll." }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 
@@ -908,9 +884,6 @@ const doubleMovementContent: GameContent = normalizeGameContentEvents({
       consequences: [{ type: "movementMultiplier", hook: "beforeMovement", multiplier: 2, rounding: "round", text: "Double movement." }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 
@@ -1042,9 +1015,6 @@ const timedConsequenceContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "coins", value: 3, target: "landing", hook: "onTurnEnd", duration: { mode: "uses", value: 1 }, text: "End-turn coin" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 const migratedTimedConsequence = timedConsequenceContent.events?.["attach-coin"].consequences?.[0]?.actions[0];
@@ -1100,9 +1070,6 @@ const playerScopedEffectContent: GameContent = normalizeGameContentEvents({
       consequences: [{ type: "coins", value: 2, hook: "onTurnEnd" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -1148,9 +1115,6 @@ const diceBiasContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "diceBias", face: 5, chanceDeltaPercent: 100, hook: "beforeRoll", duration: { mode: "uses", value: 1 }, target: "landing" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [{ id: "alice", name: "Alice", color: "#f87171" }],
 });
 
@@ -1235,9 +1199,6 @@ const judgeVoteContent: GameContent = normalizeGameContentEvents({
       activity: { type: "judge", content: { prompt: "Write anonymously." } },
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -1291,7 +1252,7 @@ await withRolls([1], async () => {
   room.join("socket-bob", "Bob");
   room.getState().phase = "minigame";
   room.getState().activeMinigame = {
-    id: "manual",
+    eventId: "manual",
     type: "reaction",
     content: {},
     participants: ["alice", "bob"],
@@ -1319,7 +1280,7 @@ await withRolls([1], async () => {
   room.join("socket-bob", "Bob");
   room.getState().phase = "minigame";
   room.getState().activeMinigame = {
-    id: "manual",
+    eventId: "manual",
     type: "reaction",
     content: {},
     participants: ["alice", "bob"],
@@ -1348,9 +1309,6 @@ const extraTurnContent: GameContent = normalizeGameContentEvents({
       actions: [{ type: "extraTurn", target: "everyone" }],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -1391,9 +1349,6 @@ const economySpecialCellContent: GameContent = normalizeGameContentEvents({
       ],
     },
   },
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },
@@ -1465,9 +1420,6 @@ const rankingPayoutPolicyContent: GameContent = normalizeGameContentEvents({
     },
   },
   coinPayout: [100, 50],
-  minigames: {},
-  dares: {},
-  fates: {},
   players: [
     { id: "alice", name: "Alice", color: "#f87171" },
     { id: "bob", name: "Bob", color: "#60a5fa" },

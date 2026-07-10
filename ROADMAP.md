@@ -9,10 +9,10 @@ Progress is tracked directly in this file. When an implementation agent finishes
 ## Current Baseline
 
 - Multiplayer board game for one friend group, with in-memory **Rooms** and server-authoritative **GameState** in `server/src/room.ts`.
-- Shared contract in `shared/types.ts` for board cells, maps, minigames, events, actions, results, reveal payloads, and socket events.
-- `shared/content.json` currently has 10 authored characters, 17 minigames, 22 normalized events, 2 effects, 6 gameplay artifacts, 22 visual cosmetics, 1 active 54-cell map, 56 routes, 9 terraces, 78 decorative map props, 81 map assets, and 2 shop cells.
-- The server already resolves activity results through `server/src/minigames/index.ts`, applies rigging, awards coins, applies event outcomes, and emits reveal screens.
-- `client/src/components/MinigameBuilder.tsx` already edits story, activity type, content JSON, triggers, playtest players, and immediate consequences.
+- Shared contract in `shared/types.ts` for board cells, maps, events, activities, actions, results, reveal payloads, and socket events.
+- `shared/content.json` currently has 10 authored characters, 22 events, 2 effects, 6 gameplay artifacts, 22 visual cosmetics, 1 active 54-cell map, 56 routes, 9 terraces, 78 decorative map props, 81 map assets, and 2 shop cells.
+- The server already resolves activity results through `server/src/activities/index.ts`, applies rigging, awards coins, applies event outcomes, and emits reveal screens.
+- `client/src/components/EventBuilder.tsx` already edits story, activity type, content JSON, triggers, playtest players, and immediate consequences.
 - `client/src/components/MapBuilder.tsx` already edits maps, cells, routes, terrain, decorative map props, event assignments, and import/export JSON.
 - Builder Save buttons use the local Vite dev endpoint `/api/dev/content` to validate and write normalized `shared/content.json`, with browser draft storage as a fallback and Download as an explicit backup path.
 
@@ -69,7 +69,7 @@ Every slice must leave the project in a state that can be inspected by a human.
 | Game | Existing | `/` | Join/create room, choose an authored map, and play the current board game. |
 | Board Camera Controls | Existing | In-game board HUD | Click player tokens, focus characters, and toggle a full-map overview. |
 | Map Builder | Existing | `/map-builder` | Edit maps, board cells, routes, terrain, map props, and future authored camera framing; save to `shared/content.json`; inspect/search props in the 3D gallery. |
-| Event Builder | Existing, with legacy component/file names | `/event-builder` (`/minigame-builder` legacy alias) | Edit events, activities, stories, and consequences. |
+| Event Builder | Existing | `/event-builder` | Edit events, activities, stories, and consequences. |
 | Tools Hub | Existing | `/tools` | Link to every builder and validator so UIs are discoverable. |
 | Character Builder | Existing | `/character-builder` | Edit characters, face photos, anchors, default loadouts, and draft trait ids. |
 | Artifact Builder | Existing | `/artifact-builder` | Edit artifact rules, rarity, effects, visuals, animations, and shop simulation. |
@@ -104,7 +104,7 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S5` Cosmetics and face anchors | [x] | `S2` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright S5 builder/shop QA; `git diff --check`. |
 | `S6` Character traits | [x] | `S2`, `S3` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build`; Playwright S6 builder/lobby QA; `git diff --check`. |
 | `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Economy consequence tests, minigame payout migration, builder UI QA, and shop/minigame spending flow. |
-| `S7.5` Authored camera framing and activity media | [ ] | `S7`, `S-CAM` | Map Builder camera QA, Event Builder media QA, import/export checks, and runtime reveal/activity checks. |
+| `S7.5` Authored camera framing and activity media | [x] | `S7`, `S-CAM` | `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; `npm run test -w server`; `npm run typecheck -w server`; Playwright Map Builder/Event Builder QA; `git diff --check`. |
 | `S8` Authoring skills and content bank | [ ] | `S7.5` | Docs/skills can add example content, map-event coverage, generation helpers, and validation passes. |
 | `S9` Audio trigger system and presentation polish | [ ] | `S-CAM`, `S4`, `S5`, `S6` | Sound Builder QA, runtime trigger QA, mute/volume checks, weighted variant tests, and browser autoplay checks. |
 
@@ -124,7 +124,6 @@ Tasks:
 - [x] `R-REF-03` Rename or wrap `/minigame-builder` as the **Event Builder** so non-minigame activities are not hidden under the wrong name.
 - [x] `R-REF-04` Add a `docs/refactors/` or roadmap note for any intentionally deferred code-level renames that would be risky to do immediately.
   - Deferred: code-level `MapArtifact`, `artifacts`, `artifactProjection`, builder action ids, and `data-artifact-*` names remain as legacy implementation names until `S1` schema hardening can add migration/import compatibility.
-  - Deferred: `client/src/components/MinigameBuilder.tsx` remains the component filename while `/event-builder` is the primary route and `/minigame-builder` remains a legacy alias.
 
 Verification notes:
 
@@ -132,7 +131,7 @@ Verification notes:
 - Migrated former `star` cells in `shared/content.json` to regular `minigame` cells preserving their existing `whack-amigos` activity.
 - Added shared ranking helpers for progress/current standings and finished-game standings.
 - Updated Map Builder visible copy and README docs to say **Map Props** for decorative board objects.
-- Added `/event-builder` as the primary Event Builder route and kept `/minigame-builder` as a legacy alias.
+- Renamed the authoring module to `EventBuilder.tsx` and removed the former `/minigame-builder` route alias.
 
 Acceptance:
 
@@ -177,7 +176,7 @@ Tasks:
 - [x] `S0-05` For prendas/prompts, require confirmation from the rest of the group or the relevant confirmer set.
 - [x] `S0-06` Add voting support for prompt/input-style minigames where the group decides the outcome.
 - [x] `S0-07` Standardize reveal payload formatting per activity type so UI does not need one-off branches.
-- [x] `S0-08` Add regression tests around `resolveMinigame`, `RevealPayload.entries`, prompt confirmation, vote scoring, and buzzer/trivia flavor.
+- [x] `S0-08` Add regression tests around `resolveActivityResults`, `RevealPayload.entries`, prompt confirmation, vote scoring, and buzzer/trivia flavor.
 
 Verification notes:
 
@@ -191,7 +190,7 @@ Verification notes:
 
 Current code to reuse:
 
-- `server/src/minigames/index.ts` for result formatting.
+- `server/src/activities/index.ts` for result formatting.
 - `server/src/room.ts` for activity lifecycle and reveal transition.
 - `client/src/components/Reveal.tsx` for shared result display.
 - `client/src/minigames/Whack.tsx`, `Vote.tsx`, and `Buzzer` content for activity-specific payloads.
@@ -598,32 +597,43 @@ Why this sits before `S8`:
 
 Tasks:
 
-- [ ] `S7.5-01` Add Map Builder controls for authored default camera framing:
+- [x] `S7.5-01` Add Map Builder controls for authored default camera framing:
   - Set the default board camera/view orientation from the 3D preview.
   - Store camera presets as data so they survive JSON export/import.
   - Preview the saved default view without leaving the builder.
-- [ ] `S7.5-02` Add per-cell camera framing:
+- [x] `S7.5-02` Add per-cell camera framing:
   - Select a board cell and adjust viewing direction, pitch, distance, optional field-of-view, and optional focus offset.
   - Keep the active character/player as the focus target while changing the direction from which the scene is viewed.
   - Allow cells such as shops or visually dense prop areas to frame the character plus nearby assets more intentionally.
-- [ ] `S7.5-03` Apply authored camera framing during runtime presentation:
+- [x] `S7.5-03` Apply authored camera framing during runtime presentation:
   - When landing on a configured cell, use the cell camera preset as a temporary presentation view.
   - Provide a clear reset back to active-player follow and full-map overview.
   - Reuse `S-CAM` camera-intent primitives and do not reintroduce free/manual camera movement.
-- [ ] `S7.5-04` Add portable image/media attachments for events, minigames, and activity captions:
+- [x] `S7.5-04` Add portable image/media attachments for events, minigames, and activity captions:
   - Support pasted images, drag-and-drop files, and file upload.
   - Store image metadata and crop settings with content import/export.
   - Let an event/activity choose where the media appears: prompt/caption, reveal, or both.
-- [ ] `S7.5-05` Add a simple image crop/customization UI:
+- [x] `S7.5-05` Add a simple image crop/customization UI:
   - Crop/position image.
   - Choose fit mode for compact prompt cards and larger reveal views.
   - Add alt text or short caption for accessibility and fallback display.
-- [ ] `S7.5-06` Render event/activity media in authoring previews and runtime UI:
+- [x] `S7.5-06` Render event/activity media in authoring previews and runtime UI:
   - Event Builder/minigame builder preview.
   - Activity prompt/caption surface.
   - Reveal/results surface.
   - Mobile-safe layout that does not hide action controls or results.
-- [ ] `S7.5-07` Add validation for media references, crop bounds, camera presets, and broken image assets.
+- [x] `S7.5-07` Add validation for media references, crop bounds, camera presets, and broken image assets.
+
+Verification notes:
+
+- Added shared `CameraFramingDef`, camera preset, media asset, media reference, crop, caption, and placement contracts with validation and normalization coverage.
+- Map Builder now authors default and per-cell camera framing, stores per-cell framing through camera presets, and applies authored framing in the 3D preview while keeping the existing builder-only free camera isolated from runtime gameplay.
+- Runtime board presentation now applies default or per-cell authored camera framing during shop/event/minigame/reveal presentation phases, then falls back to active-player follow/full-map overview without exposing manual camera controls.
+- Event Builder now supports paste, drag/drop, and upload image ingestion through the same file path, plus prompt/reveal placement, caption, alt text, fit mode, and crop controls.
+- Event/activity media now renders in Event Builder previews, minigame prompts, event cards, and reveal/results surfaces, backed by portable Content JSON `mediaAssets`.
+- Removed the parallel minigame/dare/fate catalogs, duplicate cell IDs, and non-runtime story overrides. Authored gameplay now follows one contract: cell `eventId` -> event -> optional activity engine.
+- Verification passed: `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client` (existing Vite large chunk warning only); `npm run test -w server`; `npm run typecheck -w server`; `git diff --check`.
+- Browser QA passed on Vite client at `http://127.0.0.1:5173`: Map Builder showed camera editors and nonblank 3D preview screenshots on desktop and mobile; Event Builder upload produced media controls, crop customization, and a browser backup containing one media asset and one event media reference. Screenshots: `/tmp/essence-s75-map-builder-desktop.png`, `/tmp/essence-s75-map-builder-selected.png`, `/tmp/essence-s75-map-builder-mobile.png`, `/tmp/essence-s75-event-builder-media.png`.
 
 Acceptance:
 
@@ -962,7 +972,7 @@ This table maps the uploaded notes to roadmap slices. If a new note appears, add
 interface GameContent {
   players: PlayerDef[]; // legacy compatibility
   characters?: Record<string, CharacterDef>;
-  events?: Record<string, GameEventDef>;
+  events: Record<string, GameEventDef>;
   effects?: Record<string, EffectDef>;
   artifacts?: Record<string, ArtifactDef>;
   artifactRarityRates?: ArtifactRarityRates;
@@ -1013,7 +1023,7 @@ interface AudioTriggerBindingDef {
   trigger: AudioTriggerId;
   scope?: {
     playerId?: string;
-    minigameId?: string;
+    eventId?: string;
     artifactId?: string;
     cosmeticId?: string;
   };

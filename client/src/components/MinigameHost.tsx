@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/8bit/card";
 import { Progress } from "@/components/ui/8bit/progress";
 import { useAudioRuntime } from "../audio";
 import { ENGINES, SPECTATE_TYPES } from "../minigames";
+import ActivityMediaStrip from "./ActivityMedia";
 
 interface Props {
   state: GameState;
@@ -24,9 +25,9 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
 
   useEffect(() => {
     if (!mg) return;
-    void playAudio("minigame.music", { playerId: me.id, minigameId: mg.id });
+    void playAudio("minigame.music", { playerId: me.id, minigameId: mg.eventId });
     return () => stopAudio("minigame.music");
-  }, [me.id, mg?.id, playAudio, stopAudio]);
+  }, [me.id, mg?.eventId, playAudio, stopAudio]);
 
   useEffect(() => {
     if (!mg) return;
@@ -34,15 +35,15 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
     if (!durationMs || durationMs < 3500) return;
     const timers = [3000, 2000, 1000].map((remaining) =>
       window.setTimeout(() => {
-        void playAudio("minigame.timeTick", { playerId: me.id, minigameId: mg.id });
+        void playAudio("minigame.timeTick", { playerId: me.id, minigameId: mg.eventId });
       }, Math.max(0, durationMs - remaining))
     );
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [me.id, mg?.content, mg?.id, playAudio]);
+  }, [me.id, mg?.content, mg?.eventId, playAudio]);
 
   if (!mg) return null;
 
-  const minigameKey = `${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`;
+  const minigameKey = `${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`;
   const Engine = ENGINES[mg.type];
   const amParticipant = mg.participants.includes(me.id);
   const finished = finishedMinigameKey === minigameKey;
@@ -72,8 +73,11 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
     return (
       <div className="relative flex min-h-full w-full flex-col justify-center py-6">
         <ActivityStory story={mg.story} />
+        <div className="mx-auto w-full max-w-xl px-4">
+          <ActivityMediaStrip assets={state.mediaAssets} media={mg.media} placement="prompt" compact />
+        </div>
         <Engine
-          key={`${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}-spectator`}
+          key={`${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}-spectator`}
           content={mg.content}
           players={connectedPlayers}
           participants={participantPlayers}
@@ -110,7 +114,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
   const handleFinish = (score: number, payload: unknown, outcome?: "win" | "loss") => {
     if (finished) return;
     setFinishedMinigameKey(minigameKey);
-    if (outcome === "loss") void playAudio("minigame.playerLost", { playerId: me.id, minigameId: mg.id });
+    if (outcome === "loss") void playAudio("minigame.playerLost", { playerId: me.id, minigameId: mg.eventId });
     onFinish(score, payload, outcome);
   };
 
@@ -125,8 +129,11 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
         Salir
       </Button>
       <ActivityStory story={mg.story} />
+      <div className="mx-auto w-full max-w-xl px-4">
+        <ActivityMediaStrip assets={state.mediaAssets} media={mg.media} placement="prompt" compact />
+      </div>
       <Engine
-        key={`${mg.id}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`}
+        key={`${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`}
         content={mg.content}
         players={mg.type === "vote" ? subjectPlayers : connectedPlayers}
         participants={participantPlayers}

@@ -17,6 +17,7 @@ import {
   audioTriggerLabel,
 } from "@essence/shared/audio";
 import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";
+import { eventTitle } from "@essence/shared/events";
 import seedContent from "@shared/content.json";
 import { Copy, Download, GripVertical, Pause, Play, Plus, RotateCcw, Save, Scissors, Square, Trash2, Upload, Volume2, Wrench, X } from "lucide-react";
 import { AudioTriggerProvider, useAudioRuntime } from "../audio";
@@ -1050,7 +1051,9 @@ function scopeIdOptions(content: GameContent, scopeType: AudioTriggerScopeType, 
     scopeType === "player"
       ? content.players.map((player) => ({ value: player.id, label: player.name }))
       : scopeType === "minigame"
-        ? Object.keys(content.minigames ?? {}).map((id) => ({ value: id, label: id }))
+        ? Object.entries(content.events)
+            .filter(([, event]) => Boolean(event.activity))
+            .map(([id, event]) => ({ value: id, label: eventTitle(event) }))
         : scopeType === "artifact"
           ? Object.values(content.artifacts ?? {}).map((artifact) => ({ value: artifact.id, label: artifact.name }))
           : scopeType === "cosmetic"

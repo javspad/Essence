@@ -36,24 +36,18 @@ export interface TileLayout {
 export interface Tile {
   id: number;
   type: TileType;
-  /** id dentro del catálogo de minijuegos (para minigame/trivia/vote/judge/groom) */
-  minigameId?: string;
-  /** id dentro del catálogo de dares */
-  dareId?: string;
-  /** id dentro del catálogo de fates */
-  fateId?: string;
   /** contrato visual: no afecta la mecánica del server */
   layout?: TileLayout;
   label?: string;
-  /** reservado para eventos futuros que no entren en los catálogos actuales */
-  eventKind?: "none" | "minigame" | "dare" | "fate" | "custom";
   eventId?: string;
   /** candidatos de eventos para este casillero; se elige el mejor para el jugador que cae */
   eventIds?: string[];
-  /** ajustes narrativos/temáticos editables desde el map builder */
-  storyParams?: Record<string, string>;
   /** authoring tags for zones and reusable effect conditions */
   tags?: string[];
+  /** Per-cell presentation framing used when a player lands here. */
+  cameraPresetId?: string;
+  /** Inline presentation framing for this cell. Prefer cameraPresetId when sharing a frame. */
+  camera?: CameraFramingDef;
 }
 
 export type MapTerrain =
@@ -192,6 +186,50 @@ export interface MapTheme {
   sky?: string;
 }
 
+export type CameraFramingFocus = "activePlayer" | "cell" | "targetPlayer";
+
+export interface CameraFocusOffset {
+  x: number;
+  y?: number;
+  z: number;
+}
+
+export interface CameraFramingDef {
+  id?: string;
+  focus: CameraFramingFocus;
+  yaw: number;
+  pitch: number;
+  distance: number;
+  fov?: number;
+  focusOffset?: CameraFocusOffset;
+}
+
+export type ContentMediaFit = "cover" | "contain";
+export type ActivityMediaPlacement = "prompt" | "reveal" | "both";
+
+export interface ContentMediaCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ContentMediaAssetDef {
+  id: string;
+  type: "image";
+  src: string;
+  caption?: string;
+  alt?: string;
+  crop?: ContentMediaCrop;
+  fit?: ContentMediaFit;
+}
+
+export interface ActivityMediaRef {
+  assetId: string;
+  caption?: string;
+  placement?: ActivityMediaPlacement;
+}
+
 export interface MapDefinition {
   id: string;
   name: string;
@@ -206,6 +244,8 @@ export interface MapDefinition {
   terraces?: MapTerrace[];
   boardShape?: MapBoardShape;
   theme?: MapTheme;
+  defaultCamera?: CameraFramingDef;
+  cameraPresets?: Record<string, CameraFramingDef>;
 }
 
 export interface RiggedConfig {
@@ -233,36 +273,6 @@ export type EventActivityType =
   | "horserace"
   | "redlight";
 
-/** Legacy name kept for existing minigame definitions and engines. */
-export type MinigameType =
-  | EventActivityType
-  | "masher"
-  | "memory"
-  | "order"
-  | "clicker";
-
-export interface MinigameDef {
-  type: MinigameType;
-  /** variante visual / temática: "bostezo" | "lujan" | "default" | ... */
-  skin?: string;
-  /** preguntas, persona, prompts, etc. (forma depende del motor) */
-  content: unknown;
-  rigged?: RiggedConfig;
-  rankingPayout?: RankingPayoutPolicy;
-}
-
-export interface DareDef {
-  text: string;
-}
-
-export interface FateDef {
-  text: string;
-  /** casilleros a avanzar (+) o retroceder (-) */
-  delta?: number;
-  /** monedas a sumar (+) o restar (-) */
-  coins?: number;
-}
-
 export type EventKind = "story" | "activity";
 /** @deprecated Legacy prompt resolver; normalized into first-class activity types. */
 export type EventResolutionMode = "none" | "hostPick" | "selfTap" | "vote";
@@ -285,6 +295,7 @@ export interface EventActivity {
   type: EventActivityType;
   skin?: string;
   content?: unknown;
+  media?: ActivityMediaRef[];
   /** @deprecated Use activity.type: "hostPick" | "selfTap" | "vote" instead. */
   resolutionMode?: EventResolutionMode;
   participants?: EventParticipantMode;
@@ -409,6 +420,7 @@ export interface GameEventDef {
   name: string;
   kind?: EventKind;
   tags?: string[];
+  media?: ActivityMediaRef[];
   /** qué jugador puede disparar este evento; por defecto cualquiera */
   trigger?: EventTriggerScope;
   story?: EventStory;
@@ -824,7 +836,8 @@ export interface GameContent {
   activeMapId?: string;
   maps?: MapDefinition[];
   assetCatalog?: MapAssetDef[];
-  events?: Record<string, GameEventDef>;
+  mediaAssets?: Record<string, ContentMediaAssetDef>;
+  events: Record<string, GameEventDef>;
   playerStories?: Record<string, PlayerStoryBank>;
   characters?: Record<string, CharacterDef>;
   characterTraits?: Record<string, CharacterTraitDef>;
@@ -839,9 +852,6 @@ export interface GameContent {
   audioAssets?: Record<string, AudioAssetDef>;
   audioTriggers?: AudioTriggerBindingDef[];
   audioSettings?: AudioSettingsDef;
-  minigames: Record<string, MinigameDef>;
-  dares: Record<string, DareDef>;
-  fates: Record<string, FateDef>;
   players: PlayerDef[];
   /** monedas por puesto del ranking, de 1ro a último (se reparte por defecto) */
   coinPayout?: number[];
@@ -897,14 +907,13 @@ export type Phase =
   | "finished";
 
 export interface ActiveMinigame {
-  /** event id or legacy minigame id */
-  id: string;
-  eventId?: string;
+  eventId: string;
   protagonistId?: string;
   type: EventActivityType;
   skin?: string;
   content: unknown;
   story?: EventStory;
+  media?: ActivityMediaRef[];
   /** jugadores que deben submittear resultado (ids) */
   participants: string[];
   /** jugadores que se rankean para outcomes; por defecto coincide con participants */
@@ -918,11 +927,11 @@ export interface ActiveMinigame {
 }
 
 export interface ActiveEvent {
-  id?: string;
-  kind: EventKind | "dare" | "fate";
+  kind: EventKind;
   title?: string;
   text: string;
   story?: EventStory;
+  media?: ActivityMediaRef[];
   playerId: string;
   actions?: AppliedEventAction[];
   artifactUse?: {
@@ -948,6 +957,7 @@ export interface GameState {
   /** Legacy decorative map props. Gameplay artifacts are exposed via artifactCatalog. */
   artifacts?: MapArtifact[];
   assetCatalog?: MapAssetDef[];
+  mediaAssets?: Record<string, ContentMediaAssetDef>;
   cosmetics?: Record<string, CosmeticDef>;
   artifactCatalog?: Record<string, ArtifactDef>;
   artifactRarities?: Record<string, ArtifactRarityDef>;
@@ -958,6 +968,8 @@ export interface GameState {
   pendingArtifactUse: PendingArtifactUse | null;
   boardShape?: MapBoardShape;
   terraces?: MapTerrace[];
+  defaultCamera?: CameraFramingDef;
+  cameraPresets?: Record<string, CameraFramingDef>;
   players: Player[];
   /** orden de turnos por id */
   turnOrder: string[];
@@ -1020,12 +1032,13 @@ export interface RevealEntry {
 }
 
 export interface RevealPayload {
-  minigameId: string;
+  minigameId?: string;
   eventId?: string;
   type: EventActivityType;
   skin?: string;
   title: string;
   story?: EventStory;
+  media?: ActivityMediaRef[];
   ranking: string[]; // ids de 1ro a último (rig ya aplicado)
   entries: RevealEntry[];
   coins: Record<string, number>;

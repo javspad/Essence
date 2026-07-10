@@ -24,14 +24,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/c
 import { cn } from "@/lib/utils";
 import { artifactUseMessage, effectEndedMessage } from "../artifactPresentation";
 import { AudioRuntimeControls, useAudioRuntime } from "../audio";
-import { applyCameraIntent, supportsWebGL, type BoardCameraState, type CameraIntent } from "../board3d";
+import { applyCameraIntent, resolveTileCamera, supportsWebGL, type BoardCameraState, type CameraIntent } from "../board3d";
 import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
 import type { EffectNotice } from "../useGame";
-import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
+import ActivityMediaStrip from "./ActivityMedia";
 import Board3DShell from "./Board3DShell";
 import CosmeticShop from "./CosmeticShop";
 import EventCard from "./EventCard";
-import Reveal from "./Reveal";
+import Reveal, { RevealPanel } from "./Reveal";
 import Scoreboard from "./Scoreboard";
 import TurnControls from "./TurnControls";
 import Victory from "./Victory";
@@ -183,6 +183,7 @@ export default function GameScene3D({
 }: GameScene3DProps) {
   const canLoad3D = useMemo(() => supportsWebGL(), []);
   const [cameraState, setCameraState] = useState<BoardCameraState>(DEFAULT_CAMERA_STATE);
+  const [dismissedPresentationKey, setDismissedPresentationKey] = useState<string | null>(null);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [cosmeticShopOpen, setCosmeticShopOpen] = useState(false);
   const [artifactTargetPreviewId, setArtifactTargetPreviewId] = useState<string | null>(null);
@@ -205,6 +206,15 @@ export default function GameScene3D({
     ? state.players.find((player) => player.id === cameraState.focusedPlayerId)
     : undefined;
   const effectiveCameraState = cameraState.focusedPlayerId && !focusedPlayer ? { ...cameraState, focusedPlayerId: null } : cameraState;
+  const activePlayer = activeId ? state.players.find((player) => player.id === activeId) : undefined;
+  const presentationKey = activePlayer && !activeMotion
+    ? `${state.round}:${state.activeIndex}:${activePlayer.id}:${activePlayer.position}`
+    : null;
+  const presentationCamera = useMemo(() => {
+    if (!activePlayer || activeMotion || presentationKey === dismissedPresentationKey) return undefined;
+    const activeTile = state.board.find((tile) => tile.id === activePlayer.position) ?? state.board[activePlayer.position];
+    return resolveTileCamera(activeTile, state.cameraPresets);
+  }, [activeMotion, activePlayer, dismissedPresentationKey, presentationKey, state.board, state.cameraPresets]);
   const activeArtifactTargetPreviewId =
     state.phase === "shop" &&
     state.pendingArtifactUse &&
@@ -213,8 +223,9 @@ export default function GameScene3D({
       ? artifactTargetPreviewId
       : null;
   const dispatchCameraIntent = useCallback((intent: CameraIntent) => {
+    if (presentationKey) setDismissedPresentationKey(presentationKey);
     setCameraState((current) => applyCameraIntent(current, intent));
-  }, []);
+  }, [presentationKey]);
   const focusPlayer = useCallback(
     (playerId: string) => dispatchCameraIntent({ kind: "focusPlayer", playerId }),
     [dispatchCameraIntent]
@@ -305,12 +316,12 @@ export default function GameScene3D({
   useEffect(() => {
     const reveal = state.reveal;
     if (!reveal) return;
-    const key = `${reveal.eventId ?? reveal.minigameId}:${reveal.ranking.join("|")}:${state.round}`;
+    const key = `${reveal.eventId}:${reveal.ranking.join("|")}:${state.round}`;
     if (revealAudioKeyRef.current === key) return;
     revealAudioKeyRef.current = key;
     const winners = reveal.entries.filter((entry) => entry.rank === 1);
     for (const winner of winners) {
-      void audio.play("activity.playerWon", { playerId: winner.playerId, minigameId: reveal.minigameId });
+      void audio.play("activity.playerWon", { playerId: winner.playerId, minigameId: reveal.eventId });
     }
   }, [audio, state.reveal, state.round]);
 
@@ -391,6 +402,8 @@ export default function GameScene3D({
         diceCue={diceCue}
         interactive
         cameraMode={cameraState.mode}
+        defaultCamera={state.defaultCamera}
+        presentationCamera={presentationCamera}
         focusedPlayerId={effectiveCameraState.focusedPlayerId}
         onPlayerFocus={focusPlayer}
         onPlayerClick={playPlayerClick}
@@ -1337,7 +1350,7 @@ function EventOverlay({
     : undefined;
   const displayPlayer = artifactTarget ?? player;
   const displayName = artifactTarget?.id === me.id ? "Vos" : displayPlayer?.name ?? "Jugador";
-  const isDare = event.kind === "dare" || event.story?.title?.toLowerCase().includes("prenda");
+  const isDare = event.story?.title?.toLowerCase().includes("prenda");
   const title = event.title ?? event.story?.title ?? (isDare ? "Prenda" : "Evento");
   const artifactMessage = artifactUseMessage(event, state.players, me.id);
 
@@ -1368,6 +1381,7 @@ function EventOverlay({
         <p className="mx-auto mt-3 max-w-2xl text-center text-xl font-black leading-snug text-white/95 sm:text-3xl">
           {event.story?.prompt ?? event.text}
         </p>
+        <ActivityMediaStrip assets={state.mediaAssets} media={event.media} placement="prompt" compact />
         {event.story?.reward && <p className="mx-auto mt-4 max-w-xl text-center text-base font-black text-amber-200 sm:text-xl">{event.story.reward}</p>}
         <AppliedActions actions={event.actions} />
         <ActionButton disabled={!canAdvance || Boolean(busyLabel)} onClick={onNext}>
@@ -1381,40 +1395,10 @@ function EventOverlay({
 function RevealOverlay({ state, canAdvance, onNext }: { state: GameState; canAdvance: boolean; onNext: () => void }) {
   const reveal = state.reveal;
   if (!reveal) return null;
-  const medals = ["🥇", "🥈", "🥉"];
-  const isPrompt = reveal.type === "prompt";
 
   return (
     <CenterOverlay>
-      <div className="modal-card from-slate-950/96 to-indigo-950/96">
-        <div className="inline-flex items-center gap-2 rounded-sm border border-violet-400/30 bg-violet-500/15 px-3 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-violet-200">
-          {isPrompt ? "Evento" : "🏅 Resultados"}
-        </div>
-        <h2 className="mt-4 text-center text-3xl font-black text-amber-100 sm:text-5xl">{reveal.title}</h2>
-        {reveal.story?.reveal && <p className="mx-auto mt-3 max-w-2xl text-center text-base font-black text-violet-100">{reveal.story.reveal}</p>}
-        <div className="mx-auto my-5 h-px w-24 rounded-full bg-white/20" />
-        <ol className="mx-auto grid max-w-2xl gap-2 text-left">
-          {reveal.entries.map((entry, index) => {
-            const detail = revealEntryDetail(entry);
-            return (
-              <li
-                key={entry.playerId}
-                className="rounded-sm border border-white/10 bg-white/8 px-4 py-3 text-white"
-              >
-                <div className="flex items-center justify-between gap-3 text-lg font-black sm:text-2xl">
-                  <span className="min-w-0 truncate">{medals[index] ?? `${entry.rank}.`} {entry.name}</span>
-                  <span className="shrink-0 text-right text-base text-sky-100 sm:text-xl">{revealEntryResult(entry)}</span>
-                </div>
-                <div className="mt-1 flex items-start justify-between gap-3">
-                  {detail && <p className="min-w-0 text-sm font-black leading-5 text-violet-100 sm:text-base">{detail}</p>}
-                  {entry.coins > 0 && <span className="shrink-0 text-sm font-black text-amber-200 sm:text-base">+🪙{entry.coins}</span>}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-        <ActionButton disabled={!canAdvance} onClick={onNext}>{canAdvance ? "Siguiente turno →" : "Esperando..."}</ActionButton>
-      </div>
+      <RevealPanel reveal={reveal} mediaAssets={state.mediaAssets} players={state.players} canAdvance={canAdvance} onNext={onNext} />
     </CenterOverlay>
   );
 }

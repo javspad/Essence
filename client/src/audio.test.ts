@@ -10,9 +10,9 @@ import { normalizeContentSchema, validateGameContent } from "@essence/shared/con
 
 const baseContent: GameContent = {
   board: [],
-  minigames: { maze: { type: "maze", content: {} } },
-  dares: {},
-  fates: {},
+  events: {
+    maze: { name: "Maze", kind: "activity", activity: { type: "maze", content: {} } },
+  },
   players: [{ id: "javi", name: "Javi" }],
   artifacts: { backpack: { id: "backpack", name: "Backpack", price: 1, rarity: "common", targetMode: "self" } },
   cosmetics: {

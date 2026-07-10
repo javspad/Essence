@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   applyCameraIntent,
+  authoredCameraShot,
   board3DSlots,
   boardCameraOverviewShot,
   boardMotionSettings,
@@ -9,6 +10,7 @@ import {
   frameLerp,
   layoutToWorldPosition,
   orbitLightPosition,
+  resolveTileCamera,
   slotMaterialStyle,
   supportsWebGL,
   tokenPathPositions,
@@ -42,6 +44,27 @@ assert.deepEqual(tokenWorldPosition([1, 0, 2], 0, 1), [1, 0.36, 2]);
 assert.deepEqual(tokenWorldPosition([1, 0, 2], 0, 2), [0.86, 0.36, 2]);
 assert.deepEqual(tokenWorldPosition([1, 0, 2], 1, 2), [1.14, 0.36, 2]);
 assert.deepEqual(cameraFollowPosition([2, 0, 3]), [2, 3.9, 9.6]);
+assert.deepEqual(authoredCameraShot({ yaw: 0, pitch: 0, distance: 5, focus: "activePlayer" }, [0, 0, 0]), {
+  position: [0, 0.45, 5],
+  look: [0, 0.45, 0],
+  fov: 42,
+});
+assert.deepEqual(
+  authoredCameraShot({ yaw: 90, pitch: 30, distance: 10, fov: 36, focus: "activePlayer", focusOffset: { x: 1, y: 0.5, z: -1 } }, [2, 0, 3]),
+  {
+    position: [11.66, 5.95, 2],
+    look: [3, 0.95, 2],
+    fov: 36,
+  }
+);
+assert.deepEqual(
+  resolveTileCamera({ cameraPresetId: "shop" }, { shop: { focus: "activePlayer", yaw: 45, pitch: 24, distance: 7 } }),
+  { focus: "activePlayer", yaw: 45, pitch: 24, distance: 7 }
+);
+assert.deepEqual(
+  resolveTileCamera({ cameraPresetId: "shop", camera: { focus: "cell", yaw: 0, pitch: 25, distance: 6 } }, { shop: { focus: "activePlayer", yaw: 45, pitch: 24, distance: 7 } }),
+  { focus: "cell", yaw: 0, pitch: 25, distance: 6 }
+);
 
 const cameraState = { mode: "followActivePlayer" as const, focusedPlayerId: null };
 assert.deepEqual(applyCameraIntent(cameraState, { kind: "focusPlayer", playerId: "bob" }), {

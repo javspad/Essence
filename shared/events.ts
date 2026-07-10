@@ -1,4 +1,5 @@
 import type {
+  ActivityMediaRef,
   ArtifactDef,
   ConsequenceRule,
   EffectConsequenceDef,
@@ -50,90 +51,14 @@ export const EVENT_ACTIVITY_TYPES: EventActivityType[] = [
   "redlight",
 ];
 
-const LEGACY_MINIGAME_TILE_TYPES = new Set(["minigame", "trivia", "vote", "judge", "groom", "reaction", "estimate"]);
-
 export function normalizeGameContentEvents(content: GameContent): GameContent {
   const effects = normalizeEffectCatalog(content.effects);
   const effectIds = new Set(Object.keys(effects));
   const normalizeActions = (actions: EventAction[], scope: string): ImmediateConsequenceDef[] =>
     actions.map((action, index) => normalizeAuthoredConsequence(action, `${scope}-action-${index + 1}`, effects, effectIds));
   const events: Record<string, GameEventDef> = Object.fromEntries(
-    Object.entries(content.events ?? {}).map(([id, event]) => [id, normalizeEventDef(event, normalizeActions, `event-${id}`)])
+    Object.entries(content.events).map(([id, event]) => [id, normalizeEventDef(event, normalizeActions, `event-${id}`)])
   );
-
-  for (const [id, def] of Object.entries(content.minigames ?? {})) {
-    const eventId = eventIdForLegacyMinigame(id);
-    if (events[eventId]) continue;
-    const title = titleForActivity(def.content, def.type);
-    events[eventId] = {
-      name: title,
-      kind: "activity",
-      tags: [def.type, ...(def.skin ? [def.skin] : [])],
-      story: {
-        title,
-        prompt: promptForActivity(def.content),
-      },
-      activity: {
-        type: toEventActivityType(def.type),
-        skin: def.skin,
-        content: def.content,
-        rigged: def.rigged,
-        ...(def.rankingPayout
-          ? { rankingPayout: normalizeRankingPayout(def.rankingPayout, normalizeActions, `legacy-minigame-${id}-payout`) }
-          : {}),
-      },
-    };
-  }
-
-  for (const [id, def] of Object.entries(content.dares ?? {})) {
-    const eventId = eventIdForLegacyDare(id);
-    if (events[eventId]) continue;
-    events[eventId] = {
-      name: def.text,
-      kind: "story",
-      tags: ["dare"],
-      story: {
-        title: "Prenda",
-        prompt: def.text,
-      },
-      activity: {
-        type: "prompt",
-        content: { prompt: def.text, label: "Prenda" },
-      },
-    };
-  }
-
-  for (const [id, def] of Object.entries(content.fates ?? {})) {
-    const eventId = eventIdForLegacyFate(id);
-    if (events[eventId]) continue;
-    events[eventId] = {
-      name: def.text,
-      kind: "story",
-      tags: ["fate"],
-      story: {
-        title: "Destino",
-        prompt: def.text,
-      },
-      activity: {
-        type: "prompt",
-        content: { prompt: def.text, label: "Destino" },
-      },
-      consequences: [
-        ...(def.delta
-          ? [{ appliesTo: "landing" as const, actions: [{ type: "move" as const, delta: def.delta, text: moveText(def.delta) }] }]
-          : []),
-        ...(def.coins
-          ? [{ appliesTo: "landing" as const, actions: [{ type: "coins" as const, value: def.coins, text: coinsText(def.coins) }] }]
-          : []),
-      ],
-    };
-  }
-
-  const normalizeTile = (tile: Tile): Tile => {
-    if (tile.eventId) return { ...tile };
-    const eventId = legacyEventIdForTile(tile);
-    return eventId ? { ...tile, eventId } : { ...tile };
-  };
 
   return {
     ...content,
@@ -159,24 +84,16 @@ export function normalizeGameContentEvents(content: GameContent): GameContent {
           ])
         )
       : content.playerStories,
-    board: content.board.map(normalizeTile),
+    board: content.board.map((tile) => ({ ...tile })),
     maps: content.maps?.map((map) => ({
       ...map,
-      board: map.board.map(normalizeTile),
+      board: map.board.map((tile) => ({ ...tile })),
     })),
   };
 }
 
-export function legacyEventIdForTile(tile: Tile): string | undefined {
-  if (tile.minigameId && LEGACY_MINIGAME_TILE_TYPES.has(tile.type)) return eventIdForLegacyMinigame(tile.minigameId);
-  if (tile.dareId && tile.type === "dare") return eventIdForLegacyDare(tile.dareId);
-  if (tile.fateId && tile.type === "fate") return eventIdForLegacyFate(tile.fateId);
-  return undefined;
-}
-
 export function eventIdsForTile(tile: Tile): string[] {
-  const legacyId = legacyEventIdForTile(tile);
-  const ids = [...(tile.eventIds ?? []), ...(tile.eventId ? [tile.eventId] : []), ...(legacyId ? [legacyId] : [])];
+  const ids = [...(tile.eventIds ?? []), ...(tile.eventId ? [tile.eventId] : [])];
   return [...new Set(ids.filter(Boolean))];
 }
 
@@ -191,16 +108,15 @@ export function eventMatchesTrigger(event: GameEventDef, player: Pick<PlayerDef,
 }
 
 export function resolveTileEventForPlayer(content: GameContent, tile: Tile, player: Pick<PlayerDef, "id">): ResolvedGameEvent | null {
-  const normalized = content.events ? content : normalizeGameContentEvents(content);
   let best: { id: string; score: number } | null = null;
   for (const id of eventIdsForTile(tile)) {
-    const event = normalized.events?.[id];
+    const event = content.events[id];
     if (!event) continue;
     const score = eventTriggerScore(event, player);
     if (score <= 0) continue;
     if (!best || score > best.score) best = { id, score };
   }
-  return best ? resolveEventForPlayer(normalized, best.id, player) : null;
+  return best ? resolveEventForPlayer(content, best.id, player) : null;
 }
 
 export function resolveEventActionTargetIds(
@@ -208,6 +124,78 @@ export function resolveEventActionTargetIds(
   context: Parameters<typeof resolveTargetPlayerIds>[1]
 ): string[] {
   return resolveTargetPlayerIds(target, context);
+}
+
+export function removeEventFromContent(content: GameContent, eventId: string): GameContent {
+  const { [eventId]: _deleted, ...events } = content.events;
+  const removeFromTile = (tile: Tile): Tile => ({
+    ...tile,
+    eventId: tile.eventId === eventId ? undefined : tile.eventId,
+    eventIds: tile.eventIds?.filter((id) => id !== eventId),
+  });
+  return pruneUnusedMediaAssets({
+    ...content,
+    events,
+    board: content.board.map(removeFromTile),
+    maps: content.maps?.map((map) => ({
+      ...map,
+      board: map.board.map(removeFromTile),
+    })),
+    playerStories: content.playerStories
+      ? Object.fromEntries(
+          Object.entries(content.playerStories).map(([playerId, bank]) => [
+            playerId,
+            { overrides: bank.overrides.filter((override) => override.eventId !== eventId) },
+          ])
+        )
+      : undefined,
+  });
+}
+
+export function pruneUnusedMediaAssets(content: GameContent): GameContent {
+  if (!content.mediaAssets) return content;
+  const usedIds = new Set<string>();
+  for (const event of Object.values(content.events)) {
+    event.media?.forEach((ref) => usedIds.add(ref.assetId));
+    event.activity?.media?.forEach((ref) => usedIds.add(ref.assetId));
+  }
+  for (const bank of Object.values(content.playerStories ?? {})) {
+    bank.overrides.forEach((override) => override.activity?.media?.forEach((ref) => usedIds.add(ref.assetId)));
+  }
+  const mediaAssets = Object.fromEntries(Object.entries(content.mediaAssets).filter(([id]) => usedIds.has(id)));
+  return Object.keys(mediaAssets).length === Object.keys(content.mediaAssets).length ? content : { ...content, mediaAssets };
+}
+
+export function resolveEventMediaRefs(
+  event: Pick<GameEventDef, "media">,
+  activity?: Pick<EventActivity, "media">
+): ActivityMediaRef[] | undefined {
+  const refs = [...(event.media ?? []), ...(activity?.media ?? [])];
+  if (!refs.length) return undefined;
+
+  const merged = new Map<string, ActivityMediaRef>();
+  for (const ref of refs) {
+    const existing = merged.get(ref.assetId);
+    if (!existing) {
+      merged.set(ref.assetId, { ...ref });
+      continue;
+    }
+    merged.set(ref.assetId, {
+      ...existing,
+      caption: existing.caption ?? ref.caption,
+      placement: mergeMediaPlacement(existing.placement, ref.placement),
+    });
+  }
+  return [...merged.values()];
+}
+
+function mergeMediaPlacement(
+  first: ActivityMediaRef["placement"],
+  second: ActivityMediaRef["placement"]
+): ActivityMediaRef["placement"] {
+  const a = first ?? "both";
+  const b = second ?? "both";
+  return a === b ? a : "both";
 }
 
 type ConsequenceRuleSource = Pick<GameEventDef, "consequences" | "actions" | "outcomes">;
@@ -250,10 +238,9 @@ export function resolveActivitySubjectIds(
 }
 
 export function resolveEventForPlayer(content: GameContent, eventId: string, player: Pick<PlayerDef, "id">): ResolvedGameEvent | null {
-  const normalized = content.events ? content : normalizeGameContentEvents(content);
-  const event = normalized.events?.[eventId];
+  const event = content.events[eventId];
   if (!event) return null;
-  const override = bestOverrideForPlayer(normalized, eventId, event, player.id);
+  const override = bestOverrideForPlayer(content, eventId, event, player.id);
   const story = mergeStory(event.story, override?.story);
   const activity = mergeActivity(event.activity, override?.activity);
   const consequences = override && hasConsequenceConfig(override) ? consequenceRulesFor(override) : consequenceRulesFor(event);
@@ -272,18 +259,6 @@ export function eventTitle(event: Pick<GameEventDef, "name" | "story" | "activit
 
 export function toEventActivityType(type: string): EventActivityType {
   return EVENT_ACTIVITY_TYPES.includes(type as EventActivityType) ? (type as EventActivityType) : "prompt";
-}
-
-export function eventIdForLegacyMinigame(id: string): string {
-  return `event-${safeId(id)}`;
-}
-
-export function eventIdForLegacyDare(id: string): string {
-  return `event-dare-${safeId(id)}`;
-}
-
-export function eventIdForLegacyFate(id: string): string {
-  return `event-fate-${safeId(id)}`;
 }
 
 function bestOverrideForPlayer(
@@ -639,12 +614,4 @@ function titleFromId(id: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function moveText(delta: number): string {
-  return delta > 0 ? `Avanza ${delta} casillero(s)` : `Retrocede ${Math.abs(delta)} casillero(s)`;
-}
-
-function coinsText(coins: number): string {
-  return coins > 0 ? `Gana ${coins} moneda(s)` : `Pierde ${Math.abs(coins)} moneda(s)`;
 }
