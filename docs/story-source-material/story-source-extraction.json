@@ -3692,6 +3692,408 @@
           "sentence": "El que fue acusado de robar en el quiosco de los más chicos."
         }
       ]
+    },
+    {
+      "id": "card-vote-amigos-de-mierda-noche-y-facha",
+      "name": "Amigos de mierda — Noche y facha",
+      "status": "listo_para_copiar",
+      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "event_definition": {
+        "id": "event-card-vote-amigos-de-mierda-noche-y-facha",
+        "name": "Amigos de mierda — Noche y facha",
+        "kind": "activity",
+        "trigger": {
+          "type": "anyPlayer"
+        },
+        "story": {
+          "title": "Amigos de mierda — Noche y facha",
+          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "reveal": "Las cartas ganadas ordenan el ranking final."
+        },
+        "activity": {
+          "type": "cardVote",
+          "participants": "everyone",
+          "subjects": "everyone",
+          "content": {
+            "allowSelfVote": false,
+            "tieMode": "shared",
+            "cards": [
+              "El que despertó a la morsa.",
+              "El que se tiñó las chapas.",
+              "El que se puso facha para el baile y terminó yendo a las corridas.",
+              "El que se viene salteando el día de piernas.",
+              "El que practica la cara de espejo antes de salir."
+            ]
+          }
+        }
+      },
+      "cards": [
+        {
+          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-01",
+          "source_event_id": "event-001",
+          "source_event_caption": "La morsa ha sido despertada",
+          "sentence": "El que despertó a la morsa."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-02",
+          "source_event_id": "event-004",
+          "source_event_caption": "Te teñís las chapas.",
+          "sentence": "El que se tiñó las chapas."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-03",
+          "source_event_id": "event-008",
+          "source_event_caption": "Te pones facha para el baile, tenes que ir caminando a costanera y vas a paso rápido",
+          "sentence": "El que se puso facha para el baile y terminó yendo a las corridas."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-04",
+          "source_event_id": "event-009",
+          "source_event_caption": "Te venís salteando el día de píernas…",
+          "sentence": "El que se viene salteando el día de piernas."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-05",
+          "source_event_id": "event-010",
+          "source_event_caption": "Practicas tu cara de espejo",
+          "sentence": "El que practica la cara de espejo antes de salir."
+        }
+      ]
+    },
+    {
+      "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares",
+      "name": "Amigos de mierda — Desaparecidos y celulares",
+      "status": "listo_para_copiar",
+      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "event_definition": {
+        "id": "event-card-vote-amigos-de-mierda-desaparecidos-y-celulares",
+        "name": "Amigos de mierda — Desaparecidos y celulares",
+        "kind": "activity",
+        "trigger": {
+          "type": "anyPlayer"
+        },
+        "story": {
+          "title": "Amigos de mierda — Desaparecidos y celulares",
+          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "reveal": "Las cartas ganadas ordenan el ranking final."
+        },
+        "activity": {
+          "type": "cardVote",
+          "participants": "everyone",
+          "subjects": "everyone",
+          "content": {
+            "allowSelfVote": false,
+            "tieMode": "shared",
+            "cards": [
+              "El que tomó tanto que hubo que bañarlo.",
+              "El que sigue la correa aunque nadie se lo pidió.",
+              "El que se comió el descanso de su vida.",
+              "El que dejó el juego para scrollear TikTok.",
+              "El que perdió el celular después de dar una vuelta por Belgrano."
+            ]
+          }
+        }
+      },
+      "cards": [
+        {
+          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-01",
+          "source_event_id": "event-005",
+          "source_event_caption": "Tomaste mucho y te tienen que bañar…",
+          "sentence": "El que tomó tanto que hubo que bañarlo."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-02",
+          "source_event_id": "event-012",
+          "source_event_caption": "Te están tirando fuerte de la correa",
+          "sentence": "El que sigue la correa aunque nadie se lo pidió."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-03",
+          "source_event_id": "event-013",
+          "source_event_caption": "Te comés el descanso de tu vida",
+          "sentence": "El que se comió el descanso de su vida."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-04",
+          "source_event_id": "event-019",
+          "source_event_caption": "El juego te parece muy insulso",
+          "sentence": "El que dejó el juego para scrollear TikTok."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-05",
+          "source_event_id": "event-020",
+          "source_event_caption": "Das una vuelta por Belgrano y dejás de sentir tu celular en el bolsillo…",
+          "sentence": "El que perdió el celular después de dar una vuelta por Belgrano."
+        }
+      ]
+    },
+    {
+      "id": "card-vote-amigos-de-mierda-redes-y-tech",
+      "name": "Amigos de mierda — Redes y tech",
+      "status": "listo_para_copiar",
+      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "event_definition": {
+        "id": "event-card-vote-amigos-de-mierda-redes-y-tech",
+        "name": "Amigos de mierda — Redes y tech",
+        "kind": "activity",
+        "trigger": {
+          "type": "anyPlayer"
+        },
+        "story": {
+          "title": "Amigos de mierda — Redes y tech",
+          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "reveal": "Las cartas ganadas ordenan el ranking final."
+        },
+        "activity": {
+          "type": "cardVote",
+          "participants": "everyone",
+          "subjects": "everyone",
+          "content": {
+            "allowSelfVote": false,
+            "tieMode": "shared",
+            "cards": [
+              "El que se sumó a la moda del ukelele cuando ya era demasiado tarde.",
+              "El que sube un snap solo para mantener los fueguitos.",
+              "El que se volvió viral en YouTube por razones cuestionables.",
+              "El que nunca rechaza cuando le ofrecen una BIC.",
+              "El que se queda probando la webcam más de la cuenta."
+            ]
+          }
+        }
+      },
+      "cards": [
+        {
+          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-01",
+          "source_event_id": "event-021",
+          "source_event_caption": "Te sumás a la moda del ukelele pero te olvidaste que no estás en 2017",
+          "sentence": "El que se sumó a la moda del ukelele cuando ya era demasiado tarde."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-02",
+          "source_event_id": "event-022",
+          "source_event_caption": "Subís un snap para mantener los fueguitos",
+          "sentence": "El que sube un snap solo para mantener los fueguitos."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-03",
+          "source_event_id": "event-028",
+          "source_event_caption": "Te volvés viral en youtube",
+          "sentence": "El que se volvió viral en YouTube por razones cuestionables."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-04",
+          "source_event_id": "event-030",
+          "source_event_caption": "Te ofrecen una BIC",
+          "sentence": "El que nunca rechaza cuando le ofrecen una BIC."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-05",
+          "source_event_id": "event-034",
+          "source_event_caption": "Te quedás un toque probando la webcam",
+          "sentence": "El que se queda probando la webcam más de la cuenta."
+        }
+      ]
+    },
+    {
+      "id": "card-vote-amigos-de-mierda-comidas-y-escuela",
+      "name": "Amigos de mierda — Comidas y escuela",
+      "status": "listo_para_copiar",
+      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "event_definition": {
+        "id": "event-card-vote-amigos-de-mierda-comidas-y-escuela",
+        "name": "Amigos de mierda — Comidas y escuela",
+        "kind": "activity",
+        "trigger": {
+          "type": "anyPlayer"
+        },
+        "story": {
+          "title": "Amigos de mierda — Comidas y escuela",
+          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "reveal": "Las cartas ganadas ordenan el ranking final."
+        },
+        "activity": {
+          "type": "cardVote",
+          "participants": "everyone",
+          "subjects": "everyone",
+          "content": {
+            "allowSelfVote": false,
+            "tieMode": "shared",
+            "cards": [
+              "El que aparece apenas huele un asado.",
+              "El que se carga de carbos antes de hacer cualquier cosa.",
+              "El que tuvo que repetir salita de cinco.",
+              "El que se metió al colegio de noche.",
+              "El que editó una banda buscando la nota de oratoria."
+            ]
+          }
+        }
+      },
+      "cards": [
+        {
+          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-01",
+          "source_event_id": "event-026",
+          "source_event_caption": "Olés un buen asado cocinándose cerca",
+          "sentence": "El que aparece apenas huele un asado."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-02",
+          "source_event_id": "event-041",
+          "source_event_caption": "Te cargás de carbos",
+          "sentence": "El que se carga de carbos antes de hacer cualquier cosa."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-03",
+          "source_event_id": "event-043",
+          "source_event_caption": "Te tocó repetir salita de cinco",
+          "sentence": "El que tuvo que repetir salita de cinco."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-04",
+          "source_event_id": "event-050",
+          "source_event_caption": "Te metés al colegio de noche",
+          "sentence": "El que se metió al colegio de noche."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-05",
+          "source_event_id": "event-057",
+          "source_event_caption": "Editás re bien buscando esa buena nota en oratoria",
+          "sentence": "El que editó una banda buscando la nota de oratoria."
+        }
+      ]
+    },
+    {
+      "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos",
+      "name": "Amigos de mierda — Mufa, sueños y fotos",
+      "status": "listo_para_copiar",
+      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "event_definition": {
+        "id": "event-card-vote-amigos-de-mierda-mufa-suenos-y-fotos",
+        "name": "Amigos de mierda — Mufa, sueños y fotos",
+        "kind": "activity",
+        "trigger": {
+          "type": "anyPlayer"
+        },
+        "story": {
+          "title": "Amigos de mierda — Mufa, sueños y fotos",
+          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "reveal": "Las cartas ganadas ordenan el ranking final."
+        },
+        "activity": {
+          "type": "cardVote",
+          "participants": "everyone",
+          "subjects": "everyone",
+          "content": {
+            "allowSelfVote": false,
+            "tieMode": "shared",
+            "cards": [
+              "El que siempre termina alcanzado por la mufa.",
+              "El que prueba el modo retrato en cualquier momento.",
+              "El heredero de una dinastía que nunca deja de recordarlo.",
+              "El que se duerme antes de que pase algo.",
+              "El que se despierta y se queja de que la luz le pega una banda."
+            ]
+          }
+        }
+      },
+      "cards": [
+        {
+          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-01",
+          "source_event_id": "event-044",
+          "source_event_caption": "Fuiste alcanzado por la mufa",
+          "sentence": "El que siempre termina alcanzado por la mufa."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-02",
+          "source_event_id": "event-046",
+          "source_event_caption": "Te pusiste a probar el modo retrato, flama.",
+          "sentence": "El que prueba el modo retrato en cualquier momento."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-03",
+          "source_event_id": "event-048",
+          "source_event_caption": "Sos el heredero de una dinastía",
+          "sentence": "El heredero de una dinastía que nunca deja de recordarlo."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-04",
+          "source_event_id": "event-049",
+          "source_event_caption": "Te agarra una banda de sueño",
+          "sentence": "El que se duerme antes de que pase algo."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-05",
+          "source_event_id": "event-056",
+          "source_event_caption": "Te acabas de despertar y la luz te pega una banda",
+          "sentence": "El que se despierta y se queja de que la luz le pega una banda."
+        }
+      ]
+    },
+    {
+      "id": "card-vote-amigos-de-mierda-aventuras-y-recaps",
+      "name": "Amigos de mierda — Aventuras y recaps",
+      "status": "listo_para_copiar",
+      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "event_definition": {
+        "id": "event-card-vote-amigos-de-mierda-aventuras-y-recaps",
+        "name": "Amigos de mierda — Aventuras y recaps",
+        "kind": "activity",
+        "trigger": {
+          "type": "anyPlayer"
+        },
+        "story": {
+          "title": "Amigos de mierda — Aventuras y recaps",
+          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "reveal": "Las cartas ganadas ordenan el ranking final."
+        },
+        "activity": {
+          "type": "cardVote",
+          "participants": "everyone",
+          "subjects": "everyone",
+          "content": {
+            "allowSelfVote": false,
+            "tieMode": "shared",
+            "cards": [
+              "El que cambia de celular solo para sacar fotos más HD.",
+              "El que fingiría su muerte por interacciones en Instagram.",
+              "El que arma una empresa de turismo de un día para el otro.",
+              "El que se abrió la cabeza en el maul.",
+              "El que se pone filosófico sobre las falsas amistades al final de la noche."
+            ]
+          }
+        }
+      },
+      "cards": [
+        {
+          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-01",
+          "source_event_id": "event-035",
+          "source_event_caption": "Buscás cambiar de celu a ver si sacás fotos mas HD",
+          "sentence": "El que cambia de celular solo para sacar fotos más HD."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-02",
+          "source_event_id": "event-040",
+          "source_event_caption": "Fingís tu muerte para sacar interacciones por IG",
+          "sentence": "El que fingiría su muerte por interacciones en Instagram."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-03",
+          "source_event_id": "event-052",
+          "source_event_caption": "armás una empresa de turismo",
+          "sentence": "El que arma una empresa de turismo de un día para el otro."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-04",
+          "source_event_id": "event-058",
+          "source_event_caption": "Te abriste la cabeza en el maul",
+          "sentence": "El que se abrió la cabeza en el maul."
+        },
+        {
+          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-05",
+          "source_event_id": "event-061",
+          "source_event_caption": "Reflexionas un toque acerca de las falsas amistades",
+          "sentence": "El que se pone filosófico sobre las falsas amistades al final de la noche."
+        }
+      ]
     }
   ],
   "trivia": [
