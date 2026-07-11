@@ -69,6 +69,7 @@ import {
 import { resolveActivityResults } from "./activities/index.js";
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
+const PLAYTEST_STARTING_COINS = 20;
 
 interface JoinOptions {
   characterId?: string;
@@ -76,6 +77,7 @@ interface JoinOptions {
 
 interface GameRoomOptions {
   mapId?: string;
+  playtest?: boolean;
 }
 
 interface ApplyActionOptions {
@@ -86,12 +88,14 @@ interface ApplyActionOptions {
 export class GameRoom {
   readonly code: string;
   readonly name: string;
+  readonly isPlaytest: boolean;
   private io: IO;
   private content: GameContent;
   private state: GameState;
   private pendingResults = new Map<string, MinigameResult>();
   private pendingJudgeVotes = new Map<string, MinigameResult>();
   private pendingJudgeSubmissionOwners = new Map<string, string>();
+  private pendingCardVotes = new Map<string, string>();
   private pendingEvent: ResolvedGameEvent | null = null;
   private resolving = false;
   private skippedTurns = new Set<string>();
@@ -108,6 +112,7 @@ export class GameRoom {
     this.io = io;
     this.code = code;
     this.name = name;
+    this.isPlaytest = options.playtest === true;
     this.content = content;
     const activeMap =
       content.maps?.find((map) => map.id === options.mapId) ??
@@ -465,6 +470,106 @@ export class GameRoom {
     this.broadcast();
   }
 
+  /** Seed a private builder playtest and start it immediately. */
+  seedPlaytest(socketId: string): { ok: true; playerId: string } | { ok: false; error: string } {
+    if (!this.isPlaytest || this.state.phase !== "lobby") return { ok: false, error: "El playtest no está disponible" };
+    this.refreshCharacterSlots();
+    const characterIds = (this.state.characterSlots ?? []).slice(0, 4).map((slot) => slot.id);
+    if (!characterIds.length) return { ok: false, error: "Agregá al menos un personaje para iniciar el playtest" };
+
+    for (const [index, characterId] of characterIds.entries()) {
+      const result = this.join(index === 0 ? socketId : this.playtestBotSocketId(characterId), "", { characterId });
+      if (!result.ok) return result;
+      const player = this.state.players.find((candidate) => candidate.id === result.playerId);
+      if (player) player.coins = PLAYTEST_STARTING_COINS;
+    }
+
+    this.startGame(socketId);
+    return { ok: true, playerId: characterIds[0] };
+  }
+
+  /** Swap the browser identity so real minigame/shop actions can be submitted as any seeded player. */
+  selectPlaytestPlayer(socketId: string, playerId: string): { ok: true; playerId: string } | { ok: false; error: string } {
+    if (!this.isPlaytest) return { ok: false, error: "Este comando solo funciona en playtest" };
+    const current = this.playerBySocket(socketId);
+    const target = this.state.players.find((player) => player.id === playerId);
+    if (!current || !target) return { ok: false, error: "Ese jugador no está cargado en el playtest" };
+    if (current.id !== target.id) {
+      current.socketId = this.playtestBotSocketId(current.id);
+      target.socketId = socketId;
+    }
+    for (const player of this.state.players) player.isHost = player.id === target.id;
+    this.broadcast();
+    return { ok: true, playerId: target.id };
+  }
+
+  /** Run a normal roll, using the requested number as the physical die value. */
+  rollPlaytest(socketId: string, value: number): { ok: true } | { ok: false; error: string } {
+    if (!Number.isFinite(value) || value < 1) return { ok: false, error: "El valor del dado debe ser un número mayor a 0" };
+    const player = this.preparePlaytestCommand(socketId);
+    if (!player.ok) return player;
+    const forcedRoll = Math.min(9_999, Math.round(value));
+    this.roll(socketId, forcedRoll);
+    return { ok: true };
+  }
+
+  /** Teleport to a cell, then execute the same on-enter/event/shop lifecycle as a real landing. */
+  landPlaytest(socketId: string, tileId: number): { ok: true } | { ok: false; error: string } {
+    const tile = this.state.board.find((candidate) => candidate.id === tileId);
+    if (!tile) return { ok: false, error: "Ese casillero no existe en el mapa" };
+    const player = this.preparePlaytestCommand(socketId);
+    if (!player.ok) return player;
+
+    player.player.position = tile.id;
+    this.state.phase = "moving";
+    this.state.lastBaseRoll = null;
+    this.state.lastRoll = null;
+    this.state.lastMovement = 0;
+    const cellEnterActions = this.applyEffectHook("onCellEnter", {
+      actingPlayerId: player.player.id,
+      landingPlayerId: player.player.id,
+      targetPlayerId: player.player.id,
+      movement: 0,
+      cell: tile,
+    });
+
+    if (tile.type === "finish") this.endGame(player.player.id);
+    else this.triggerTile(tile, player.player, cellEnterActions);
+    return { ok: true };
+  }
+
+  private playtestBotSocketId(playerId: string): string {
+    return `playtest:${this.code}:${playerId}`;
+  }
+
+  private preparePlaytestCommand(socketId: string): { ok: true; player: Player } | { ok: false; error: string } {
+    if (!this.isPlaytest) return { ok: false, error: "Este comando solo funciona en playtest" };
+    const player = this.playerBySocket(socketId);
+    if (!player) return { ok: false, error: "Elegí un jugador del playtest" };
+    const activeIndex = this.state.turnOrder.indexOf(player.id);
+    if (activeIndex < 0) return { ok: false, error: "Ese jugador no está en el orden de turnos" };
+
+    this.pendingResults.clear();
+    this.pendingJudgeVotes.clear();
+    this.pendingJudgeSubmissionOwners.clear();
+    this.pendingCardVotes.clear();
+    this.pendingEvent = null;
+    this.pendingActivityPreludeActions = [];
+    this.resolving = false;
+    this.state.activeIndex = activeIndex;
+    this.state.phase = "turn";
+    this.state.activeMinigame = null;
+    this.state.activeEvent = null;
+    this.state.reveal = null;
+    this.state.artifactShop = null;
+    this.state.pendingArtifactUse = null;
+    this.state.winnerId = null;
+    this.state.lastBaseRoll = null;
+    this.state.lastRoll = null;
+    this.state.lastMovement = null;
+    return { ok: true, player };
+  }
+
   private activePlayer(): Player | undefined {
     const id = this.state.turnOrder[this.state.activeIndex];
     return this.state.players.find((p) => p.id === id);
@@ -495,13 +600,13 @@ export class GameRoom {
 
   // --- Turno ---------------------------------------------------------------
 
-  roll(socketId: string) {
+  roll(socketId: string, forcedBaseRoll?: number) {
     if (this.state.phase !== "turn") return;
     const active = this.activePlayer();
     const p = this.playerBySocket(socketId);
     if (!active || !p || p.id !== active.id) return;
 
-    const rollResult = this.rollForPlayer(active);
+    const rollResult = this.rollForPlayer(active, forcedBaseRoll);
     const roll = rollResult.effectiveRoll;
     this.state.lastBaseRoll = rollResult.baseRoll;
     this.state.lastRoll = roll;
@@ -715,9 +820,15 @@ export class GameRoom {
     this.pendingResults.clear();
     this.pendingJudgeVotes.clear();
     this.pendingJudgeSubmissionOwners.clear();
+    this.pendingCardVotes.clear();
     const participants = this.activityParticipants(activity, activePlayer);
     const subjects = this.activitySubjects(activity, activePlayer, participants);
     if (!participants.length || !subjects.length) {
+      this.advanceTurn();
+      return;
+    }
+    const cardVote = activity.type === "cardVote" ? createCardVoteState(activity, subjects) : null;
+    if (activity.type === "cardVote" && !cardVote) {
       this.advanceTurn();
       return;
     }
@@ -733,6 +844,7 @@ export class GameRoom {
       subjects,
       submitted: [],
       ...(activity.type === "judge" ? { judge: { phase: "writing" as const } } : {}),
+      ...(cardVote ? { cardVote } : {}),
     };
     this.state.activeMinigame = active;
     this.state.phase = "minigame";
@@ -754,15 +866,21 @@ export class GameRoom {
     return resolveActivitySubjectIds(activity, this.connectedPlayers(), active, participants);
   }
 
-  minigameAction(socketId: string, data: unknown) {
+  async minigameAction(socketId: string, data: unknown) {
     const p = this.playerBySocket(socketId);
-    if (!p || !this.state.activeMinigame) return;
+    const mg = this.state.activeMinigame;
+    if (!p || !mg) return;
     if (data !== null && typeof data === "object") {
       try {
         if (JSON.stringify(data).length > 2048) return;
       } catch {
         return;
       }
+    }
+    if (mg.type === "cardVote" && isCardVoteNextAction(data)) {
+      if (!p.isHost && p.id !== mg.protagonistId) return;
+      await this.advanceCardVoteRound(mg);
+      return;
     }
     // Re-emitir acción (ej. buzzer apretado) para que las pantallas reaccionen.
     this.io.to(this.code).emit("minigame:action", { playerId: p.id, data });
@@ -773,6 +891,11 @@ export class GameRoom {
     const mg = this.state.activeMinigame;
     if (!p || !mg) return;
     if (!mg.participants.includes(p.id)) return;
+
+    if (mg.type === "cardVote") {
+      this.submitCardVote(p, mg, result);
+      return;
+    }
 
     if (mg.type === "judge" && mg.judge?.phase === "voting") {
       if (this.pendingJudgeVotes.has(p.id)) return;
@@ -807,9 +930,89 @@ export class GameRoom {
   async forceResolve(socketId: string) {
     const p = this.playerBySocket(socketId);
     if (!p?.isHost || !this.state.activeMinigame) return;
+    if (this.state.activeMinigame.type === "cardVote") {
+      const mg = this.state.activeMinigame;
+      if (mg.cardVote?.phase === "voting") this.finishCardVoteRound(mg);
+      else await this.advanceCardVoteRound(mg);
+      return;
+    }
     if (this.state.activeMinigame.type === "judge" && this.state.activeMinigame.judge?.phase !== "voting") {
       this.startJudgeVoting(this.state.activeMinigame);
       return;
+    }
+    await this.resolveActiveMinigame();
+  }
+
+  private submitCardVote(
+    player: Player,
+    mg: ActiveMinigame,
+    result: { score: number; payload: unknown; outcome?: "win" | "loss" }
+  ) {
+    const cardVote = mg.cardVote;
+    if (!cardVote || cardVote.phase !== "voting" || this.pendingCardVotes.has(player.id)) return;
+    const votedFor = (result.payload as { votedFor?: unknown } | null | undefined)?.votedFor;
+    const subjects = mg.subjects?.length ? mg.subjects : mg.participants;
+    if (typeof votedFor !== "string" || !subjects.includes(votedFor)) return;
+    if (!cardVote.allowSelfVote && votedFor === player.id) return;
+
+    this.pendingCardVotes.set(player.id, votedFor);
+    if (!mg.submitted.includes(player.id)) mg.submitted.push(player.id);
+    this.broadcast();
+
+    if (mg.participants.every((id) => this.pendingCardVotes.has(id))) this.finishCardVoteRound(mg);
+  }
+
+  private finishCardVoteRound(mg: ActiveMinigame) {
+    const cardVote = mg.cardVote;
+    if (!cardVote || cardVote.phase !== "voting") return;
+    const subjects = mg.subjects?.length ? mg.subjects : mg.participants;
+    const votersByPlayer = Object.fromEntries(subjects.map((id) => [id, [] as string[]]));
+    for (const [voterId, votedFor] of this.pendingCardVotes) votersByPlayer[votedFor]?.push(voterId);
+    const voteCounts = Object.fromEntries(subjects.map((id) => [id, votersByPlayer[id]?.length ?? 0]));
+    const maxVotes = Math.max(0, ...Object.values(voteCounts));
+    const leaders = maxVotes > 0 ? subjects.filter((id) => voteCounts[id] === maxVotes) : [];
+    const winnerIds = cardVote.tieMode === "noCard" && leaders.length > 1 ? [] : leaders;
+
+    for (const winnerId of winnerIds) {
+      cardVote.cardCounts[winnerId] = (cardVote.cardCounts[winnerId] ?? 0) + 1;
+      cardVote.cardsWonByPlayer[winnerId] = [...(cardVote.cardsWonByPlayer[winnerId] ?? []), cardVote.card];
+    }
+    cardVote.phase = "result";
+    cardVote.roundResult = {
+      card: cardVote.card,
+      cardIndex: cardVote.cardIndex,
+      winnerIds,
+      voteCounts,
+      votersByPlayer,
+    };
+    this.broadcast();
+  }
+
+  private async advanceCardVoteRound(mg: ActiveMinigame) {
+    const cardVote = mg.cardVote;
+    if (!cardVote || cardVote.phase !== "result") return;
+    const cards = cardVoteCards(mg.content);
+    const nextIndex = cardVote.cardIndex + 1;
+    if (nextIndex < cards.length) {
+      cardVote.phase = "voting";
+      cardVote.cardIndex = nextIndex;
+      cardVote.card = cards[nextIndex];
+      cardVote.roundResult = undefined;
+      mg.submitted = [];
+      this.pendingCardVotes.clear();
+      this.broadcast();
+      return;
+    }
+
+    this.pendingResults.clear();
+    const subjects = mg.subjects?.length ? mg.subjects : mg.participants;
+    for (const playerId of subjects) {
+      const cardsWon = cardVote.cardsWonByPlayer[playerId] ?? [];
+      this.pendingResults.set(playerId, {
+        playerId,
+        score: cardVote.cardCounts[playerId] ?? 0,
+        payload: { cards: cardVote.cardCounts[playerId] ?? 0, wonCards: cardsWon },
+      });
     }
     await this.resolveActiveMinigame();
   }
@@ -897,6 +1100,7 @@ export class GameRoom {
       this.pendingResults.clear();
       this.pendingJudgeVotes.clear();
       this.pendingJudgeSubmissionOwners.clear();
+      this.pendingCardVotes.clear();
       this.pendingEvent = null;
       this.pendingActivityPreludeActions = [];
       this.broadcast();
@@ -1375,7 +1579,7 @@ export class GameRoom {
     return instanceIds;
   }
 
-  private rollForPlayer(active: Player): { baseRoll: number; effectiveRoll: number } {
+  private rollForPlayer(active: Player, forcedBaseRoll?: number): { baseRoll: number; effectiveRoll: number } {
     const weights = [1, 1, 1, 1, 1, 1];
     for (const instance of this.state.activeEffects) {
       if (instance.targetPlayerId !== active.id) continue;
@@ -1385,7 +1589,7 @@ export class GameRoom {
         applyDiceBias(weights, action.face, action.chanceDeltaPercent);
       }
     }
-    const baseRoll = rollWeightedDie(weights);
+    const baseRoll = forcedBaseRoll ?? rollWeightedDie(weights);
     return { baseRoll, effectiveRoll: this.applyRollMovementModifiers(active, baseRoll) };
   }
 
@@ -1543,6 +1747,34 @@ export class GameRoom {
       .find((player) => player && player.position >= finish);
     if (winner) this.state.winnerId = winner.id;
   }
+}
+
+function createCardVoteState(
+  activity: EventActivity,
+  subjects: string[]
+): NonNullable<ActiveMinigame["cardVote"]> | null {
+  const cards = cardVoteCards(activity.content);
+  if (!cards.length) return null;
+  const content = isRecord(activity.content) ? activity.content : null;
+  return {
+    phase: "voting",
+    cardIndex: 0,
+    totalCards: cards.length,
+    card: cards[0],
+    allowSelfVote: content?.allowSelfVote !== false,
+    tieMode: content?.tieMode === "noCard" ? "noCard" : "shared",
+    cardCounts: Object.fromEntries(subjects.map((id) => [id, 0])),
+    cardsWonByPlayer: Object.fromEntries(subjects.map((id) => [id, []])),
+  };
+}
+
+function cardVoteCards(content: unknown): string[] {
+  if (!isRecord(content) || !Array.isArray(content.cards)) return [];
+  return content.cards.flatMap((card) => typeof card === "string" && card.trim() ? [card.trim()] : []);
+}
+
+function isCardVoteNextAction(data: unknown): boolean {
+  return isRecord(data) && data.type === "cardVote:next";
 }
 
 function activityContent(activity: EventActivity, event: ResolvedGameEvent, active: Player, subjects: string[], players: Player[]): unknown {

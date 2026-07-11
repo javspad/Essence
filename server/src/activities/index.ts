@@ -53,6 +53,8 @@ export async function resolveActivityResults(args: ResolveArgs): Promise<RevealP
     scored = await resolveJudge(def, participants, byId);
   } else if (def.type === "vote") {
     scored = resolveVote(participants, subjects, byId);
+  } else if (def.type === "cardVote") {
+    scored = resolveCardVote(subjects, byId);
   } else {
     scored = subjects.map((id) => {
       const r = byId.get(id);
@@ -98,7 +100,7 @@ export async function resolveActivityResults(args: ResolveArgs): Promise<RevealP
     eventId: args.eventId,
     type: def.type,
     skin: def.skin,
-    title: titleFor(def),
+    title: def.type === "cardVote" ? args.story?.title ?? "Votación de cartas" : titleFor(def),
     story: args.story,
     ranking,
     entries,
@@ -221,6 +223,22 @@ function resolveVote(participants: string[], subjects: string[], byId: Map<strin
   }));
 }
 
+function resolveCardVote(subjects: string[], byId: Map<string, MinigameResult>): ScoredResult[] {
+  return subjects.map((id) => {
+    const result = byId.get(id);
+    const payload = (result?.payload ?? {}) as { cards?: number; wonCards?: unknown };
+    const wonCards = stringArray(payload.wonCards);
+    const cards = typeof payload.cards === "number" && Number.isFinite(payload.cards)
+      ? Math.max(0, Math.floor(payload.cards))
+      : Math.max(0, Math.floor(result?.score ?? 0));
+    return {
+      playerId: id,
+      score: cards,
+      payload: { cards, wonCards },
+    };
+  });
+}
+
 // --- Presentación -----------------------------------------------------------
 
 function formatEntryDisplay(
@@ -244,6 +262,8 @@ function formatEntryDisplay(
       };
     case "vote":
       return formatVoteDisplay(p, nameOf);
+    case "cardVote":
+      return formatCardVoteDisplay(p, result.score);
     case "judge":
       if (typeof p.votes === "number" || Array.isArray(p.voters)) return formatJudgeVoteDisplay(p, nameOf);
       return {
@@ -316,6 +336,20 @@ function formatVoteDisplay(payload: Record<string, unknown>, nameOf: (id: string
     resultLabel: `${votes} ${votes === 1 ? "voto" : "votos"}`,
     detailLabel: voters.length ? `Votos de ${namesFor(voters, nameOf)}` : "Sin votos",
     flavor: `${votes} ${votes === 1 ? "voto" : "votos"}`,
+  };
+}
+
+function formatCardVoteDisplay(payload: Record<string, unknown>, score: number) {
+  const cards = typeof payload.cards === "number" ? payload.cards : Math.max(0, Math.floor(score));
+  const wonCards = stringArray(payload.wonCards);
+  const visibleCards = wonCards.slice(0, 2).map((card) => `“${card}”`);
+  const remaining = wonCards.length - visibleCards.length;
+  return {
+    resultLabel: `${cards} ${cards === 1 ? "carta" : "cartas"}`,
+    detailLabel: wonCards.length
+      ? `Recibió ${visibleCards.join(" · ")}${remaining > 0 ? ` · +${remaining} más` : ""}`
+      : "Sin cartas",
+    flavor: `${cards} ${cards === 1 ? "carta" : "cartas"}`,
   };
 }
 

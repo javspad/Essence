@@ -15,6 +15,9 @@ Progress is tracked directly in this file. When an implementation agent finishes
 - `client/src/components/EventBuilder.tsx` already edits story, activity type, content JSON, triggers, playtest players, and immediate consequences.
 - `client/src/components/MapBuilder.tsx` already edits maps, cells, routes, terrain, decorative map props, event assignments, and import/export JSON.
 - Builder Save buttons use the local Vite dev endpoint `/api/dev/content` to validate and write normalized `shared/content.json`, with browser draft storage as a fallback and Download as an explicit backup path.
+- S7 economy implementation is now landed: shared coin transactions, coin-aware selectors, transfer/redistribution consequences, configurable ranking payout policies, atomic shop spending, builder controls, reveal transaction details, and seeded coin-cell/artifact examples.
+- S9 audio implementation is now landed: typed audio assets and trigger bindings, the `/tools` Sound Builder, weighted additive default/scoped variants, runtime mute/volume/unlock controls, browser-safe playback, gameplay hooks, and player-click squish feedback.
+- S7.5 camera/media implementation is now landed: authored board framing, portable activity media, Event Builder image controls, runtime prompt/reveal rendering, and validation coverage.
 
 ## Roadmap Principles
 
@@ -90,7 +93,7 @@ These changes landed while validating the completed S4/S5 builder work and shoul
 
 ## Progress Tracker
 
-Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it unchecked and add a short "Blocked:" note under the slice.
+Legend: `[ ]` not started, `[~]` work is in progress, awaiting merge, or implementation landed but QA/follow-up remains, `[x]` complete. If a task is blocked, keep it unchecked and add a short "Blocked:" note under the slice.
 
 | Slice | Status | Depends on | Verification |
 | --- | --- | --- | --- |
@@ -103,10 +106,17 @@ Legend: `[ ]` not started, `[x]` complete. If a task is blocked, keep it uncheck
 | `S4` Artifact catalog, builder, and shop | [x] | `S3`, `S-CAM` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build`; Playwright S4 builder/shop QA; `git diff --check`. |
 | `S5` Cosmetics and face anchors | [x] | `S2` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; Playwright S5 builder/shop QA; `git diff --check`. |
 | `S6` Character traits | [x] | `S2`, `S3` | `npm run test -w server`; `npm run typecheck -w server`; `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build`; Playwright S6 builder/lobby QA; `git diff --check`. |
-| `S7` Economy and special cells | [ ] | `S3`, `S4`, `S5`, `S6` | Economy consequence tests, minigame payout migration, builder UI QA, and shop/minigame spending flow. |
+| `S7` Economy and special cells | [~] | `S3`, `S4`, `S5`, `S6` | Main `d9ce94b` browser QA passed `/tools`, seeded economy examples, coin-aware Event/Artifact Builder authoring, responsive builder layouts, and live shop affordability feedback. Remaining: multiplayer transfer/redistribution, event/reveal/ranking feedback, and price/payout balancing. |
 | `S7.5` Authored camera framing and activity media | [x] | `S7`, `S-CAM` | `npm run test -w client`; `npx tsc -p client/tsconfig.json --noEmit`; `npm run build -w client`; `npm run test -w server`; `npm run typecheck -w server`; Playwright Map Builder/Event Builder QA; `git diff --check`. |
 | `S8` Authoring skills and content bank | [ ] | `S7.5` | Docs/skills can add example content, map-event coverage, generation helpers, and validation passes. |
-| `S9` Audio trigger system and presentation polish | [ ] | `S-CAM`, `S4`, `S5`, `S6` | Sound Builder QA, runtime trigger QA, mute/volume checks, weighted variant tests, and browser autoplay checks. |
+| `S9` Audio trigger system and presentation polish | [~] | `S-CAM`, `S4`, `S5`, `S6` | Main `d9ce94b` browser QA passed Sound Builder navigation, trigger inventory, default/scoped bindings, additive weighted variants, playback options, JSON import/export UI, responsive layout, live unlock/mute/volume controls, player-token feedback, dice/movement, and shop open/roll. Remaining: real upload/import-error coverage and multiplayer/minigame/winner/cosmetic/artifact hook coverage. |
+
+### Current Continuation Order
+
+1. Complete S7 multiplayer browser QA and price/payout balancing. Keep S7 open until transfer/redistribution, event/reveal/ranking feedback, and [`docs/s7-validation-checklist.md`](docs/s7-validation-checklist.md) pass in the real dev stack.
+2. Complete the remaining S9 browser gaps: real audio upload/import-error handling plus artifact, minigame, winner, cosmetic, effect, purchase, and multiplayer trigger coverage. Keep S9 open until those hooks are exercised without blocking gameplay.
+3. Reverify the landed S7.5 camera/media flow alongside the current S7/S9 runtime while completing nearby browser QA.
+4. Start S8 using the landed S7.5 authoring primitives for event coverage, map generation, and placeable 3D prompt validation.
 
 ## Pre-Roadmap Refactors
 
@@ -563,19 +573,31 @@ Design notes from the `grill-with-docs` pass:
 
 Tasks:
 
-- [ ] `S7-01` Define the economy vocabulary and schema: `Coin Source`, `Coin Transaction`, `Economy Consequence`, `Coin Selector`, `Coin Transfer`, and `Ranking Payout Policy`.
-- [ ] `S7-02` Add coin-aware target selectors that reuse the existing selector path: most coins, least coins, coin rank, coin rank range, and explicit selected player.
-- [ ] `S7-03` Add a shared coin transaction helper used by coin consequences, ranking payout resolution, artifact shop purchases, and cosmetic shop purchases.
-- [ ] `S7-04` Add reusable coin consequences for gain, lose, steal/transfer, and redistribute. Keep purchase affordability in shop purchase commands, not authored consequences.
-- [ ] `S7-05` Convert minigame ranking payouts into a configurable Ranking Payout Policy that compiles to coin consequences; keep `coinPayout` as compatibility/default content during migration.
-- [ ] `S7-06` Expose coin consequence and ranking payout controls in the Event Builder/minigame builder, using the existing consequence editor instead of a new payout-only UI.
-- [ ] `S7-07` Add or update Artifact Builder/shop examples for steal-from-selected-player, richest/poorest selector, and communist-style redistribution artifacts.
-- [ ] `S7-08` Add coin special cells to map/content through authored event/consequence config, not one-off server branches.
-- [ ] `S7-09` Add economy guardrails: no negative balances, deterministic tie-breaking for coin selectors, safe partial transfer behavior, and all-or-nothing shop purchases.
-- [ ] `S7-10` Show why coins changed in reveal/event/action logs, shop purchase/use feedback, and minigame ranking summaries.
+- [x] `S7-01` Define the economy vocabulary and schema: `Coin Source`, `Coin Transaction`, `Economy Consequence`, `Coin Selector`, `Coin Transfer`, and `Ranking Payout Policy`.
+- [x] `S7-02` Add coin-aware target selectors that reuse the existing selector path: most coins, least coins, coin rank, coin rank range, and explicit selected player.
+- [x] `S7-03` Add a shared coin transaction helper used by coin consequences, ranking payout resolution, artifact shop purchases, and cosmetic shop purchases.
+- [x] `S7-04` Add reusable coin consequences for gain, lose, steal/transfer, and redistribute. Keep purchase affordability in shop purchase commands, not authored consequences.
+- [x] `S7-05` Convert minigame ranking payouts into a configurable Ranking Payout Policy that compiles to coin consequences; keep `coinPayout` as compatibility/default content during migration.
+- [x] `S7-06` Expose coin consequence and ranking payout controls in the Event Builder/minigame builder, using the existing consequence editor instead of a new payout-only UI.
+- [x] `S7-07` Add or update Artifact Builder/shop examples for steal-from-selected-player, richest/poorest selector, and communist-style redistribution artifacts.
+- [x] `S7-08` Add coin special cells to map/content through authored event/consequence config, not one-off server branches.
+- [x] `S7-09` Add economy guardrails: no negative balances, deterministic tie-breaking for coin selectors, safe partial transfer behavior, and all-or-nothing shop purchases.
+- [x] `S7-10` Show why coins changed in reveal/event/action logs, shop purchase/use feedback, and minigame ranking summaries.
 - [ ] `S7-11` Balance artifact and cosmetic prices against minigame payouts and non-minigame coin sources.
 
+Implementation and verification notes:
+
+- S7 landed on `main` through `437a04e`, `f5b3032`, and the S9 merge at `d9ce94b`.
+- `server/src/economy.ts` is the shared mutation/logging seam. Authored coin consequences, ranking payout resolution, artifact purchases, and cosmetic purchases all use it; shop purchases remain atomic commands rather than authored consequences.
+- `shared/events.ts`, `shared/consequences.ts`, `shared/types.ts`, and `shared/contentValidation.ts` now carry the reusable coin vocabulary and compatibility normalization.
+- Event Builder, Effect Builder, Minigame Builder, and Artifact Builder expose coin consequences/selectors. Seeded examples include `Peaje del más rico`, `Vaquita express`, selected-player transfers, richest/poorest selectors, and redistribution artifacts.
+- Reveal, action feedback, shop feedback, and ranking summaries expose coin transactions and clamping information.
+- Automated verification passed on 2026-07-10: client tests, server tests, server typecheck, client TypeScript check, production build, and `git diff --check`.
+- Manual browser QA is still open in [`docs/s7-validation-checklist.md`](docs/s7-validation-checklist.md), and S7-11 remains intentionally open for economy balancing.
+
 Acceptance:
+
+Implementation acceptance is covered by S7-01 through S7-10. The slice is not complete until the manual checklist passes and S7-11 has a deliberate balancing decision.
 
 - Minigame ranking rewards can be authored and previewed as reusable coin consequences, while current minigame content still works through the compatibility payout path.
 - Richest/poorest and coin-rank selectors can target players consistently from events, artifacts, and effects.
@@ -674,6 +696,11 @@ Tasks:
   - Missing placeable asset ids should fail validation.
   - Map Builder should make those assets discoverable before content authors use them.
   - This should cover prompts, map props, and any future authored 3D event/activity elements.
+- [ ] `S8-08` Add the bounded `moveToPlayerPosition` consequence for authored story content:
+  - Let an author choose a fixed player target or ask the host to choose one at resolution time.
+  - Move the acting/target player to that chosen player's current board position.
+  - Keep the scope strict: do not infer nearest players, social traits, appearance, ages, landmarks, or tile occupancy.
+  - Add shared schema/validation, server resolution tests, and Event/Effect/Artifact Builder controls.
 
 Story/anecdote content bank from notes:
 
@@ -734,51 +761,51 @@ Design rules:
 
 Tasks:
 
-- [ ] `S9-01` Add shared audio content schema:
+- [x] `S9-01` Add shared audio content schema:
   - `AudioAssetDef` for uploaded/imported audio.
   - `AudioTriggerBindingDef` for trigger id, scope, variants, weights, volume, category, cooldown/overlap policy, and enabled state.
   - Distinguish one-shot sound effects from looping/background music.
-- [ ] `S9-02` Add a Sound Builder/Audio Tool in `/tools`:
+- [x] `S9-02` Add a Sound Builder/Audio Tool in `/tools`:
   - Upload or import audio assets.
   - Preview/play an audio asset.
   - Attach one or more variants to a trigger.
   - Set optional weights when a trigger has multiple variants.
   - Configure global defaults and scoped custom sounds.
-- [ ] `S9-03` Add runtime audio engine:
+- [x] `S9-03` Add runtime audio engine:
   - Weighted random selection.
   - Additive default + scoped custom candidate resolution.
   - Mute/master volume/music volume/sfx volume.
   - Cooldowns or voice limits for spammy triggers where needed.
   - Non-fatal handling for missing/blocked audio.
-- [ ] `S9-04` Add artifact and shop triggers:
+- [x] `S9-04` Add artifact and shop triggers:
   - Receive an artifact or send an artifact to another player.
   - Use an artifact on myself.
   - Open a shop.
   - Roll shop options/offers.
-- [ ] `S9-05` Add movement, dice, and board interaction triggers:
+- [x] `S9-05` Add movement, dice, and board interaction triggers:
   - Dice rolling.
   - Each player step.
   - Clicking a player token.
   - Player-click should also add a quick squash/squish animation, be fun to spam, and support default plus per-player custom sounds.
-- [ ] `S9-06` Add win and game-end triggers:
+- [x] `S9-06` Add win and game-end triggers:
   - When a player wins a minigame/activity, with optional per-player custom sounds.
   - Final winner when the whole game finishes.
-- [ ] `S9-07` Add minigame-specific audio hooks:
+- [x] `S9-07` Add minigame-specific audio hooks:
   - Minigame music/background loop.
   - Time ticking/countdown sounds.
   - Player loses/fails in minigames, especially Flappy Birds, Maze, and Snake.
   - Inspect existing minigames and add other natural failure, timeout, win, start, or end hooks where they fit.
-- [ ] `S9-08` Add cosmetic triggers:
+- [x] `S9-08` Add cosmetic triggers:
   - Buying a cosmetic.
   - Equipping a cosmetic.
-- [ ] `S9-09` Keep existing notification/presentation polish:
+- [~] `S9-09` Keep existing notification/presentation polish:
   - Effect applied.
   - Effect ticked.
   - Effect ended.
   - Artifact used.
   - Purchase completed.
   - Tune reveal, target selector, shop, active effect, and media timing after audio is wired.
-- [ ] `S9-10` Add validation and tests:
+- [x] `S9-10` Add validation and tests:
   - Missing audio assets.
   - Invalid trigger ids/scopes.
   - Invalid weights.
@@ -808,11 +835,19 @@ Audio trigger inventory:
 - `artifact.used`
 - `purchase.completed`
 
-Partial baseline:
+Implementation and verification notes:
 
-- Effect ended/consumed notifications now appear for active effects that expire or trigger during gameplay, including artifact-backed effects. Remaining `S9-09` work: applied/ticked notifications, purchase-completed feedback, final presentation polish, and sound hooks.
+- S9 landed on `main` through `0ec132f`, `40c972f`, `c80234d`, and merge commit `d9ce94b`.
+- `shared/audio.ts` and `shared/types.ts` define portable audio assets, trigger bindings, scopes, variants, weights, playback modes, cooldowns, voice limits, and overlap policies. `shared/contentValidation.ts` validates asset references, scopes, trigger ids, weights, trims, and import/export normalization.
+- `/tools` now exposes the Sound Builder with file import, preview, waveform/trim controls, trigger binding, default plus scoped custom lists, weighted variants, JSON import/export, and browser-draft recovery.
+- Runtime hooks cover artifact send/receive/self-use, shop open/roll, player steps/clicks, dice roll, minigame music/ticking/loss, activity wins, final winner, cosmetic buy/equip, effect lifecycle, and purchase completion. Player-token clicks also trigger a fast squish animation.
+- Runtime audio has mute, master/music/sfx volume, explicit unlock controls, autoplay-safe failure handling, weighted selection, cooldowns, and voice limits.
+- Automated verification passed on 2026-07-10: six audio/content tests, server tests, server typecheck, client TypeScript check, production build, and `git diff --check`.
+- Remaining `S9-09` work is presentation polish after S7.5 media exists, plus manual browser QA of the Sound Builder and real-game trigger behavior. Keep S9 at `[~]` until that QA is recorded.
 
 Acceptance:
+
+Implementation acceptance is covered by S9-01 through S9-08 and S9-10. S9-09 and browser QA remain open for final completion.
 
 - A content author can open the Sound Builder/Audio Tool, add audio assets, attach weighted variants to triggers, and save/export/import the configuration.
 - Runtime gameplay can play authored sounds for artifacts, shops, movement, dice, minigames, player clicks, player wins, final winner, cosmetics, effects, and purchases.
@@ -1172,8 +1207,8 @@ Resolved:
 - Room map selection: creating a room can select any map saved in `shared/content.json`.
 - Character trait visibility: default trait names/descriptions are visible during character selection and lobby; live default trait effects appear in the existing active-effect UI during play.
 - Authored camera framing is promoted from S9 into `S7.5` so it lands before authoring/content generation work in S8.
-- S9 audio triggers can run in parallel with S7/S7.5/S8 because they depend on already-complete gameplay and UI surfaces; keep the implementation modular to reduce merge conflicts.
+- S9 audio triggers were allowed to run in parallel with S7/S7.5/S8 because they depend on already-complete gameplay and UI surfaces; the implementation is now landed on `main`, with browser QA and presentation follow-up still open.
 
 ## Next Review Step
 
-Continue with `S7` Economy And Special Cells, `S7.5` Authored Camera Framing And Activity Media, and `S9` Audio Trigger System in parallel worktrees. Start `S8` Authoring Skills And Content Bank after `S7.5` stabilizes. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, `S5`, and `S6` are complete.
+Complete S7 manual QA and balancing, complete S9 browser QA, and reverify the landed S7.5 flow while starting S8 Authoring Skills And Content Bank. `R-REF`, `S0`, `S1`, `S-CAM`, `S2`, `S3`, `S4`, `S5`, `S6`, and S7.5 are complete; S7 and S9 implementation is landed with follow-up QA still open.

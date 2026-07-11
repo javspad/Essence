@@ -8,6 +8,7 @@ import cors from "cors";
 import { Server } from "socket.io";
 import type { CharacterSlot, ClientToServerEvents, ContentMapSummary, GameContent, MapDefinition, RoomSummary, ServerToClientEvents } from "@essence/shared";
 import { characterSlotsForContent } from "@essence/shared/characters";
+import { assertValidGameContent } from "@essence/shared/contentValidation";
 import { loadContent } from "./content.js";
 import { GameRoom } from "./room.js";
 
@@ -20,6 +21,7 @@ app.use(cors());
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: { origin: "*" },
+  maxHttpBufferSize: 10_000_000,
 });
 
 // --- Salas en memoria -------------------------------------------------------
@@ -40,7 +42,7 @@ function genCode(): string {
 function listRooms(): RoomSummary[] {
   const out: RoomSummary[] = [];
   for (const room of rooms.values()) {
-    if (room.isEmpty) continue;
+    if (room.isEmpty || room.isPlaytest) continue;
     out.push(room.summary());
   }
   return out.sort((a, b) => Number(a.phase !== "lobby") - Number(b.phase !== "lobby"));
@@ -94,6 +96,16 @@ function contentLoadError(error: unknown): string {
 }
 
 io.on("connection", (socket) => {
+  const closeCurrentPlaytest = async () => {
+    const code = socketIndex.get(socket.id);
+    if (!code) return;
+    const room = rooms.get(code);
+    if (!room?.isPlaytest) return;
+    await socket.leave(code);
+    socketIndex.delete(socket.id);
+    rooms.delete(code);
+  };
+
   socket.on("room:create", ({ name, roomName, characterId, mapId }, ack) => {
     const trimmedRoom = (roomName ?? "").trim();
     if (!trimmedRoom) {
@@ -226,8 +238,92 @@ io.on("connection", (socket) => {
   socket.on("minigame:force", () => withRoom((r) => void r.forceResolve(socket.id)));
   socket.on("debug:applyEffect", (payload) => withRoom((r) => r.debugApplyEffect(socket.id, payload)));
 
-  socket.on("disconnect", () => {
-    withRoom((r) => r.disconnect(socket.id));
+  socket.on("playtest:start", async ({ content: rawContent, mapId }, ack) => {
+    if (process.env.NODE_ENV === "production" && process.env.ENABLE_PLAYTEST !== "1") {
+      ack({ ok: false, error: "El playtest del builder está deshabilitado en producción" });
+      return;
+    }
+    const currentCode = socketIndex.get(socket.id);
+    const currentRoom = currentCode ? rooms.get(currentCode) : undefined;
+    if (currentRoom && !currentRoom.isPlaytest) {
+      ack({ ok: false, error: "Salí de la sala actual antes de abrir el playtest" });
+      return;
+    }
+    await closeCurrentPlaytest();
+
+    let playtestContent: GameContent;
+    try {
+      playtestContent = assertValidGameContent(rawContent, "Map Builder playtest");
+    } catch (error) {
+      ack({ ok: false, error: error instanceof Error ? error.message : "El contenido del playtest no es válido" });
+      return;
+    }
+    const selectedMap = mapIdForRoom(playtestContent, mapId);
+    if (!selectedMap.ok) {
+      ack(selectedMap);
+      return;
+    }
+
+    const code = genCode();
+    const room = new GameRoom(io, code, "Map Builder playtest", playtestContent, {
+      mapId: selectedMap.mapId,
+      playtest: true,
+    });
+    rooms.set(code, room);
+    await socket.join(code);
+    socketIndex.set(socket.id, code);
+    const result = room.seedPlaytest(socket.id);
+    if (!result.ok) {
+      await closeCurrentPlaytest();
+      ack(result);
+      return;
+    }
+    ack(result);
+  });
+
+  socket.on("playtest:selectPlayer", ({ playerId }, ack) => {
+    const code = socketIndex.get(socket.id);
+    const room = code ? rooms.get(code) : undefined;
+    if (!room?.isPlaytest) {
+      ack({ ok: false, error: "No hay un playtest activo" });
+      return;
+    }
+    ack(room.selectPlaytestPlayer(socket.id, playerId));
+  });
+
+  socket.on("playtest:roll", ({ value }, ack) => {
+    const code = socketIndex.get(socket.id);
+    const room = code ? rooms.get(code) : undefined;
+    if (!room?.isPlaytest) {
+      ack({ ok: false, error: "No hay un playtest activo" });
+      return;
+    }
+    ack(room.rollPlaytest(socket.id, value));
+  });
+
+  socket.on("playtest:land", ({ tileId }, ack) => {
+    const code = socketIndex.get(socket.id);
+    const room = code ? rooms.get(code) : undefined;
+    if (!room?.isPlaytest) {
+      ack({ ok: false, error: "No hay un playtest activo" });
+      return;
+    }
+    ack(room.landPlaytest(socket.id, tileId));
+  });
+
+  socket.on("playtest:stop", async (ack) => {
+    await closeCurrentPlaytest();
+    ack({ ok: true });
+  });
+
+  socket.on("disconnect", async () => {
+    const code = socketIndex.get(socket.id);
+    const room = code ? rooms.get(code) : undefined;
+    if (room?.isPlaytest) {
+      rooms.delete(room.code);
+    } else {
+      room?.disconnect(socket.id);
+    }
     socketIndex.delete(socket.id);
   });
 });

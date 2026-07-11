@@ -261,6 +261,7 @@ export type EventActivityType =
   | "hostPick"
   | "selfTap"
   | "vote"
+  | "cardVote"
   | "buzzer"
   | "judge"
   | "timing"
@@ -308,6 +309,17 @@ export interface EventActivity {
   };
   rigged?: RiggedConfig;
   rankingPayout?: RankingPayoutPolicy;
+}
+
+export type CardVoteTieMode = "shared" | "noCard";
+
+/** Authored content for a synchronized, multi-round player vote activity. */
+export interface CardVoteActivityContent {
+  cards: string[];
+  /** Defaults to true to match the existing vote activity. */
+  allowSelfVote?: boolean;
+  /** Shared awards one card to every tied leader. Defaults to shared. */
+  tieMode?: CardVoteTieMode;
 }
 
 export type TargetSelector =
@@ -924,6 +936,23 @@ export interface ActiveMinigame {
     phase: "writing" | "voting";
     submissions?: { id: string; text: string }[];
   };
+  cardVote?: {
+    phase: "voting" | "result";
+    cardIndex: number;
+    totalCards: number;
+    card: string;
+    allowSelfVote: boolean;
+    tieMode: CardVoteTieMode;
+    cardCounts: Record<string, number>;
+    cardsWonByPlayer: Record<string, string[]>;
+    roundResult?: {
+      card: string;
+      cardIndex: number;
+      winnerIds: string[];
+      voteCounts: Record<string, number>;
+      votersByPlayer: Record<string, string[]>;
+    };
+  };
 }
 
 export interface ActiveEvent {
@@ -1124,6 +1153,28 @@ export interface ClientToServerEvents {
   "minigame:force": () => void;
   /** Development-only host tool: attach a catalog effect to a player for simulation/debugging. */
   "debug:applyEffect": (payload: { playerId: string; effectId: string; effect?: EffectDef }) => void;
+  /** Builder-only sandbox: create and start an isolated game with seeded players. */
+  "playtest:start": (
+    payload: { content: GameContent; mapId?: string },
+    ack: (res: { ok: true; playerId: string } | { ok: false; error: string }) => void
+  ) => void;
+  /** Change which seeded player this browser controls without changing the active turn. */
+  "playtest:selectPlayer": (
+    payload: { playerId: string },
+    ack: (res: { ok: true; playerId: string } | { ok: false; error: string }) => void
+  ) => void;
+  /** Run the real dice/movement lifecycle with a chosen physical die value. */
+  "playtest:roll": (
+    payload: { value: number },
+    ack: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => void;
+  /** Put the controlled player on a cell and run the real landing lifecycle. */
+  "playtest:land": (
+    payload: { tileId: number },
+    ack: (res: { ok: true } | { ok: false; error: string }) => void
+  ) => void;
+  /** Close the private builder playtest without touching a saved room session. */
+  "playtest:stop": (ack: (res: { ok: true }) => void) => void;
   "reveal:next": () => void;
 }
 

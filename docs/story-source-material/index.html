@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#23314d" />
+    <title>Essence — Story source material</title>
+    <style>
+      :root {
+        --ink: #17233a;
+        --paper: #f4f0e6;
+        --card: #fffdf7;
+        --line: #d4ccbd;
+        --muted: #697489;
+        --blue: #3767c7;
+        --blue-dark: #23314d;
+        --pink: #e33e70;
+        --yellow: #ffd84b;
+        --mint: #c9eadb;
+        --shadow: 0 14px 32px rgba(23, 35, 58, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 5% 1%, rgba(255, 216, 75, 0.45), transparent 25rem),
+          linear-gradient(115deg, #e9e3d7 0%, var(--paper) 47%, #e8eef5 100%);
+        font-family: Avenir Next, Avenir, Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+
+      button, input { font: inherit; }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      button { cursor: pointer; }
+
+      button:focus-visible, a:focus-visible, input:focus-visible {
+        outline: 3px solid var(--yellow);
+        outline-offset: 3px;
+      }
+
+      .shell { width: min(1480px, calc(100% - 32px)); margin: 0 auto; }
+
+      .masthead {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 2rem;
+        align-items: end;
+        padding: clamp(2rem, 7vw, 6rem) 0 2.5rem;
+      }
+
+      .eyebrow, .mono, .count, .meta, .chip, .status, .source-label {
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        letter-spacing: 0.03em;
+      }
+
+      .eyebrow { margin: 0 0 0.6rem; font-size: 0.73rem; font-weight: 800; color: var(--pink); text-transform: uppercase; }
+
+      h1, h2, h3, p { margin-top: 0; }
+
+      h1 {
+        max-width: 11ch;
+        margin-bottom: 1rem;
+        font-family: Impact, Haettenschweiler, Avenir Next Condensed, sans-serif;
+        font-size: clamp(3.5rem, 9vw, 8.5rem);
+        font-weight: 900;
+        line-height: 0.82;
+        letter-spacing: -0.06em;
+        text-transform: uppercase;
+      }
+
+      .intro { max-width: 60ch; margin-bottom: 0; color: #46536a; font-size: 1.05rem; line-height: 1.55; }
+
+      .archive-stamp {
+        display: grid;
+        place-items: center;
+        width: 154px;
+        aspect-ratio: 1;
+        border: 2px solid var(--ink);
+        border-radius: 50%;
+        background: var(--yellow);
+        box-shadow: 6px 6px 0 var(--pink);
+        color: var(--ink);
+        font: 900 0.78rem/1.3 SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.08em;
+        text-align: center;
+        text-transform: uppercase;
+        transform: rotate(7deg);
+      }
+
+      .control-bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: grid;
+        grid-template-columns: auto minmax(14rem, 1fr) auto auto;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.75rem;
+        border: 1px solid rgba(23, 35, 58, 0.16);
+        background: rgba(255, 253, 247, 0.9);
+        box-shadow: 0 8px 24px rgba(23, 35, 58, 0.09);
+        backdrop-filter: blur(16px);
+      }
+
+      .tabs { display: flex; gap: 0.3rem; overflow-x: auto; }
+
+      .tab, .filter, .image-button, .close-button {
+        border: 1px solid transparent;
+        color: var(--ink);
+        background: transparent;
+      }
+
+      .tab {
+        padding: 0.65rem 0.8rem;
+        border-radius: 2px;
+        font-size: 0.84rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .tab:hover, .tab[aria-selected="true"] { background: var(--blue-dark); color: white; }
+
+      .search {
+        width: 100%;
+        min-width: 0;
+        padding: 0.7rem 0.85rem;
+        border: 1px solid var(--line);
+        border-radius: 2px;
+        background: var(--card);
+        color: var(--ink);
+      }
+
+      .filter {
+        display: flex;
+        gap: 0.45rem;
+        align-items: center;
+        padding: 0.65rem 0.25rem 0.65rem 0.55rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .filter input { accent-color: var(--pink); }
+
+      .engine-filter { display: flex; gap: 0.45rem; align-items: center; }
+      .engine-filter select { max-width: 14rem; padding: 0.65rem 1.9rem 0.65rem 0.65rem; border: 1px solid var(--line); border-radius: 2px; background: var(--card); color: var(--ink); font-size: 0.8rem; font-weight: 800; }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 1px;
+        margin: 2.5rem 0 2rem;
+        border: 1px solid var(--line);
+        background: var(--line);
+      }
+
+      .summary-item { min-width: 0; padding: 1rem 1.1rem; background: rgba(255, 253, 247, 0.9); }
+      .count { display: block; font-size: 1.7rem; font-weight: 800; color: var(--blue); }
+      .summary-label { display: block; margin-top: 0.25rem; color: var(--muted); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; }
+
+      .view-header { display: flex; justify-content: space-between; gap: 1rem; align-items: end; margin: 1.5rem 0; }
+      .view-header h2 { margin: 0; font-size: clamp(1.6rem, 3vw, 2.5rem); letter-spacing: -0.04em; }
+      .result-count { margin: 0; color: var(--muted); font-size: 0.84rem; }
+
+      .event-grid, .artifact-grid, .trivia-grid, .gap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+      .trait-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+
+      .card {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: var(--card);
+        box-shadow: 0 1px 0 rgba(23, 35, 58, 0.04);
+      }
+
+      .event-card { display: grid; grid-template-rows: 180px 1fr; min-height: 410px; }
+      .event-card[data-delivery="minigame_intro"] .card-body { border-left: 5px solid var(--pink); }
+
+      .image-button, .image-placeholder {
+        display: grid;
+        place-items: center;
+        width: 100%;
+        height: 180px;
+        overflow: hidden;
+        background: #dce5f5;
+      }
+
+      .image-button { padding: 0; }
+      .image-button:hover img { transform: scale(1.04); }
+      .image-button img, .artifact-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 180ms ease; }
+      .image-placeholder { color: var(--blue-dark); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; }
+
+      .card-body { display: flex; flex-direction: column; padding: 1rem; }
+      .card-body h3 { margin-bottom: 0.75rem; font-size: 1.1rem; line-height: 1.15; letter-spacing: -0.02em; }
+      .effect { margin-bottom: 1rem; color: #4b586d; font-size: 0.87rem; line-height: 1.45; }
+      .effect strong { color: var(--ink); }
+      .event-footer { display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap; margin-top: auto; }
+
+      .chip, .status { display: inline-flex; align-items: center; min-height: 1.55rem; padding: 0.22rem 0.45rem; border-radius: 2px; font-size: 0.67rem; font-weight: 800; text-transform: uppercase; }
+      .chip { background: #e8ecf4; color: var(--blue-dark); }
+      .chip.minigame { background: var(--pink); color: white; }
+      .status.supported { background: var(--mint); color: #1b5a45; }
+      .status.partial { background: #fce5a9; color: #6d4a00; }
+      .status.new_support { background: #f8ceda; color: #8c193e; }
+      .status.planned { background: #dce5f5; color: #244b97; }
+      .status.omitted { background: #ece8de; color: #625f57; }
+
+      .details { margin-top: 0.85rem; border-top: 1px dashed var(--line); }
+      .details summary { padding: 0.7rem 0 0; color: var(--blue); font-size: 0.76rem; font-weight: 800; cursor: pointer; }
+      .details p { margin: 0.65rem 0 0; font-size: 0.78rem; line-height: 1.45; }
+
+      .trait-card { padding: 1.2rem; border-top: 6px solid var(--blue); }
+      .trait-card h3 { margin-bottom: 1rem; font-size: 1.4rem; }
+      .trait { padding: 0.9rem 0; border-top: 1px solid var(--line); }
+      .trait:first-of-type { border-top: 0; }
+      .trait h4 { margin: 0 0 0.35rem; font-size: 0.85rem; text-transform: uppercase; }
+      .trait p { margin-bottom: 0.55rem; font-size: 0.86rem; line-height: 1.45; }
+      .proposal { color: var(--muted); }
+
+      .artifact-card { display: grid; grid-template-columns: 92px 1fr; min-height: 150px; }
+      .artifact-image { overflow: hidden; background: #dce5f5; }
+      .artifact-image img { min-height: 100%; }
+      .artifact-card .card-body { padding: 0.9rem; }
+
+      .trivia-card { padding: 1.1rem; }
+      .trivia-card h3 { font-size: 1.05rem; line-height: 1.25; }
+      .choices { display: grid; gap: 0.4rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+      .choice { display: grid; grid-template-columns: 1.6rem 1fr; gap: 0.5rem; align-items: start; padding: 0.5rem; background: #f0f2f6; font-size: 0.82rem; }
+      .choice-label { color: var(--pink); font: 800 0.72rem/1.6 SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+
+      .gap-card { min-height: 180px; padding: 1.15rem; border-top: 6px solid var(--pink); }
+      .gap-card h3 { margin-bottom: 0.65rem; font-size: 1rem; line-height: 1.2; }
+      .gap-card p { margin: 0; color: #4b586d; font-size: 0.87rem; line-height: 1.45; }
+
+      .cardvote-list { display: grid; gap: 1.25rem; }
+
+      .cardvote-stage {
+        overflow: hidden;
+        padding: clamp(1rem, 3vw, 2rem);
+        border: 1px solid #101d32;
+        background:
+          radial-gradient(circle at 93% 13%, rgba(245, 213, 71, 0.18), transparent 16rem),
+          linear-gradient(135deg, #172b49, #101d32 65%);
+        color: #fff8d6;
+        box-shadow: 9px 9px 0 var(--pink);
+      }
+
+      .cardvote-header { display: flex; justify-content: space-between; gap: 1rem; align-items: start; margin-bottom: 1.5rem; }
+      .cardvote-header h3 { margin: 0.45rem 0 0; font-size: clamp(1.55rem, 3vw, 2.6rem); letter-spacing: -0.045em; }
+      .cardvote-header p { max-width: 58ch; margin: 0.8rem 0 0; color: #c7bddc; line-height: 1.5; }
+      .cardvote-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; }
+      .cardvote-meta .chip { background: rgba(255, 248, 214, 0.12); color: #fff8d6; }
+
+      .cardvote-deck { display: grid; grid-template-columns: repeat(5, minmax(145px, 1fr)); gap: clamp(0.45rem, 1.4vw, 1rem); align-items: stretch; }
+      .cardvote-card {
+        min-height: 205px;
+        padding: 1rem;
+        border: 2px solid #f5d547;
+        background: #fff8d6;
+        color: #201507;
+        box-shadow: 4px 5px 0 rgba(0, 0, 0, 0.28);
+        transform: rotate(var(--tilt));
+        transition: transform 160ms ease, box-shadow 160ms ease;
+      }
+      .cardvote-card:hover { position: relative; z-index: 1; box-shadow: 8px 10px 0 rgba(0, 0, 0, 0.3); transform: translateY(-8px) rotate(0); }
+      .cardvote-card-number { display: block; margin-bottom: 1rem; color: var(--pink); font: 800 0.72rem SFMono-Regular, Menlo, monospace; }
+      .cardvote-card p { margin: 0; font-size: clamp(0.92rem, 1.4vw, 1.08rem); font-weight: 800; line-height: 1.32; letter-spacing: -0.02em; }
+
+      .engine-wall { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid var(--ink); background: var(--blue-dark); color: #fff8d6; }
+      .engine-wall-header { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; margin-bottom: 0.9rem; }
+      .engine-wall-header h3 { margin: 0; font-size: 1rem; }
+      .engine-wall-header p { margin: 0; color: #c7bddc; font-size: 0.78rem; }
+      .engine-usage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.45rem; }
+      .engine-meter { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; min-height: 3.1rem; padding: 0.5rem 0.65rem; border: 1px solid rgba(255, 248, 214, 0.18); background: rgba(255, 248, 214, 0.06); color: #fff8d6; text-align: left; }
+      .engine-meter:hover, .engine-meter[aria-pressed="true"] { border-color: var(--yellow); background: rgba(245, 213, 71, 0.18); }
+      .engine-meter small { display: block; margin-top: 0.18rem; color: #c7bddc; font: 700 0.62rem SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+      .engine-meter-count { display: grid; place-items: center; min-width: 1.9rem; min-height: 1.9rem; background: var(--yellow); color: #201507; font: 900 0.82rem SFMono-Regular, Menlo, monospace; }
+      .engine-meter-count.empty { background: var(--pink); color: white; }
+
+      .playable-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: 0.75rem; }
+      .playable-card { min-height: 185px; padding: 1rem; border-top: 5px solid var(--blue); }
+      .playable-card[data-source-kind="trivia"] { border-top-color: var(--pink); }
+      .playable-card[data-source-kind="card-vote"] { border-top-color: var(--yellow); }
+      .playable-card h3 { margin: 0.75rem 0 0.6rem; font-size: 1rem; line-height: 1.22; }
+      .playable-card p { margin: 0; color: #4b586d; font-size: 0.8rem; line-height: 1.42; }
+      .reward-comment { margin-top: 0.85rem !important; padding-top: 0.7rem; border-top: 1px dashed var(--line); color: var(--blue-dark) !important; font-size: 0.73rem !important; }
+
+      .empty { padding: 3rem 1rem; border: 1px dashed var(--line); color: var(--muted); text-align: center; }
+      .footer { padding: 3.5rem 0 2.5rem; color: var(--muted); font-size: 0.78rem; }
+      .footer a { color: var(--blue); font-weight: 800; }
+
+      dialog { width: min(980px, calc(100% - 2rem)); max-height: 90vh; padding: 0; border: 0; background: transparent; }
+      dialog::backdrop { background: rgba(16, 27, 46, 0.78); backdrop-filter: blur(5px); }
+      .lightbox-inner { position: relative; background: var(--ink); }
+      .lightbox-inner img { display: block; max-width: 100%; max-height: 82vh; margin: auto; object-fit: contain; }
+      .close-button { position: absolute; top: 0.7rem; right: 0.7rem; display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 50%; background: var(--yellow); font-weight: 900; }
+
+      @media (max-width: 800px) {
+        .masthead { grid-template-columns: 1fr; gap: 1.5rem; }
+        .archive-stamp { display: none; }
+        .control-bar { grid-template-columns: 1fr; }
+        .tabs { padding-bottom: 0.15rem; }
+        .summary { grid-template-columns: repeat(2, 1fr); }
+        .summary-item:last-child { grid-column: span 2; }
+        .cardvote-header { display: block; }
+        .cardvote-meta { justify-content: start; margin-top: 1rem; }
+        .cardvote-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .cardvote-card:last-child { grid-column: span 2; }
+        .engine-filter { justify-content: start; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .image-button img { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">Essence / despedida archive</p>
+          <h1>Story contact sheet</h1>
+          <p class="intro">A visual working copy of the source document: original captions, proposed game effects, image references, traits, artifacts, and trivia—kept separate from production content.</p>
+        </div>
+        <div class="archive-stamp" aria-label="Reference material only">Reference<br />material<br />only</div>
+      </header>
+
+      <section class="control-bar" aria-label="Archive controls">
+        <nav class="tabs" aria-label="Content sections">
+          <button class="tab" type="button" data-view="events" aria-selected="true">Events</button>
+          <button class="tab" type="button" data-view="traits" aria-selected="false">Traits</button>
+          <button class="tab" type="button" data-view="artifacts" aria-selected="false">Artifacts</button>
+          <button class="tab" type="button" data-view="trivia" aria-selected="false">Trivia</button>
+          <button class="tab" type="button" data-view="cardvote" aria-selected="false">Amigos de mierda</button>
+          <button class="tab" type="button" data-view="playable" aria-selected="false">Playable events</button>
+          <button class="tab" type="button" data-view="solutions" aria-selected="false">Solutions</button>
+        </nav>
+        <label>
+          <span class="sr-only">Search the current section</span>
+          <input id="search" class="search" type="search" autocomplete="off" placeholder="Search captions, effects, names…" />
+        </label>
+        <label id="engine-filter-wrap" class="engine-filter" hidden>
+          <span class="sr-only">Filter by minigame</span>
+          <select id="engine-filter" aria-label="Filter playable events by minigame"></select>
+        </label>
+        <label class="filter"><input id="media-only" type="checkbox" /> Images only</label>
+      </section>
+
+      <section id="summary" class="summary" aria-label="Archive summary"></section>
+
+      <section aria-live="polite">
+        <div class="view-header">
+          <h2 id="view-title">Events</h2>
+          <p id="result-count" class="result-count"></p>
+        </div>
+        <div id="content"></div>
+      </section>
+
+      <footer class="footer">
+        <span id="source-status">Loading source material…</span>
+        <span aria-hidden="true"> · </span>
+        <a href="story-source-extraction.json">Open source JSON</a>
+      </footer>
+    </main>
+
+    <dialog id="lightbox" aria-label="Expanded source image">
+      <div class="lightbox-inner">
+        <button class="close-button" type="button" aria-label="Close image">×</button>
+        <img id="lightbox-image" alt="" />
+      </div>
+    </dialog>
+
+    <script src="viewer-data.js"></script>
+    <script>
+      const state = { view: "events", query: "", mediaOnly: false, engineFilter: "all", data: null };
+      const titleByView = { events: "Events", traits: "Character traits", artifacts: "Artifacts", trivia: "Trivia", cardvote: "Amigos de mierda", playable: "Playable event catalog", solutions: "Implementation proposals" };
+      const content = document.querySelector("#content");
+      const summary = document.querySelector("#summary");
+      const resultCount = document.querySelector("#result-count");
+      const viewTitle = document.querySelector("#view-title");
+      const sourceStatus = document.querySelector("#source-status");
+      const dialog = document.querySelector("#lightbox");
+      const dialogImage = document.querySelector("#lightbox-image");
+      const engineFilterWrap = document.querySelector("#engine-filter-wrap");
+      const engineFilter = document.querySelector("#engine-filter");
+
+      const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+      }[character]));
+
+      function assetMap() {
+        return new Map(state.data.image_assets.map((asset) => [asset.id, asset]));
+      }
+
+      function imageFor(assetId) {
+        const asset = assetMap().get(assetId);
+        return asset ? asset.local_path : null;
+      }
+
+      function normalize(value) { return String(value ?? "").toLocaleLowerCase(); }
+      function matches(item) { return !state.query || normalize(JSON.stringify(item)).includes(normalize(state.query)); }
+      function statusLabel(status) {
+        return ({ supported: "ready", planned: "planned", omitted: "intentional scope", partial: "partial", comment_only: "comment only", new_support: "new support" })[status] || "reference";
+      }
+      function statusBadge(status) { return `<span class="status ${escapeHtml(status || "partial")}">${escapeHtml(statusLabel(status))}</span>`; }
+      function empty(message) { return `<div class="empty">${escapeHtml(message)}</div>`; }
+
+      function renderSummary() {
+        const groups = new Set(state.data.events.map((event) => event.source_caption_group_id)).size;
+        const items = [
+          [state.data.events.length, "event cards"],
+          [groups, "source captions"],
+          [state.data.image_assets.length, "downloaded images"],
+          [state.data.artifacts.length, "artifacts"],
+          [state.data.trivia.length, "trivia questions"],
+          [state.data.card_vote_sets.reduce((count, set) => count + set.cards.length, 0), "CardVote cards"]
+        ];
+        summary.innerHTML = items.map(([count, label]) => `<div class="summary-item"><span class="count">${count}</span><span class="summary-label">${label}</span></div>`).join("");
+      }
+
+      function renderEvents() {
+        const events = state.data.events.filter((event) => matches(event) && (!state.mediaOnly || event.media_asset_id));
+        resultCount.textContent = `${events.length} of ${state.data.events.length} event cards`;
+        if (!events.length) return empty("No events match this filter.");
+        return `<div class="event-grid">${events.map((event) => {
+          const image = imageFor(event.media_asset_id);
+          const adaptation = event.proposed_adaptation;
+          const originalEffect = event.original_effect_proposed ? `<p class="effect"><strong>Original effect:</strong> ${escapeHtml(event.original_effect_proposed)}</p>` : "";
+          const visual = image
+            ? `<button class="image-button" type="button" data-image="${escapeHtml(image)}" data-alt="${escapeHtml(event.original_caption)}"><img loading="lazy" src="${escapeHtml(image)}" alt="${escapeHtml(event.original_caption)}" /></button>`
+            : `<div class="image-placeholder">No linked image</div>`;
+          return `<article class="card event-card" data-delivery="${escapeHtml(event.presentation.type)}">
+            ${visual}
+            <div class="card-body">
+              <div class="event-footer"><span class="chip">${escapeHtml(event.id)}</span>${event.presentation.suggested_minigame_id ? `<span class="chip minigame">${escapeHtml(event.presentation.suggested_minigame_id)}</span>` : ""}</div>
+              <h3>${escapeHtml(event.original_caption)}</h3>
+              ${originalEffect}
+              <div class="event-footer">${statusBadge(adaptation.support)}<span class="chip">${escapeHtml(adaptation.current_primitive)}</span></div>
+              <details class="details"><summary>View proposed adaptation</summary><p>${escapeHtml(adaptation.proposed_version)}</p></details>
+            </div>
+          </article>`;
+        }).join("")}</div>`;
+      }
+
+      function renderTraits() {
+        const characters = state.data.character_traits.filter(matches);
+        resultCount.textContent = `${characters.length} characters`;
+        if (!characters.length) return empty("No character traits match this filter.");
+        return `<div class="trait-grid">${characters.map((character) => `<article class="card trait-card">
+          <span class="chip">${escapeHtml(character.id)}</span>
+          <h3>${escapeHtml(character.name)}</h3>
+          ${character.traits.map((trait) => `<section class="trait">
+            <h4>${escapeHtml(trait.kind)}</h4>
+            <p>${escapeHtml(trait.original)}</p>
+            <p class="proposal">${statusBadge(trait.proposed_adaptation.support)} ${escapeHtml(trait.proposed_adaptation.current_best_fit)}</p>
+            ${trait.proposed_adaptation.reason ? `<details class="details"><summary>Why this needs work</summary><p>${escapeHtml(trait.proposed_adaptation.reason)}</p></details>` : ""}
+          </section>`).join("")}
+        </article>`).join("")}</div>`;
+      }
+
+      function renderArtifacts() {
+        const artifacts = state.data.artifacts.filter((artifact) => matches(artifact) && (!state.mediaOnly || artifact.media_asset_ids.length));
+        resultCount.textContent = `${artifacts.length} artifacts`;
+        if (!artifacts.length) return empty("No artifacts match this filter.");
+        return `<div class="artifact-grid">${artifacts.map((artifact) => {
+          const image = imageFor(artifact.media_asset_ids[0]);
+          return `<article class="card artifact-card">
+            <div class="artifact-image">${image ? `<button class="image-button" type="button" data-image="${escapeHtml(image)}" data-alt="${escapeHtml(artifact.original_name)}"><img loading="lazy" src="${escapeHtml(image)}" alt="${escapeHtml(artifact.original_name)}" /></button>` : `<div class="image-placeholder">Artifact</div>`}</div>
+            <div class="card-body"><span class="chip">${escapeHtml(artifact.id)}</span><h3>${escapeHtml(artifact.original_name)}</h3>
+              <p class="effect">${escapeHtml(artifact.original_effect_proposed)}</p>
+              <div class="event-footer">${statusBadge(artifact.proposed_adaptation.support)}<span class="chip">${escapeHtml(artifact.proposed_adaptation.current_primitive)}</span></div>
+            </div>
+          </article>`;
+        }).join("")}</div>`;
+      }
+
+      function renderTrivia() {
+        const trivia = state.data.trivia.filter(matches);
+        resultCount.textContent = `${trivia.length} questions · image-answer question 4 excluded`;
+        if (!trivia.length) return empty("No trivia matches this filter.");
+        return `<div class="trivia-grid">${trivia.map((question) => `<article class="card trivia-card">
+          <span class="chip">${escapeHtml(question.id)}</span>
+          <h3>${escapeHtml(question.question)}</h3>
+          <ol class="choices">${question.choices.map((choice) => `<li class="choice"><span class="choice-label">${escapeHtml(choice.label)}</span><span>${escapeHtml(choice.text)}</span></li>`).join("")}</ol>
+        </article>`).join("")}</div>`;
+      }
+
+      function renderCardVote() {
+        const sets = state.data.card_vote_sets.filter(matches);
+        const cardCount = sets.reduce((count, set) => count + set.cards.length, 0);
+        resultCount.textContent = `${cardCount} cards across ${sets.length} CardVote set${sets.length === 1 ? "" : "s"}`;
+        if (!sets.length) return empty("No CardVote sets match this filter.");
+        return `<div class="cardvote-list">${sets.map((set) => `<article class="cardvote-stage">
+          <header class="cardvote-header">
+            <div>
+              <span class="eyebrow">CardVote · ${escapeHtml(set.status.replaceAll("_", " "))}</span>
+              <h3>${escapeHtml(set.name)}</h3>
+              <p>${escapeHtml(set.purpose)}</p>
+            </div>
+            <div class="cardvote-meta"><span class="chip">${set.cards.length} cards</span><span class="chip">no self-vote</span><span class="chip">shared ties</span></div>
+          </header>
+          <div class="cardvote-deck">${set.cards.map((card, index) => `<article class="cardvote-card" style="--tilt: ${[-2, 1.2, -0.6, 1.8, -1.3][index % 5]}deg"><span class="cardvote-card-number">CARD ${String(index + 1).padStart(2, "0")}</span><p>${escapeHtml(card.sentence)}</p></article>`).join("")}</div>
+        </article>`).join("")}</div>`;
+      }
+
+      function minigameTemplates() {
+        return state.data.minigame_templates ?? [];
+      }
+
+      function playableEvents() {
+        const templates = new Map(minigameTemplates().map((template) => [template.id, template]));
+        const asPlayable = ({ id, sourceKind, sourceId, title, minigameId }) => {
+          const template = minigameId ? templates.get(minigameId) : null;
+          return {
+            id,
+            source_kind: sourceKind,
+            source_id: sourceId,
+            title,
+            minigame_id: minigameId ?? "prompt",
+            minigame_name: template?.name ?? "Prompt / story",
+            activity_type: template?.activity_type ?? "prompt",
+            base_coin_reward_comment: template?.base_coin_reward_comment ?? "No es un minijuego: no tiene comentario de recompensa base."
+          };
+        };
+
+        return [
+          ...state.data.events.map((event) => asPlayable({
+            id: `playable-${event.id}`,
+            sourceKind: "story_event",
+            sourceId: event.id,
+            title: event.original_caption,
+            minigameId: event.presentation?.suggested_minigame_id ?? null
+          })),
+          ...state.data.trivia.map((question) => asPlayable({
+            id: `playable-${question.id}`,
+            sourceKind: "trivia",
+            sourceId: question.id,
+            title: question.question,
+            minigameId: question.minigame_template_id ?? "trivia-novio-1"
+          })),
+          ...state.data.card_vote_sets.map((set) => asPlayable({
+            id: `playable-${set.id}`,
+            sourceKind: "card-vote",
+            sourceId: set.id,
+            title: set.name,
+            minigameId: "card-vote"
+          }))
+        ];
+      }
+
+      function syncEngineFilter() {
+        const isPlayable = state.view === "playable";
+        engineFilterWrap.hidden = !isPlayable;
+        if (!isPlayable) return;
+        const items = playableEvents();
+        const usage = new Map(minigameTemplates().map((template) => [template.id, items.filter((item) => item.minigame_id === template.id).length]));
+        engineFilter.innerHTML = [
+          `<option value="all">All playable events</option>`,
+          `<option value="prompt">Prompt / story (${items.filter((item) => item.minigame_id === "prompt").length})</option>`,
+          ...minigameTemplates().map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)} (${usage.get(template.id) ?? 0})</option>`)
+        ].join("");
+        if (!["all", "prompt", ...minigameTemplates().map((template) => template.id)].includes(state.engineFilter)) state.engineFilter = "all";
+        engineFilter.value = state.engineFilter;
+      }
+
+      function renderPlayable() {
+        const allItems = playableEvents();
+        const templates = minigameTemplates();
+        const usage = new Map(templates.map((template) => [template.id, allItems.filter((item) => item.minigame_id === template.id).length]));
+        const visible = allItems.filter((item) => matches(item) && (state.engineFilter === "all" || item.minigame_id === state.engineFilter));
+        resultCount.textContent = `${visible.length} of ${allItems.length} unified playable events`;
+        return `<div class="engine-wall">
+          <div class="engine-wall-header"><h3>Engine usage</h3><p>Click an engine to filter; a 0 means the catalog has no proposed use yet.</p></div>
+          <div class="engine-usage-grid">${templates.map((template) => {
+            const count = usage.get(template.id) ?? 0;
+            return `<button class="engine-meter" type="button" data-engine-filter="${escapeHtml(template.id)}" aria-pressed="${String(state.engineFilter === template.id)}"><span>${escapeHtml(template.name)}<small>${escapeHtml(template.activity_type)}</small></span><span class="engine-meter-count ${count === 0 ? "empty" : ""}">${count}</span></button>`;
+          }).join("")}</div>
+        </div>
+        ${visible.length ? `<div class="playable-grid">${visible.map((item) => `<article class="card playable-card" data-source-kind="${escapeHtml(item.source_kind)}">
+          <div class="event-footer"><span class="chip">${escapeHtml(item.source_kind.replaceAll("_", " "))}</span><span class="chip minigame">${escapeHtml(item.minigame_name)}</span></div>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p class="mono">${escapeHtml(item.source_id)}</p>
+          <p class="reward-comment">${escapeHtml(item.base_coin_reward_comment)}</p>
+        </article>`).join("")}</div>` : empty("No playable events match this minigame filter.")}`;
+      }
+
+      function renderSolutions() {
+        const solutions = state.data.implementation_proposals.filter(matches);
+        resultCount.textContent = `${solutions.length} scoped proposals`;
+        if (!solutions.length) return empty("No implementation proposals match this filter.");
+        return `<div class="gap-grid">${solutions.map((solution) => `<article class="card gap-card">
+          <div class="event-footer">${statusBadge(solution.status)}<span class="chip">${escapeHtml(solution.id)}</span></div>
+          <h3>${escapeHtml(solution.title)}</h3>
+          <p>${escapeHtml(solution.description)}</p>
+          <details class="details"><summary>Source references</summary><p>${solution.source_refs.map(escapeHtml).join(" · ")}</p></details>
+        </article>`).join("")}</div>`;
+      }
+
+      function render() {
+        if (!state.data) return;
+        viewTitle.textContent = titleByView[state.view];
+        document.querySelectorAll(".tab").forEach((button) => button.setAttribute("aria-selected", String(button.dataset.view === state.view)));
+        syncEngineFilter();
+        content.innerHTML = ({ events: renderEvents, traits: renderTraits, artifacts: renderArtifacts, trivia: renderTrivia, cardvote: renderCardVote, playable: renderPlayable, solutions: renderSolutions })[state.view]();
+      }
+
+      document.querySelector(".tabs").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-view]");
+        if (!button) return;
+        state.view = button.dataset.view;
+        state.mediaOnly = false;
+        document.querySelector("#media-only").checked = false;
+        render();
+      });
+
+      document.querySelector("#search").addEventListener("input", (event) => { state.query = event.target.value.trim(); render(); });
+      document.querySelector("#media-only").addEventListener("change", (event) => { state.mediaOnly = event.target.checked; render(); });
+      engineFilter.addEventListener("change", (event) => { state.engineFilter = event.target.value; render(); });
+
+      content.addEventListener("click", (event) => {
+        const engineButton = event.target.closest("[data-engine-filter]");
+        if (engineButton) {
+          state.engineFilter = engineButton.dataset.engineFilter;
+          render();
+          return;
+        }
+        const button = event.target.closest("[data-image]");
+        if (!button) return;
+        dialogImage.src = button.dataset.image;
+        dialogImage.alt = button.dataset.alt;
+        dialog.showModal();
+      });
+      document.querySelector(".close-button").addEventListener("click", () => dialog.close());
+      dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+
+      (window.STORY_SOURCE_DATA ? Promise.resolve(window.STORY_SOURCE_DATA) : fetch("story-source-extraction.json")
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        }))
+        .then((data) => {
+          state.data = data;
+          renderSummary();
+          render();
+          sourceStatus.textContent = `Loaded ${data.source.title} · revision ${data.source.revision_id.slice(0, 12)}…`;
+        })
+        .catch((error) => {
+          content.innerHTML = `<div class="empty"><strong>The archive could not load.</strong><br />Serve this folder over HTTP, then reload. (${escapeHtml(error.message)})</div>`;
+          sourceStatus.textContent = "Source JSON could not be loaded.";
+        });
+    </script>
+  </body>
+</html>

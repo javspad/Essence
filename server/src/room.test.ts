@@ -303,6 +303,28 @@ const players = [
 }
 
 {
+  const result = validateGameContent({
+    board: [
+      { id: 0, type: "start", layout: { x: 0, y: 0 } },
+      { id: 1, type: "minigame", layout: { x: 1, y: 0 }, eventId: "bad-card-vote" },
+      { id: 2, type: "finish", layout: { x: 2, y: 0 } },
+    ],
+    events: {
+      "bad-card-vote": {
+        name: "Bad card vote",
+        kind: "activity",
+        activity: { type: "cardVote", content: { cards: ["", 42], tieMode: "random" } },
+      },
+    },
+    players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+  } as unknown as GameContent);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.includes("events.bad-card-vote.activity.content.cards[0]")));
+  assert.ok(result.errors.some((error) => error.includes("events.bad-card-vote.activity.content.cards[1]")));
+  assert.ok(result.errors.some((error) => error.includes("events.bad-card-vote.activity.content.tieMode")));
+}
+
+{
   const { io, events } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "QUIT", "Leave test", content);
   assert.deepEqual(room.join("socket-alice", "Alice"), { ok: true, playerId: "alice" });
@@ -424,6 +446,29 @@ const players = [
   assert.equal(reveal.entries[0].resultLabel, "2 votos");
   assert.equal(reveal.entries[0].detailLabel, "Votos de Alice, Carla");
   assert.deepEqual(reveal.entries[0].payload, { votes: 2, voters: ["alice", "carla"], votedFor: "carla" });
+}
+
+{
+  const reveal = await resolveActivityResults({
+    eventId: "friend-cards",
+    activity: { type: "cardVote", content: { cards: ["Card A", "Card B"] } },
+    results: [
+      { playerId: "alice", score: 1, payload: { cards: 1, wonCards: ["Card B"] } },
+      { playerId: "bob", score: 2, payload: { cards: 2, wonCards: ["Card A", "Card B"] } },
+      { playerId: "carla", score: 0, payload: { cards: 0, wonCards: [] } },
+    ],
+    participants: ["alice", "bob", "carla"],
+    subjects: ["alice", "bob", "carla"],
+    players,
+    coinPayout: [],
+    story: { title: "Friend cards" },
+  });
+
+  assert.deepEqual(reveal.ranking, ["bob", "alice", "carla"]);
+  assert.equal(reveal.title, "Friend cards");
+  assert.equal(reveal.entries[0].resultLabel, "2 cartas");
+  assert.equal(reveal.entries[0].detailLabel, "Recibió “Card A” · “Card B”");
+  assert.equal(reveal.entries[2].detailLabel, "Sin cartas");
 }
 
 {
@@ -1244,6 +1289,86 @@ await withRolls([1], async () => {
   });
 });
 
+const cardVoteContent: GameContent = normalizeGameContentEvents({
+  board: [
+    { id: 0, type: "start" },
+    { id: 1, type: "minigame", eventId: "friend-cards" },
+    { id: 2, type: "finish" },
+  ],
+  events: {
+    "friend-cards": {
+      name: "Friend cards",
+      kind: "activity",
+      story: { title: "Friend cards", prompt: "Vote who fits each sentence best." },
+      activity: {
+        type: "cardVote",
+        participants: "everyone",
+        subjects: "everyone",
+        content: {
+          cards: ["Would miss a flight while already at the airport", "Would turn a quiet dinner into a party"],
+          tieMode: "shared",
+        },
+      },
+    },
+  },
+  players: [
+    { id: "alice", name: "Alice", color: "#f87171" },
+    { id: "bob", name: "Bob", color: "#60a5fa" },
+    { id: "carla", name: "Carla", color: "#34d399" },
+  ],
+});
+
+await withRolls([1], async () => {
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "CARD", "Card vote", cardVoteContent);
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.join("socket-carla", "Carla");
+  room.startGame("socket-alice");
+  room.roll("socket-alice");
+
+  assert.equal(room.getState().activeMinigame?.type, "cardVote");
+  assert.equal(room.getState().activeMinigame?.cardVote?.phase, "voting");
+  assert.equal(room.getState().activeMinigame?.cardVote?.cardIndex, 0);
+  assert.equal(room.getState().activeMinigame?.cardVote?.totalCards, 2);
+
+  await room.submitResult("socket-alice", { score: 0, payload: { votedFor: "bob" } });
+  await room.submitResult("socket-bob", { score: 0, payload: { votedFor: "missing" } });
+  assert.deepEqual(room.getState().activeMinigame?.submitted, ["alice"], "invalid card votes are ignored");
+  await room.submitResult("socket-bob", { score: 0, payload: { votedFor: "carla" } });
+  await room.submitResult("socket-carla", { score: 0, payload: { votedFor: "bob" } });
+
+  assert.equal(room.getState().activeMinigame?.cardVote?.phase, "result");
+  assert.deepEqual(room.getState().activeMinigame?.cardVote?.roundResult?.winnerIds, ["bob"]);
+  assert.deepEqual(room.getState().activeMinigame?.cardVote?.roundResult?.votersByPlayer.bob, ["alice", "carla"]);
+  assert.equal(room.getState().activeMinigame?.cardVote?.cardCounts.bob, 1);
+
+  await room.minigameAction("socket-bob", { type: "cardVote:next" });
+  assert.equal(room.getState().activeMinigame?.cardVote?.cardIndex, 0, "only the host or landing player advances cards");
+  await room.minigameAction("socket-alice", { type: "cardVote:next" });
+  assert.equal(room.getState().activeMinigame?.cardVote?.phase, "voting");
+  assert.equal(room.getState().activeMinigame?.cardVote?.cardIndex, 1);
+  assert.deepEqual(room.getState().activeMinigame?.submitted, []);
+
+  await room.submitResult("socket-alice", { score: 0, payload: { votedFor: "bob" } });
+  await room.submitResult("socket-bob", { score: 0, payload: { votedFor: "carla" } });
+  await room.submitResult("socket-carla", { score: 0, payload: { votedFor: "alice" } });
+
+  assert.deepEqual(room.getState().activeMinigame?.cardVote?.roundResult?.winnerIds, ["alice", "bob", "carla"]);
+  assert.deepEqual(room.getState().activeMinigame?.cardVote?.cardCounts, { alice: 1, bob: 2, carla: 1 });
+
+  await room.minigameAction("socket-alice", { type: "cardVote:next" });
+  assert.equal(room.getState().phase, "reveal");
+  assert.deepEqual(room.getState().reveal?.ranking, ["bob", "alice", "carla"]);
+  assert.deepEqual(room.getState().reveal?.entries.map((entry) => [entry.playerId, entry.score]), [
+    ["bob", 2],
+    ["alice", 1],
+    ["carla", 1],
+  ]);
+  assert.equal(room.getState().reveal?.entries[0].resultLabel, "2 cartas");
+});
+
 {
   const { io, events } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "HARD1", "Minigame action hardening", content);
@@ -1330,6 +1455,77 @@ await withRolls([1], async () => {
   room.next("socket-alice");
   assert.equal(room.getState().turnOrder[room.getState().activeIndex], "alice", "multi-target extraTurn keeps the first resolved target");
 });
+
+const mapPlaytestContent: GameContent = normalizeGameContentEvents({
+  board: Array.from({ length: 12 }, (_, id) => ({
+    id,
+    type: id === 0 ? "start" : id === 11 ? "finish" : id === 1 || id === 10 ? "fate" : "minigame",
+    ...(id === 1 ? { eventId: "landing-consequence" } : {}),
+    ...(id === 10 ? { eventId: "forced-roll-target" } : {}),
+  })) as GameContent["board"],
+  events: {
+    "landing-consequence": {
+      name: "Landing consequence",
+      kind: "story",
+      story: { title: "Landing consequence", prompt: "The landing player receives seven coins." },
+      actions: [{ type: "coins", value: 7, target: "landing" }],
+    },
+    "forced-roll-target": {
+      name: "Forced roll target",
+      kind: "story",
+      story: { title: "Forced roll target", prompt: "A forced ten reaches this cell." },
+    },
+  },
+  players: [
+    { id: "alice", name: "Alice", color: "#f87171" },
+    { id: "bob", name: "Bob", color: "#60a5fa" },
+    { id: "carla", name: "Carla", color: "#34d399" },
+  ],
+});
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(
+    io as ConstructorParameters<typeof GameRoom>[0],
+    "PLAY",
+    "Map Builder playtest",
+    mapPlaytestContent,
+    { playtest: true }
+  );
+
+  assert.deepEqual(room.seedPlaytest("socket-director"), { ok: true, playerId: "alice" });
+  assert.equal(room.getState().phase, "turn");
+  assert.deepEqual(room.getState().players.map((player) => player.id), ["alice", "bob", "carla"]);
+  assert.ok(room.getState().players.every((player) => player.connected), "seeded playtest players stay available for multiplayer activities");
+  assert.ok(room.getState().players.every((player) => player.coins === 20), "playtest players start with enough coins to exercise shops and economy cells");
+
+  assert.deepEqual(room.rollPlaytest("socket-director", 10), { ok: true });
+  assert.equal(room.getState().players.find((player) => player.id === "alice")?.position, 10);
+  assert.equal(room.getState().lastBaseRoll, 10, "playtest rolls are not limited to physical die faces");
+  assert.equal(room.getState().lastRoll, 10);
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().activeEvent?.title, "Forced roll target");
+
+  assert.deepEqual(room.selectPlaytestPlayer("socket-director", "bob"), { ok: true, playerId: "bob" });
+  assert.equal(room.getState().phase, "event", "swapping the controlled player preserves the current game screen");
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.isHost, true);
+  assert.equal(room.getState().players.find((player) => player.id === "alice")?.isHost, false);
+
+  assert.deepEqual(room.landPlaytest("socket-director", 1), { ok: true });
+  assert.equal(room.getState().turnOrder[room.getState().activeIndex], "bob");
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.position, 1);
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.coins, 27, "direct landing applies the real cell consequence");
+  assert.equal(room.getState().activeEvent?.playerId, "bob");
+  assert.equal(room.getState().activeEvent?.title, "Landing consequence");
+  assert.equal(room.getState().lastRoll, null, "direct landing does not pretend a die was rolled");
+
+  const phaseBeforeInvalidCommand = room.getState().phase;
+  const eventBeforeInvalidCommand = room.getState().activeEvent;
+  assert.equal(room.rollPlaytest("socket-director", 0).ok, false);
+  assert.equal(room.landPlaytest("socket-director", 999).ok, false);
+  assert.equal(room.getState().phase, phaseBeforeInvalidCommand, "invalid director commands do not clear the current playtest phase");
+  assert.equal(room.getState().activeEvent, eventBeforeInvalidCommand);
+}
 
 const economySpecialCellContent: GameContent = normalizeGameContentEvents({
   board: [

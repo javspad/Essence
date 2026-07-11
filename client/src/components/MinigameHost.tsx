@@ -43,7 +43,8 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
 
   if (!mg) return null;
 
-  const minigameKey = `${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`;
+  const activityStage = mg.cardVote ? `card-${mg.cardVote.cardIndex}-${mg.cardVote.phase}` : mg.judge?.phase ?? "play";
+  const minigameKey = `${mg.eventId}-${state.round}-${state.activeIndex}-${activityStage}-${me.id}`;
   const Engine = ENGINES[mg.type];
   const amParticipant = mg.participants.includes(me.id);
   const finished = finishedMinigameKey === minigameKey;
@@ -77,7 +78,7 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
           <ActivityMediaStrip assets={state.mediaAssets} media={mg.media} placement="prompt" compact />
         </div>
         <Engine
-          key={`${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}-spectator`}
+          key={`${minigameKey}-spectator`}
           content={mg.content}
           players={connectedPlayers}
           participants={participantPlayers}
@@ -133,9 +134,9 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
         <ActivityMediaStrip assets={state.mediaAssets} media={mg.media} placement="prompt" compact />
       </div>
       <Engine
-        key={`${mg.eventId}-${state.round}-${state.activeIndex}-${mg.judge?.phase ?? "play"}`}
+        key={minigameKey}
         content={mg.content}
-        players={mg.type === "vote" ? subjectPlayers : connectedPlayers}
+        players={mg.type === "vote" || mg.type === "cardVote" ? subjectPlayers : connectedPlayers}
         participants={participantPlayers}
         subjects={subjectPlayers}
         activeMinigame={mg}

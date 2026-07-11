@@ -164,6 +164,99 @@ body {
   background: rgb(255 255 255 / 0.06);
 }
 
+.director-primary-button,
+.director-secondary-button,
+.director-icon-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.2rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.director-primary-button {
+  border: 1px solid rgb(245 213 71 / 0.72);
+  background: #f5d547;
+  color: #201507;
+  box-shadow: 0 3px 0 #9d7f12;
+}
+
+.director-primary-button:hover:not(:disabled) {
+  background: #ffe96c;
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 #9d7f12;
+}
+
+.director-secondary-button,
+.director-icon-button {
+  border: 1px solid rgb(255 244 191 / 0.22);
+  background: rgb(255 255 255 / 0.07);
+  color: #fff8d6;
+}
+
+.director-secondary-button:hover:not(:disabled),
+.director-icon-button:hover:not(:disabled) {
+  border-color: rgb(103 232 249 / 0.6);
+  background: rgb(103 232 249 / 0.12);
+  color: #ecfeff;
+}
+
+.director-icon-button {
+  min-height: 2.25rem;
+  width: 2.25rem;
+  flex: none;
+  padding: 0;
+}
+
+.director-primary-button:focus-visible,
+.director-secondary-button:focus-visible,
+.director-icon-button:focus-visible,
+.director-input:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
+}
+
+.director-primary-button:disabled,
+.director-secondary-button:disabled,
+.director-icon-button:disabled,
+.director-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.director-field-label {
+  display: block;
+  min-width: 0;
+  color: #a89fc5;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.director-input {
+  display: block;
+  height: 2.5rem;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgb(255 244 191 / 0.18);
+  border-radius: 0.2rem;
+  background: #08060f;
+  padding: 0 0.65rem;
+  color: #fff8d6;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .builder-tooltip {
   position: relative;
   display: inline-flex;

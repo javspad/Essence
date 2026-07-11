@@ -38,6 +38,7 @@ export const EVENT_ACTIVITY_TYPES: EventActivityType[] = [
   "hostPick",
   "selfTap",
   "vote",
+  "cardVote",
   "judge",
   "timing",
   "reaction",
@@ -232,7 +233,9 @@ export function resolveActivitySubjectIds(
   participants: string[]
 ): string[] {
   if (activity.subjects) return playerIdsForMode(activity.subjects, connectedPlayers, activePlayer);
-  if (activity.type === "hostPick" || activity.type === "vote") return connectedPlayers.map((player) => player.id);
+  if (activity.type === "hostPick" || activity.type === "vote" || activity.type === "cardVote") {
+    return connectedPlayers.map((player) => player.id);
+  }
   if (activity.type === "prompt") return connectedPlayers.some((player) => player.id === activePlayer.id) ? [activePlayer.id] : [];
   return participants;
 }

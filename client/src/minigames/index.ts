@@ -5,6 +5,7 @@ import Prompt from "./Prompt";
 import HostPick from "./HostPick";
 import SelfTap from "./SelfTap";
 import Vote from "./Vote";
+import CardVote from "./CardVote";
 import Buzzer from "./Buzzer";
 import Timing from "./Timing";
 import Judge from "./Judge";
@@ -23,6 +24,7 @@ export const ENGINES: Partial<Record<EventActivityType, FC<MinigameProps>>> = {
   hostPick: HostPick,
   selfTap: SelfTap,
   vote: Vote,
+  cardVote: CardVote,
   buzzer: Buzzer,
   timing: Timing,
   judge: Judge,
@@ -40,6 +42,6 @@ export const ENGINES: Partial<Record<EventActivityType, FC<MinigameProps>>> = {
  * Motores realtime: después de enviar su resultado, el jugador sigue viendo la
  * partida en modo espectador (fantasmas del resto) en vez de la pantalla de espera.
  */
-export const SPECTATE_TYPES = new Set<EventActivityType>(["flappy", "snake", "horserace", "redlight"]);
+export const SPECTATE_TYPES = new Set<EventActivityType>(["cardVote", "flappy", "snake", "horserace", "redlight"]);
 
 export type { MinigameProps };

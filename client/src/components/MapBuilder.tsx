@@ -51,6 +51,7 @@ import { eventTitle, resolveTileEventForPlayer } from "@essence/shared/events";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 import { DEFAULT_CAMERA_FRAMING, resolveTileCamera } from "../board3d";
 import Board3DShell from "./Board3DShell";
+import MapPlaytest from "./MapPlaytest";
 
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 const STORAGE_KEY = "essence:map-builder:draft";
@@ -375,6 +376,11 @@ export default function MapBuilder() {
     setPlaytest3DOpen(true);
   };
 
+  const close3DPlaytest = () => {
+    setPlaytest3DOpen(false);
+    setTestMode(false);
+  };
+
   // Coloca en el mapa el prop que se estaba viendo en la galería 3D, con el tamaño
   // elegido, y lo deja seleccionado.
   const placePropFromGallery = (galleryAssetId: string, galleryScale: number) => {
@@ -418,7 +424,7 @@ export default function MapBuilder() {
           onSave={saveDraft}
           saveStatus={saveStatus}
           testMode={testMode}
-          onToggleTest={() => setTestMode((value) => !value)}
+          onToggleTest={() => (testMode ? close3DPlaytest() : open3DPlaytest())}
         />
       </header>
 
@@ -501,14 +507,7 @@ export default function MapBuilder() {
       )}
 
       {playtest3DOpen && (
-        <Playtest3DOverlay
-          map={activeMap}
-          assetCatalog={state.content.assetCatalog}
-          cellId={testCellId}
-          players={previewPlayers}
-          onCellChange={setTestCellId}
-          onClose={() => setPlaytest3DOpen(false)}
-        />
+        <MapPlaytest content={exportContent} mapId={activeMap.id} onClose={close3DPlaytest} />
       )}
 
       {galleryOpen && (
@@ -597,9 +596,9 @@ function MapTopBar({
           type="button"
           onClick={onToggleTest}
           className={`builder-button ${testMode ? "active" : ""}`}
-          aria-label={testMode ? "Stop test map" : "Test map"}
+          aria-label={testMode ? "Stop playtest" : "Open playtest"}
         >
-          {testMode ? "Stop" : "Test"}
+          {testMode ? "Stop" : "Playtest"}
         </button>
         <a href="/tools" className="builder-button">
           Tools
@@ -1655,126 +1654,6 @@ function ArtifactShape({
         {artifact.label ?? asset?.name ?? artifact.assetId}
       </text>
     </g>
-  );
-}
-
-function Playtest3DOverlay({
-  map,
-  assetCatalog,
-  cellId,
-  players,
-  onCellChange,
-  onClose,
-}: {
-  map: MapDefinition;
-  assetCatalog: MapAssetDef[];
-  cellId: number;
-  players: Player[];
-  onCellChange: (id: number) => void;
-  onClose: () => void;
-}) {
-  const current = map.board.find((tile) => tile.id === cellId) ?? map.board[0];
-  const outgoing = current ? outgoingRoutes(map, current.id) : [];
-  const start = map.board.find((tile) => tile.type === "start") ?? map.board[0];
-  const finish = map.board.find((tile) => tile.type === "finish") ?? map.board[map.board.length - 1];
-  const [freeCamera, setFreeCamera] = useState(false);
-  const presentationCamera = resolveTileCamera(current, map.cameraPresets);
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-[#101510]">
-      <Board3DShell
-        tiles={map.board}
-        routes={map.routes}
-        artifacts={map.artifacts}
-        terraces={map.terraces}
-        assetCatalog={assetCatalog}
-        boardShape={map.boardShape}
-        players={players}
-        activeId="test-player"
-        interactive
-        defaultCamera={map.defaultCamera}
-        presentationCamera={presentationCamera}
-        freeCamera={freeCamera}
-        className="absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_50%_-10%,#f2d8a7_0%,#dfa96b_34%,#96602c_66%,#38200c_100%)]"
-      />
-
-      <div className="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col justify-between p-3 sm:p-5">
-        <header className="pointer-events-auto flex flex-wrap items-start justify-between gap-3">
-          <div className="rounded-lg border border-white/15 bg-slate-950/60 px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-md">
-            <p className="text-[0.65rem] font-black uppercase tracking-[0.24em] text-cyan-200">3D playtest</p>
-            <h2 className="mt-1 text-2xl font-black text-white">{map.name}</h2>
-            <p className="mt-1 text-sm font-bold text-emerald-100/85">{current ? cellSummary(current) : "No cells"}</p>
-            {freeCamera && (
-              <p className="mt-2 text-xs font-bold text-cyan-100/80">Arrastrá para orbitar · rueda para zoom · click derecho o Shift+arrastrar para desplazar</p>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <button
-              type="button"
-              onClick={() => setFreeCamera((value) => !value)}
-              aria-pressed={freeCamera}
-              className={`rounded-md border px-4 py-3 text-sm font-black shadow-2xl backdrop-blur-md transition ${
-                freeCamera
-                  ? "border-cyan-300/60 bg-cyan-400/20 text-cyan-100 hover:bg-cyan-400/30"
-                  : "border-white/20 bg-slate-950/60 text-white hover:bg-white/10"
-              }`}
-            >
-              {freeCamera ? "🎥 Cámara libre: ON" : "🎥 Cámara libre"}
-            </button>
-            <button type="button" onClick={onClose} className="rounded-md border border-white/20 bg-slate-950/60 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-md transition hover:bg-white/10">
-              Close
-            </button>
-          </div>
-        </header>
-
-        <section className="pointer-events-auto ml-auto w-[min(25rem,calc(100vw-1.5rem))] rounded-lg border border-white/15 bg-slate-950/65 p-3 shadow-2xl shadow-black/35 backdrop-blur-md">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2">
-            <label className="text-xs font-bold text-slate-300">
-              Jump to cell
-              <select
-                value={String(current?.id ?? "")}
-                onChange={(event) => onCellChange(Number(event.target.value))}
-                className="mt-1 w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm font-black text-white outline-none focus:border-emerald-300"
-              >
-                {map.board.map((tile) => (
-                  <option key={tile.id} value={tile.id}>
-                    {tile.id} · {tile.label ?? TILE_LABEL[tile.type]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" onClick={() => start && onCellChange(start.id)} className="builder-button mt-5">
-              Start
-            </button>
-            <button type="button" onClick={() => finish && onCellChange(finish.id)} className="builder-button mt-5">
-              Finish
-            </button>
-          </div>
-
-          {current && (
-            <div className="mt-3 rounded-md border border-white/10 bg-white/[0.04] p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-lg font-black text-white">Cell {current.id}</p>
-                <span className="rounded-full px-2 py-1 text-xs font-black text-slate-950" style={{ backgroundColor: TILE_COLOR[current.type] }}>
-                  {TILE_LABEL[current.type]}
-                </span>
-              </div>
-              <p className="mt-2 text-sm font-bold text-slate-300">{tileEventLabel(current)}</p>
-            </div>
-          )}
-
-          <div className="mt-3 grid gap-2">
-            {outgoing.map(({ route, destination }) => (
-              <button key={route.id} type="button" onClick={() => onCellChange(destination)} className="builder-route-button">
-                <span>{route.choiceLabel || route.label || `Go to ${destination}`}</span>
-                <span style={{ backgroundColor: TERRAIN_COLOR[route.terrain] }}>{route.terrain}</span>
-              </button>
-            ))}
-            {outgoing.length === 0 && <p className="rounded-md border border-white/10 bg-black/25 p-3 text-sm font-bold text-slate-400">No outgoing routes from this cell.</p>}
-          </div>
-        </section>
-      </div>
-    </div>
   );
 }
 
@@ -2856,24 +2735,6 @@ function routePoints(map: MapDefinition, route: MapRoute): TileLayout[] {
   const to = map.board.find((tile) => tile.id === route.to)?.layout;
   if (!from || !to) return [];
   return [from, ...(route.points ?? []), to];
-}
-
-function outgoingRoutes(map: MapDefinition, cellId: number): { route: MapRoute; destination: number }[] {
-  return map.routes.flatMap((route) => {
-    if (route.from === cellId) return [{ route, destination: route.to }];
-    if (route.bidirectional && route.to === cellId) return [{ route, destination: route.from }];
-    return [];
-  });
-}
-
-function cellSummary(tile: Tile): string {
-  const event = tileEventLabel(tile);
-  return `Cell ${tile.id} · ${TILE_LABEL[tile.type]}${event ? ` · ${event}` : ""}`;
-}
-
-function tileEventLabel(tile: Tile): string {
-  if (tile.eventId) return `Event: ${tile.eventId}`;
-  return tile.label ?? "No event assigned";
 }
 
 function activityLabel(type: string): string {

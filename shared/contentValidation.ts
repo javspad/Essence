@@ -563,12 +563,39 @@ function validateEvent(
   if (event.activity && !EVENT_ACTIVITY_TYPES.includes(event.activity.type)) {
     error(`${path}.activity.type`, `is not supported: ${event.activity.type}`);
   }
+  if (event.activity?.type === "cardVote") {
+    validateCardVoteContent(`${path}.activity.content`, event.activity.content, error);
+  }
   validateMediaRefs(`${path}.media`, event.media, mediaAssetIds, error);
   validateMediaRefs(`${path}.activity.media`, event.activity?.media, mediaAssetIds, error);
   event.consequences?.forEach((rule, index) => validateConsequenceRule(`${path}.consequences[${index}]`, rule, playerIds, effectIds, error));
   event.activity?.rankingPayout?.consequences?.forEach((rule, index) =>
     validateConsequenceRule(`${path}.activity.rankingPayout.consequences[${index}]`, rule, playerIds, effectIds, error)
   );
+}
+
+function validateCardVoteContent(
+  path: string,
+  content: unknown,
+  error: (path: string, message: string) => void
+) {
+  if (!isRecord(content)) {
+    error(path, "must be an object with a cards array");
+    return;
+  }
+  if (!Array.isArray(content.cards) || content.cards.length === 0) {
+    error(`${path}.cards`, "must contain at least one sentence");
+  } else {
+    content.cards.forEach((card, index) => {
+      if (typeof card !== "string" || !card.trim()) error(`${path}.cards[${index}]`, "must be a non-empty sentence");
+    });
+  }
+  if (content.allowSelfVote !== undefined && typeof content.allowSelfVote !== "boolean") {
+    error(`${path}.allowSelfVote`, "must be a boolean");
+  }
+  if (content.tieMode !== undefined && content.tieMode !== "shared" && content.tieMode !== "noCard") {
+    error(`${path}.tieMode`, "must be shared or noCard");
+  }
 }
 
 function validatePlayerStories(

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Images, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Images, Plus, Search, Trash2 } from "lucide-react";
 import type {
   ActivityMediaRef,
   AppliedEventAction,
@@ -44,6 +44,22 @@ import { applyRig } from "@essence/shared/rig";
 import { ENGINES } from "../minigames";
 import { revealEntryDetail, revealEntryResult } from "../revealDisplay";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
+import {
+  addCardVoteCard,
+  cardVoteEditorContent,
+  moveCardVoteCard,
+  removeCardVoteCard,
+  updateCardVoteCard,
+  type EditableCardVoteContent,
+} from "../cardVoteEditor";
+import {
+  advanceCardVotePlaytest,
+  cardVotePlaytestRanking,
+  createCardVotePlaytestRun,
+  forceCardVotePlaytestRound,
+  submitCardVotePlaytestVote,
+  type CardVotePlaytestRun,
+} from "../cardVotePlaytest";
 import ActivityMediaStrip, { ActivityMediaFigure } from "./ActivityMedia";
 import { effectBuilderHref } from "./EffectBuilderSurface";
 import { MediaAssetPickerModal, mediaAssetName } from "./MediaAssetLibrary";
@@ -101,6 +117,7 @@ interface PlaytestResolution {
   complete: boolean;
   submittedCount: number;
   requiredCount: number;
+  progressLabel?: string;
   ranking: string[];
   entries: RevealEntry[];
   actions: AppliedEventAction[];
@@ -118,6 +135,7 @@ export default function EventBuilder() {
   const [protagonistId, setProtagonistId] = useState(INITIAL_PLAYERS[0]?.id ?? "");
   const [submitted, setSubmitted] = useState<string[]>([]);
   const [results, setResults] = useState<RunResult[]>([]);
+  const [cardVoteRunState, setCardVoteRunState] = useState<{ key: string; run: CardVotePlaytestRun } | null>(null);
   const [runKey, setRunKey] = useState(1);
   const [actionLog, setActionLog] = useState<unknown[]>([]);
   const [contentDraft, setContentDraft] = useState("{}");
@@ -133,6 +151,20 @@ export default function EventBuilder() {
   const resolved = selected && protagonist ? resolveEventForPlayer(content, selectedId, protagonist) : null;
   const activity = resolved?.activity;
   const hasEngine = activity ? Boolean(ENGINES[activity.type]) : false;
+  const cardVoteParticipants = activity?.type === "cardVote" && protagonist
+    ? activityParticipants(activity, players, protagonist.id)
+    : [];
+  const cardVoteSubjects = activity?.type === "cardVote" && protagonist
+    ? activitySubjects(activity, players, protagonist.id, cardVoteParticipants)
+    : [];
+  const cardVoteRunKey = activity?.type === "cardVote"
+    ? `${selectedId}:${JSON.stringify(activity.content)}:${cardVoteParticipants.join(",")}:${cardVoteSubjects.join(",")}`
+    : "";
+  const cardVoteRun = activity?.type === "cardVote"
+    ? cardVoteRunState?.key === cardVoteRunKey
+      ? cardVoteRunState.run
+      : createCardVotePlaytestRun(activity.content, cardVoteParticipants, cardVoteSubjects)
+    : null;
   const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(consolidateContentMedia(content)), null, 2), [content]);
   const filteredEventIds = useMemo(
     () =>
@@ -178,11 +210,11 @@ export default function EventBuilder() {
 
   const state = useMemo<GameState | null>(() => {
     if (!resolved || !activity || !protagonist || players.length === 0) return null;
-    return createTestState(selectedId, resolved, players, submitted, results, runKey, protagonist.id, content.mediaAssets);
-  }, [activity, content.mediaAssets, players, protagonist, resolved, results, runKey, selectedId, submitted]);
+    return createTestState(selectedId, resolved, players, submitted, results, runKey, protagonist.id, content.mediaAssets, cardVoteRun);
+  }, [activity, cardVoteRun, content.mediaAssets, players, protagonist, resolved, results, runKey, selectedId, submitted]);
   const playtestResolution = useMemo(
-    () => createPlaytestResolution(resolved, state, players, results),
-    [players, resolved, results, state]
+    () => createPlaytestResolution(resolved, state, players, results, cardVoteRun),
+    [cardVoteRun, players, resolved, results, state]
   );
   const playtestReveal = useMemo<RevealPayload | null>(() => {
     if (!resolved || !playtestResolution?.complete) return null;
@@ -230,6 +262,13 @@ export default function EventBuilder() {
         ...patch,
       },
     }));
+  };
+
+  const updateCardVoteContent = (next: EditableCardVoteContent) => {
+    updateActivity({ content: next });
+    setContentDraft(JSON.stringify(next, null, 2));
+    setContentError(null);
+    resetRun();
   };
 
   const addMediaFile = (file: File) => {
@@ -295,9 +334,11 @@ export default function EventBuilder() {
 
   const changeActivityType = (type: EventActivityType) => {
     const nextContent = defaultContentForActivity(type, selected?.story);
+    const typeChanged = selected?.activity?.type !== type;
     updateActivity({
       type,
       content: nextContent,
+      ...(typeChanged ? { skin: undefined, rigged: undefined } : {}),
     });
     setContentDraft(JSON.stringify(nextContent, null, 2));
     setContentError(null);
@@ -524,22 +565,47 @@ export default function EventBuilder() {
   const resetRun = () => {
     setSubmitted([]);
     setResults([]);
+    setCardVoteRunState(null);
     setActionLog([]);
     setRunKey((key) => key + 1);
   };
 
   const handleFinish = (score: number, payload: unknown) => {
     if (!actor) return;
+    if (activity?.type === "cardVote" && cardVoteRun) {
+      const votedFor = isRecord(payload) && typeof payload.votedFor === "string" ? payload.votedFor : "";
+      if (!votedFor) return;
+      setCardVoteRunState((current) => {
+        const run = current?.key === cardVoteRunKey ? current.run : cardVoteRun;
+        return { key: cardVoteRunKey, run: submitCardVotePlaytestVote(run, actor.id, votedFor) };
+      });
+      setActionLog((current) => [{ card: cardVoteRun.cardIndex + 1, voterId: actor.id, votedFor }, ...current].slice(0, 12));
+      return;
+    }
     setSubmitted((current) => (current.includes(actor.id) ? current : [...current, actor.id]));
     setResults((current) => [{ id: Date.now(), playerId: actor.id, score, payload }, ...current]);
   };
 
   const handleAction = (data: unknown) => {
     if (!actor) return;
+    if (activity?.type === "cardVote" && cardVoteRun && isRecord(data) && data.type === "cardVote:next") {
+      setCardVoteRunState((current) => {
+        const run = current?.key === cardVoteRunKey ? current.run : cardVoteRun;
+        return { key: cardVoteRunKey, run: advanceCardVotePlaytest(run) };
+      });
+      return;
+    }
     setActionLog((current) => [{ playerId: actor.id, data }, ...current].slice(0, 6));
   };
 
   const forceResolve = () => {
+    if (activity?.type === "cardVote" && cardVoteRun) {
+      setCardVoteRunState((current) => {
+        const run = current?.key === cardVoteRunKey ? current.run : cardVoteRun;
+        return { key: cardVoteRunKey, run: forceCardVotePlaytestRound(run) };
+      });
+      return;
+    }
     const participants = state?.activeMinigame?.participants ?? players.map((player) => player.id);
     setSubmitted(participants);
     setActionLog((current) => [{ force: true, submitted: participants }, ...current].slice(0, 6));
@@ -723,15 +789,27 @@ export default function EventBuilder() {
                 {activity && activity.type !== "prompt" && (
                   <ActivityAudienceEditor activity={activity} onUpdate={updateActivity} />
                 )}
-                <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                  Content JSON
-                  <textarea
+                {activity?.type === "cardVote" && (
+                  <CardVoteContentEditor content={activity.content} onChange={updateCardVoteContent} />
+                )}
+                {activity?.type === "cardVote" ? (
+                  <details className="mt-3 rounded-md border border-white/10 bg-black/15 p-2">
+                    <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                      Advanced content JSON
+                    </summary>
+                    <ActivityContentJsonEditor
+                      value={contentDraft}
+                      onChange={setContentDraft}
+                      onBlur={applyContentDraft}
+                    />
+                  </details>
+                ) : (
+                  <ActivityContentJsonEditor
                     value={contentDraft}
-                    onChange={(event) => setContentDraft(event.target.value)}
+                    onChange={setContentDraft}
                     onBlur={applyContentDraft}
-                    className="mt-2 h-36 w-full resize-none rounded-md border border-white/15 bg-[#151922] p-3 font-mono text-[0.68rem] leading-4 text-white outline-none focus:border-cyan-300"
                   />
-                </label>
+                )}
                 {contentError && <p className="mt-2 rounded-md border border-rose-300/25 bg-rose-500/10 p-2 text-xs font-black text-rose-100">{contentError}</p>}
                 {activity && activity.type !== "prompt" && (
                   <div className="mt-3 rounded-md border border-amber-200/15 bg-amber-300/10 p-2">
@@ -948,7 +1026,7 @@ function ResolutionPanel({ resolution, players }: { resolution: PlaytestResoluti
       <div className="rounded-md border border-dashed border-white/10 p-3">
         <p className="text-sm font-black text-white">Waiting for players</p>
         <p className="mt-1 text-xs font-bold text-slate-400">
-          {resolution.submittedCount}/{resolution.requiredCount} submitted.
+          {resolution.progressLabel ?? `${resolution.submittedCount}/${resolution.requiredCount} submitted.`}
         </p>
       </div>
     );
@@ -1113,7 +1191,7 @@ function ActivityAudienceEditor({
   onUpdate: (patch: Partial<EventActivity>) => void;
 }) {
   const participants = activity.participants ?? defaultParticipantMode(activity.type);
-  const defaultSubjects = activity.type === "hostPick" || activity.type === "vote" ? "everyone" : participants;
+  const defaultSubjects = activity.type === "hostPick" || activity.type === "vote" || activity.type === "cardVote" ? "everyone" : participants;
   const subjects = activity.subjects ?? defaultSubjects;
 
   return (
@@ -1147,6 +1225,167 @@ function ActivityAudienceEditor({
         This event asks <span className="font-black text-white">{participantModeLabel(participants)}</span> to play and creates results for <span className="font-black text-white">{participantModeLabel(subjects)}</span>.
       </p>
     </div>
+  );
+}
+
+function CardVoteContentEditor({
+  content,
+  onChange,
+}: {
+  content: unknown;
+  onChange: (content: EditableCardVoteContent) => void;
+}) {
+  const editable = cardVoteEditorContent(content);
+  const readyCards = editable.cards.filter((card) => card.trim()).length;
+
+  return (
+    <section className="mt-3 overflow-hidden rounded-md border border-amber-200/25 bg-[#17150f] shadow-[3px_3px_0_rgb(245_213_71/0.12)]">
+      <header className="flex items-center justify-between gap-3 border-b border-amber-200/15 bg-amber-300/[0.07] px-3 py-2.5">
+        <div>
+          <p className="text-sm font-black text-white">Sentence cards</p>
+          <p className="mt-0.5 text-[0.68rem] font-bold text-amber-100/60">
+            Players vote on these in order, one card at a time.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(addCardVoteCard(editable))}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-amber-200/30 bg-amber-300/12 px-2.5 text-xs font-black text-amber-100 transition hover:bg-amber-300/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+        >
+          <Plus className="size-3.5" />
+          Add sentence
+        </button>
+      </header>
+
+      <div className="max-h-[30rem] space-y-2 overflow-y-auto p-3 pr-2">
+        {editable.cards.map((card, index) => {
+          const empty = !card.trim();
+          return (
+            <article
+              key={index}
+              className={`border-l-4 bg-[#201c14] p-2.5 shadow-[2px_2px_0_rgb(255_244_191/0.08)] ${empty ? "border-l-rose-400" : "border-l-[#f5d547]"}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor={`card-vote-sentence-${index}`} className="retro text-[9px] uppercase tracking-[0.14em] text-amber-100/70">
+                  Card {String(index + 1).padStart(2, "0")}
+                </label>
+                <div className="flex items-center gap-1">
+                  <CardOrderButton
+                    label={`Move card ${index + 1} up`}
+                    disabled={index === 0}
+                    onClick={() => onChange(moveCardVoteCard(editable, index, -1))}
+                  >
+                    <ArrowUp className="size-3.5" />
+                  </CardOrderButton>
+                  <CardOrderButton
+                    label={`Move card ${index + 1} down`}
+                    disabled={index === editable.cards.length - 1}
+                    onClick={() => onChange(moveCardVoteCard(editable, index, 1))}
+                  >
+                    <ArrowDown className="size-3.5" />
+                  </CardOrderButton>
+                  <button
+                    type="button"
+                    aria-label={`Delete card ${index + 1}`}
+                    title={editable.cards.length === 1 ? "A Card vote needs at least one sentence" : `Delete card ${index + 1}`}
+                    disabled={editable.cards.length === 1}
+                    onClick={() => onChange(removeCardVoteCard(editable, index))}
+                    className="inline-flex size-8 items-center justify-center rounded-sm border border-rose-200/20 bg-rose-500/10 text-rose-100 transition hover:bg-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+              <textarea
+                id={`card-vote-sentence-${index}`}
+                aria-invalid={empty}
+                value={card}
+                rows={3}
+                placeholder="Write the sentence players will vote on..."
+                onChange={(event) => onChange(updateCardVoteCard(editable, index, event.target.value))}
+                className={`mt-2 min-h-20 w-full resize-y rounded-sm border bg-[#100f0c] px-3 py-2 text-sm font-bold leading-5 text-white outline-none transition focus:border-amber-200 ${empty ? "border-rose-300/55" : "border-amber-100/15"}`}
+              />
+              {empty && <p className="mt-1 text-[0.68rem] font-bold text-rose-200">Write a sentence before saving.</p>}
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-2 border-t border-amber-200/15 bg-black/15 p-3">
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-white/10 bg-black/15 p-3 transition hover:border-amber-100/25">
+          <input
+            type="checkbox"
+            checked={editable.allowSelfVote !== false}
+            onChange={(event) => onChange({ ...editable, allowSelfVote: event.target.checked })}
+            className="mt-0.5 size-4 shrink-0 accent-amber-300"
+          />
+          <span>
+            <span className="block text-xs font-black text-white">Allow self-votes</span>
+            <span className="mt-1 block text-[0.68rem] font-bold leading-4 text-slate-400">Players may choose themselves for a card.</span>
+          </span>
+        </label>
+        <SelectInput
+          label="When votes tie"
+          value={editable.tieMode ?? "shared"}
+          options={[
+            { value: "shared", label: "Every leader gets the card" },
+            { value: "noCard", label: "Nobody gets the card" },
+          ]}
+          onChange={(tieMode) => onChange({ ...editable, tieMode: tieMode as EditableCardVoteContent["tieMode"] })}
+        />
+      </div>
+
+      <footer className="border-t border-amber-200/15 px-3 py-2 text-center text-[0.65rem] font-black uppercase tracking-[0.1em] text-amber-100/55">
+        {readyCards}/{editable.cards.length} ready · self-votes {editable.allowSelfVote === false ? "off" : "on"} · {editable.tieMode === "noCard" ? "ties award no card" : "ties share the card"}
+      </footer>
+    </section>
+  );
+}
+
+function CardOrderButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex size-8 items-center justify-center rounded-sm border border-white/10 bg-white/5 text-slate-200 transition hover:border-amber-100/25 hover:bg-amber-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 disabled:cursor-not-allowed disabled:opacity-25"
+    >
+      {children}
+    </button>
+  );
+}
+
+function ActivityContentJsonEditor({
+  value,
+  onChange,
+  onBlur,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+}) {
+  return (
+    <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+      Content JSON
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        className="mt-2 h-36 w-full resize-none rounded-md border border-white/15 bg-[#151922] p-3 font-mono text-[0.68rem] leading-4 text-white outline-none focus:border-cyan-300"
+      />
+    </label>
   );
 }
 
@@ -1879,6 +2118,7 @@ function activityLabel(type: EventActivityType): string {
   if (type === "hostPick") return "Host pick";
   if (type === "selfTap") return "Self tap";
   if (type === "vote") return "Vote";
+  if (type === "cardVote") return "Card vote";
   if (type === "judge") return "Judge";
   if (type === "timing") return "Timing";
   if (type === "reaction") return "Reaction";
@@ -1994,7 +2234,8 @@ function createPlaytestResolution(
   event: ResolvedGameEvent | null,
   state: GameState | null,
   players: Player[],
-  results: RunResult[]
+  results: RunResult[],
+  cardVoteRun?: CardVotePlaytestRun | null
 ): PlaytestResolution | null {
   if (!event) return null;
   const minigame = state?.activeMinigame;
@@ -2013,8 +2254,11 @@ function createPlaytestResolution(
   const participants = minigame.participants;
   const requiredCount = participants.length;
   const submittedCount = participants.filter((id) => minigame.submitted.includes(id)).length;
-  const complete = requiredCount > 0 && participants.every((id) => minigame.submitted.includes(id));
   const subjects = minigame.subjects?.length ? minigame.subjects : participants;
+  if (minigame.type === "cardVote" && cardVoteRun) {
+    return createCardVotePlaytestResolution(event, minigame, players, cardVoteRun);
+  }
+  const complete = requiredCount > 0 && participants.every((id) => minigame.submitted.includes(id));
   const ranking = playtestRanking(minigame.type, subjects, participants, results, event.activity?.rigged, minigame.judge?.submissions);
   const entries = playtestRevealEntries(minigame.type, event.activity?.content, ranking, subjects, participants, players, results, minigame.judge?.submissions);
   const landingPlayerId = minigame.protagonistId ?? ranking[0];
@@ -2030,6 +2274,55 @@ function createPlaytestResolution(
       ]
     : [];
   return { complete, submittedCount, requiredCount, ranking, entries: entriesWithCoins, actions };
+}
+
+function createCardVotePlaytestResolution(
+  event: ResolvedGameEvent,
+  minigame: NonNullable<GameState["activeMinigame"]>,
+  players: Player[],
+  run: CardVotePlaytestRun
+): PlaytestResolution {
+  const complete = run.phase === "complete";
+  const ranking = applyRig(cardVotePlaytestRanking(run), event.activity?.rigged);
+  const landingPlayerId = minigame.protagonistId ?? ranking[0];
+  const payoutActions = complete
+    ? previewConsequenceRules(event.activity?.rankingPayout?.consequences ?? [], players, ranking, landingPlayerId)
+    : [];
+  const payoutCoins = previewCoinTotals(payoutActions.flatMap((action) => action.coinTransactions ?? []));
+  const entries = ranking.map((playerId, index) => {
+    const cards = run.cardCounts[playerId] ?? 0;
+    const wonCards = run.cardsWonByPlayer[playerId] ?? [];
+    const visibleCards = wonCards.slice(0, 2).map((card) => `“${card}”`);
+    const remaining = wonCards.length - visibleCards.length;
+    return playtestEntry(
+      players,
+      playerId,
+      index + 1,
+      cards,
+      { cards, wonCards },
+      `${cards} ${cards === 1 ? "carta" : "cartas"}`,
+      wonCards.length ? `Recibió ${visibleCards.join(" · ")}${remaining > 0 ? ` · +${remaining} más` : ""}` : "Sin cartas",
+      payoutCoins[playerId] ?? 0
+    );
+  });
+  const actions = complete
+    ? [
+        ...payoutActions,
+        ...previewConsequenceRules(event.consequences ?? [], players, ranking, landingPlayerId),
+      ]
+    : [];
+  const progressLabel = run.phase === "result"
+    ? `Card ${run.cardIndex + 1}/${run.cards.length} resolved. Review the votes, then advance.`
+    : `Card ${run.cardIndex + 1}/${run.cards.length}: ${run.submitted.length}/${run.participants.length} votes submitted.`;
+  return {
+    complete,
+    submittedCount: run.submitted.length,
+    requiredCount: run.participants.length,
+    progressLabel,
+    ranking,
+    entries,
+    actions,
+  };
 }
 
 function playtestRanking(
@@ -2181,14 +2474,15 @@ function playtestEntry(
   score: number,
   payload: unknown,
   resultLabel?: string,
-  detailLabel?: string
+  detailLabel?: string,
+  coins = 0
 ): RevealEntry {
   return {
     playerId,
     name: nameFor(players, playerId),
     rank,
     score,
-    coins: 0,
+    coins,
     payload,
     resultLabel,
     detailLabel,
@@ -2963,12 +3257,17 @@ function createTestState(
   results: RunResult[],
   runKey: number,
   protagonistId: string,
-  mediaAssets?: Record<string, ContentMediaAssetDef>
+  mediaAssets?: Record<string, ContentMediaAssetDef>,
+  cardVoteRun?: CardVotePlaytestRun | null
 ): GameState {
   const activity = event.activity!;
   const participants = activityParticipants(activity, players, protagonistId);
   const subjects = activitySubjects(activity, players, protagonistId, participants);
   const judgePlaytest = activity.type === "judge" ? judgePlaytestState(participants, results) : null;
+  const effectiveCardVoteRun = activity.type === "cardVote"
+    ? cardVoteRun ?? createCardVotePlaytestRun(activity.content, participants, subjects)
+    : null;
+  const cardVote = effectiveCardVoteRun ? cardVotePlaytestState(effectiveCardVoteRun) : null;
   return {
     code: "TEST",
     roomName: "Event builder",
@@ -3001,8 +3300,9 @@ function createTestState(
       media: resolveEventMediaRefs(event, activity),
       participants,
       subjects,
-      submitted: judgePlaytest?.submitted ?? submitted,
+      submitted: effectiveCardVoteRun?.submitted ?? judgePlaytest?.submitted ?? submitted,
       ...(judgePlaytest ? { judge: judgePlaytest.judge } : {}),
+      ...(cardVote ? { cardVote } : {}),
     },
     activeEvent: null,
     reveal: null,
@@ -3046,6 +3346,20 @@ function judgePlaytestState(participants: string[], results: RunResult[]): { sub
   };
 }
 
+function cardVotePlaytestState(run: CardVotePlaytestRun): NonNullable<GameState["activeMinigame"]>["cardVote"] {
+  return {
+    phase: run.phase === "voting" ? "voting" : "result",
+    cardIndex: run.cardIndex,
+    totalCards: run.cards.length,
+    card: run.cards[run.cardIndex],
+    allowSelfVote: run.allowSelfVote,
+    tieMode: run.tieMode,
+    cardCounts: run.cardCounts,
+    cardsWonByPlayer: run.cardsWonByPlayer,
+    roundResult: run.roundResult,
+  };
+}
+
 function activityParticipants(activity: EventActivity, players: Player[], protagonistId: string): string[] {
   const active = playerFor(protagonistId, players);
   if (!active) return [];
@@ -3075,6 +3389,12 @@ function defaultContentForActivity(type: EventActivityType, story?: GameEventDef
       return { question: prompt || "Elegí la respuesta correcta", options: ["Opción A", "Opción B", "Opción C"], answer: 0 };
     case "vote":
       return { question: prompt || "¿Quién gana esta ronda?" };
+    case "cardVote":
+      return {
+        cards: [prompt || "¿Quién encaja mejor con esta carta?"],
+        allowSelfVote: true,
+        tieMode: "shared",
+      };
     case "hostPick":
       return { prompt, label: story?.title ?? "Elección del host" };
     case "selfTap":
