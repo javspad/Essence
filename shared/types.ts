@@ -381,7 +381,7 @@ export type ConsequenceCore =
   | { type: "coinRedistribute"; amount: number; from: EventActionTarget; target?: EventActionTarget; clamp?: boolean; text?: string }
   | { type: "move"; delta: number; target?: EventActionTarget; text?: string }
   | { type: "moveTo"; tileId: number; target?: EventActionTarget; text?: string }
-  | { type: "skipTurn"; target?: EventActionTarget; text?: string }
+  | { type: "skipTurn"; target?: EventActionTarget; text?: string; turns?: number }
   | { type: "extraTurn"; target?: EventActionTarget; text?: string }
   | { type: "offlineAction"; action: OfflineActionKind; target?: EventActionTarget; text?: string; confirmation?: EventActivity["confirmation"] }
   | { type: "applyEffect"; effectId: string; target?: EventActionTarget; text?: string }
@@ -389,7 +389,8 @@ export type ConsequenceCore =
   | { type: "movementMultiplier"; target?: EventActionTarget; text?: string; multiplier: number; rounding?: "floor" | "ceil" | "round" }
   | { type: "diceBias"; target?: EventActionTarget; text?: string; face: number; chanceDeltaPercent: number }
   | { type: "swapPositions"; target?: EventActionTarget; withTarget: EventActionTarget; text?: string }
-  | { type: "moveToNearest"; target?: EventActionTarget; direction: "ahead" | "behind"; text?: string };
+  | { type: "moveToNearest"; target?: EventActionTarget; direction: "ahead" | "behind"; text?: string }
+  | { type: "moveToPlayerPosition"; target?: EventActionTarget; withTarget: EventActionTarget; text?: string };
 
 export type PersistentConsequenceType = "halfMovement" | "movementMultiplier" | "diceBias";
 
@@ -498,6 +499,7 @@ export type EffectDurationState =
   | { mode: "game" };
 
 export type EffectLifecycleHook =
+  | "onTurnStart"
   | "beforeRoll"
   | "afterRoll"
   | "beforeMovement"
@@ -517,12 +519,21 @@ export type EffectCondition = {
     lte?: number;
     gte?: number;
   };
+  rollTotal?: {
+    turns: number;
+    lte?: number;
+    gte?: number;
+  };
   consecutiveRolls?: {
     count: number;
     atLeast?: number;
     atMost?: number;
   };
   cellTagsAny?: string[];
+  activityTypesAny?: EventActivityType[];
+  activityTypesNone?: EventActivityType[];
+  rankingPositionGte?: number;
+  rankingPositionLte?: number;
   phase?: Phase;
 };
 

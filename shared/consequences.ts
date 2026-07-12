@@ -6,6 +6,7 @@ import type {
   EffectDurationState,
   EffectLifecycleHook,
   EffectModifier,
+  EventActivityType,
   EventAction,
   EventActionTarget,
   OfflineActionKind,
@@ -26,10 +27,13 @@ export interface TargetResolutionContext {
 
 export interface EffectHookContext {
   hook: EffectLifecycleHook;
+  targetPlayerId?: string;
   roll?: number;
   movement?: number;
   rollHistory?: number[];
   movementHistory?: number[];
+  ranking?: string[];
+  activityType?: EventActivityType;
   cell?: Tile;
   phase?: string;
 }
@@ -157,7 +161,7 @@ export function consequenceLabel(action: EventAction, effectNameForId?: (effectI
   if (action.type === "coinRedistribute") return action.text ?? `Redistribute ${action.amount} coins`;
   if (action.type === "move") return action.text ?? `${action.delta >= 0 ? "+" : ""}${action.delta} cells`;
   if (action.type === "moveTo") return action.text ?? `Move to cell ${action.tileId}`;
-  if (action.type === "skipTurn") return action.text ?? "Skip next turn";
+  if (action.type === "skipTurn") return action.text ?? `Skip next ${action.turns ?? 1} turn${(action.turns ?? 1) === 1 ? "" : "s"}`;
   if (action.type === "extraTurn") return action.text ?? "Play an extra turn";
   if (action.type === "offlineAction") return action.text ?? offlineActionLabel(action.action);
   if (action.type === "applyEffect") return action.text ?? `Apply ${effectNameForId?.(action.effectId) ?? action.effectId}`;
@@ -165,6 +169,7 @@ export function consequenceLabel(action: EventAction, effectNameForId?: (effectI
   if (action.type === "movementMultiplier") return action.text ?? `Movement x${formatNumber(action.multiplier)}`;
   if (action.type === "diceBias") return action.text ?? `${action.chanceDeltaPercent >= 0 ? "+" : ""}${formatNumber(action.chanceDeltaPercent)}% chance for ${action.face}`;
   if (action.type === "swapPositions") return action.text ?? "Swap positions";
+  if (action.type === "moveToPlayerPosition") return action.text ?? "Move to another player's position";
   return action.text ?? `Move to nearest player ${action.direction}`;
 }
 
@@ -182,8 +187,30 @@ export function effectConditionMatches(condition: EffectCondition | undefined, c
   if (condition.movementLte !== undefined && (context.movement === undefined || context.movement > condition.movementLte)) return false;
   if (condition.consecutiveRolls && !consecutiveRollsMatch(condition.consecutiveRolls, context.rollHistory)) return false;
   if (condition.movementTotal && !movementTotalMatches(condition.movementTotal, context.movementHistory)) return false;
+  if (condition.rollTotal && !rollTotalMatches(condition.rollTotal, context.rollHistory)) return false;
   if (condition.cellTagsAny?.length && !condition.cellTagsAny.some((tag) => context.cell?.tags?.includes(tag))) return false;
+  if (condition.activityTypesAny?.length && (!context.activityType || !condition.activityTypesAny.includes(context.activityType))) return false;
+  if (condition.activityTypesNone?.length && context.activityType && condition.activityTypesNone.includes(context.activityType)) return false;
+  if (condition.rankingPositionGte !== undefined || condition.rankingPositionLte !== undefined) {
+    const position = context.targetPlayerId && context.ranking ? context.ranking.indexOf(context.targetPlayerId) + 1 : 0;
+    if (position < 1) return false;
+    if (condition.rankingPositionGte !== undefined && position < condition.rankingPositionGte) return false;
+    if (condition.rankingPositionLte !== undefined && position > condition.rankingPositionLte) return false;
+  }
   if (condition.phase !== undefined && context.phase !== condition.phase) return false;
+  return true;
+}
+
+function rollTotalMatches(
+  condition: NonNullable<EffectCondition["rollTotal"]>,
+  rollHistory: number[] | undefined
+): boolean {
+  if (!Number.isInteger(condition.turns) || condition.turns < 1) return false;
+  const recent = rollHistory?.slice(-condition.turns) ?? [];
+  if (recent.length < condition.turns) return false;
+  const total = recent.reduce((sum, roll) => sum + roll, 0);
+  if (condition.lte !== undefined && total > condition.lte) return false;
+  if (condition.gte !== undefined && total < condition.gte) return false;
   return true;
 }
 

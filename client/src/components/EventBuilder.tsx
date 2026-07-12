@@ -166,18 +166,23 @@ export default function EventBuilder() {
       : createCardVotePlaytestRun(activity.content, cardVoteParticipants, cardVoteSubjects)
     : null;
   const exportJson = useMemo(() => JSON.stringify(normalizeContentSchema(consolidateContentMedia(content)), null, 2), [content]);
+  const activityCounts = useMemo(() => {
+    const counts = Object.fromEntries(EVENT_ACTIVITY_TYPES.map((type) => [type, 0])) as Record<EventActivityType, number>;
+    for (const event of Object.values(content.events)) {
+      if (event.activity) counts[event.activity.type] += 1;
+    }
+    return counts;
+  }, [content.events]);
   const filteredEventIds = useMemo(
     () =>
       eventIds.filter((id) => {
         const event = content.events[id];
         if (!event || (activityFilter !== "all" && event.activity?.type !== activityFilter)) return false;
-        const query = eventSearch.trim().toLocaleLowerCase();
+        const query = normalizeEventSearchText(eventSearch);
         if (!query) return true;
-        return `${eventTitle(event)} ${event.story?.prompt ?? ""} ${event.activity ? activityLabel(event.activity.type) : ""}`
-          .toLocaleLowerCase()
-          .includes(query);
+        return eventSearchText(id, event, content).includes(query);
       }),
-    [activityFilter, content.events, eventIds, eventSearch]
+    [activityFilter, content, eventIds, eventSearch]
   );
 
   useEffect(() => {
@@ -647,11 +652,11 @@ export default function EventBuilder() {
         <aside className="flex min-h-0 flex-col overflow-hidden border-b border-white/10 bg-[#111722] p-3 lg:border-b-0 lg:border-r lg:border-white/10">
           <SectionTitle eyebrow={`${EVENT_ACTIVITY_TYPES.length} types`} title="Activity types" />
           <div className="mt-2 grid grid-cols-2 gap-1.5">
-            <ActivityFilterButton active={activityFilter === "all"} onClick={() => setActivityFilter("all")}>
+            <ActivityFilterButton active={activityFilter === "all"} count={eventIds.length} onClick={() => setActivityFilter("all")}>
               All events
             </ActivityFilterButton>
             {EVENT_ACTIVITY_TYPES.map((type) => (
-              <ActivityFilterButton key={type} active={activityFilter === type} onClick={() => setActivityFilter(type)}>
+              <ActivityFilterButton key={type} active={activityFilter === type} count={activityCounts[type]} onClick={() => setActivityFilter(type)}>
                 {activityLabel(type)}
               </ActivityFilterButton>
             ))}
@@ -670,7 +675,8 @@ export default function EventBuilder() {
               <input
                 value={eventSearch}
                 onChange={(event) => setEventSearch(event.target.value)}
-                placeholder="Search events"
+                placeholder="Search all event content"
+                aria-label="Search event titles, prompts, content, consequences, tags, and media"
                 className="h-10 w-full rounded-md border border-white/15 bg-[#0f141d] pl-9 pr-3 text-sm font-bold text-white outline-none placeholder:text-slate-500 focus:border-cyan-300"
               />
             </label>
@@ -714,7 +720,12 @@ export default function EventBuilder() {
 
         <section className="min-h-0 min-w-0 overflow-hidden bg-[#181d27] p-3">
           <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="relative min-h-0 overflow-hidden rounded-md border border-white/10 bg-[#10131a]">
+            <div
+              role="region"
+              aria-label="Event preview"
+              tabIndex={0}
+              className="relative min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-[#10131a] outline-none focus-visible:border-cyan-300/70 focus-visible:ring-2 focus-visible:ring-cyan-300/20"
+            >
               {playtestReveal ? (
                 <div className="flex min-h-full items-center justify-center p-6">
                   <RevealPanel reveal={playtestReveal} mediaAssets={content.mediaAssets} players={players} canAdvance onNext={resetRun} />
@@ -1413,16 +1424,24 @@ function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
-function ActivityFilterButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
+function ActivityFilterButton({ active, count, children, onClick }: { active: boolean; count: number; children: ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-md border px-3 py-1.5 text-left text-sm font-black transition ${
+      aria-label={`${String(children)}, ${count} ${count === 1 ? "event" : "events"}`}
+      className={`flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm font-black transition ${
         active ? "border-cyan-300/70 bg-cyan-300/14 text-cyan-100" : "border-white/10 bg-white/[0.035] text-slate-200 hover:border-white/25"
       }`}
     >
-      {children}
+      <span className="min-w-0 leading-tight">{children}</span>
+      <span
+        className={`inline-flex min-w-6 shrink-0 items-center justify-center rounded-sm border px-1.5 py-0.5 font-mono text-[0.62rem] leading-none ${
+          active ? "border-cyan-200/35 bg-cyan-200/15 text-cyan-50" : count === 0 ? "border-white/5 bg-black/10 text-slate-600" : "border-white/10 bg-black/20 text-slate-300"
+        }`}
+      >
+        {count}
+      </span>
     </button>
   );
 }
@@ -1771,6 +1790,7 @@ function ConsequenceActionEditor({
           />
         )}
         {action.type === "moveTo" && <NumberInput label="Cell" value={action.tileId} onChange={(tileId) => onChange({ ...action, tileId })} />}
+        {action.type === "skipTurn" && <NumberInput label="Turns" value={action.turns ?? 1} onChange={(turns) => onChange({ ...action, turns: Math.max(1, Math.round(turns)) })} />}
         {action.type !== "coins" && action.type !== "coinTransfer" && action.type !== "coinRedistribute" && action.type !== "move" && action.type !== "moveTo" && <div />}
       </div>
       {(action.type === "coinTransfer" || action.type === "coinRedistribute") && (
@@ -1798,6 +1818,14 @@ function ConsequenceActionEditor({
             { value: "behind", label: "Behind" },
           ]}
           onChange={(direction) => onChange({ ...action, direction: direction as "ahead" | "behind" })}
+        />
+      )}
+      {action.type === "moveToPlayerPosition" && (
+        <TargetPicker
+          label="Move to player"
+          target={action.withTarget}
+          players={players}
+          onChange={(withTarget) => onChange({ ...action, withTarget })}
         />
       )}
       {action.type === "applyEffect" && (
@@ -1953,6 +1981,7 @@ function EffectConsequenceRow({
             { value: "moveTo", label: "Move to cell" },
             { value: "swapPositions", label: "Swap positions" },
             { value: "moveToNearest", label: "Move to nearest" },
+            { value: "moveToPlayerPosition", label: "Move to player position" },
           ]}
           onChange={(type) => onChange(convertEffectActionType(editable, type as Exclude<EventAction["type"], "text" | "offlineAction" | "applyEffect">))}
         />
@@ -2131,6 +2160,31 @@ function activityLabel(type: EventActivityType): string {
   if (type === "horserace") return "Carrera de caballos";
   if (type === "redlight") return "Luz roja, luz verde";
   return type;
+}
+
+function eventSearchText(id: string, event: GameEventDef, content: GameContent): string {
+  const eventJson = JSON.stringify(event);
+  const mediaText = [...(event.media ?? []), ...(event.activity?.media ?? [])]
+    .map((ref) => {
+      const asset = content.mediaAssets?.[ref.assetId];
+      return `${ref.assetId} ${ref.caption ?? ""} ${asset?.caption ?? ""} ${asset?.alt ?? ""} ${asset?.src ?? ""}`;
+    })
+    .join(" ");
+  const effectText = Object.entries(content.effects ?? {})
+    .filter(([effectId]) => eventJson.includes(`"effectId":"${effectId}"`))
+    .map(([effectId, effect]) => `${effectId} ${effect.name} ${effect.description ?? ""}`)
+    .join(" ");
+  return normalizeEventSearchText(
+    `${id} ${eventTitle(event)} ${event.activity ? activityLabel(event.activity.type) : ""} ${eventJson} ${mediaText} ${effectText}`
+  );
+}
+
+function normalizeEventSearchText(value: string): string {
+  return value
+    .trim()
+    .toLocaleLowerCase("es-AR")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
 }
 
 function MetaPill({ children }: { children: ReactNode }) {
@@ -2591,7 +2645,7 @@ function previewAction(
       requiresConfirmation: true,
     };
   }
-  if (action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias" || action.type === "swapPositions" || action.type === "moveToNearest") {
+  if (action.type === "halfMovement" || action.type === "movementMultiplier" || action.type === "diceBias" || action.type === "swapPositions" || action.type === "moveToNearest" || action.type === "moveToPlayerPosition") {
     return {
       type: action.type,
       targetPlayerIds,
@@ -2899,6 +2953,7 @@ function consequenceTypeOptions(effects: Record<string, EffectDef>, action: Even
     { value: "extraTurn", label: "Extra turn" },
     { value: "swapPositions", label: "Swap positions" },
     { value: "moveToNearest", label: "Move to nearest" },
+    { value: "moveToPlayerPosition", label: "Move to player position" },
   ];
   const effectOptions = Object.values(effects).map((effect) => ({ value: effectTypeOptionValue(effect.id), label: `Effect: ${effect.name}` }));
   if (action.type === "applyEffect" && !effects[action.effectId]) {
@@ -2955,6 +3010,7 @@ function convertActionType(action: EventAction, type: Exclude<EventAction["type"
   if (type === "diceBias") return ensureModifierTiming({ type, hook: "beforeRoll", face: 5, chanceDeltaPercent: 10, ...base });
   if (type === "swapPositions") return { type, withTarget: "winner", ...base };
   if (type === "moveToNearest") return { type, direction: "ahead", ...base };
+  if (type === "moveToPlayerPosition") return { type, withTarget: "winner", ...base };
   return { type, effectId: fallbackEffectId ?? DEFAULT_EFFECT_ID, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
 }
 

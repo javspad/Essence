@@ -25,118 +25,132 @@
       "swapPositions",
       "moveToNearest",
       "conditionalConsequences"
+    ],
+    "activity_engine_source": {
+      "verified_on": "2026-07-11",
+      "event_builder_types_file": "shared/events.ts#EVENT_ACTIVITY_TYPES",
+      "client_registry_file": "client/src/minigames/index.ts#ENGINES",
+      "note": "activity.type selects the reusable engine. Event IDs, skins, questions, and labels are authored content, not additional engine types.",
+      "legacy_fields_excluded": [
+        "activity.resolutionMode",
+        "EventResolutionMode.none"
+      ]
+    },
+    "activity_engines": [
+      {
+        "id": "prompt",
+        "label": "Prompt",
+        "event_builder_supported": true,
+        "client_engine_component": "Prompt",
+        "base_coin_reward_comment": "Comentario solamente — este motor no necesita una recompensa competitiva automática; las consecuencias se deben autorizar explícitamente en el evento."
+      },
+      {
+        "id": "hostPick",
+        "label": "Host pick",
+        "event_builder_supported": true,
+        "client_engine_component": "HostPick",
+        "base_coin_reward_comment": "Comentario solamente — este motor no necesita una recompensa competitiva automática; las consecuencias se deben autorizar explícitamente en el evento."
+      },
+      {
+        "id": "selfTap",
+        "label": "Self tap",
+        "event_builder_supported": true,
+        "client_engine_component": "SelfTap",
+        "base_coin_reward_comment": "Comentario solamente — este motor no necesita una recompensa competitiva automática; las consecuencias se deben autorizar explícitamente en el evento."
+      },
+      {
+        "id": "vote",
+        "label": "Vote",
+        "event_builder_supported": true,
+        "client_engine_component": "Vote",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "cardVote",
+        "label": "Card vote",
+        "event_builder_supported": true,
+        "client_engine_component": "CardVote",
+        "base_coin_reward_comment": "Comentario solamente — recompensa sugerida: +1 moneda por cada carta ganada y bonus final de +5/+3/+1 por ranking. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "judge",
+        "label": "Judge",
+        "event_builder_supported": true,
+        "client_engine_component": "Judge",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "timing",
+        "label": "Timing",
+        "event_builder_supported": true,
+        "client_engine_component": "Timing",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "reaction",
+        "label": "Reaction",
+        "event_builder_supported": true,
+        "client_engine_component": "Reaction",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "buzzer",
+        "label": "Buzzer / trivia",
+        "event_builder_supported": true,
+        "client_engine_component": "Buzzer",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "estimate",
+        "label": "Estimate",
+        "event_builder_supported": true,
+        "client_engine_component": "Estimate",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "whack",
+        "label": "Whack",
+        "event_builder_supported": true,
+        "client_engine_component": "Whack",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "maze",
+        "label": "Laberinto",
+        "event_builder_supported": true,
+        "client_engine_component": "Maze",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "flappy",
+        "label": "Flappy bird",
+        "event_builder_supported": true,
+        "client_engine_component": "Flappy",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "snake",
+        "label": "Snake",
+        "event_builder_supported": true,
+        "client_engine_component": "Snake",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "horserace",
+        "label": "Carrera de caballos",
+        "event_builder_supported": true,
+        "client_engine_component": "HorseRace",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      },
+      {
+        "id": "redlight",
+        "label": "Luz roja, luz verde",
+        "event_builder_supported": true,
+        "client_engine_component": "RedLight",
+        "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+      }
     ]
   },
-  "minigame_templates": [
-    {
-      "id": "bostezo",
-      "name": "Timing · Bostezo",
-      "activity_type": "timing",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "lujan",
-      "name": "Judge · Luján",
-      "activity_type": "judge",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "mas-probable-1",
-      "name": "Vote · Más probable I",
-      "activity_type": "vote",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "mas-probable-2",
-      "name": "Vote · Más probable II",
-      "activity_type": "vote",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "quien-dijo-1",
-      "name": "Vote · Quién dijo",
-      "activity_type": "vote",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "dos-verdades-1",
-      "name": "Vote · Dos verdades",
-      "activity_type": "vote",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "estimate-frang",
-      "name": "Estimate · FranG",
-      "activity_type": "estimate",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "estimate-noche",
-      "name": "Estimate · La noche",
-      "activity_type": "estimate",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "reaction-1",
-      "name": "Reaction",
-      "activity_type": "reaction",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "trivia-novio-1",
-      "name": "Trivia · Buzzer I",
-      "activity_type": "buzzer",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "trivia-novio-2",
-      "name": "Trivia · Buzzer II",
-      "activity_type": "buzzer",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "whack-amigos",
-      "name": "Whack",
-      "activity_type": "whack",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "arcade-maze",
-      "name": "Arcade · Maze",
-      "activity_type": "maze",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "arcade-flappy",
-      "name": "Arcade · Flappy",
-      "activity_type": "flappy",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "arcade-snake",
-      "name": "Arcade · Snake",
-      "activity_type": "snake",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "arcade-horserace",
-      "name": "Arcade · Carrera de caballos",
-      "activity_type": "horserace",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "arcade-redlight",
-      "name": "Arcade · Red light",
-      "activity_type": "redlight",
-      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    },
-    {
-      "id": "card-vote",
-      "name": "CardVote · Amigos de mierda",
-      "activity_type": "cardVote",
-      "base_coin_reward_comment": "Comentario solamente — cada carta ganada suma +1 moneda; al cierre, 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
-    }
-  ],
   "image_assets": [
     {
       "id": "story-image-001",
@@ -908,20 +922,22 @@
           "kind": "buff",
           "original": "Gurú de las finanzas - Puede usar monedas para timbear un nuevo tiro de dados, especulando que le saldrá mejor esta vez",
           "proposed_adaptation": {
-            "current_best_fit": "Spend 2 coins to apply a +5 percentage-point diceBias to face 5 for the next 3 rolls.",
+            "current_best_fit": "For the first 3 rounds, face 5 receives a +10 percentage-point dice bias.",
             "support": "supported",
-            "reason": "Replaces rerolling with a bounded, visible bias."
+            "reason": "Uses the current round duration and diceBias effect."
           }
         },
         {
           "id": "trait-javi-nerf",
           "kind": "nerf",
-          "original": "Abstemio - Cada vez que le toca tomar alcohol debe pagar con sus monedas, el precio de ser desleal a sus principios",
+          "original": "Falso abstemio - Cada vez que le toca tomar alcohol debe pagar con sus monedas, el precio de ser desleal a sus principios",
           "proposed_adaptation": {
-            "current_best_fit": "When a dedicated drink event is confirmed, apply an offlineAction and subtract 2 coins.",
+            "current_best_fit": "False abstemious: take one shot at the start of each of the first 2 turns.",
             "support": "supported",
-            "reason": "The drink event owns the trigger; no global alcohol-event tag is needed."
-          }
+            "reason": "Uses the onTurnStart effect hook so the action appears before the roll."
+          },
+          "original_name": "Falso abstemio",
+          "source_original": "Abstemio - Cada vez que le toca tomar alcohol debe pagar con sus monedas, el precio de ser desleal a sus principios"
         }
       ]
     },
@@ -934,9 +950,9 @@
           "kind": "buff",
           "original": "Rugby - Si tiene un jugador directamente atrás, puede pasarle la ovalada (una penalidad o castigo que le haya tocado) a dicho jugador",
           "proposed_adaptation": {
-            "current_best_fit": "Once per game, transfer a 3-coin penalty to the nearest player behind Willy using coinTransfer.",
+            "current_best_fit": "The first time Willy rolls 1, the nearest player behind him loses 3 coins.",
             "support": "supported",
-            "reason": "This preserves the Rugby pass without redirecting an already-pending action."
+            "reason": "Uses a nearest-behind target and expires after the first trigger."
           }
         },
         {
@@ -944,9 +960,9 @@
           "kind": "nerf",
           "original": "Larpi - Si saca 6, el próximo turno avanza la mitad (o redondeado para abajo en impares, 0 si saca 1) de lo que salga en los dados. Está en Pilar y no puede asistir",
           "proposed_adaptation": {
-            "current_best_fit": "On a 6, apply a one-turn 0.5 movement effect to the next roll.",
-            "support": "partial",
-            "reason": "The conditional delayed application needs a small effect-composition check."
+            "current_best_fit": "If Willy's last 2 rolls total more than 10, his next turn has 0.5x movement rounded down.",
+            "support": "supported",
+            "reason": "Uses rollTotal and applies a one-turn movement effect."
           }
         },
         {
@@ -954,9 +970,9 @@
           "kind": "bonus",
           "original": "Si saca 5 cinco veces seguidas, gana el juego",
           "proposed_adaptation": {
-            "current_best_fit": "After a five-roll streak of face 5, apply a +5 percentage-point diceBias to face 5 for the next 3 rolls; never end the match.",
-            "support": "planned",
-            "reason": "Use a conditional consequence; add an exact-face streak condition so 6 does not count as a 5."
+            "current_best_fit": "After five exact consecutive 5s, face 5 receives a +5 percentage-point dice bias for the next 3 rolls.",
+            "support": "supported",
+            "reason": "The streak grants a bounded bonus and never ends the match."
           }
         }
       ]
@@ -970,9 +986,9 @@
           "kind": "buff",
           "original": "Desempleo - Objetos en la tienda le salen 20% menos, consecuencia de no tener gastos fijos",
           "proposed_adaptation": {
-            "current_best_fit": "Do not port the 20% shop discount; artifact prices remain global.",
-            "support": "omitted",
-            "reason": "Intentional scope decision: no per-player shop price modifiers."
+            "current_best_fit": "Whenever Nico rolls 1, he gains 1 coin.",
+            "support": "supported",
+            "reason": "Replaces the intentionally omitted per-player shop discount."
           }
         },
         {
@@ -980,9 +996,9 @@
           "kind": "nerf",
           "original": "Frustración - Si sale anteúltimo en un juego, o empata por el último puesto, pasa a ser último. Tristeza nao tem fin",
           "proposed_adaptation": {
-            "current_best_fit": "If Nico resolves as loser, subtract 3 coins; do not rewrite the ranking.",
+            "current_best_fit": "If Nico finishes outside the top 3 in a minigame, he gains 1 extra coin.",
             "support": "supported",
-            "reason": "A loser consequence keeps the joke without mutating minigame order."
+            "reason": "Uses the trait owner's resolved ranking position."
           }
         }
       ]
@@ -996,9 +1012,9 @@
           "kind": "buff",
           "original": "Dormir en clase sin que le digan nada - Una vez por cada número de dado (ej: si le toca 1 solo una vez puede usarlo en 1, una vez en 2 etc) puede elegir saltear su turno y no avanzar lo que marquen los dados",
           "proposed_adaptation": {
-            "current_best_fit": "Replace six face-specific skip tokens with a fixed +5 percentage-point diceBias to face 6 for the next 2 rolls.",
+            "current_best_fit": "For Facu's first 3 turns, face 6 receives a +5 percentage-point dice bias.",
             "support": "supported",
-            "reason": "A small favorable bias replaces per-face inventory tracking."
+            "reason": "Replaces face-specific skip inventory with a bounded passive bonus."
           }
         },
         {
@@ -1006,9 +1022,9 @@
           "kind": "nerf",
           "original": "Ubuntu - Los juegos no están para Linux, se queda sin jugar un minijuego si la mesa define que linux no tiene soporte para él",
           "proposed_adaptation": {
-            "current_best_fit": "Facu still plays the minigame; resolve the Linux joke as a confirmed -3 coin penalty.",
+            "current_best_fit": "Facu still plays minigames, but loses 3 coins after each scored minigame he participates in.",
             "support": "supported",
-            "reason": "No player is excluded from the activity."
+            "reason": "Prompts are excluded and no player is removed from an activity."
           }
         }
       ]
@@ -1022,9 +1038,9 @@
           "kind": "buff",
           "original": "Home office - Al no tener que viajar nunca, está descansado: Si saca 1 en los dados puede optar por tirar de nuevo y moverse la cantidad sacada sumado a 1 (ej: 1 + 4 = 5)",
           "proposed_adaptation": {
-            "current_best_fit": "When rollEquals 1, use conditionalConsequences to move +2 and apply a +5 percentage-point bias to face 5 on the next roll.",
+            "current_best_fit": "When FranG rolls 1, move +2 and give face 5 a +5 percentage-point bias on the next roll.",
             "support": "supported",
-            "reason": "The recovery is tied to the dice result without rerolling or roll arithmetic."
+            "reason": "Replaces rerolling with current movement and dice-bias primitives."
           }
         },
         {
@@ -1032,9 +1048,9 @@
           "kind": "nerf",
           "original": "Excusa - Si cae en un casillero con dos o más jugadores, pierde 2 turnos. Se congeló pensando una excusa para no asistir",
           "proposed_adaptation": {
-            "current_best_fit": "Do not inspect tile occupancy. If this source beat is authored, show its prompt and apply a fixed -3 coin penalty.",
-            "support": "omitted",
-            "reason": "Intentional scope decision: no occupancy query or waiting state."
+            "current_best_fit": "If FranG finishes outside the top 3 in a minigame, he gains 1 extra coin.",
+            "support": "supported",
+            "reason": "Replaces the removed tile-occupancy query with a ranking result condition."
           }
         }
       ]
@@ -1048,9 +1064,9 @@
           "kind": "buff",
           "original": "Europa universalis IV - Si cae a un casillero con otro jugador en él,  puede desafiarlo a un duelo de historia: Otro jugador le muestra una bandera de un país de su elección, el que adivina gana x cantidad de monedas del otro jugador",
           "proposed_adaptation": {
-            "current_best_fit": "Use a dedicated event cell to start the existing buzzer trivia engine and transfer 3 coins from loser to winner.",
+            "current_best_fit": "Beltro can trigger a dedicated Europa Universalis IV Buzzer event with a 3-coin loser-to-winner transfer.",
             "support": "supported",
-            "reason": "The authored event replaces overlap-triggered duels."
+            "reason": "The current player-specific event trigger replaces tile occupancy."
           }
         },
         {
@@ -1058,9 +1074,9 @@
           "kind": "nerf",
           "original": "Zona punga - Si cae por primera vez en un barrio peligroso como Belgrano, Nuñez o Recoleta, pierde un turno. El miedo lo paraliza",
           "proposed_adaptation": {
-            "current_best_fit": "On every landing on an authored dangerous-neighborhood cell, apply one skip turn.",
+            "current_best_fit": "If Beltro finishes outside the top 3 in a minigame, he loses 1 coin.",
             "support": "supported",
-            "reason": "The effect is repeatable; no first-entry memory is tracked."
+            "reason": "Replaces dangerous-neighborhood entry memory with a ranking result condition."
           }
         }
       ]
@@ -1074,9 +1090,9 @@
           "kind": "buff",
           "original": "Aparición repentina - Si está detrás de TODOS los jugadores en el tablero, puede gastar su turno en aparecer en el casillero (n+1) delante de ellos. No esperaban encontrarlo ahí.",
           "proposed_adaptation": {
-            "current_best_fit": "Use a fixed self move of +6 spaces when this authored event resolves.",
+            "current_best_fit": "Gastón starts with Mochila de Gastón active for the first 2 rounds, moving at 0.5x speed.",
             "support": "supported",
-            "reason": "Removes global-rank lookup and leader-relative teleporting."
+            "reason": "The starting trait applies the artifact's timed movement effect immediately."
           }
         },
         {
@@ -1084,9 +1100,9 @@
           "kind": "nerf",
           "original": "Malas decisiones - Si cae en su posesión el bolso de Ikea, pierde todas sus monedas. Pago para sacarse el peso de encima",
           "proposed_adaptation": {
-            "current_best_fit": "Bolso de Ikea applies a fixed -5 coin consequence when the artifact is used.",
+            "current_best_fit": "While the starting backpack is active, rolling 6 makes Gastón take one shot.",
             "support": "supported",
-            "reason": "The artifact use owns the effect; possession is never observed."
+            "reason": "Keeps the backpack downside without artifact-possession triggers."
           }
         }
       ]
@@ -1103,8 +1119,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "La morsa ha sido despertada: Intercambia posiciones con Bilbo",
-        "suggested_minigame_id": null
+        "prompt_caption": "La morsa ha sido despertada: Intercambia posiciones con Bilbo"
       },
       "proposed_adaptation": {
         "current_primitive": "swapPositions",
@@ -1127,8 +1142,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Sabes que tiraste cualquiera cuando el negro de la esquina te mira así: retrocede un casillero",
-        "suggested_minigame_id": null
+        "prompt_caption": "Sabes que tiraste cualquiera cuando el negro de la esquina te mira así: retrocede un casillero"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1146,8 +1160,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Ta fría el agua: perdés un turno",
-        "suggested_minigame_id": null
+        "prompt_caption": "Ta fría el agua: perdés un turno"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1165,8 +1178,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te teñís las chapas. Half movement mientras estás en el colegio, te van a echar",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te teñís las chapas. Half movement mientras estás en el colegio, te van a echar"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1184,8 +1196,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Tomaste mucho y te tienen que bañar… Perdés tu turno hasta que un jugador te alcance para despertarte. Si estás último, perdé dos turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Tomaste mucho y te tienen que bañar… Perdés tu turno hasta que un jugador te alcance para despertarte. Si estás último, perdé dos turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1203,8 +1214,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te fijaste de más en Malnis, una menor. Avanza hasta la carcel, o el casillero que más se asemeje a dicha cárcel",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te fijaste de más en Malnis, una menor. Avanza hasta la carcel, o el casillero que más se asemeje a dicha cárcel"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1222,12 +1232,11 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Una presencia extraña se acerca… Mover a Frang hacia tu posición",
-        "suggested_minigame_id": null
+        "prompt_caption": "Una presencia extraña se acerca… Mover a Frang hacia tu posición"
       },
       "proposed_adaptation": {
         "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
+        "support": "supported",
         "proposed_version": "El host elige a Frang como destino y lo mueve a la posición del jugador que activó el evento; no se consulta proximidad ni rasgos."
       }
     },
@@ -1241,8 +1250,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te pones facha para el baile, tenes que ir caminando a costanera y vas a paso rápido: Moverse x1,5 lo que indican los dados por 3 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te pones facha para el baile, tenes que ir caminando a costanera y vas a paso rápido: Moverse x1,5 lo que indican los dados por 3 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1260,8 +1268,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te venís salteando el día de píernas… Te moves 0,5x lo que digan los dados por 3 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te venís salteando el día de píernas… Te moves 0,5x lo que digan los dados por 3 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1279,8 +1286,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Practicas tu cara de espejo: perdés un turno",
-        "suggested_minigame_id": null
+        "prompt_caption": "Practicas tu cara de espejo: perdés un turno"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1298,8 +1304,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Venís envalentonado por moverte a las hembras. Ganás un turno",
-        "suggested_minigame_id": null
+        "prompt_caption": "Venís envalentonado por moverte a las hembras. Ganás un turno"
       },
       "proposed_adaptation": {
         "current_primitive": "extraTurn",
@@ -1317,8 +1322,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te están tirando fuerte de la correa: te moves a 0,5x por 5 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te están tirando fuerte de la correa: te moves a 0,5x por 5 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1336,8 +1340,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te comés el descanso de tu vida: movete al casillero vacío atrás del último, así podés esconderte",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te comés el descanso de tu vida: movete al casillero vacío atrás del último, así podés esconderte"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1355,8 +1358,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te capturan así todo casual, avanza 4 casilleros por facha",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te capturan así todo casual, avanza 4 casilleros por facha"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1374,8 +1376,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Das motivo a posibles empleadores de alejarse de vos: pierde 2 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Das motivo a posibles empleadores de alejarse de vos: pierde 2 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1393,8 +1394,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Gana un turno para poder guardar tu camiseta",
-        "suggested_minigame_id": null
+        "prompt_caption": "Gana un turno para poder guardar tu camiseta"
       },
       "proposed_adaptation": {
         "current_primitive": "extraTurn",
@@ -1412,8 +1412,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Haces un homenaje a cierta ex compañera: movete a 0,5x por dos turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Haces un homenaje a cierta ex compañera: movete a 0,5x por dos turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1431,8 +1430,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te pones a tono en la pretemporada para encarar el verano como un toro: avanza 7 casilleros",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te pones a tono en la pretemporada para encarar el verano como un toro: avanza 7 casilleros"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1450,8 +1448,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "El juego te parece muy insulso: perdés un turno para scrollear tiktok",
-        "suggested_minigame_id": null
+        "prompt_caption": "El juego te parece muy insulso: perdés un turno para scrollear tiktok"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1470,14 +1467,18 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Das una vuelta por Belgrano y dejás de sentir tu celular en el bolsillo…",
         "prompt_caption": null,
-        "suggested_minigame_id": "mas-probable-2"
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "question": "¿Quién es más probable que pierda el celular esta noche?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "ranking consequences",
         "support": "comment_only",
-        "proposed_version": "Usar Más probable II: la votación reemplaza el retroceso directo; la recompensa base queda como comentario en el template."
-      },
-      "minigame_reuse_note": "Added coverage for Más probable II."
+        "proposed_version": "Usar el motor Vote con una pregunta nueva; la recompensa base queda como comentario del motor."
+      }
     },
     {
       "id": "event-021",
@@ -1487,15 +1488,20 @@
       "original_effect_proposed": "avanza hasta el jugador mas cercano para regalarselo",
       "media_asset_id": "story-image-022",
       "presentation": {
-        "type": "prompt",
-        "pre_minigame_caption": null,
-        "prompt_caption": "Te sumás a la moda del ukelele pero te olvidaste que no estás en 2017",
-        "suggested_minigame_id": null
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Te sumás a la moda del ukelele pero te olvidaste que no estás en 2017",
+        "prompt_caption": null,
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder Vote activity: every player votes in secret and the highest-ranked subject becomes the consequence target.",
+        "suggested_activity_content": {
+          "question": "¿Quién del grupo merece recibir este ukelele fuera de época?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "Implementar moveToPlayerPosition; el host elige el jugador destino y el activador se mueve hasta su posición."
+        "current_primitive": "vote + moveToPlayerPosition",
+        "support": "supported",
+        "proposed_version": "Todos votan en secreto. Quien cayó avanza hasta la posición de la persona más votada para regalarle el ukelele."
       }
     },
     {
@@ -1508,8 +1514,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Subís un snap para mantener los fueguitos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Subís un snap para mantener los fueguitos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → diceBias",
@@ -1527,8 +1532,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te internan por una reagudización de tu EPOC",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te internan por una reagudización de tu EPOC"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1546,8 +1550,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te vas al mac para no comer unas prepizzas de mierda. Avanza al Mc mas cercano (o lo que se asemeje",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te vas al mac para no comer unas prepizzas de mierda. Avanza al Mc mas cercano (o lo que se asemeje"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1565,8 +1568,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Subiste unos kilitos y estás metiendo más papada… Movete a 0,75x por 2 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Subiste unos kilitos y estás metiendo más papada… Movete a 0,75x por 2 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1584,8 +1586,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Olés un buen asado cocinándose cerca",
-        "suggested_minigame_id": null
+        "prompt_caption": "Olés un buen asado cocinándose cerca"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1603,8 +1604,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te cuesta sostener el peso de ser el más capo",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te cuesta sostener el peso de ser el más capo"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1622,8 +1622,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te volvés viral en youtube: Movete a x3 por un turno",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te volvés viral en youtube: Movete a x3 por un turno"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1641,8 +1640,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Who is that?",
-        "suggested_minigame_id": null
+        "prompt_caption": "Who is that?"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1660,8 +1658,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te ofrecen una BIC",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te ofrecen una BIC"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1677,15 +1674,20 @@
       "original_effect_proposed": "avanza hacía el jugador con el pelo más largo",
       "media_asset_id": "story-image-032",
       "presentation": {
-        "type": "prompt",
-        "pre_minigame_caption": null,
-        "prompt_caption": "Sos un imán de minas",
-        "suggested_minigame_id": null
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Sos un imán de minas",
+        "prompt_caption": null,
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder Vote activity: every player votes in secret and the highest-ranked subject becomes the consequence target.",
+        "suggested_activity_content": {
+          "question": "¿Quién tiene el pelo más largo del grupo?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "move",
+        "current_primitive": "vote + moveToPlayerPosition",
         "support": "supported",
-        "proposed_version": "avanza hacía el jugador con el pelo más largo"
+        "proposed_version": "Todos votan en secreto. Quien cayó avanza hasta la posición de la persona más votada."
       }
     },
     {
@@ -1698,8 +1700,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te quedás pensando una banda - perdé tu turno hasta que un jugador te alcance , o si estás último",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te quedás pensando una banda - perdé tu turno hasta que un jugador te alcance , o si estás último"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1717,8 +1718,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te quedás sin aire después de meter mucha panza",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te quedás sin aire después de meter mucha panza"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1736,8 +1736,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te quedás un toque probando la webcam: 50% chance de sacar 4 por los siguientes 4 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te quedás un toque probando la webcam: 50% chance de sacar 4 por los siguientes 4 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → diceBias",
@@ -1755,8 +1754,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Buscás cambiar de celu a ver si sacás fotos mas HD: Avanza 6 casilleros",
-        "suggested_minigame_id": null
+        "prompt_caption": "Buscás cambiar de celu a ver si sacás fotos mas HD: Avanza 6 casilleros"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1772,15 +1770,20 @@
       "original_effect_proposed": "cambia de posición con el jugador más colgado",
       "media_asset_id": "story-image-037",
       "presentation": {
-        "type": "prompt",
-        "pre_minigame_caption": null,
-        "prompt_caption": "Te agarran un toque desprevenido",
-        "suggested_minigame_id": null
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Te agarran un toque desprevenido",
+        "prompt_caption": null,
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder Vote activity: every player votes in secret and the highest-ranked subject becomes the consequence target.",
+        "suggested_activity_content": {
+          "question": "¿Quién es la persona más colgada del grupo?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "swapPositions",
+        "current_primitive": "vote + swapPositions",
         "support": "supported",
-        "proposed_version": "cambia de posición con el jugador más colgado"
+        "proposed_version": "Todos votan en secreto. Quien cayó intercambia posiciones con la persona más votada."
       }
     },
     {
@@ -1793,8 +1796,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te agarró chagas y tenés que hacerte unos estudios: Perdé 2 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te agarró chagas y tenés que hacerte unos estudios: Perdé 2 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1812,8 +1814,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Perdiste un ojo por un piedrazo",
-        "suggested_minigame_id": null
+        "prompt_caption": "Perdiste un ojo por un piedrazo"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1831,8 +1832,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Cazaste una y buscás un baúl pa meterla",
-        "suggested_minigame_id": null
+        "prompt_caption": "Cazaste una y buscás un baúl pa meterla"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1850,8 +1850,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Fingís tu muerte para sacar interacciones por IG: perdés 3 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Fingís tu muerte para sacar interacciones por IG: perdés 3 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -1869,8 +1868,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te cargás de carbos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te cargás de carbos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -1888,8 +1886,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Tirás unos tiros a ver si píca alguna",
-        "suggested_minigame_id": null
+        "prompt_caption": "Tirás unos tiros a ver si píca alguna"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1908,14 +1905,18 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Te tocó repetir salita de cinco",
         "prompt_caption": null,
-        "suggested_minigame_id": "dos-verdades-1"
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "question": "¿Quién del grupo tendría que repetir salita de cinco?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "ranking consequences",
         "support": "comment_only",
-        "proposed_version": "Usar Dos verdades y una mentira con el beat de salita de cinco; la recompensa base queda como comentario en el template."
-      },
-      "minigame_reuse_note": "Added coverage for Dos verdades y una mentira."
+        "proposed_version": "Usar el motor Vote con una pregunta que selecciona a un jugador; la recompensa base queda como comentario del motor."
+      }
     },
     {
       "id": "event-044",
@@ -1927,8 +1928,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Fuiste alcanzado por la mufa",
-        "suggested_minigame_id": null
+        "prompt_caption": "Fuiste alcanzado por la mufa"
       },
       "proposed_adaptation": {
         "current_primitive": "coins",
@@ -1946,8 +1946,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "POV te están por botonear y dar material para q te sigan jodiendo 10 años después",
-        "suggested_minigame_id": null
+        "prompt_caption": "POV te están por botonear y dar material para q te sigan jodiendo 10 años después"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1965,8 +1964,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te pusiste a probar el modo retrato, flama. Avanza 2 casilleros",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te pusiste a probar el modo retrato, flama. Avanza 2 casilleros"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -1984,8 +1982,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te pasaste con la definición",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te pasaste con la definición"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -2003,8 +2000,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Sos el heredero de una dinastía",
-        "suggested_minigame_id": null
+        "prompt_caption": "Sos el heredero de una dinastía"
       },
       "proposed_adaptation": {
         "current_primitive": "coins / coinTransfer",
@@ -2023,14 +2019,41 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Te agarra una banda de sueño",
         "prompt_caption": null,
-        "suggested_minigame_id": "estimate-noche"
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "question": "¿Quién es el primero que se va a dormir hoy?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "ranking consequences",
-        "support": "comment_only",
-        "proposed_version": "Usar Estimate · La noche para resolver quién cae primero por sueño; la recompensa base queda como comentario en el template."
+        "current_primitive": "vote result + skipTurn",
+        "support": "supported",
+        "proposed_version": "Usar Vote con la pregunta «¿Quién es el primero que se va a dormir hoy?». El jugador más votado pierde su próximo turno."
       },
-      "minigame_reuse_note": "Added coverage for Estimate · La noche."
+      "review_comment": "Vamos a mover este a vote. Pone quien es el primero que se va a dormir hoy.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "vote",
+          "content": {
+            "question": "¿Quién es el primero que se va a dormir hoy?"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "skipTurn",
+                "text": "El más votado pierde su próximo turno."
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
+      }
     },
     {
       "id": "event-050",
@@ -2042,8 +2065,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te metés al colegio de noche",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te metés al colegio de noche"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -2061,34 +2083,13 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te quedás abajo esperando una banda",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te quedás abajo esperando una banda"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
         "support": "supported",
         "proposed_version": "perdé un turno"
       }
-    },
-    {
-      "id": "event-052",
-      "source_caption_group_id": "event-caption-052",
-      "duplicate_of_caption": null,
-      "original_caption": "armás una empresa de turismo",
-      "original_effect_proposed": "avanza 7 casilleros",
-      "media_asset_id": "story-image-053",
-      "presentation": {
-        "type": "minigame_intro",
-        "pre_minigame_caption": "armás una empresa de turismo",
-        "prompt_caption": null,
-        "suggested_minigame_id": "estimate-frang"
-      },
-      "proposed_adaptation": {
-        "current_primitive": "ranking consequences",
-        "support": "comment_only",
-        "proposed_version": "Usar Estimate · FranG como minijuego de estimación antes del avance; la recompensa base queda como comentario en el template."
-      },
-      "minigame_reuse_note": "Added coverage for Estimate · FranG."
     },
     {
       "id": "event-053",
@@ -2100,8 +2101,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Flasheas un toque",
-        "suggested_minigame_id": null
+        "prompt_caption": "Flasheas un toque"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → diceBias",
@@ -2119,8 +2119,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "… Avanza a 2x por 2 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "… Avanza a 2x por 2 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -2136,15 +2135,20 @@
       "original_effect_proposed": "avanza hasta el jugador más cercano",
       "media_asset_id": "story-image-056",
       "presentation": {
-        "type": "prompt",
-        "pre_minigame_caption": null,
-        "prompt_caption": "Decidís seguir exprimiendo el chiste: avanza hasta el jugador más cercano",
-        "suggested_minigame_id": null
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Decidís seguir exprimiendo el chiste",
+        "prompt_caption": null,
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder Vote activity: every player votes in secret and the highest-ranked subject becomes the consequence target.",
+        "suggested_activity_content": {
+          "question": "¿Quién todavía se reiría de este chiste aunque ya lo hayas exprimido de más?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "El host elige el jugador destino y se mueve hasta su posición; no se calcula automáticamente el más cercano."
+        "current_primitive": "vote + moveToPlayerPosition",
+        "support": "supported",
+        "proposed_version": "Todos votan en secreto. Quien cayó avanza hasta la posición de la persona más votada para seguir exprimiendo el chiste."
       }
     },
     {
@@ -2157,8 +2161,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te acabas de despertar y la luz te pega una banda",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te acabas de despertar y la luz te pega una banda"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -2175,16 +2178,46 @@
       "media_asset_id": "story-image-058",
       "presentation": {
         "type": "minigame_intro",
-        "pre_minigame_caption": "Editás re bien buscando esa buena nota en oratoria",
+        "pre_minigame_caption": "Creá el mejor título para el video de oratoria.",
         "prompt_caption": null,
-        "suggested_minigame_id": "lujan"
+        "suggested_activity_type": "judge",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "prompt": "Creá el mejor título para el video de oratoria.",
+          "placeholder": "Escribí el título del video…"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "ranking consequences",
-        "support": "comment_only",
-        "proposed_version": "Usar Judge · Luján para juzgar la mejor edición/oratoria; la recompensa base queda como comentario en el template."
+        "current_primitive": "judge ranking + move",
+        "support": "supported",
+        "proposed_version": "Usar Judge para elegir el mejor título del video de oratoria. El ganador avanza 5 casilleros."
       },
-      "minigame_reuse_note": "Added coverage for Judge · Luján."
+      "review_comment": "Cambia la premisa del ejercicio a: Crea el mejor titulo para el video de oratoria.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "judge",
+          "content": {
+            "prompt": "Creá el mejor título para el video de oratoria.",
+            "placeholder": "Escribí el título del video…"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "move",
+                "delta": 5,
+                "text": "El mejor título avanza 5 casilleros."
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
+      }
     },
     {
       "id": "event-058",
@@ -2196,8 +2229,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te abriste la cabeza en el maul",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te abriste la cabeza en el maul"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -2216,12 +2248,49 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Atendiste boludos",
         "prompt_caption": null,
-        "suggested_minigame_id": "mas-probable-1"
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "question": "¿Quién tiene más paciencia?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "ranking consequences",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; ganador del juego avanza 5 casilleros, el último retrocede 5"
+        "proposed_version": "Usar Vote con la pregunta «¿Quién tiene más paciencia?». El ganador avanza 5 casilleros y el último retrocede 5."
+      },
+      "review_comment": "Cambiar pregunta a: ¿Quién tiene más paciencia?",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "vote",
+          "content": {
+            "question": "¿Quién tiene más paciencia?"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "move",
+                "delta": 5
+              }
+            ]
+          },
+          {
+            "appliesTo": "loser",
+            "actions": [
+              {
+                "type": "move",
+                "delta": -5
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2233,14 +2302,54 @@
       "media_asset_id": "story-image-061",
       "presentation": {
         "type": "minigame_intro",
-        "pre_minigame_caption": "Cosechas tus regalos",
+        "pre_minigame_caption": "Cosechás tus regalos: agarralo rápido antes de que se lo lleven.",
         "prompt_caption": null,
-        "suggested_minigame_id": "bostezo"
+        "suggested_activity_type": "timing",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Cosechás tus regalos: agarralo rápido antes de que se lo lleven.",
+          "windowMs": 350
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
-        "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; ganador se mueve a 2x. Último 0,5x por dos turnos"
+        "current_primitive": "ranking effects",
+        "support": "partial",
+        "proposed_version": "Usar Timing con la nueva premisa. El ganador recibe movimiento x2 por un turno; el último recibe movimiento x0,5 por dos rondas."
+      },
+      "review_comment": "Cambiar el título para introducir la acción: Cosechás tus regalos, agarralo rápido antes de que se lo lleven.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "timing",
+          "content": {
+            "label": "Cosechás tus regalos: agarralo rápido antes de que se lo lleven.",
+            "windowMs": 350
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "applyEffect",
+                "effectId": "movement-x2-one-turn",
+                "status": "effect_needs_authoring"
+              }
+            ]
+          },
+          {
+            "appliesTo": "loser",
+            "actions": [
+              {
+                "type": "applyEffect",
+                "effectId": "half-roll-2-rounds"
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2254,12 +2363,52 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Reflexionas un toque acerca de las falsas amistades",
         "prompt_caption": null,
-        "suggested_minigame_id": "trivia-novio-1"
+        "suggested_activity_type": "judge",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "prompt": "Escribí la mejor reflexión acerca de las falsas amistades.",
+          "placeholder": "Escribí tu reflexión…"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "judge ranking + turn consequences",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; Ganador gana un turno, perdedores pierden un turno"
+        "proposed_version": "Usar Judge para elegir la mejor reflexión. El ganador obtiene un turno extra y el resto pierde su próximo turno."
+      },
+      "review_comment": "Mover esta tarjeta a Judge en vez de trivia.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "judge",
+          "content": {
+            "prompt": "Escribí la mejor reflexión acerca de las falsas amistades.",
+            "placeholder": "Escribí tu reflexión…"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "extraTurn"
+              }
+            ]
+          },
+          {
+            "appliesTo": {
+              "rankFrom": 2,
+              "rankTo": 99
+            },
+            "actions": [
+              {
+                "type": "skipTurn"
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2273,12 +2422,40 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "MI PRI-MER CONCIERTO EN-EL COLÓN",
         "prompt_caption": null,
-        "suggested_minigame_id": "reaction-1"
+        "suggested_activity_type": "reaction",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "MI PRI-MER CONCIERTO EN-EL COLÓN"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "move by rank",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; Ganador avanza hasta el teatro"
+        "proposed_version": "Resolver Reaction por ranking; el ganador avanza 3 casilleros."
+      },
+      "review_comment": "El ganador avanza 3 casillas.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "reaction",
+          "content": {
+            "label": "MI PRI-MER CONCIERTO EN-EL COLÓN"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "move",
+                "delta": 3
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2292,7 +2469,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Ganador se egresa, saltea etapa de colegio.",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-flappy"
+        "suggested_activity_type": "flappy",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Ganador se egresa, saltea etapa de colegio."
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "ranking consequences",
@@ -2311,7 +2493,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Ganador se va a natación",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-horserace"
+        "suggested_activity_type": "horserace",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Ganador se va a natación"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "ranking consequences",
@@ -2330,7 +2517,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Mirás el mar así como pensando una banda",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-flappy"
+        "suggested_activity_type": "flappy",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Mirás el mar así como pensando una banda"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -2349,7 +2541,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Mirás el mar así como pensando una banda",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-flappy"
+        "suggested_activity_type": "flappy",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Mirás el mar así como pensando una banda"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -2368,7 +2565,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Iniciaste un efecto mariposa jodido",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-snake"
+        "suggested_activity_type": "snake",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Iniciaste un efecto mariposa jodido"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -2387,7 +2589,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Llevas a cabo una transformación",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-horserace"
+        "suggested_activity_type": "horserace",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Llevas a cabo una transformación"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -2404,14 +2611,46 @@
       "media_asset_id": "story-image-070",
       "presentation": {
         "type": "minigame_intro",
-        "pre_minigame_caption": "Estás cocinando un buen regalo para el taxista",
+        "pre_minigame_caption": "Soltá el regalo mientras el taxista no te ve.",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-redlight"
+        "suggested_activity_type": "redlight",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Soltá el regalo mientras el taxista no te ve.",
+          "trackLength": 45,
+          "durationMs": 60000
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "move by rank",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; Ganador avanza 3 casilleros"
+        "proposed_version": "Usar Luz roja, luz verde con la nueva instrucción. El ganador avanza 3 casilleros."
+      },
+      "review_comment": "Poner como mensaje: soltá el regalo mientras el taxista no te ve.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "redlight",
+          "content": {
+            "label": "Soltá el regalo mientras el taxista no te ve.",
+            "trackLength": 45,
+            "durationMs": 60000
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "move",
+                "delta": 3
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2425,12 +2664,39 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Emulas a tu rector favorito",
         "prompt_caption": null,
-        "suggested_minigame_id": "mas-probable-1"
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "question": "¿Quién imita mejor a Adrián?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "vote ranking + extraTurn",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; ganador gana un turno"
+        "proposed_version": "Usar Vote con la pregunta «¿Quién imita mejor a Adrián?». El ganador obtiene un turno extra."
+      },
+      "review_comment": "En la pregunta, reemplazar rector favorito por Adrián.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "vote",
+          "content": {
+            "question": "¿Quién imita mejor a Adrián?"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "extraTurn"
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2444,13 +2710,42 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Lanzás tu carrera actoral",
         "prompt_caption": null,
-        "suggested_minigame_id": "bostezo"
+        "suggested_activity_type": "timing",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Lanzás tu carrera actoral"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "moveToPlayerPosition",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; ganador se mueve hacia jugador más famoso"
-      }
+        "proposed_version": "El ganador se mueve hasta la posición actual de Nico."
+      },
+      "review_comment": "El ganador se mueve hasta la posición de Nico.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "timing",
+          "content": {
+            "label": "Lanzás tu carrera actoral"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "moveToPlayerPosition",
+                "playerId": "nico"
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
+      },
+      "target_player_id": "nico"
     },
     {
       "id": "event-071",
@@ -2463,7 +2758,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Te cayó mal la comida",
         "prompt_caption": null,
-        "suggested_minigame_id": "whack-amigos"
+        "suggested_activity_type": "whack",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Te cayó mal la comida"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "ranking consequences",
@@ -2482,12 +2782,40 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Te tienen que atar…",
         "prompt_caption": null,
-        "suggested_minigame_id": "reaction-1"
+        "suggested_activity_type": "reaction",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Te tienen que atar…"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "multi-turn skip counter",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; Perdedores pierden 3 turnos"
+        "proposed_version": "El último pierde sus próximos 2 turnos; el contador de turnos salteados ya es acumulable."
+      },
+      "review_comment": "El perdedor pierde solamente 2 turnos.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "reaction",
+          "content": {
+            "label": "Te tienen que atar…"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "loser",
+            "actions": [
+              {
+                "type": "skipTurn",
+                "turns": 2
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2501,7 +2829,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Te llenas los huevos de arena",
         "prompt_caption": null,
-        "suggested_minigame_id": "whack-amigos"
+        "suggested_activity_type": "whack",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Te llenas los huevos de arena"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -2520,7 +2853,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Analizas un poco la amistad entre las mujeres",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-maze"
+        "suggested_activity_type": "maze",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Analizas un poco la amistad entre las mujeres"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -2538,13 +2876,12 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te enterás que la prima de Megan tiene 2 flotadores",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te enterás que la prima de Megan tiene 2 flotadores"
       },
       "proposed_adaptation": {
         "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "Implementar moveToPlayerPosition y avanzar hasta la posición de Willy."
+        "support": "supported",
+        "proposed_version": "Usar moveToPlayerPosition y avanzar hasta la posición de Willy."
       },
       "target_player_id": "willy"
     },
@@ -2558,8 +2895,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te levantas de un sueño donde no éramos campeones del mundo, suspirás aliviado",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te levantas de un sueño donde no éramos campeones del mundo, suspirás aliviado"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -2577,8 +2913,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Arrancás a entrenar trapos para el verano : avanza en 1,5x por dos turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Arrancás a entrenar trapos para el verano : avanza en 1,5x por dos turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -2595,14 +2930,46 @@
       "media_asset_id": "story-image-080",
       "presentation": {
         "type": "minigame_intro",
-        "pre_minigame_caption": "Te das cuenta que por ahí no te alcancen los chulitos…",
+        "pre_minigame_caption": "Tirá el examen por la ventana mientras Gio no te ve.",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-redlight"
+        "suggested_activity_type": "redlight",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Tirá el examen por la ventana mientras Gio no te ve.",
+          "trackLength": 45,
+          "durationMs": 60000
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "coins by rank",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; perdedor pierde 5 monedas"
+        "proposed_version": "Usar Luz roja, luz verde con la nueva instrucción. El perdedor pierde 5 monedas."
+      },
+      "review_comment": "Usar como mensaje introductorio: tirá el examen por la ventana mientras Gio no te ve.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "redlight",
+          "content": {
+            "label": "Tirá el examen por la ventana mientras Gio no te ve.",
+            "trackLength": 45,
+            "durationMs": 60000
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "loser",
+            "actions": [
+              {
+                "type": "coins",
+                "value": -5
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2615,8 +2982,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Tus ganás de volver se materializaron eventualmente…",
-        "suggested_minigame_id": null
+        "prompt_caption": "Tus ganás de volver se materializaron eventualmente…"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -2635,7 +3001,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "FD!",
         "prompt_caption": null,
-        "suggested_minigame_id": "whack-amigos"
+        "suggested_activity_type": "whack",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "FD!"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "ranking consequences",
@@ -2653,13 +3024,12 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te creció un poco la cabeza",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te creció un poco la cabeza"
       },
       "proposed_adaptation": {
         "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "Implementar moveToPlayerPosition y avanzar hasta la posición de Willy."
+        "support": "supported",
+        "proposed_version": "Usar moveToPlayerPosition y avanzar hasta la posición de Willy."
       },
       "target_player_id": "willy"
     },
@@ -2674,12 +3044,40 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Buscás un nuevo laburo para sumar unos mangos",
         "prompt_caption": null,
-        "suggested_minigame_id": "reaction-1"
+        "suggested_activity_type": "reaction",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Buscás un nuevo laburo para sumar unos mangos"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "coins by rank",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; Ganador gana 4 monedas"
+        "proposed_version": "Resolver Reaction por ranking; el ganador gana 10 monedas."
+      },
+      "review_comment": "El ganador gana 10 monedas.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "reaction",
+          "content": {
+            "label": "Buscás un nuevo laburo para sumar unos mangos"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "coins",
+                "value": 10
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
       }
     },
     {
@@ -2692,8 +3090,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Un buen amigo te quema la pierna. Pierde 2 turnos",
-        "suggested_minigame_id": null
+        "prompt_caption": "Un buen amigo te quema la pierna. Pierde 2 turnos"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -2712,7 +3109,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Quedaste triste por la eliminación de argentina contra suiza",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-maze"
+        "suggested_activity_type": "maze",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Quedaste triste por la eliminación de argentina contra suiza"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -2728,15 +3130,20 @@
       "original_effect_proposed": "avanza o retrocede al jugador mas cumpleañero (próximo cumpleaños",
       "media_asset_id": "story-image-087",
       "presentation": {
-        "type": "prompt",
-        "pre_minigame_caption": null,
-        "prompt_caption": "Tu amigo cumple años",
-        "suggested_minigame_id": null
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Tu amigo cumple años",
+        "prompt_caption": null,
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder Vote activity: every player votes in secret and the highest-ranked subject becomes the consequence target.",
+        "suggested_activity_content": {
+          "question": "¿Quién cumple años más pronto?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "El host elige el jugador destino; no se consulta el próximo cumpleaños."
+        "current_primitive": "vote + moveToPlayerPosition",
+        "support": "supported",
+        "proposed_version": "Todos votan en secreto. Quien cayó avanza hasta la posición de la persona más votada para festejarle."
       }
     },
     {
@@ -2750,14 +3157,41 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Practicás el amor propio",
         "prompt_caption": null,
-        "suggested_minigame_id": "quien-dijo-1"
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "question": "¿Quién se hace más pajas por día?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "ranking consequences",
-        "support": "comment_only",
-        "proposed_version": "Usar Quién dijo para convertir el beat de amor propio en una votación de cita; la recompensa base queda como comentario en el template."
+        "current_primitive": "vote ranking + coins",
+        "support": "supported",
+        "proposed_version": "Usar Vote con la nueva pregunta. El jugador más votado gana 5 monedas."
       },
-      "minigame_reuse_note": "Added coverage for Vote · Quién dijo."
+      "review_comment": "Cambiar la pregunta a: ¿Quién se hace más pajas por día?",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "vote",
+          "content": {
+            "question": "¿Quién se hace más pajas por día?"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "winner",
+            "actions": [
+              {
+                "type": "coins",
+                "value": 5
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
+      }
     },
     {
       "id": "event-087",
@@ -2770,7 +3204,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Hacés valer la cuota de 500k que pagan tus viejos mes a mes",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-horserace"
+        "suggested_activity_type": "horserace",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Hacés valer la cuota de 500k que pagan tus viejos mes a mes"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -2786,15 +3225,20 @@
       "original_effect_proposed": "Avanza hacía el jugador mas trola",
       "media_asset_id": "story-image-090",
       "presentation": {
-        "type": "prompt",
-        "pre_minigame_caption": null,
-        "prompt_caption": "Feliz día del amigo!",
-        "suggested_minigame_id": null
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Feliz día del amigo!",
+        "prompt_caption": null,
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder Vote activity: every player votes in secret and the highest-ranked subject becomes the consequence target.",
+        "suggested_activity_content": {
+          "question": "¿Con quién te irías de festejo sin preguntar a dónde?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "El host elige el jugador destino; no se resuelve un rasgo social."
+        "current_primitive": "vote + moveToPlayerPosition",
+        "support": "supported",
+        "proposed_version": "Todos votan en secreto. Quien cayó avanza hasta la posición de la persona más votada para salir de festejo."
       }
     },
     {
@@ -2807,8 +3251,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Corrés a sacarte una foto con un famoso que está muy contento de darte el placer",
-        "suggested_minigame_id": null
+        "prompt_caption": "Corrés a sacarte una foto con un famoso que está muy contento de darte el placer"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -2826,8 +3269,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Descubrís al mejor arquero de la historia",
-        "suggested_minigame_id": null
+        "prompt_caption": "Descubrís al mejor arquero de la historia"
       },
       "proposed_adaptation": {
         "current_primitive": "extraTurn",
@@ -2843,15 +3285,20 @@
       "original_effect_proposed": "retrocede hacia el jugador mas dormilón",
       "media_asset_id": "story-image-093",
       "presentation": {
-        "type": "prompt",
-        "pre_minigame_caption": null,
-        "prompt_caption": "Te enganchan durmiendo",
-        "suggested_minigame_id": null
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Te enganchan durmiendo",
+        "prompt_caption": null,
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder Vote activity: every player votes in secret and the highest-ranked subject becomes the consequence target.",
+        "suggested_activity_content": {
+          "question": "¿Quién podría quedarse dormido en cualquier lugar?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "El host elige el jugador destino; no se calcula quién es el más dormilón."
+        "current_primitive": "vote + moveToPlayerPosition",
+        "support": "supported",
+        "proposed_version": "Todos votan en secreto. Quien cayó se mueve hasta la posición de la persona más votada."
       }
     },
     {
@@ -2865,12 +3312,40 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Te da un fresco en el ogt",
         "prompt_caption": null,
-        "suggested_minigame_id": "reaction-1"
+        "suggested_activity_type": "reaction",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Te da un fresco en el ogt"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "consequences with ranking selectors",
+        "current_primitive": "coins by rank",
         "support": "supported",
-        "proposed_version": "Usar ramas de resultado por ranking; pierde 2 turnos el perdedor del juego"
+        "proposed_version": "El perdedor pierde 1 moneda. Se interpreta «punto» como moneda porque el juego no tiene un recurso persistente genérico de puntos."
+      },
+      "review_comment": "El perdedor pierde un punto apenas.",
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "reaction",
+          "content": {
+            "label": "Te da un fresco en el ogt"
+          }
+        },
+        "ranking_consequences": [
+          {
+            "appliesTo": "loser",
+            "actions": [
+              {
+                "type": "coins",
+                "value": -1
+              }
+            ]
+          }
+        ],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": "User wording 'one point' mapped to 1 coin; revise if 'one cell' was intended."
       }
     },
     {
@@ -2881,15 +3356,20 @@
       "original_effect_proposed": "Avanza hacia el jugador más viejo",
       "media_asset_id": "story-image-095",
       "presentation": {
-        "type": "prompt",
-        "pre_minigame_caption": null,
-        "prompt_caption": "Feliz cumple!",
-        "suggested_minigame_id": null
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Feliz cumple!",
+        "prompt_caption": null,
+        "suggested_activity_type": "vote",
+        "activity_model_note": "Uses the current Event Builder Vote activity: every player votes in secret and the highest-ranked subject becomes the consequence target.",
+        "suggested_activity_content": {
+          "question": "¿Quién tiene más alma de jubilado?"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
-        "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "El host elige el jugador destino; no se calcula quién es el más viejo."
+        "current_primitive": "vote + moveToPlayerPosition",
+        "support": "supported",
+        "proposed_version": "Todos votan en secreto. Quien cayó avanza hasta la posición de la persona más votada para festejarle el cumpleaños."
       }
     },
     {
@@ -2902,8 +3382,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Otra vez durmiendo!",
-        "suggested_minigame_id": null
+        "prompt_caption": "Otra vez durmiendo!"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -2921,8 +3400,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Otra vez durmiendo!",
-        "suggested_minigame_id": null
+        "prompt_caption": "Otra vez durmiendo!"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -2940,8 +3418,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Otra vez durmiendo!",
-        "suggested_minigame_id": null
+        "prompt_caption": "Otra vez durmiendo!"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -2959,8 +3436,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Otra vez durmiendo!",
-        "suggested_minigame_id": null
+        "prompt_caption": "Otra vez durmiendo!"
       },
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
@@ -2978,8 +3454,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "te pinta tirarte un axe en la jeta",
-        "suggested_minigame_id": null
+        "prompt_caption": "te pinta tirarte un axe en la jeta"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -2998,7 +3473,12 @@
         "type": "minigame_intro",
         "pre_minigame_caption": "Ya dominás la cara de espejo",
         "prompt_caption": null,
-        "suggested_minigame_id": "arcade-snake"
+        "suggested_activity_type": "snake",
+        "activity_model_note": "Uses the current Event Builder activity.type engine; the story caption supplies new authored content rather than becoming a new engine type.",
+        "suggested_activity_content": {
+          "label": "Ya dominás la cara de espejo"
+        },
+        "content_authoring_status": "ready_for_review"
       },
       "proposed_adaptation": {
         "current_primitive": "consequences with ranking selectors",
@@ -3016,8 +3496,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Lograste tu primer muscle-up , pero se te jodió el hombro para siempre",
-        "suggested_minigame_id": null
+        "prompt_caption": "Lograste tu primer muscle-up , pero se te jodió el hombro para siempre"
       },
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
@@ -3035,8 +3514,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Presencias una pareja inesperada",
-        "suggested_minigame_id": null
+        "prompt_caption": "Presencias una pareja inesperada"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -3054,8 +3532,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te pegan un portazo en la jeta en el refugio Jakob",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te pegan un portazo en la jeta en el refugio Jakob"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -3073,8 +3550,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Comprás un perfume de lujo",
-        "suggested_minigame_id": null
+        "prompt_caption": "Comprás un perfume de lujo"
       },
       "proposed_adaptation": {
         "current_primitive": "coins",
@@ -3092,8 +3568,7 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Volviste a la pandemia",
-        "suggested_minigame_id": null
+        "prompt_caption": "Volviste a la pandemia"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
@@ -3111,13 +3586,139 @@
       "presentation": {
         "type": "prompt",
         "pre_minigame_caption": null,
-        "prompt_caption": "Te sacás una foto para cambiar la de perfil",
-        "suggested_minigame_id": null
+        "prompt_caption": "Te sacás una foto para cambiar la de perfil"
       },
       "proposed_adaptation": {
         "current_primitive": "move",
         "support": "supported",
         "proposed_version": "avanza 11 casilleros"
+      }
+    },
+    {
+      "id": "event-103",
+      "source_caption_group_id": "review-note-001",
+      "duplicate_of_caption": null,
+      "source_origin": "user_review_note",
+      "original_caption": "Examen de matemática: usá la calculadora mientras no te ven.",
+      "original_effect_proposed": null,
+      "media_asset_id": null,
+      "presentation": {
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Examen de matemática: usá la calculadora mientras no te ven.",
+        "prompt_caption": null,
+        "suggested_activity_type": "horserace",
+        "activity_model_note": "Uses a current Event Builder activity.type engine and was added from a natural-language review note.",
+        "suggested_activity_content": {
+          "label": "Examen de matemática: usá la calculadora mientras no te ven.",
+          "trackLength": 40,
+          "durationMs": 45000
+        },
+        "content_authoring_status": "ready_for_review"
+      },
+      "proposed_adaptation": {
+        "current_primitive": "base ranking reward comment",
+        "support": "comment_only",
+        "proposed_version": "Usar Carrera de caballos con la premisa del examen de matemática. Mantener por ahora la recompensa base como comentario."
+      },
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "horserace",
+          "content": {
+            "label": "Examen de matemática: usá la calculadora mientras no te ven.",
+            "trackLength": 40,
+            "durationMs": 45000
+          }
+        },
+        "ranking_consequences": [],
+        "immediate_consequences": [],
+        "required_feature": null,
+        "interpretation": null
+      }
+    },
+    {
+      "id": "event-104",
+      "source_caption_group_id": "review-note-002",
+      "duplicate_of_caption": null,
+      "source_origin": "user_review_note",
+      "original_caption": "Estás con sueño: bostezá mientras Cristina no te ve.",
+      "original_effect_proposed": "Nico pierde 5 monedas y retrocede 1 casillero sin importar su posición; el resto resuelve el ranking normalmente.",
+      "media_asset_id": null,
+      "presentation": {
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Estás con sueño: bostezá mientras Cristina no te ve.",
+        "prompt_caption": null,
+        "suggested_activity_type": "redlight",
+        "activity_model_note": "Uses a current Event Builder activity.type engine and was added from a natural-language review note.",
+        "suggested_activity_content": {
+          "label": "Estás con sueño: bostezá mientras Cristina no te ve.",
+          "trackLength": 45,
+          "durationMs": 60000
+        },
+        "content_authoring_status": "ready_for_review"
+      },
+      "proposed_adaptation": {
+        "current_primitive": "fixed-player coins + move",
+        "support": "supported",
+        "proposed_version": "Usar Luz roja, luz verde. Al resolver, Nico pierde 5 monedas y retrocede 1 casillero sin importar su ranking; el resto mantiene el resultado normal del minijuego."
+      },
+      "reviewed_event_builder": {
+        "activity": {
+          "type": "redlight",
+          "content": {
+            "label": "Estás con sueño: bostezá mientras Cristina no te ve.",
+            "trackLength": 45,
+            "durationMs": 60000
+          }
+        },
+        "ranking_consequences": [],
+        "immediate_consequences": [
+          {
+            "appliesTo": {
+              "playerId": "nico"
+            },
+            "actions": [
+              {
+                "type": "coins",
+                "value": -5
+              },
+              {
+                "type": "move",
+                "delta": -1
+              }
+            ]
+          }
+        ],
+        "required_feature": null,
+        "interpretation": null
+      }
+    },
+    {
+      "id": "trait-event-beltro-europa-universalis",
+      "source_caption_group_id": "trait-beltro-europa-universalis",
+      "duplicate_of_caption": null,
+      "original_caption": "Europa Universalis IV",
+      "original_effect_proposed": "Beltro inicia un duelo Buzzer de historia; el último transfiere 3 monedas al ganador.",
+      "media_asset_id": null,
+      "presentation": {
+        "type": "minigame_intro",
+        "pre_minigame_caption": "Beltro convierte la mesa en un duelo relámpago de historia.",
+        "prompt_caption": "¿Qué imperio cayó con la toma de Constantinopla en 1453?",
+        "suggested_activity_type": "buzzer",
+        "suggested_activity_content": {
+          "question": "¿Qué imperio cayó con la toma de Constantinopla en 1453?",
+          "options": [
+            "Imperio romano de Occidente",
+            "Imperio bizantino",
+            "Imperio otomano"
+          ],
+          "answer": 1
+        },
+        "content_authoring_status": "ready"
+      },
+      "proposed_adaptation": {
+        "current_primitive": "player trigger + buzzer + coinTransfer",
+        "support": "supported",
+        "proposed_version": "Evento exclusivo de Beltro con recompensa base por ranking y transferencia de 3 monedas del último al ganador."
       }
     }
   ],
@@ -3292,20 +3893,21 @@
   ],
   "card_vote_sets": [
     {
-      "id": "card-vote-amigos-de-mierda-caos-upd",
-      "name": "Amigos de mierda — Caos de UPD",
+      "id": "card-vote-amigos-de-mierda-ronda-01",
+      "name": "Amigos de mierda — Ronda 01",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas extraídas del banco de anécdotas. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-caos-upd",
-        "name": "Amigos de mierda — Caos de UPD",
+        "id": "event-card-vote-amigos-de-mierda-ronda-01",
+        "name": "Amigos de mierda — Ronda 01",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Caos de UPD",
-          "prompt": "Cinco anécdotas, cinco votos secretos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 01",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3316,63 +3918,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El de la bomba de cloro.",
-              "El de la bolidora de caca.",
-              "El que tiró petardos por la ventana.",
-              "El que quedó atado en UPD.",
-              "El que faltó al examen de biología."
+              "¿A quién le gustaría que fuéramos a una playa nudista para vernos?",
+              "¿A quién le importa menos este grupo?",
+              "¿Quién se manda una y otra vez la misma cagada y no aprende más?",
+              "¿Quién se ríe mirando los Juegos Paralímpicos?",
+              "¿Al velorio de quién no va a ir prácticamente nadie?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-caos-upd-card-01",
-          "source_story_beat_id": "story-beat-01",
-          "source_story_beat": "Bomba de cloro.",
-          "sentence": "El de la bomba de cloro."
+          "id": "card-vote-amigos-de-mierda-ronda-01-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 1,
+          "sentence": "¿A quién le gustaría que fuéramos a una playa nudista para vernos?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-caos-upd-card-02",
-          "source_story_beat_id": "story-beat-02",
-          "source_story_beat": "Bolidora de caca.",
-          "sentence": "El de la bolidora de caca."
+          "id": "card-vote-amigos-de-mierda-ronda-01-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 2,
+          "sentence": "¿A quién le importa menos este grupo?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-caos-upd-card-03",
-          "source_story_beat_id": "story-beat-03",
-          "source_story_beat": "Petardos por la ventana.",
-          "sentence": "El que tiró petardos por la ventana."
+          "id": "card-vote-amigos-de-mierda-ronda-01-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 3,
+          "sentence": "¿Quién se manda una y otra vez la misma cagada y no aprende más?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-caos-upd-card-04",
-          "source_story_beat_id": "story-beat-04",
-          "source_story_beat": "Beltran atado en UPD.",
-          "sentence": "El que quedó atado en UPD."
+          "id": "card-vote-amigos-de-mierda-ronda-01-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 4,
+          "sentence": "¿Quién se ríe mirando los Juegos Paralímpicos?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-caos-upd-card-05",
-          "source_story_beat_id": "story-beat-05",
-          "source_story_beat": "Faltaron al examen de biologia.",
-          "sentence": "El que faltó al examen de biología."
+          "id": "card-vote-amigos-de-mierda-ronda-01-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 5,
+          "sentence": "¿Al velorio de quién no va a ir prácticamente nadie?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-golpes-y-bariloche",
-      "name": "Amigos de mierda — Golpes y Bariloche",
+      "id": "card-vote-amigos-de-mierda-ronda-02",
+      "name": "Amigos de mierda — Ronda 02",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas extraídas del banco de anécdotas. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-golpes-y-bariloche",
-        "name": "Amigos de mierda — Golpes y Bariloche",
+        "id": "event-card-vote-amigos-de-mierda-ronda-02",
+        "name": "Amigos de mierda — Ronda 02",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Golpes y Bariloche",
-          "prompt": "Cinco anécdotas, cinco votos secretos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 02",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3383,63 +3988,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El de la vinchuca y Chagas.",
-              "El del palazo en los huevos a Javi.",
-              "El que fue al baño de la mano con Gastón.",
-              "El del portazo de Gastón en Bariloche.",
-              "El que rompió el vidrio."
+              "¿Quién le revisa el celular a su pareja?",
+              "¿Quién se sube a un avión para tirarse en paracaídas y se arrepiente a último momento?",
+              "¿Quién exagera absolutamente todo cuando habla?",
+              "En todo grupo hay alguien que no tiene la más remota idea de lo freak que es. En el nuestro ese alguien es...",
+              "A uno de nosotros le importan un culo los pobres. ¿A quién?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-golpes-y-bariloche-card-01",
-          "source_story_beat_id": "story-beat-06",
-          "source_story_beat": "Vinchuca y Chagas.",
-          "sentence": "El de la vinchuca y Chagas."
+          "id": "card-vote-amigos-de-mierda-ronda-02-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 6,
+          "sentence": "¿Quién le revisa el celular a su pareja?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-golpes-y-bariloche-card-02",
-          "source_story_beat_id": "story-beat-07",
-          "source_story_beat": "Palazo en los huevos a Javi.",
-          "sentence": "El del palazo en los huevos a Javi."
+          "id": "card-vote-amigos-de-mierda-ronda-02-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 7,
+          "sentence": "¿Quién se sube a un avión para tirarse en paracaídas y se arrepiente a último momento?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-golpes-y-bariloche-card-03",
-          "source_story_beat_id": "story-beat-08",
-          "source_story_beat": "Frang y Gaston yendo al bano de la mano.",
-          "sentence": "El que fue al baño de la mano con Gastón."
+          "id": "card-vote-amigos-de-mierda-ronda-02-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 8,
+          "sentence": "¿Quién exagera absolutamente todo cuando habla?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-golpes-y-bariloche-card-04",
-          "source_story_beat_id": "story-beat-09",
-          "source_story_beat": "Portazo de Gaston en Bariloche.",
-          "sentence": "El del portazo de Gastón en Bariloche."
+          "id": "card-vote-amigos-de-mierda-ronda-02-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 9,
+          "sentence": "En todo grupo hay alguien que no tiene la más remota idea de lo freak que es. En el nuestro ese alguien es..."
         },
         {
-          "id": "card-vote-amigos-de-mierda-golpes-y-bariloche-card-05",
-          "source_story_beat_id": "story-beat-10",
-          "source_story_beat": "Gaston rompio el vidrio.",
-          "sentence": "El que rompió el vidrio."
+          "id": "card-vote-amigos-de-mierda-ronda-02-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 10,
+          "sentence": "A uno de nosotros le importan un culo los pobres. ¿A quién?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-vidrios-y-papelones",
-      "name": "Amigos de mierda — Vidrios y papelones",
+      "id": "card-vote-amigos-de-mierda-ronda-03",
+      "name": "Amigos de mierda — Ronda 03",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas extraídas del banco de anécdotas. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-vidrios-y-papelones",
-        "name": "Amigos de mierda — Vidrios y papelones",
+        "id": "event-card-vote-amigos-de-mierda-ronda-03",
+        "name": "Amigos de mierda — Ronda 03",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Vidrios y papelones",
-          "prompt": "Cinco anécdotas, cinco votos secretos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 03",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3450,63 +4058,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El del palo de hockey que rompió el vidrio con Javi y Willy.",
-              "El del pelotazo a Martina.",
-              "El que hizo llorar a Martina con un abrazo.",
-              "El que se durmió a la intemperie diciendo “tengo frío”.",
-              "El que terminó encerrado en el armario durante la clase de Alan."
+              "Uno de nosotros SIEMPRE tiene una excusa. ¿Quién?",
+              "Cuando hay que pedir delivery, ¿quién complica todo?",
+              "¿Quién debería pensar un poco más lo que dice antes de abrir la boca?",
+              "¿Quién de nosotros oculta una terrible adicción al juego?",
+              "¿Quién recibe mucho más afecto del que da?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-vidrios-y-papelones-card-01",
-          "source_story_beat_id": "story-beat-11",
-          "source_story_beat": "Palo de hockey rompiendo vidrio, Javi y Willy.",
-          "sentence": "El del palo de hockey que rompió el vidrio con Javi y Willy."
+          "id": "card-vote-amigos-de-mierda-ronda-03-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 11,
+          "sentence": "Uno de nosotros SIEMPRE tiene una excusa. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-vidrios-y-papelones-card-02",
-          "source_story_beat_id": "story-beat-12",
-          "source_story_beat": "Pelotazo a Martina.",
-          "sentence": "El del pelotazo a Martina."
+          "id": "card-vote-amigos-de-mierda-ronda-03-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 12,
+          "sentence": "Cuando hay que pedir delivery, ¿quién complica todo?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-vidrios-y-papelones-card-03",
-          "source_story_beat_id": "story-beat-13",
-          "source_story_beat": "Martina llorando porque Nico le dio un abrazo.",
-          "sentence": "El que hizo llorar a Martina con un abrazo."
+          "id": "card-vote-amigos-de-mierda-ronda-03-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 13,
+          "sentence": "¿Quién debería pensar un poco más lo que dice antes de abrir la boca?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-vidrios-y-papelones-card-04",
-          "source_story_beat_id": "story-beat-14",
-          "source_story_beat": "Durmiendo a la intemperie: Marco Clopet diciendo \"tengo frio\".",
-          "sentence": "El que se durmió a la intemperie diciendo “tengo frío”."
+          "id": "card-vote-amigos-de-mierda-ronda-03-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 14,
+          "sentence": "¿Quién de nosotros oculta una terrible adicción al juego?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-vidrios-y-papelones-card-05",
-          "source_story_beat_id": "story-beat-15",
-          "source_story_beat": "Willy encerrado en el armario durante clase de Alan.",
-          "sentence": "El que terminó encerrado en el armario durante la clase de Alan."
+          "id": "card-vote-amigos-de-mierda-ronda-03-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 15,
+          "sentence": "¿Quién recibe mucho más afecto del que da?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-escondites-e-historia",
-      "name": "Amigos de mierda — Escondites e historia",
+      "id": "card-vote-amigos-de-mierda-ronda-04",
+      "name": "Amigos de mierda — Ronda 04",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas extraídas del banco de anécdotas. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-escondites-e-historia",
-        "name": "Amigos de mierda — Escondites e historia",
+        "id": "event-card-vote-amigos-de-mierda-ronda-04",
+        "name": "Amigos de mierda — Ronda 04",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Escondites e historia",
-          "prompt": "Cinco anécdotas, cinco votos secretos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 04",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3517,63 +4128,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El que le gritó a Jony y se escondió abajo de la ventana.",
-              "El que se escondió en los lockers de Jony.",
-              "El del palazo en los huevos de Anna.",
-              "El que discutió con Ana de historia en el momento más incómodo.",
-              "El de la lengua loca de padornmania extrema."
+              "Uno de nosotros siempre cuenta las mismas anécdotas. ¿Quién?",
+              "¿Quién de nosotros es muchísimo más racista de lo que cree ser?",
+              "¿Quién no debería tener nunca una mascota (por el bien del pobre animal)?",
+              "¿Quién se ríe de los chistes aunque no los entienda?",
+              "¿Quién es el menos preparado para afrontar una situación difícil y se derrumbaría al toque?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-escondites-e-historia-card-01",
-          "source_story_beat_id": "story-beat-16",
-          "source_story_beat": "Gritarle a Jony y esconderse abajo de la ventana.",
-          "sentence": "El que le gritó a Jony y se escondió abajo de la ventana."
+          "id": "card-vote-amigos-de-mierda-ronda-04-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 16,
+          "sentence": "Uno de nosotros siempre cuenta las mismas anécdotas. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-escondites-e-historia-card-02",
-          "source_story_beat_id": "story-beat-17",
-          "source_story_beat": "Esconderse en los lockers de Jony.",
-          "sentence": "El que se escondió en los lockers de Jony."
+          "id": "card-vote-amigos-de-mierda-ronda-04-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 17,
+          "sentence": "¿Quién de nosotros es muchísimo más racista de lo que cree ser?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-escondites-e-historia-card-03",
-          "source_story_beat_id": "story-beat-18",
-          "source_story_beat": "Palazo en los huevos de Anna.",
-          "sentence": "El del palazo en los huevos de Anna."
+          "id": "card-vote-amigos-de-mierda-ronda-04-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 18,
+          "sentence": "¿Quién no debería tener nunca una mascota (por el bien del pobre animal)?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-escondites-e-historia-card-04",
-          "source_story_beat_id": "story-beat-19",
-          "source_story_beat": "Javi discutiendo con Ana de historia, momento incomodo.",
-          "sentence": "El que discutió con Ana de historia en el momento más incómodo."
+          "id": "card-vote-amigos-de-mierda-ronda-04-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 19,
+          "sentence": "¿Quién se ríe de los chistes aunque no los entienda?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-escondites-e-historia-card-05",
-          "source_story_beat_id": "story-beat-20",
-          "source_story_beat": "La lengua loca de padornmania extrema.",
-          "sentence": "El de la lengua loca de padornmania extrema."
+          "id": "card-vote-amigos-de-mierda-ronda-04-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 20,
+          "sentence": "¿Quién es el menos preparado para afrontar una situación difícil y se derrumbaría al toque?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-viajes-y-aula",
-      "name": "Amigos de mierda — Viajes y aula",
+      "id": "card-vote-amigos-de-mierda-ronda-05",
+      "name": "Amigos de mierda — Ronda 05",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas extraídas del banco de anécdotas. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-viajes-y-aula",
-        "name": "Amigos de mierda — Viajes y aula",
+        "id": "event-card-vote-amigos-de-mierda-ronda-05",
+        "name": "Amigos de mierda — Ronda 05",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Viajes y aula",
-          "prompt": "Cinco anécdotas, cinco votos secretos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 05",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3584,63 +4198,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El del caldo en el taxi.",
-              "El que bajó a darle ropa a Gastón.",
-              "El que jugó Just Dance en el Kinect del ático de Martínez.",
-              "El de la orgía en el campo.",
-              "El que subió el tronco al aula."
+              "¿Quién de nosotros es inimputable?",
+              "Uno de nosotros todo el tiempo piensa que todo el mundo le quiere dar y está equivocadísimo. ¿Quién?",
+              "Uno de nosotros gastó una pequeña fortuna en Onlyfans. ¿Quién?",
+              "Por el amor de Dios, no quiero volver a escuchar una sola anécdota más del viaje de...",
+              "¿Quién de nosotros quiere prohibir el fútbol femenino?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-viajes-y-aula-card-01",
-          "source_story_beat_id": "story-beat-21a",
-          "source_story_beat": "Caldo en el taxi.",
-          "sentence": "El del caldo en el taxi."
+          "id": "card-vote-amigos-de-mierda-ronda-05-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 21,
+          "sentence": "¿Quién de nosotros es inimputable?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-viajes-y-aula-card-02",
-          "source_story_beat_id": "story-beat-21b",
-          "source_story_beat": "Bajar a dar ropa a Gaston.",
-          "sentence": "El que bajó a darle ropa a Gastón."
+          "id": "card-vote-amigos-de-mierda-ronda-05-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 22,
+          "sentence": "Uno de nosotros todo el tiempo piensa que todo el mundo le quiere dar y está equivocadísimo. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-viajes-y-aula-card-03",
-          "source_story_beat_id": "story-beat-22",
-          "source_story_beat": "Jugar al Just Dance en el Kinect del atico de Martinez.",
-          "sentence": "El que jugó Just Dance en el Kinect del ático de Martínez."
+          "id": "card-vote-amigos-de-mierda-ronda-05-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 23,
+          "sentence": "Uno de nosotros gastó una pequeña fortuna en Onlyfans. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-viajes-y-aula-card-04",
-          "source_story_beat_id": "story-beat-23",
-          "source_story_beat": "Orgia en el campo.",
-          "sentence": "El de la orgía en el campo."
+          "id": "card-vote-amigos-de-mierda-ronda-05-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 24,
+          "sentence": "Por el amor de Dios, no quiero volver a escuchar una sola anécdota más del viaje de..."
         },
         {
-          "id": "card-vote-amigos-de-mierda-viajes-y-aula-card-05",
-          "source_story_beat_id": "story-beat-24",
-          "source_story_beat": "Subir el tronco al aula.",
-          "sentence": "El que subió el tronco al aula."
+          "id": "card-vote-amigos-de-mierda-ronda-05-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 25,
+          "sentence": "¿Quién de nosotros quiere prohibir el fútbol femenino?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-destruccion-y-acusaciones",
-      "name": "Amigos de mierda — Destrucción y acusaciones",
+      "id": "card-vote-amigos-de-mierda-ronda-06",
+      "name": "Amigos de mierda — Ronda 06",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas extraídas del banco de anécdotas. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-destruccion-y-acusaciones",
-        "name": "Amigos de mierda — Destrucción y acusaciones",
+        "id": "event-card-vote-amigos-de-mierda-ronda-06",
+        "name": "Amigos de mierda — Ronda 06",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Destrucción y acusaciones",
-          "prompt": "Cinco anécdotas, cinco votos secretos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 06",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3651,63 +4268,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El que tiró sillas en el aula.",
-              "El que rompió el vidrio jugando a tirar el palo de hockey.",
-              "El que regaló el coso amarillo de la ciudad todo meado.",
-              "El que rompió el árbol.",
-              "El que fue acusado de robar en el quiosco de los más chicos."
+              "Arrancamos un laburo nuevo. ¿Quién no espera ni un día para serrucharle el piso al jefe?",
+              "¿Quién lee libros de autoayuda?",
+              "¿A quién le importa la guita en la vida más que cualquier otra cosa?",
+              "Uno de nosotros es muy miserable haciendo regalos de cumpleaños. ¿Quién?",
+              "Tenemos acá a la típica persona que vive prometiendo que va a empezar el gimnasio o la dieta y nunca lo hace. ¿Quién es?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-destruccion-y-acusaciones-card-01",
-          "source_story_beat_id": "story-beat-25",
-          "source_story_beat": "Tirar sillas en el aula.",
-          "sentence": "El que tiró sillas en el aula."
+          "id": "card-vote-amigos-de-mierda-ronda-06-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 26,
+          "sentence": "Arrancamos un laburo nuevo. ¿Quién no espera ni un día para serrucharle el piso al jefe?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-destruccion-y-acusaciones-card-02",
-          "source_story_beat_id": "story-beat-26",
-          "source_story_beat": "Cuando rompieron el vidrio por jugar a tirar el palo de hockey.",
-          "sentence": "El que rompió el vidrio jugando a tirar el palo de hockey."
+          "id": "card-vote-amigos-de-mierda-ronda-06-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 27,
+          "sentence": "¿Quién lee libros de autoayuda?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-destruccion-y-acusaciones-card-03",
-          "source_story_beat_id": "story-beat-27",
-          "source_story_beat": "Regalarme el coso amarillo de la ciudad todo meado.",
-          "sentence": "El que regaló el coso amarillo de la ciudad todo meado."
+          "id": "card-vote-amigos-de-mierda-ronda-06-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 28,
+          "sentence": "¿A quién le importa la guita en la vida más que cualquier otra cosa?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-destruccion-y-acusaciones-card-04",
-          "source_story_beat_id": "story-beat-28",
-          "source_story_beat": "Cuando rompimos el arbol.",
-          "sentence": "El que rompió el árbol."
+          "id": "card-vote-amigos-de-mierda-ronda-06-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 29,
+          "sentence": "Uno de nosotros es muy miserable haciendo regalos de cumpleaños. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-destruccion-y-acusaciones-card-05",
-          "source_story_beat_id": "story-beat-29",
-          "source_story_beat": "Cuando nos acusaron de robar cosas del quiosco de los mas chicos.",
-          "sentence": "El que fue acusado de robar en el quiosco de los más chicos."
+          "id": "card-vote-amigos-de-mierda-ronda-06-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 30,
+          "sentence": "Tenemos acá a la típica persona que vive prometiendo que va a empezar el gimnasio o la dieta y nunca lo hace. ¿Quién es?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-noche-y-facha",
-      "name": "Amigos de mierda — Noche y facha",
+      "id": "card-vote-amigos-de-mierda-ronda-07",
+      "name": "Amigos de mierda — Ronda 07",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-noche-y-facha",
-        "name": "Amigos de mierda — Noche y facha",
+        "id": "event-card-vote-amigos-de-mierda-ronda-07",
+        "name": "Amigos de mierda — Ronda 07",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Noche y facha",
-          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 07",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3718,63 +4338,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El que despertó a la morsa.",
-              "El que se tiñó las chapas.",
-              "El que se puso facha para el baile y terminó yendo a las corridas.",
-              "El que se viene salteando el día de piernas.",
-              "El que practica la cara de espejo antes de salir."
+              "¿Quién les pega o les va a pegar a sus hijos?",
+              "¿A quién silencié en las redes sociales?",
+              "¿Quién le arruina la Navidad a su familia todos los años?",
+              "Uno de nosotros siempre ve la parte negativa de las cosas, por no decir que es un pesimista de mierda. ¿Quién?",
+              "Uno de nosotros siente más vergüenza que el resto a la hora de hablar de sexo."
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-01",
-          "source_event_id": "event-001",
-          "source_event_caption": "La morsa ha sido despertada",
-          "sentence": "El que despertó a la morsa."
+          "id": "card-vote-amigos-de-mierda-ronda-07-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 31,
+          "sentence": "¿Quién les pega o les va a pegar a sus hijos?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-02",
-          "source_event_id": "event-004",
-          "source_event_caption": "Te teñís las chapas.",
-          "sentence": "El que se tiñó las chapas."
+          "id": "card-vote-amigos-de-mierda-ronda-07-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 32,
+          "sentence": "¿A quién silencié en las redes sociales?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-03",
-          "source_event_id": "event-008",
-          "source_event_caption": "Te pones facha para el baile, tenes que ir caminando a costanera y vas a paso rápido",
-          "sentence": "El que se puso facha para el baile y terminó yendo a las corridas."
+          "id": "card-vote-amigos-de-mierda-ronda-07-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 33,
+          "sentence": "¿Quién le arruina la Navidad a su familia todos los años?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-04",
-          "source_event_id": "event-009",
-          "source_event_caption": "Te venís salteando el día de píernas…",
-          "sentence": "El que se viene salteando el día de piernas."
+          "id": "card-vote-amigos-de-mierda-ronda-07-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 34,
+          "sentence": "Uno de nosotros siempre ve la parte negativa de las cosas, por no decir que es un pesimista de mierda. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-noche-y-facha-card-05",
-          "source_event_id": "event-010",
-          "source_event_caption": "Practicas tu cara de espejo",
-          "sentence": "El que practica la cara de espejo antes de salir."
+          "id": "card-vote-amigos-de-mierda-ronda-07-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 35,
+          "sentence": "Uno de nosotros siente más vergüenza que el resto a la hora de hablar de sexo."
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares",
-      "name": "Amigos de mierda — Desaparecidos y celulares",
+      "id": "card-vote-amigos-de-mierda-ronda-08",
+      "name": "Amigos de mierda — Ronda 08",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-desaparecidos-y-celulares",
-        "name": "Amigos de mierda — Desaparecidos y celulares",
+        "id": "event-card-vote-amigos-de-mierda-ronda-08",
+        "name": "Amigos de mierda — Ronda 08",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Desaparecidos y celulares",
-          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 08",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3785,63 +4408,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El que tomó tanto que hubo que bañarlo.",
-              "El que sigue la correa aunque nadie se lo pidió.",
-              "El que se comió el descanso de su vida.",
-              "El que dejó el juego para scrollear TikTok.",
-              "El que perdió el celular después de dar una vuelta por Belgrano."
+              "¿A quién le hubiera venido bien hacer el servicio militar?",
+              "¿Quién llora cada vez que ve Titanic?",
+              "¿Quién de nosotros llora cada vez que tiene un orgasmo?",
+              "Uno de nosotros no gana nunca a nada. ¿Quién?",
+              "Y el premio al más caprichoso de nosotros es para..."
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-01",
-          "source_event_id": "event-005",
-          "source_event_caption": "Tomaste mucho y te tienen que bañar…",
-          "sentence": "El que tomó tanto que hubo que bañarlo."
+          "id": "card-vote-amigos-de-mierda-ronda-08-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 36,
+          "sentence": "¿A quién le hubiera venido bien hacer el servicio militar?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-02",
-          "source_event_id": "event-012",
-          "source_event_caption": "Te están tirando fuerte de la correa",
-          "sentence": "El que sigue la correa aunque nadie se lo pidió."
+          "id": "card-vote-amigos-de-mierda-ronda-08-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 37,
+          "sentence": "¿Quién llora cada vez que ve Titanic?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-03",
-          "source_event_id": "event-013",
-          "source_event_caption": "Te comés el descanso de tu vida",
-          "sentence": "El que se comió el descanso de su vida."
+          "id": "card-vote-amigos-de-mierda-ronda-08-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 38,
+          "sentence": "¿Quién de nosotros llora cada vez que tiene un orgasmo?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-04",
-          "source_event_id": "event-019",
-          "source_event_caption": "El juego te parece muy insulso",
-          "sentence": "El que dejó el juego para scrollear TikTok."
+          "id": "card-vote-amigos-de-mierda-ronda-08-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 39,
+          "sentence": "Uno de nosotros no gana nunca a nada. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-desaparecidos-y-celulares-card-05",
-          "source_event_id": "event-020",
-          "source_event_caption": "Das una vuelta por Belgrano y dejás de sentir tu celular en el bolsillo…",
-          "sentence": "El que perdió el celular después de dar una vuelta por Belgrano."
+          "id": "card-vote-amigos-de-mierda-ronda-08-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 40,
+          "sentence": "Y el premio al más caprichoso de nosotros es para..."
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-redes-y-tech",
-      "name": "Amigos de mierda — Redes y tech",
+      "id": "card-vote-amigos-de-mierda-ronda-09",
+      "name": "Amigos de mierda — Ronda 09",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-redes-y-tech",
-        "name": "Amigos de mierda — Redes y tech",
+        "id": "event-card-vote-amigos-de-mierda-ronda-09",
+        "name": "Amigos de mierda — Ronda 09",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Redes y tech",
-          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 09",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3852,63 +4478,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El que se sumó a la moda del ukelele cuando ya era demasiado tarde.",
-              "El que sube un snap solo para mantener los fueguitos.",
-              "El que se volvió viral en YouTube por razones cuestionables.",
-              "El que nunca rechaza cuando le ofrecen una BIC.",
-              "El que se queda probando la webcam más de la cuenta."
+              "¿Quién se va de mambo con el alcohol y nos arruina a todos la salida?",
+              "¿A quién no se le puede decir nada porque enseguida le salta la térmica?",
+              "¿Quién me cayó peor cuando nos conocimos?",
+              "¿Quién es una máquina de mentir?",
+              "A la cuenta de 3, todos señalamos al que de chico le robaba guita a sus padres. A la una, a las dos, y a las tres."
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-01",
-          "source_event_id": "event-021",
-          "source_event_caption": "Te sumás a la moda del ukelele pero te olvidaste que no estás en 2017",
-          "sentence": "El que se sumó a la moda del ukelele cuando ya era demasiado tarde."
+          "id": "card-vote-amigos-de-mierda-ronda-09-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 41,
+          "sentence": "¿Quién se va de mambo con el alcohol y nos arruina a todos la salida?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-02",
-          "source_event_id": "event-022",
-          "source_event_caption": "Subís un snap para mantener los fueguitos",
-          "sentence": "El que sube un snap solo para mantener los fueguitos."
+          "id": "card-vote-amigos-de-mierda-ronda-09-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 42,
+          "sentence": "¿A quién no se le puede decir nada porque enseguida le salta la térmica?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-03",
-          "source_event_id": "event-028",
-          "source_event_caption": "Te volvés viral en youtube",
-          "sentence": "El que se volvió viral en YouTube por razones cuestionables."
+          "id": "card-vote-amigos-de-mierda-ronda-09-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 43,
+          "sentence": "¿Quién me cayó peor cuando nos conocimos?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-04",
-          "source_event_id": "event-030",
-          "source_event_caption": "Te ofrecen una BIC",
-          "sentence": "El que nunca rechaza cuando le ofrecen una BIC."
+          "id": "card-vote-amigos-de-mierda-ronda-09-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 44,
+          "sentence": "¿Quién es una máquina de mentir?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-redes-y-tech-card-05",
-          "source_event_id": "event-034",
-          "source_event_caption": "Te quedás un toque probando la webcam",
-          "sentence": "El que se queda probando la webcam más de la cuenta."
+          "id": "card-vote-amigos-de-mierda-ronda-09-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 45,
+          "sentence": "A la cuenta de 3, todos señalamos al que de chico le robaba guita a sus padres. A la una, a las dos, y a las tres."
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-comidas-y-escuela",
-      "name": "Amigos de mierda — Comidas y escuela",
+      "id": "card-vote-amigos-de-mierda-ronda-10",
+      "name": "Amigos de mierda — Ronda 10",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-comidas-y-escuela",
-        "name": "Amigos de mierda — Comidas y escuela",
+        "id": "event-card-vote-amigos-de-mierda-ronda-10",
+        "name": "Amigos de mierda — Ronda 10",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Comidas y escuela",
-          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 10",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3919,63 +4548,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El que aparece apenas huele un asado.",
-              "El que se carga de carbos antes de hacer cualquier cosa.",
-              "El que tuvo que repetir salita de cinco.",
-              "El que se metió al colegio de noche.",
-              "El que editó una banda buscando la nota de oratoria."
+              "Hoy me masturbé pensando en alguien de ustedes. Me refiero obviamente a...",
+              "¿Quién de nosotros es muy, muy choto en su trabajo?",
+              "¿Quién da vueltas interminablemente antes de decidir algo?",
+              "¿Quién de nosotros va a ser el primero en morir?",
+              "¿Quién es absolutamente incapaz de reconocer que se equivocó?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-01",
-          "source_event_id": "event-026",
-          "source_event_caption": "Olés un buen asado cocinándose cerca",
-          "sentence": "El que aparece apenas huele un asado."
+          "id": "card-vote-amigos-de-mierda-ronda-10-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 46,
+          "sentence": "Hoy me masturbé pensando en alguien de ustedes. Me refiero obviamente a..."
         },
         {
-          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-02",
-          "source_event_id": "event-041",
-          "source_event_caption": "Te cargás de carbos",
-          "sentence": "El que se carga de carbos antes de hacer cualquier cosa."
+          "id": "card-vote-amigos-de-mierda-ronda-10-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 47,
+          "sentence": "¿Quién de nosotros es muy, muy choto en su trabajo?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-03",
-          "source_event_id": "event-043",
-          "source_event_caption": "Te tocó repetir salita de cinco",
-          "sentence": "El que tuvo que repetir salita de cinco."
+          "id": "card-vote-amigos-de-mierda-ronda-10-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 48,
+          "sentence": "¿Quién da vueltas interminablemente antes de decidir algo?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-04",
-          "source_event_id": "event-050",
-          "source_event_caption": "Te metés al colegio de noche",
-          "sentence": "El que se metió al colegio de noche."
+          "id": "card-vote-amigos-de-mierda-ronda-10-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 49,
+          "sentence": "¿Quién de nosotros va a ser el primero en morir?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-comidas-y-escuela-card-05",
-          "source_event_id": "event-057",
-          "source_event_caption": "Editás re bien buscando esa buena nota en oratoria",
-          "sentence": "El que editó una banda buscando la nota de oratoria."
+          "id": "card-vote-amigos-de-mierda-ronda-10-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 50,
+          "sentence": "¿Quién es absolutamente incapaz de reconocer que se equivocó?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos",
-      "name": "Amigos de mierda — Mufa, sueños y fotos",
+      "id": "card-vote-amigos-de-mierda-ronda-11",
+      "name": "Amigos de mierda — Ronda 11",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-mufa-suenos-y-fotos",
-        "name": "Amigos de mierda — Mufa, sueños y fotos",
+        "id": "event-card-vote-amigos-de-mierda-ronda-11",
+        "name": "Amigos de mierda — Ronda 11",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Mufa, sueños y fotos",
-          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 11",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -3986,63 +4618,66 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El que siempre termina alcanzado por la mufa.",
-              "El que prueba el modo retrato en cualquier momento.",
-              "El heredero de una dinastía que nunca deja de recordarlo.",
-              "El que se duerme antes de que pase algo.",
-              "El que se despierta y se queja de que la luz le pega una banda."
+              "¿Quién de nosotros logró más cosas por ojete que por talento?",
+              "Si contamos lo que nos excita sexualmente, ¿quién cuenta algo que nos asusta, nos preocupa y no nos deja dormir?",
+              "¿Quién nos manipula siempre para que hagamos el plan que le gusta?",
+              "¿Quién vive haciéndose mala sangre por cosas insignificantes?",
+              "Uno de nosotros pensó seriamente en usar Burundanga alguna vez. ¡O PEOR, LA USÓ! ¿Quién?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-01",
-          "source_event_id": "event-044",
-          "source_event_caption": "Fuiste alcanzado por la mufa",
-          "sentence": "El que siempre termina alcanzado por la mufa."
+          "id": "card-vote-amigos-de-mierda-ronda-11-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 51,
+          "sentence": "¿Quién de nosotros logró más cosas por ojete que por talento?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-02",
-          "source_event_id": "event-046",
-          "source_event_caption": "Te pusiste a probar el modo retrato, flama.",
-          "sentence": "El que prueba el modo retrato en cualquier momento."
+          "id": "card-vote-amigos-de-mierda-ronda-11-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 52,
+          "sentence": "Si contamos lo que nos excita sexualmente, ¿quién cuenta algo que nos asusta, nos preocupa y no nos deja dormir?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-03",
-          "source_event_id": "event-048",
-          "source_event_caption": "Sos el heredero de una dinastía",
-          "sentence": "El heredero de una dinastía que nunca deja de recordarlo."
+          "id": "card-vote-amigos-de-mierda-ronda-11-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 53,
+          "sentence": "¿Quién nos manipula siempre para que hagamos el plan que le gusta?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-04",
-          "source_event_id": "event-049",
-          "source_event_caption": "Te agarra una banda de sueño",
-          "sentence": "El que se duerme antes de que pase algo."
+          "id": "card-vote-amigos-de-mierda-ronda-11-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 54,
+          "sentence": "¿Quién vive haciéndose mala sangre por cosas insignificantes?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-mufa-suenos-y-fotos-card-05",
-          "source_event_id": "event-056",
-          "source_event_caption": "Te acabas de despertar y la luz te pega una banda",
-          "sentence": "El que se despierta y se queja de que la luz le pega una banda."
+          "id": "card-vote-amigos-de-mierda-ronda-11-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 55,
+          "sentence": "Uno de nosotros pensó seriamente en usar Burundanga alguna vez. ¡O PEOR, LA USÓ! ¿Quién?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     },
     {
-      "id": "card-vote-amigos-de-mierda-aventuras-y-recaps",
-      "name": "Amigos de mierda — Aventuras y recaps",
+      "id": "card-vote-amigos-de-mierda-ronda-12",
+      "name": "Amigos de mierda — Ronda 12",
       "status": "listo_para_copiar",
-      "purpose": "Una ronda de cinco cartas adaptadas de captions de eventos. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
+      "source_file": "output/amigos de mierda sentences.txt",
+      "purpose": "Cinco frases textuales del archivo fuente. Para cada frase, todos votan en secreto por el amigo que mejor describe; las cartas ganadas ordenan el ranking final.",
       "event_definition": {
-        "id": "event-card-vote-amigos-de-mierda-aventuras-y-recaps",
-        "name": "Amigos de mierda — Aventuras y recaps",
+        "id": "event-card-vote-amigos-de-mierda-ronda-12",
+        "name": "Amigos de mierda — Ronda 12",
         "kind": "activity",
         "trigger": {
           "type": "anyPlayer"
         },
         "story": {
-          "title": "Amigos de mierda — Aventuras y recaps",
-          "prompt": "Cinco captions del banco de eventos. Elegí a quién describe mejor cada carta.",
+          "title": "Amigos de mierda — Ronda 12",
+          "prompt": "Cinco frases, cinco votos secretos. Elegí a quién describe mejor cada carta.",
           "reveal": "Las cartas ganadas ordenan el ranking final."
         },
         "activity": {
@@ -4053,53 +4688,54 @@
             "allowSelfVote": false,
             "tieMode": "shared",
             "cards": [
-              "El que cambia de celular solo para sacar fotos más HD.",
-              "El que fingiría su muerte por interacciones en Instagram.",
-              "El que arma una empresa de turismo de un día para el otro.",
-              "El que se abrió la cabeza en el maul.",
-              "El que se pone filosófico sobre las falsas amistades al final de la noche."
+              "¿A quién se nota que en realidad no le gusta coger?",
+              "¿Quién tiene una vida y actitudes como si tuviera 20 años más de los que tiene?",
+              "Uno de nosotros es un poco más “toquetón” de lo que a los demás nos gustaría. ¿Quién?",
+              "Uno de nosotros a veces se pone muy denso hablando de política. ¿Quién?",
+              "¿Quién de nosotros garronea comida y bebida sistemáticamente?"
             ]
           }
         }
       },
       "cards": [
         {
-          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-01",
-          "source_event_id": "event-035",
-          "source_event_caption": "Buscás cambiar de celu a ver si sacás fotos mas HD",
-          "sentence": "El que cambia de celular solo para sacar fotos más HD."
+          "id": "card-vote-amigos-de-mierda-ronda-12-card-01",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 56,
+          "sentence": "¿A quién se nota que en realidad no le gusta coger?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-02",
-          "source_event_id": "event-040",
-          "source_event_caption": "Fingís tu muerte para sacar interacciones por IG",
-          "sentence": "El que fingiría su muerte por interacciones en Instagram."
+          "id": "card-vote-amigos-de-mierda-ronda-12-card-02",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 57,
+          "sentence": "¿Quién tiene una vida y actitudes como si tuviera 20 años más de los que tiene?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-03",
-          "source_event_id": "event-052",
-          "source_event_caption": "armás una empresa de turismo",
-          "sentence": "El que arma una empresa de turismo de un día para el otro."
+          "id": "card-vote-amigos-de-mierda-ronda-12-card-03",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 58,
+          "sentence": "Uno de nosotros es un poco más “toquetón” de lo que a los demás nos gustaría. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-04",
-          "source_event_id": "event-058",
-          "source_event_caption": "Te abriste la cabeza en el maul",
-          "sentence": "El que se abrió la cabeza en el maul."
+          "id": "card-vote-amigos-de-mierda-ronda-12-card-04",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 59,
+          "sentence": "Uno de nosotros a veces se pone muy denso hablando de política. ¿Quién?"
         },
         {
-          "id": "card-vote-amigos-de-mierda-aventuras-y-recaps-card-05",
-          "source_event_id": "event-061",
-          "source_event_caption": "Reflexionas un toque acerca de las falsas amistades",
-          "sentence": "El que se pone filosófico sobre las falsas amistades al final de la noche."
+          "id": "card-vote-amigos-de-mierda-ronda-12-card-05",
+          "source_file": "output/amigos de mierda sentences.txt",
+          "source_sentence_number": 60,
+          "sentence": "¿Quién de nosotros garronea comida y bebida sistemáticamente?"
         }
-      ]
+      ],
+      "suggested_activity_type": "cardVote",
+      "production_status": "reference_only_not_seeded"
     }
   ],
   "trivia": [
     {
       "id": "trivia-01",
-      "minigame_template_id": "trivia-novio-1",
       "source_number": 1,
       "question": "¿Entre qué calles está el edificio de Báez 554?",
       "choices": [
@@ -4120,11 +4756,22 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿Entre qué calles está el edificio de Báez 554?",
+        "options": [
+          "Matienzo y Eslovenia",
+          "Eslovenia y Ortega y Gasset",
+          "Ortega y Gasset y Chenaut"
+        ],
+        "answer": 1
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-b"
     },
     {
       "id": "trivia-02",
-      "minigame_template_id": "trivia-novio-2",
       "source_number": 2,
       "question": "¿Cómo son las iniciales del que se “culeó” a Eppens?",
       "choices": [
@@ -4145,11 +4792,22 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿Cómo son las iniciales del que se “culeó” a Eppens?",
+        "options": [
+          "RP",
+          "JMC",
+          "FJ"
+        ],
+        "answer": 0
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-a"
     },
     {
       "id": "trivia-03",
-      "minigame_template_id": "trivia-novio-1",
       "source_number": 3,
       "question": "¿Cómo se llama la cuenta de inversiones de Melman?",
       "choices": [
@@ -4170,11 +4828,22 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿Cómo se llama la cuenta de inversiones de Melman?",
+        "options": [
+          "Inversor sin verso",
+          "Universo inversión",
+          "IDG Finanzas & Mercados"
+        ],
+        "answer": 0
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-a"
     },
     {
       "id": "trivia-05",
-      "minigame_template_id": "trivia-novio-2",
       "source_number": 5,
       "question": "¿Cómo se llama la cuenta de F1 del Tirri?",
       "choices": [
@@ -4195,11 +4864,22 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿Cómo se llama la cuenta de F1 del Tirri?",
+        "options": [
+          "GPSinformes",
+          "Latidos en la pista",
+          "f1dats2.0"
+        ],
+        "answer": 0
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-a"
     },
     {
       "id": "trivia-06",
-      "minigame_template_id": "trivia-novio-1",
       "source_number": 6,
       "question": "¿En qué refugio ocurrió el famoso portazo en la cara?",
       "choices": [
@@ -4220,11 +4900,22 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿En qué refugio ocurrió el famoso portazo en la cara?",
+        "options": [
+          "Frey",
+          "Jakob",
+          "López"
+        ],
+        "answer": 1
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-b"
     },
     {
       "id": "trivia-07",
-      "minigame_template_id": "trivia-novio-2",
       "source_number": 7,
       "question": "¿De qué sabor era el vodka Absolut que Nico llevó a Camboriú?",
       "choices": [
@@ -4245,11 +4936,22 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿De qué sabor era el vodka Absolut que Nico llevó a Camboriú?",
+        "options": [
+          "Frambuesa",
+          "Durazno",
+          "Citrus"
+        ],
+        "answer": 1
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-b"
     },
     {
       "id": "trivia-08",
-      "minigame_template_id": "trivia-novio-1",
       "source_number": 8,
       "question": "¿Cuál es la hamburguesería mas sobrevalorada de BsAs?",
       "choices": [
@@ -4270,11 +4972,22 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿Cuál es la hamburguesería mas sobrevalorada de BsAs?",
+        "options": [
+          "El Desembarco",
+          "Mi Barrio",
+          "Kiddo (esto va a triggerear a Javi)"
+        ],
+        "answer": 2
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-c"
     },
     {
       "id": "trivia-09",
-      "minigame_template_id": "trivia-novio-2",
       "source_number": 9,
       "question": "¿Qué ex-compañera está en pareja con un sujeto conocido por dar leche de sus tetas?",
       "choices": [
@@ -4295,11 +5008,22 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿Qué ex-compañera está en pareja con un sujeto conocido por dar leche de sus tetas?",
+        "options": [
+          "Mangi",
+          "Barritos",
+          "Megan"
+        ],
+        "answer": 2
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-c"
     },
     {
       "id": "trivia-10",
-      "minigame_template_id": "trivia-novio-1",
       "source_number": 10,
       "question": "¿Qué libro dio Cristina para leer en el verano?",
       "choices": [
@@ -4320,7 +5044,19 @@
         }
       ],
       "image_answer_disallowed": false,
-      "suggested_engine": "trivia-novio-1"
+      "suggested_activity_type": "buzzer",
+      "activity_content": {
+        "question": "¿Qué libro dio Cristina para leer en el verano?",
+        "options": [
+          "All my sons",
+          "1984",
+          "To kill a mockingbird"
+        ],
+        "answer": 2
+      },
+      "content_authoring_status": "ready",
+      "content_authoring_note": "Answer key supplied by the game author on 2026-07-11.",
+      "correct_choice_id": "choice-c"
     }
   ],
   "discarded_trivia": [
@@ -4340,7 +5076,7 @@
       "id": "bias-and-conditional-consequences",
       "title": "Bias the die; react to the result",
       "status": "supported",
-      "description": "Replace rerolls and roll arithmetic with diceBias before a roll. Then use conditionalConsequences for rollEquals, movementTotal across authored turns, or consecutiveRolls.",
+      "description": "Use diceBias for bounded roll changes, rollTotal or exact consecutiveRolls for dice history, and rankingPosition conditions for activity-result traits.",
       "source_refs": [
         "trait-javi-buff",
         "trait-frang-buff"
@@ -4349,8 +5085,8 @@
     {
       "id": "five-streak-becomes-bias",
       "title": "Five 5s grant a 5% bias—not a win",
-      "status": "planned",
-      "description": "Willy never ends the match. After five exact rolls of 5, grant +5 percentage points on face 5 for the next 3 rolls. Add one exact-face streak condition so a 6 does not count as a 5.",
+      "status": "supported",
+      "description": "Willy never ends the match. Five exact rolls of 5 grant +5 percentage points on face 5 for the next 3 rolls.",
       "source_refs": [
         "trait-willy-bonus"
       ]
@@ -4359,7 +5095,7 @@
       "id": "keep-players-in-the-activity",
       "title": "Everyone plays; penalties resolve afterward",
       "status": "supported",
-      "description": "Do not exclude a player from a minigame. Keep them in the activity and resolve the joke through a confirmed coins consequence, such as -3 coins.",
+      "description": "Everyone remains in the minigame. Character traits can add a coin reward or penalty after the result and prompts can be excluded.",
       "source_refs": [
         "trait-facu-nerf"
       ]
@@ -4367,7 +5103,7 @@
     {
       "id": "movement-scope",
       "title": "Use fixed moves or a chosen player position",
-      "status": "planned",
+      "status": "supported",
       "description": "Story effects may move a player forward or backward by a fixed number of cells. For player-position effects, let the host choose a player and resolve moveToPlayerPosition. Do not infer proximity, social relationships, ages, appearance, landmarks, or board occupancy.",
       "source_refs": [
         "event-007",
@@ -4379,8 +5115,8 @@
     {
       "id": "fixed-price-and-fixed-ranking",
       "title": "Keep prices and rankings global",
-      "status": "omitted",
-      "description": "Do not add personal shop discounts or mutate a minigame ranking. Keep prices shared; where needed, use a normal coin reward or penalty after the outcome.",
+      "status": "supported",
+      "description": "Prices and rankings stay global. Nico's unemployment becomes a roll-based coin reward, while Frustración reacts to finishing outside the top 3 without rewriting the ranking.",
       "source_refs": [
         "trait-nico-buff",
         "trait-nico-nerf"
@@ -4389,8 +5125,8 @@
     {
       "id": "no-hidden-board-state",
       "title": "Make board jokes explicit prompts",
-      "status": "omitted",
-      "description": "Do not track occupancy, waiting-for-rescue state, first entry, artifact possession, or event-driven artifact grants. Reframe those beats as an authored prompt with a fixed move, skip turn, or coin change—or omit them.",
+      "status": "supported",
+      "description": "Occupancy and first-entry memory remain omitted. Those jokes now use explicit roll totals, minigame ranking conditions, or character-specific events.",
       "source_refs": [
         "event-005",
         "event-013",
@@ -4404,7 +5140,7 @@
       "id": "artifact-effects-resolve-on-use",
       "title": "Artifacts resolve when used",
       "status": "supported",
-      "description": "Keep artifact effects on use. Use fixed coins, movement, or a host-selected player position; do not listen for possession or grant an artifact from an event.",
+      "description": "Artifacts still resolve on use. Gastón's starting backpack is represented by two round-limited default trait effects using the same movement and shot behavior.",
       "source_refs": [
         "trait-gaston-nerf",
         "artifact-essence-by-l-frang",
@@ -4418,5 +5154,290 @@
     "Trivia question 4 and its image-based answers are intentionally omitted.",
     "The first image in the Eventos section has no adjacent caption; it is retained as an unassigned source image rather than guessed onto an event.",
     "Implementation gaps were replaced with scoped adaptation proposals on 2026-07-10; omitted mechanics are intentional, not errors."
-  ]
+  ],
+  "card_vote_source": {
+    "source_file": "output/amigos de mierda sentences.txt",
+    "prompt_count": 61,
+    "deck_size": 5,
+    "playable_prompt_count": 60,
+    "unassigned_prompts": [
+      {
+        "number": 61,
+        "sentence": "¿Quién tiene un juguete sexual extremadamente perturbador?"
+      }
+    ],
+    "note": "CardVote decks use the source file verbatim. The remaining prompt is retained here instead of inventing a fourth card or mixing in material from another source."
+  },
+  "event_templates": [
+    {
+      "id": "bostezo",
+      "short_name": "Bostezo",
+      "activity_type": "timing",
+      "production_event_id": "event-bostezo",
+      "production_event_name": "Tocá cuando no te vea la profe",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-bostezo: activity.type is timing.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "lujan",
+      "short_name": "Luján",
+      "activity_type": "judge",
+      "production_event_id": "event-lujan",
+      "production_event_name": "Escribí un mensajito para invitar a Luján Eppens a tomar un helado.",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-lujan: activity.type is judge.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "mas-probable-1",
+      "short_name": "Más probable I",
+      "activity_type": "vote",
+      "production_event_id": "event-mas-probable-1",
+      "production_event_name": "¿Quién se queda dormido primero esta noche?",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-mas-probable-1: activity.type is vote.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "mas-probable-2",
+      "short_name": "Más probable II",
+      "activity_type": "vote",
+      "production_event_id": "event-mas-probable-2",
+      "production_event_name": "¿Quién es más probable que pierda el celular esta noche?",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-mas-probable-2: activity.type is vote.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "quien-dijo-1",
+      "short_name": "Quién dijo",
+      "activity_type": "vote",
+      "production_event_id": "event-quien-dijo-1",
+      "production_event_name": "¿Quién dijo 'esta es la última y nos vamos' y se quedó 3 horas más?",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-quien-dijo-1: activity.type is vote.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "dos-verdades-1",
+      "short_name": "Dos verdades",
+      "activity_type": "vote",
+      "production_event_id": "event-dos-verdades-1",
+      "production_event_name": "Dos verdades y una mentira: ¿cuál creés que es la mentira del novio?",
+      "production_status": "available",
+      "engine_fit": "mismatch",
+      "recommended_activity_type": "buzzer",
+      "recommendation_status": "needs_statements_and_answer_key",
+      "engine_fit_note": "The current Vote engine selects a player. This prompt asks players to select which statement is the lie, so it needs Buzzer/multiple-choice content or a different interaction.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "estimate-frang",
+      "short_name": "FranG",
+      "activity_type": "estimate",
+      "production_event_id": "event-estimate-frang",
+      "production_event_name": "¿Cuántas veces rechazaron a FranG en 15 años?",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-estimate-frang: activity.type is estimate.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "estimate-noche",
+      "short_name": "La noche",
+      "activity_type": "estimate",
+      "production_event_id": "event-estimate-noche",
+      "production_event_name": "¿A qué hora (en formato 24h, ej. 4 = 4am) se va el primero a dormir?",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-estimate-noche: activity.type is estimate.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "reaction-1",
+      "short_name": "Reaction",
+      "activity_type": "reaction",
+      "production_event_id": "event-reaction-1",
+      "production_event_name": "Esperá el verde. El primero gana. Si tocás antes, penalización.",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-reaction-1: activity.type is reaction.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "trivia-novio-1",
+      "short_name": "Buzzer I",
+      "activity_type": "buzzer",
+      "production_event_id": "event-trivia-novio-1",
+      "production_event_name": "¿Cuántas veces dijo Javi 'esta es la última y nos vamos'?",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-trivia-novio-1: activity.type is buzzer.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "trivia-novio-2",
+      "short_name": "Buzzer II",
+      "activity_type": "buzzer",
+      "production_event_id": "event-trivia-novio-2",
+      "production_event_name": "¿En qué viaje del grupo Javi se olvidó el bolso en el aeropuerto?",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-trivia-novio-2: activity.type is buzzer.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "whack-amigos",
+      "short_name": "Whack",
+      "activity_type": "whack",
+      "production_event_id": "event-whack-amigos",
+      "production_event_name": "¡Golpeá la cara correcta!",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-whack-amigos: activity.type is whack.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "arcade-maze",
+      "short_name": "Maze",
+      "activity_type": "maze",
+      "production_event_id": "event-arcade-maze",
+      "production_event_name": "Encontrá la salida del laberinto antes que los pibes",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-arcade-maze: activity.type is maze.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "arcade-flappy",
+      "short_name": "Flappy",
+      "activity_type": "flappy",
+      "production_event_id": "event-arcade-flappy",
+      "production_event_name": "Volá entre quilombos de la noche sin pegarte contra nada",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-arcade-flappy: activity.type is flappy.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "arcade-snake",
+      "short_name": "Snake",
+      "activity_type": "snake",
+      "production_event_id": "event-arcade-snake",
+      "production_event_name": "Sobreviví a la víbora de la previa y dejá afuera a los pibes",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-arcade-snake: activity.type is snake.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "arcade-horserace",
+      "short_name": "Carrera de caballos",
+      "activity_type": "horserace",
+      "production_event_id": "event-arcade-horserace",
+      "production_event_name": "Picá como si cerrara el boliche y ganale al resto",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-arcade-horserace: activity.type is horserace.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "arcade-redlight",
+      "short_name": "Red light",
+      "activity_type": "redlight",
+      "production_event_id": "event-arcade-redlight",
+      "production_event_name": "Avanzá cuando dé verde y no te regalés en rojo",
+      "production_status": "available",
+      "engine_fit": "compatible",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "Verified against event-arcade-redlight: activity.type is redlight.",
+      "base_coin_reward_comment": "Comentario solamente — recompensa base sugerida: 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    },
+    {
+      "id": "card-vote",
+      "short_name": "Amigos de mierda",
+      "activity_type": "cardVote",
+      "production_event_id": null,
+      "production_event_name": null,
+      "production_status": "reference_only",
+      "engine_fit": "engine_supported_content_not_seeded",
+      "recommended_activity_type": null,
+      "recommendation_status": null,
+      "engine_fit_note": "The Card vote engine exists in Event Builder and the runtime, but this reference content is not present in shared/content.json yet.",
+      "base_coin_reward_comment": "Comentario solamente — cada carta ganada suma +1 moneda; al cierre, 1.º +5 monedas, 2.º +3 monedas y todos los demás participantes +1 moneda. No modifica el contenido jugable todavía."
+    }
+  ],
+  "event_review": {
+    "id": "event-review-2026-07-11-01",
+    "applied_on": "2026-07-11",
+    "source_file": "/Users/facundopri/.codex/attachments/40be83ea-5e87-4768-85d0-df5100b1cb39/pasted-text.txt",
+    "updated_event_ids": [
+      "event-049",
+      "event-057",
+      "event-059",
+      "event-060",
+      "event-061",
+      "event-062",
+      "event-068",
+      "event-069",
+      "event-070",
+      "event-072",
+      "event-078",
+      "event-082",
+      "event-086",
+      "event-092"
+    ],
+    "removed_event_ids": [
+      "event-052"
+    ],
+    "added_event_ids": [
+      "event-103",
+      "event-104"
+    ],
+    "interpretations": [
+      {
+        "event_id": "event-092",
+        "source_wording": "pierde un punto",
+        "applied_as": "loses 1 coin",
+        "reason": "The current app has persistent coins but no generic persistent points."
+      }
+    ]
+  }
 }

@@ -16,6 +16,7 @@ import type {
   EventAction,
   EventActionTarget,
   EventActivity,
+  EventActivityType,
   GameContent,
   GameState,
   MinigameResult,
@@ -98,7 +99,7 @@ export class GameRoom {
   private pendingCardVotes = new Map<string, string>();
   private pendingEvent: ResolvedGameEvent | null = null;
   private resolving = false;
-  private skippedTurns = new Set<string>();
+  private skippedTurns = new Map<string, number>();
   private extraTurnPlayerId: string | null = null;
   private nextEffectInstanceId = 1;
   private nextArtifactShopVisitId = 1;
@@ -107,6 +108,7 @@ export class GameRoom {
   private appliedCharacterTraitKeys = new Set<string>();
   private rollHistory = new Map<string, number[]>();
   private movementHistory = new Map<string, number[]>();
+  private eventContinuation: "advanceTurn" | "beginTurn" | "resumeTurn" = "advanceTurn";
 
   constructor(io: IO, code: string, name: string, content: GameContent, options: GameRoomOptions = {}) {
     this.io = io;
@@ -467,7 +469,7 @@ export class GameRoom {
     this.state.round = 1;
     this.state.phase = "turn";
     this.applyDefaultTraitsForPlayers(order);
-    this.broadcast();
+    this.beginActiveTurn();
   }
 
   /** Seed a private builder playtest and start it immediately. */
@@ -555,6 +557,7 @@ export class GameRoom {
     this.pendingCardVotes.clear();
     this.pendingEvent = null;
     this.pendingActivityPreludeActions = [];
+    this.eventContinuation = "advanceTurn";
     this.resolving = false;
     this.state.activeIndex = activeIndex;
     this.state.phase = "turn";
@@ -593,9 +596,41 @@ export class GameRoom {
         name: resolved.trait.name,
         description: resolved.trait.description ?? resolved.effect.description,
         icon: resolved.trait.icon ?? resolved.effect.icon,
+        countCurrentTurn: true,
       });
       if (instanceIds.length) this.appliedCharacterTraitKeys.add(key);
     }
+  }
+
+  private beginActiveTurn() {
+    const active = this.activePlayer();
+    if (!active) {
+      this.state.phase = "lobby";
+      this.broadcast();
+      return;
+    }
+    const actions = this.applyEffectHook("onTurnStart", {
+      actingPlayerId: active.id,
+      landingPlayerId: active.id,
+      targetPlayerId: active.id,
+    });
+    this.state.reveal = null;
+    this.state.activeEvent = actions.length
+      ? {
+          kind: "story",
+          title: "Antes de jugar",
+          text: "Un rasgo del personaje se activa antes del turno.",
+          story: {
+            title: "Antes de jugar",
+            prompt: "Completá esta acción antes de tirar el dado.",
+          },
+          playerId: active.id,
+          actions,
+        }
+      : null;
+    this.state.phase = actions.length ? "event" : "turn";
+    this.eventContinuation = actions.length ? "resumeTurn" : "advanceTurn";
+    this.broadcast();
   }
 
   // --- Turno ---------------------------------------------------------------
@@ -1079,8 +1114,8 @@ export class GameRoom {
       const activityResultActions = this.applyEffectHook("onActivityResult", {
         actingPlayerId: landingPlayerId,
         landingPlayerId,
-        targetPlayerId: landingPlayerId,
         ranking: reveal.ranking,
+        activityType: activity.type,
       });
       const actions = event
         ? [
@@ -1143,6 +1178,19 @@ export class GameRoom {
     if (!p) return;
     if (!p.isHost && p.id !== active?.id) return;
     if (this.state.phase !== "reveal" && this.state.phase !== "event") return;
+    if (this.state.phase === "event" && this.eventContinuation === "resumeTurn") {
+      this.state.activeEvent = null;
+      this.state.phase = "turn";
+      this.eventContinuation = "advanceTurn";
+      this.broadcast();
+      return;
+    }
+    if (this.state.phase === "event" && this.eventContinuation === "beginTurn") {
+      this.state.activeEvent = null;
+      this.eventContinuation = "advanceTurn";
+      this.beginActiveTurn();
+      return;
+    }
     this.advanceTurn();
   }
 
@@ -1199,8 +1247,7 @@ export class GameRoom {
       if (extraIndex >= 0) {
         if (endingPlayerId) this.tickEffectDurations(endingPlayerId, false);
         this.state.activeIndex = extraIndex;
-        this.state.phase = "turn";
-        this.broadcast();
+        this.beginActiveTurn();
         return;
       }
     }
@@ -1214,16 +1261,23 @@ export class GameRoom {
         advancedRound = true;
       }
       const nextId = order[nextIndex];
-      if (!this.skippedTurns.has(nextId)) break;
-      this.skippedTurns.delete(nextId);
+      const skipped = this.skippedTurns.get(nextId) ?? 0;
+      if (skipped <= 0) break;
+      if (skipped === 1) this.skippedTurns.delete(nextId);
+      else this.skippedTurns.set(nextId, skipped - 1);
     }
     if (advancedRound) {
       this.state.round += 1;
     }
     if (endingPlayerId) this.tickEffectDurations(endingPlayerId, advancedRound);
     this.state.activeIndex = nextIndex;
-    this.state.phase = turnEndActions.length ? "event" : "turn";
-    this.broadcast();
+    if (turnEndActions.length) {
+      this.state.phase = "event";
+      this.eventContinuation = "beginTurn";
+      this.broadcast();
+      return;
+    }
+    this.beginActiveTurn();
   }
 
   private applyConsequenceRules(
@@ -1351,8 +1405,14 @@ export class GameRoom {
       return { type: action.type, targetPlayerIds, text: action.text ?? `Mover a casillero ${action.tileId}`, tileId: action.tileId };
     }
     if (action.type === "skipTurn") {
-      for (const id of targetPlayerIds) this.skippedTurns.add(id);
-      return { type: action.type, targetPlayerIds, text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} pierde su próximo turno` };
+      const turns = action.turns ?? 1;
+      for (const id of targetPlayerIds) this.skippedTurns.set(id, (this.skippedTurns.get(id) ?? 0) + turns);
+      return {
+        type: action.type,
+        targetPlayerIds,
+        text: action.text ?? `${namesFor(targetPlayerIds, this.state.players)} pierde ${turns === 1 ? "su próximo turno" : `sus próximos ${turns} turnos`}`,
+        value: turns,
+      };
     }
     if (action.type === "extraTurn") {
       this.extraTurnPlayerId = targetPlayerIds[0] ?? this.extraTurnPlayerId;
@@ -1393,6 +1453,9 @@ export class GameRoom {
     }
     if (action.type === "moveToNearest") {
       return this.applyMoveToNearest(action, targetPlayerIds, context);
+    }
+    if (action.type === "moveToPlayerPosition") {
+      return this.applyMoveToPlayerPosition(action, targetPlayerIds, context);
     }
     const effectInstanceIds = this.applyEffectToTargets(action.effectId, targetPlayerIds, {
       sourcePlayerId: context.actingPlayerId ?? context.landingPlayerId,
@@ -1532,6 +1595,36 @@ export class GameRoom {
     };
   }
 
+  private applyMoveToPlayerPosition(
+    action: Extract<EventAction, { type: "moveToPlayerPosition" }>,
+    targetPlayerIds: string[],
+    context: { landingPlayerId?: string; actingPlayerId?: string; targetPlayerId?: string; ranking?: string[] }
+  ): AppliedEventAction {
+    const destinationId = this.targetPlayerIds(action.withTarget, context)[0];
+    const destination = this.state.players.find((player) => player.id === destinationId);
+    if (!destination) {
+      return {
+        type: action.type,
+        targetPlayerIds: [],
+        text: action.text ?? "No se encontró al jugador de destino",
+      };
+    }
+    const moved: string[] = [];
+    for (const id of targetPlayerIds) {
+      const player = this.state.players.find((candidate) => candidate.id === id);
+      if (!player || player.id === destination.id) continue;
+      player.position = destination.position;
+      moved.push(player.id);
+    }
+    this.recordFinishWinner(moved);
+    return {
+      type: action.type,
+      targetPlayerIds: moved,
+      text: action.text ?? `${namesFor(moved, this.state.players)} se mueve a la posición de ${destination.name}`,
+      tileId: destination.position,
+    };
+  }
+
   private applyEffectToTargets(
     effectId: string,
     targetPlayerIds: string[],
@@ -1554,7 +1647,7 @@ export class GameRoom {
   private attachEffectToTargets(
     effect: NonNullable<GameContent["effects"]>[string],
     targetPlayerIds: string[],
-    options: { sourcePlayerId?: string; duration?: EffectDuration; name?: string; description?: string; icon?: string } = {}
+    options: { sourcePlayerId?: string; duration?: EffectDuration; name?: string; description?: string; icon?: string; countCurrentTurn?: boolean } = {}
   ): string[] {
     const instanceIds: string[] = [];
     for (const targetPlayerId of targetPlayerIds) {
@@ -1570,8 +1663,8 @@ export class GameRoom {
         consequences: effectConsequencesFor(effect),
         icon: options.icon ?? effect.icon,
         visualAssetId: effect.visualAssetId,
-        startedRound: this.state.round,
-        startedTurnId: this.activePlayer()?.id,
+        startedRound: options.countCurrentTurn ? this.state.round - 1 : this.state.round,
+        startedTurnId: options.countCurrentTurn ? undefined : this.activePlayer()?.id,
       };
       this.state.activeEffects.push(instance);
       instanceIds.push(instance.id);
@@ -1613,6 +1706,7 @@ export class GameRoom {
       actingPlayerId?: string;
       targetPlayerId?: string;
       ranking?: string[];
+      activityType?: EventActivityType;
       roll?: number;
       movement?: number | null;
       cell?: Tile;
@@ -1638,6 +1732,9 @@ export class GameRoom {
             movement: context.movement ?? undefined,
             rollHistory: this.rollHistory.get(instance.targetPlayerId),
             movementHistory: this.movementHistory.get(instance.targetPlayerId),
+            targetPlayerId: instance.targetPlayerId,
+            ranking: context.ranking,
+            activityType: context.activityType,
             cell: context.cell,
             phase: this.state.phase,
           })

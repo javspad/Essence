@@ -108,16 +108,30 @@ export function eventMatchesTrigger(event: GameEventDef, player: Pick<PlayerDef,
   return eventTriggerScore(event, player) > 0;
 }
 
-export function resolveTileEventForPlayer(content: GameContent, tile: Tile, player: Pick<PlayerDef, "id">): ResolvedGameEvent | null {
-  let best: { id: string; score: number } | null = null;
+export function resolveTileEventForPlayer(
+  content: GameContent,
+  tile: Tile,
+  player: Pick<PlayerDef, "id">,
+  random: () => number = Math.random
+): ResolvedGameEvent | null {
+  let bestScore = 0;
+  const candidates: string[] = [];
   for (const id of eventIdsForTile(tile)) {
     const event = content.events[id];
     if (!event) continue;
     const score = eventTriggerScore(event, player);
     if (score <= 0) continue;
-    if (!best || score > best.score) best = { id, score };
+    if (score > bestScore) {
+      bestScore = score;
+      candidates.length = 0;
+      candidates.push(id);
+    } else if (score === bestScore) {
+      candidates.push(id);
+    }
   }
-  return best ? resolveEventForPlayer(content, best.id, player) : null;
+  if (!candidates.length) return null;
+  const index = Math.min(candidates.length - 1, Math.max(0, Math.floor(random() * candidates.length)));
+  return resolveEventForPlayer(content, candidates[index], player);
 }
 
 export function resolveEventActionTargetIds(

@@ -6,6 +6,7 @@ import type {
   EffectDurationState,
   EffectLifecycleHook,
   EffectModifier,
+  EventActivityType,
   EventAction,
   EventActionTarget,
   GameContent,
@@ -13,6 +14,7 @@ import type {
   Phase,
 } from "@essence/shared";
 import { consequenceLabel, defaultHookForConsequence, effectConsequencesFor, effectHooksFor, effectRemainingLabel } from "@essence/shared/consequences";
+import { EVENT_ACTIVITY_TYPES } from "@essence/shared/events";
 
 const DEFAULT_EFFECT_ID = "half-roll-2-rounds";
 const LEGACY_SHOT_EFFECT_ID = "half-roll-shot-on-six";
@@ -36,6 +38,7 @@ type TargetKind =
 type TargetOverrideKind = "effectTarget" | TargetKind;
 
 const hookOptions: { value: EffectLifecycleHook; label: string }[] = [
+  { value: "onTurnStart", label: "Turn start" },
   { value: "onTurnEnd", label: "Turn end" },
   { value: "beforeRoll", label: "Before roll" },
   { value: "afterRoll", label: "After roll" },
@@ -766,6 +769,25 @@ function ConditionEditor({
           </div>
 
           <div className="rounded-md border border-white/10 bg-black/15 p-2">
+            <p className="text-xs font-black text-slate-200">Activity result</p>
+            <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-500">Match the effect owner's resolved rank and optionally include or exclude activity types.</p>
+            <div className="mt-2 grid gap-3 md:grid-cols-2">
+              <OptionalNumberInput label="Rank at least" value={condition?.rankingPositionGte} onChange={(rankingPositionGte) => update({ rankingPositionGte })} />
+              <OptionalNumberInput label="Rank at most" value={condition?.rankingPositionLte} onChange={(rankingPositionLte) => update({ rankingPositionLte })} />
+              <TextInput
+                label="Include activity types"
+                value={condition?.activityTypesAny?.join(", ") ?? ""}
+                onChange={(value) => update({ activityTypesAny: splitActivityTypes(value) })}
+              />
+              <TextInput
+                label="Exclude activity types"
+                value={condition?.activityTypesNone?.join(", ") ?? ""}
+                onChange={(value) => update({ activityTypesNone: splitActivityTypes(value) })}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-md border border-white/10 bg-black/15 p-2">
             <p className="text-xs font-black text-slate-200">Recent roll streak</p>
             <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-500">Checks the target player's last rolls. Count is how many recent rolls must all satisfy the limits.</p>
             <div className="mt-2 grid gap-3 md:grid-cols-3">
@@ -782,6 +804,16 @@ function ConditionEditor({
               <OptionalNumberInput label="Total turns" value={condition?.movementTotal?.turns} onChange={(turns) => update({ movementTotal: cleanMovementTotal({ ...(condition?.movementTotal ?? {}), turns }) })} />
               <OptionalNumberInput label="Total at least" value={condition?.movementTotal?.gte} onChange={(gte) => update({ movementTotal: cleanMovementTotal({ ...(condition?.movementTotal ?? {}), gte }) })} />
               <OptionalNumberInput label="Total at most" value={condition?.movementTotal?.lte} onChange={(lte) => update({ movementTotal: cleanMovementTotal({ ...(condition?.movementTotal ?? {}), lte }) })} />
+            </div>
+          </div>
+
+          <div className="rounded-md border border-white/10 bg-black/15 p-2">
+            <p className="text-xs font-black text-slate-200">Recent roll total</p>
+            <p className="mt-1 text-[0.68rem] font-bold leading-4 text-slate-500">Adds the target player's last die results across the chosen number of turns.</p>
+            <div className="mt-2 grid gap-3 md:grid-cols-3">
+              <OptionalNumberInput label="Total turns" value={condition?.rollTotal?.turns} onChange={(turns) => update({ rollTotal: cleanRollTotal({ ...(condition?.rollTotal ?? {}), turns }) })} />
+              <OptionalNumberInput label="Total at least" value={condition?.rollTotal?.gte} onChange={(gte) => update({ rollTotal: cleanRollTotal({ ...(condition?.rollTotal ?? {}), gte }) })} />
+              <OptionalNumberInput label="Total at most" value={condition?.rollTotal?.lte} onChange={(lte) => update({ rollTotal: cleanRollTotal({ ...(condition?.rollTotal ?? {}), lte }) })} />
             </div>
           </div>
           <label className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-md border border-cyan-200/15 bg-cyan-300/10 px-3 py-2">
@@ -1198,7 +1230,8 @@ function convertActionType(action: EventAction, type: Exclude<EventAction["type"
   if (type === "diceBias") return ensureModifierTiming({ type, hook: "beforeRoll", face: 5, chanceDeltaPercent: 10, ...base });
   if (type === "swapPositions") return withCanonicalEditableAction({ type, withTarget: "winner", ...base });
   if (type === "moveToNearest") return withCanonicalEditableAction({ type, direction: "ahead", ...base });
-  return { type, effectId: fallbackEffectId, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}), ...timingPatch(action) };
+  if (type === "moveToPlayerPosition") return withCanonicalEditableAction({ type, withTarget: "winner", ...base });
+  return { type: "applyEffect", effectId: fallbackEffectId, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}), ...timingPatch(action) };
 }
 
 function withCanonicalEditableAction(action: EventAction): EventAction {
@@ -1282,9 +1315,14 @@ function conditionSummary(condition: EffectCondition | undefined): string {
     condition.movementGte !== undefined ? `move >= ${condition.movementGte}` : undefined,
     condition.movementLte !== undefined ? `move <= ${condition.movementLte}` : undefined,
     condition.cellTagsAny?.length ? `tags: ${condition.cellTagsAny.join(", ")}` : undefined,
+    condition.activityTypesAny?.length ? `activity: ${condition.activityTypesAny.join(", ")}` : undefined,
+    condition.activityTypesNone?.length ? `not activity: ${condition.activityTypesNone.join(", ")}` : undefined,
+    condition.rankingPositionGte !== undefined ? `rank >= ${condition.rankingPositionGte}` : undefined,
+    condition.rankingPositionLte !== undefined ? `rank <= ${condition.rankingPositionLte}` : undefined,
     condition.phase ? `phase: ${condition.phase}` : undefined,
     condition.consecutiveRolls ? `roll streak ${condition.consecutiveRolls.count}` : undefined,
     condition.movementTotal ? `move total ${condition.movementTotal.turns}` : undefined,
+    condition.rollTotal ? `roll total ${condition.rollTotal.turns}` : undefined,
   ].filter(Boolean);
   return parts.join(", ");
 }
@@ -1341,9 +1379,14 @@ function cleanCondition(condition: EffectCondition): EffectCondition | undefined
   if (condition.movementGte !== undefined) next.movementGte = condition.movementGte;
   if (condition.movementLte !== undefined) next.movementLte = condition.movementLte;
   if (condition.cellTagsAny?.length) next.cellTagsAny = condition.cellTagsAny;
+  if (condition.activityTypesAny?.length) next.activityTypesAny = condition.activityTypesAny;
+  if (condition.activityTypesNone?.length) next.activityTypesNone = condition.activityTypesNone;
+  if (condition.rankingPositionGte !== undefined) next.rankingPositionGte = Math.max(1, Math.round(condition.rankingPositionGte));
+  if (condition.rankingPositionLte !== undefined) next.rankingPositionLte = Math.max(1, Math.round(condition.rankingPositionLte));
   if (condition.phase) next.phase = condition.phase;
   if (condition.consecutiveRolls) next.consecutiveRolls = condition.consecutiveRolls;
   if (condition.movementTotal) next.movementTotal = condition.movementTotal;
+  if (condition.rollTotal) next.rollTotal = condition.rollTotal;
   return Object.keys(next).length ? next : {};
 }
 
@@ -1363,6 +1406,23 @@ function cleanMovementTotal(condition: Partial<NonNullable<EffectCondition["move
     ...(condition.gte !== undefined ? { gte: condition.gte } : {}),
     ...(condition.lte !== undefined ? { lte: condition.lte } : {}),
   };
+}
+
+function cleanRollTotal(condition: Partial<NonNullable<EffectCondition["rollTotal"]>>): EffectCondition["rollTotal"] | undefined {
+  if (condition.turns === undefined && condition.gte === undefined && condition.lte === undefined) return undefined;
+  return {
+    turns: Math.max(1, Math.round(condition.turns ?? 1)),
+    ...(condition.gte !== undefined ? { gte: condition.gte } : {}),
+    ...(condition.lte !== undefined ? { lte: condition.lte } : {}),
+  };
+}
+
+function splitActivityTypes(value: string): EventActivityType[] | undefined {
+  const activityTypes = value
+    .split(",")
+    .map((type) => type.trim())
+    .filter((type): type is EventActivityType => EVENT_ACTIVITY_TYPES.includes(type as EventActivityType));
+  return activityTypes.length ? [...new Set(activityTypes)] : undefined;
 }
 
 function splitTags(value: string): string[] | undefined {

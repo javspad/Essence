@@ -1005,7 +1005,8 @@ function convertArtifactActionType(
   if (type === "offlineAction") return { type, action: "custom", ...base };
   if (type === "swapPositions") return { type, withTarget: "target", ...base };
   if (type === "moveToNearest") return { type, direction: "ahead", ...base };
-  return { type, effectId: fallbackEffectId, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
+  if (type === "moveToPlayerPosition") return { type, withTarget: "target", ...base };
+  return { type: "applyEffect", effectId: fallbackEffectId, ...(target ? { target } : {}), ...(text ? { text } : {}), ...(icon ? { icon } : {}) };
 }
 
 function updateActionAmount(

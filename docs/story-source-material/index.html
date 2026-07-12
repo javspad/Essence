@@ -33,7 +33,7 @@
         font-family: Avenir Next, Avenir, Inter, ui-sans-serif, system-ui, sans-serif;
       }
 
-      button, input { font: inherit; }
+      button, input, select, textarea { font: inherit; }
 
       .sr-only {
         position: absolute;
@@ -49,7 +49,7 @@
 
       button { cursor: pointer; }
 
-      button:focus-visible, a:focus-visible, input:focus-visible {
+      button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
         outline: 3px solid var(--yellow);
         outline-offset: 3px;
       }
@@ -108,7 +108,7 @@
         top: 0;
         z-index: 10;
         display: grid;
-        grid-template-columns: auto minmax(14rem, 1fr) auto auto;
+        grid-template-columns: auto minmax(13rem, 1fr) auto auto auto;
         gap: 0.75rem;
         align-items: center;
         padding: 0.75rem;
@@ -158,8 +158,8 @@
 
       .filter input { accent-color: var(--pink); }
 
-      .engine-filter { display: flex; gap: 0.45rem; align-items: center; }
-      .engine-filter select { max-width: 14rem; padding: 0.65rem 1.9rem 0.65rem 0.65rem; border: 1px solid var(--line); border-radius: 2px; background: var(--card); color: var(--ink); font-size: 0.8rem; font-weight: 800; }
+      .select-filter { display: flex; gap: 0.45rem; align-items: center; }
+      .select-filter select { max-width: 14rem; padding: 0.65rem 1.9rem 0.65rem 0.65rem; border: 1px solid var(--line); border-radius: 2px; background: var(--card); color: var(--ink); font-size: 0.8rem; font-weight: 800; }
 
       .summary {
         display: grid;
@@ -190,6 +190,7 @@
       }
 
       .event-card { display: grid; grid-template-rows: 180px 1fr; min-height: 410px; }
+      .event-card.no-image { grid-template-rows: 1fr; min-height: 285px; }
       .event-card[data-delivery="minigame_intro"] .card-body { border-left: 5px solid var(--pink); }
 
       .image-button, .image-placeholder {
@@ -220,6 +221,8 @@
       .status.new_support { background: #f8ceda; color: #8c193e; }
       .status.planned { background: #dce5f5; color: #244b97; }
       .status.omitted { background: #ece8de; color: #625f57; }
+      .status.ready_for_review { background: var(--mint); color: #1b5a45; }
+      .status.needs_options_and_answer, .status.needs_unit_and_answer, .status.needs_answer_key, .status.reference_only_not_seeded { background: #fce5a9; color: #6d4a00; }
 
       .details { margin-top: 0.85rem; border-top: 1px dashed var(--line); }
       .details summary { padding: 0.7rem 0 0; color: var(--blue); font-size: 0.76rem; font-weight: 800; cursor: pointer; }
@@ -239,6 +242,12 @@
       .artifact-card .card-body { padding: 0.9rem; }
 
       .trivia-card { padding: 1.1rem; }
+      .trivia-card, .cardvote-event-card { min-height: 285px; border-top: 6px solid var(--pink); }
+      .cardvote-event-card { padding: 1.1rem; border-top-color: var(--yellow); }
+      .cardvote-event-card h3 { margin: 0.8rem 0; font-size: 1.05rem; }
+      .cardvote-event-card .choices { counter-reset: cards; }
+      .cardvote-event-card .choice { grid-template-columns: 1.6rem 1fr; }
+      .source-kind { background: var(--blue-dark); color: white; }
       .trivia-card h3 { font-size: 1.05rem; line-height: 1.25; }
       .choices { display: grid; gap: 0.4rem; margin: 1rem 0 0; padding: 0; list-style: none; }
       .choice { display: grid; grid-template-columns: 1.6rem 1fr; gap: 0.5rem; align-items: start; padding: 0.5rem; background: #f0f2f6; font-size: 0.82rem; }
@@ -249,6 +258,17 @@
       .gap-card p { margin: 0; color: #4b586d; font-size: 0.87rem; line-height: 1.45; }
 
       .cardvote-list { display: grid; gap: 1.25rem; }
+
+      .source-note {
+        margin: 0 0 1.25rem;
+        padding: 0.85rem 1rem;
+        border: 1px solid #c7bda6;
+        border-left: 5px solid var(--yellow);
+        background: #fff8d6;
+        color: #3d3324;
+      }
+      .source-note p { margin: 0.4rem 0 0; font-size: 0.83rem; line-height: 1.45; }
+      .source-note strong { color: var(--ink); }
 
       .cardvote-stage {
         overflow: hidden;
@@ -286,6 +306,47 @@
       .engine-wall-header { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; margin-bottom: 0.9rem; }
       .engine-wall-header h3 { margin: 0; font-size: 1rem; }
       .engine-wall-header p { margin: 0; color: #c7bddc; font-size: 0.78rem; }
+      .engine-model-note { margin-bottom: 0.9rem; padding: 0.75rem 0.85rem; border-left: 4px solid var(--yellow); background: rgba(255, 248, 214, 0.08); color: #e9e1c7; font-size: 0.82rem; line-height: 1.45; }
+      .engine-model-note strong { color: var(--yellow); }
+      .engine-audit { margin: 0 0 0.9rem; border: 1px solid rgba(255, 248, 214, 0.18); background: rgba(0, 0, 0, 0.12); }
+      .engine-audit summary { padding: 0.7rem 0.85rem; color: #fff8d6; font-size: 0.78rem; font-weight: 800; cursor: pointer; }
+      .template-audit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1px; padding: 1px; background: rgba(255, 248, 214, 0.12); }
+      .template-audit-item { padding: 0.7rem; background: var(--blue-dark); font-size: 0.75rem; line-height: 1.4; }
+      .template-audit-item strong, .template-audit-item span { display: block; }
+      .template-audit-item span { margin-top: 0.25rem; color: #c7bddc; }
+      .template-audit-item[data-fit="mismatch"] { border-left: 4px solid var(--pink); background: #3b2131; }
+
+      .review-workspace {
+        margin-bottom: 1.25rem;
+        border: 1px solid var(--ink);
+        background: var(--card);
+        box-shadow: 7px 7px 0 rgba(227, 62, 112, 0.2);
+      }
+      .review-toolbar { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center; padding: 0.85rem 1rem; border-bottom: 1px solid var(--line); background: #fff8d6; }
+      .review-toolbar-copy { margin-left: auto; }
+      .review-count { color: var(--blue-dark); font: 800 0.72rem SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+      .review-status { min-height: 1.2rem; color: var(--muted); font-size: 0.75rem; }
+      .review-status.error { color: #9d2048; }
+      .review-button { min-height: 2.25rem; padding: 0.5rem 0.75rem; border: 1px solid var(--ink); border-radius: 2px; background: var(--blue-dark); color: white; font-size: 0.76rem; font-weight: 900; }
+      .review-button:hover { background: var(--blue); }
+      .review-button.secondary { background: transparent; color: var(--ink); }
+      .review-button.secondary:hover { background: #e8ecf4; }
+      .review-button.danger { border-color: #d59aab; color: #9d2048; }
+      .review-button:disabled { cursor: not-allowed; opacity: 0.42; }
+      .new-event-composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem; padding: 1rem; }
+      .new-event-copy { grid-column: 1 / -1; }
+      .new-event-copy h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+      .new-event-copy p { margin: 0; color: var(--muted); font-size: 0.8rem; line-height: 1.45; }
+      .review-textarea { width: 100%; min-height: 5.2rem; resize: vertical; padding: 0.7rem 0.75rem; border: 1px solid var(--line); border-radius: 2px; background: white; color: var(--ink); font-size: 0.86rem; line-height: 1.45; }
+      .review-textarea::placeholder { color: #8791a3; }
+      .new-event-list { display: grid; gap: 0.55rem; padding: 0 1rem 1rem; }
+      .new-event-note { display: grid; grid-template-columns: 1fr auto; gap: 0.65rem; padding: 0.75rem; border-left: 5px solid var(--yellow); background: #f4f0e6; }
+      .new-event-note .review-textarea { min-height: 4.2rem; }
+      .new-event-note-label { display: block; margin-bottom: 0.35rem; color: var(--pink); font: 900 0.67rem SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+      .annotation-box { margin-top: 1rem; padding-top: 0.8rem; border-top: 2px solid #f3b2c5; }
+      .annotation-label { display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.4rem; color: #9d2048; font: 900 0.68rem SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+      .annotation-box .review-textarea { min-height: 4.5rem; background: #fff9df; }
+      .annotation-hint { color: var(--muted); font-size: 0.66rem; font-weight: 700; text-transform: none; }
       .engine-usage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.45rem; }
       .engine-meter { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; min-height: 3.1rem; padding: 0.5rem 0.65rem; border: 1px solid rgba(255, 248, 214, 0.18); background: rgba(255, 248, 214, 0.06); color: #fff8d6; text-align: left; }
       .engine-meter:hover, .engine-meter[aria-pressed="true"] { border-color: var(--yellow); background: rgba(245, 213, 71, 0.18); }
@@ -311,6 +372,11 @@
       .lightbox-inner img { display: block; max-width: 100%; max-height: 82vh; margin: auto; object-fit: contain; }
       .close-button { position: absolute; top: 0.7rem; right: 0.7rem; display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 50%; background: var(--yellow); font-weight: 900; }
 
+      @media (max-width: 1100px) {
+        .control-bar { grid-template-columns: minmax(12rem, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+        .tabs { grid-column: 1 / -1; }
+      }
+
       @media (max-width: 800px) {
         .masthead { grid-template-columns: 1fr; gap: 1.5rem; }
         .archive-stamp { display: none; }
@@ -322,7 +388,10 @@
         .cardvote-meta { justify-content: start; margin-top: 1rem; }
         .cardvote-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .cardvote-card:last-child { grid-column: span 2; }
-        .engine-filter { justify-content: start; }
+        .select-filter { justify-content: start; }
+        .review-toolbar-copy { width: 100%; margin-left: 0; }
+        .new-event-composer { grid-template-columns: 1fr; }
+        .new-event-note { grid-template-columns: 1fr; }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -347,20 +416,21 @@
           <button class="tab" type="button" data-view="events" aria-selected="true">Events</button>
           <button class="tab" type="button" data-view="traits" aria-selected="false">Traits</button>
           <button class="tab" type="button" data-view="artifacts" aria-selected="false">Artifacts</button>
-          <button class="tab" type="button" data-view="trivia" aria-selected="false">Trivia</button>
-          <button class="tab" type="button" data-view="cardvote" aria-selected="false">Amigos de mierda</button>
-          <button class="tab" type="button" data-view="playable" aria-selected="false">Playable events</button>
           <button class="tab" type="button" data-view="solutions" aria-selected="false">Solutions</button>
         </nav>
         <label>
           <span class="sr-only">Search the current section</span>
           <input id="search" class="search" type="search" autocomplete="off" placeholder="Search captions, effects, names…" />
         </label>
-        <label id="engine-filter-wrap" class="engine-filter" hidden>
-          <span class="sr-only">Filter by minigame</span>
-          <select id="engine-filter" aria-label="Filter playable events by minigame"></select>
+        <label id="event-type-filter-wrap" class="select-filter">
+          <span class="sr-only">Filter events by type</span>
+          <select id="event-type-filter" aria-label="Filter events by type"></select>
         </label>
-        <label class="filter"><input id="media-only" type="checkbox" /> Images only</label>
+        <label id="engine-filter-wrap" class="select-filter">
+          <span class="sr-only">Filter by current activity engine</span>
+          <select id="engine-filter" aria-label="Filter events by current activity engine"></select>
+        </label>
+        <label id="hide-images-wrap" class="filter"><input id="hide-images" type="checkbox" /> Hide images</label>
       </section>
 
       <section id="summary" class="summary" aria-label="Archive summary"></section>
@@ -389,8 +459,18 @@
 
     <script src="viewer-data.js"></script>
     <script>
-      const state = { view: "events", query: "", mediaOnly: false, engineFilter: "all", data: null };
-      const titleByView = { events: "Events", traits: "Character traits", artifacts: "Artifacts", trivia: "Trivia", cardvote: "Amigos de mierda", playable: "Playable event catalog", solutions: "Implementation proposals" };
+      const ANNOTATION_STORAGE_KEY = "essence:story-source-annotations:v1";
+      const state = {
+        view: "events",
+        query: "",
+        hideImages: false,
+        eventType: "all",
+        engineFilter: "all",
+        data: null,
+        annotations: { comments: {}, newEvents: [] },
+        newEventDraft: ""
+      };
+      const titleByView = { events: "Event catalog", traits: "Character traits", artifacts: "Artifacts", solutions: "Implementation proposals" };
       const content = document.querySelector("#content");
       const summary = document.querySelector("#summary");
       const resultCount = document.querySelector("#result-count");
@@ -398,12 +478,66 @@
       const sourceStatus = document.querySelector("#source-status");
       const dialog = document.querySelector("#lightbox");
       const dialogImage = document.querySelector("#lightbox-image");
+      const eventTypeFilterWrap = document.querySelector("#event-type-filter-wrap");
+      const eventTypeFilter = document.querySelector("#event-type-filter");
       const engineFilterWrap = document.querySelector("#engine-filter-wrap");
       const engineFilter = document.querySelector("#engine-filter");
+      const hideImagesWrap = document.querySelector("#hide-images-wrap");
 
       const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
       }[character]));
+
+      function loadAnnotations() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(ANNOTATION_STORAGE_KEY) ?? "null");
+          if (!stored || typeof stored !== "object") return { comments: {}, newEvents: [] };
+          const comments = stored.comments && typeof stored.comments === "object" ? stored.comments : {};
+          const newEvents = Array.isArray(stored.newEvents)
+            ? stored.newEvents.filter((note) => note && typeof note.id === "string" && typeof note.text === "string")
+            : [];
+          return { comments, newEvents };
+        } catch {
+          return { comments: {}, newEvents: [] };
+        }
+      }
+
+      function persistAnnotations() {
+        try {
+          localStorage.setItem(ANNOTATION_STORAGE_KEY, JSON.stringify(state.annotations));
+          setReviewStatus("Saved locally in this browser.");
+          return true;
+        } catch {
+          setReviewStatus("Local storage is unavailable. Copy your review brief before leaving this page.", true);
+          return false;
+        }
+      }
+
+      function annotationCounts() {
+        return {
+          comments: Object.values(state.annotations.comments).filter((comment) => String(comment).trim()).length,
+          newEvents: state.annotations.newEvents.filter((note) => note.text.trim()).length
+        };
+      }
+
+      function setReviewStatus(message, isError = false) {
+        const status = document.querySelector("#review-status");
+        if (!status) return;
+        status.textContent = message;
+        status.classList.toggle("error", isError);
+      }
+
+      function syncReviewControls() {
+        const counts = annotationCounts();
+        const commentCount = document.querySelector("#review-comment-count");
+        const newEventCount = document.querySelector("#review-new-event-count");
+        const copyButton = document.querySelector("[data-copy-review]");
+        if (commentCount) commentCount.textContent = `${counts.comments} event comment${counts.comments === 1 ? "" : "s"}`;
+        if (newEventCount) newEventCount.textContent = `${counts.newEvents} new event note${counts.newEvents === 1 ? "" : "s"}`;
+        if (copyButton) copyButton.disabled = counts.comments + counts.newEvents === 0;
+      }
+
+      state.annotations = loadAnnotations();
 
       function assetMap() {
         return new Map(state.data.image_assets.map((asset) => [asset.id, asset]));
@@ -417,46 +551,260 @@
       function normalize(value) { return String(value ?? "").toLocaleLowerCase(); }
       function matches(item) { return !state.query || normalize(JSON.stringify(item)).includes(normalize(state.query)); }
       function statusLabel(status) {
-        return ({ supported: "ready", planned: "planned", omitted: "intentional scope", partial: "partial", comment_only: "comment only", new_support: "new support" })[status] || "reference";
+        return ({ supported: "ready", planned: "planned", omitted: "intentional scope", partial: "partial", comment_only: "comment only", new_support: "new support", ready_for_review: "content ready for review", needs_options_and_answer: "needs options + answer", needs_unit_and_answer: "needs unit + answer", needs_answer_key: "needs answer key", reference_only_not_seeded: "reference only · not seeded" })[status] || "reference";
       }
       function statusBadge(status) { return `<span class="status ${escapeHtml(status || "partial")}">${escapeHtml(statusLabel(status))}</span>`; }
       function empty(message) { return `<div class="empty">${escapeHtml(message)}</div>`; }
 
       function renderSummary() {
-        const groups = new Set(state.data.events.map((event) => event.source_caption_group_id)).size;
+        const unifiedCount = state.data.events.length + state.data.trivia.length + state.data.card_vote_sets.length;
         const items = [
-          [state.data.events.length, "event cards"],
-          [groups, "source captions"],
+          [unifiedCount, "unified events"],
+          [state.data.events.length, "story events"],
+          [state.data.trivia.length, "trivia events"],
+          [state.data.card_vote_sets.length, "CardVote events"],
           [state.data.image_assets.length, "downloaded images"],
-          [state.data.artifacts.length, "artifacts"],
-          [state.data.trivia.length, "trivia questions"],
-          [state.data.card_vote_sets.reduce((count, set) => count + set.cards.length, 0), "CardVote cards"]
+          [state.data.artifacts.length, "artifacts"]
         ];
         summary.innerHTML = items.map(([count, label]) => `<div class="summary-item"><span class="count">${count}</span><span class="summary-label">${label}</span></div>`).join("");
       }
 
+      function activityEngines() {
+        return state.data.current_app_reference.activity_engines ?? [];
+      }
+
+      function eventTemplates() {
+        return state.data.event_templates ?? [];
+      }
+
+      function catalogEvents() {
+        const engines = new Map(activityEngines().map((engine) => [engine.id, engine]));
+        const describeActivity = (activityType) => {
+          const type = activityType ?? "prompt";
+          const engine = engines.get(type);
+          return {
+            activity_type: type,
+            activity_label: engine?.label ?? type,
+            base_coin_reward_comment: engine?.base_coin_reward_comment ?? null
+          };
+        };
+
+        return [
+          ...state.data.events.map((event) => ({
+            id: event.id,
+            source_kind: "story_event",
+            title: event.original_caption,
+            raw: event,
+            authoring_status: event.presentation?.content_authoring_status ?? null,
+            ...describeActivity(event.presentation?.suggested_activity_type)
+          })),
+          ...state.data.trivia.map((question) => ({
+            id: question.id,
+            source_kind: "trivia",
+            title: question.question,
+            raw: question,
+            authoring_status: question.content_authoring_status,
+            ...describeActivity(question.suggested_activity_type)
+          })),
+          ...state.data.card_vote_sets.map((set) => ({
+            id: set.id,
+            source_kind: "card_vote",
+            title: set.name,
+            raw: set,
+            authoring_status: set.production_status,
+            ...describeActivity(set.suggested_activity_type ?? "cardVote")
+          }))
+        ];
+      }
+
+      function activityContentSummary(event) {
+        const authored = event.presentation?.suggested_activity_content;
+        if (!authored) return "";
+        if (authored.question) return authored.question;
+        if (authored.label) return authored.label;
+        return JSON.stringify(authored);
+      }
+
+      function renderCommentEditor(entry) {
+        const comment = state.annotations.comments[entry.id] ?? "";
+        return `<section class="annotation-box">
+          <label class="annotation-label">Your decision comment <span class="annotation-hint">Saved locally · copied with event context</span></label>
+          <textarea class="review-textarea" data-event-comment="${escapeHtml(entry.id)}" aria-label="Comment on ${escapeHtml(entry.title)}" placeholder="Example: Keep the caption, use Vote, winner gains 3 coins…">${escapeHtml(comment)}</textarea>
+        </section>`;
+      }
+
+      function renderReviewWorkspace() {
+        const counts = annotationCounts();
+        const notes = state.annotations.newEvents;
+        return `<section class="review-workspace" aria-label="Event review notes">
+          <div class="review-toolbar">
+            <span id="review-comment-count" class="review-count">${counts.comments} event comment${counts.comments === 1 ? "" : "s"}</span>
+            <span id="review-new-event-count" class="review-count">${counts.newEvents} new event note${counts.newEvents === 1 ? "" : "s"}</span>
+            <span id="review-status" class="review-status" role="status" aria-live="polite">Comments stay in this browser until you copy them.</span>
+            <button class="review-button review-toolbar-copy" type="button" data-copy-review ${counts.comments + counts.newEvents === 0 ? "disabled" : ""}>Copy comments + event context</button>
+          </div>
+          <div class="new-event-composer">
+            <div class="new-event-copy"><h3>Add a new event idea</h3><p>Write it naturally. Include whatever matters—caption, image idea, engine, reward, consequence, or uncertainty. It will be copied as a candidate event for the AI to structure later.</p></div>
+            <textarea class="review-textarea" data-new-event-draft aria-label="New event idea" placeholder="When someone lands here, show the graduation photo, start Flappy bird, give the winner 5 coins, and move everyone else back 3 cells…">${escapeHtml(state.newEventDraft)}</textarea>
+            <button class="review-button" type="button" data-add-new-event>Add event note</button>
+          </div>
+          ${notes.length ? `<div class="new-event-list">${notes.map((note, index) => `<article class="new-event-note">
+            <div><label class="new-event-note-label">Candidate event ${String(index + 1).padStart(2, "0")}</label><textarea class="review-textarea" data-new-event-note="${escapeHtml(note.id)}" aria-label="Edit candidate event ${index + 1}">${escapeHtml(note.text)}</textarea></div>
+            <button class="review-button secondary danger" type="button" data-delete-new-event="${escapeHtml(note.id)}">Delete</button>
+          </article>`).join("")}</div>` : ""}
+        </section>`;
+      }
+
+      function eventContextMarkdown(entry, comment) {
+        if (entry.source_kind === "story_event") {
+          const event = entry.raw;
+          const content = event.presentation?.suggested_activity_content;
+          return [
+            `## ${event.id} — ${event.original_caption}`,
+            `- Event type: Story event`,
+            `- Proposed activity.type: ${entry.activity_type}`,
+            `- Image asset: ${event.media_asset_id || "No linked image"}`,
+            `- Original effect: ${event.original_effect_proposed || "None provided"}`,
+            `- Current consequence fit: ${event.proposed_adaptation?.current_primitive || "None"} (${event.proposed_adaptation?.support || "unreviewed"})`,
+            `- Content authoring status: ${entry.authoring_status || "prompt/story only"}`,
+            content ? `- Proposed Event Builder content: ${JSON.stringify(content)}` : null,
+            `- Proposed adaptation: ${event.proposed_adaptation?.proposed_version || "None"}`,
+            `\nComment:\n${comment.trim()}`
+          ].filter(Boolean).join("\n");
+        }
+        if (entry.source_kind === "trivia") {
+          const question = entry.raw;
+          return [
+            `## ${question.id} — ${question.question}`,
+            `- Event type: Trivia`,
+            `- Proposed activity.type: ${entry.activity_type}`,
+            `- Source trivia number: ${question.source_number}`,
+            `- Options: ${question.choices.map((choice) => `${choice.label}) ${choice.text}`).join(" | ")}`,
+            `- Content authoring status: ${entry.authoring_status}`,
+            `- Authoring note: ${question.content_authoring_note}`,
+            `\nComment:\n${comment.trim()}`
+          ].join("\n");
+        }
+        const set = entry.raw;
+        return [
+          `## ${set.id} — ${set.name}`,
+          `- Event type: CardVote`,
+          `- Proposed activity.type: ${entry.activity_type}`,
+          `- Production status: ${set.production_status}`,
+          `- Source file: ${set.source_file || "Reference extraction"}`,
+          `- Cards: ${set.cards.map((card, index) => `${index + 1}) ${card.sentence}`).join(" | ")}`,
+          `\nComment:\n${comment.trim()}`
+        ].join("\n");
+      }
+
+      function buildReviewBrief() {
+        const commentedEvents = catalogEvents().filter((entry) => String(state.annotations.comments[entry.id] ?? "").trim());
+        const newEvents = state.annotations.newEvents.filter((note) => note.text.trim());
+        const sections = [
+          `# Essence event review brief`,
+          `Use the current Event Builder activity.type engines. Treat the comments as requested changes and preserve the included source context.`,
+          commentedEvents.length ? `\n# Comments on existing events\n\n${commentedEvents.map((entry) => eventContextMarkdown(entry, state.annotations.comments[entry.id])).join("\n\n")}` : null,
+          newEvents.length ? `\n# New candidate events — natural-language notes\n\n${newEvents.map((note, index) => `## New event ${index + 1}\n${note.text.trim()}`).join("\n\n")}` : null
+        ];
+        return sections.filter(Boolean).join("\n\n");
+      }
+
+      async function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+          try {
+            await navigator.clipboard.writeText(text);
+            return true;
+          } catch {}
+        }
+        const fallback = document.createElement("textarea");
+        fallback.value = text;
+        fallback.setAttribute("readonly", "");
+        fallback.style.position = "fixed";
+        fallback.style.opacity = "0";
+        document.body.appendChild(fallback);
+        fallback.select();
+        const copied = document.execCommand("copy");
+        fallback.remove();
+        return copied;
+      }
+
+      function eventTypeLabel(type) {
+        return ({ story_event: "Story event", trivia: "Trivia", card_vote: "CardVote" })[type] ?? "Event";
+      }
+
+      function renderStoryEvent(entry) {
+        const event = entry.raw;
+        const image = imageFor(event.media_asset_id);
+        const adaptation = event.proposed_adaptation;
+        const originalEffect = event.original_effect_proposed ? `<p class="effect"><strong>Original effect:</strong> ${escapeHtml(event.original_effect_proposed)}</p>` : "";
+        const visual = state.hideImages ? "" : image
+          ? `<button class="image-button" type="button" data-image="${escapeHtml(image)}" data-alt="${escapeHtml(event.original_caption)}"><img loading="lazy" src="${escapeHtml(image)}" alt="${escapeHtml(event.original_caption)}" /></button>`
+          : `<div class="image-placeholder">No linked image</div>`;
+        return `<article class="card event-card ${state.hideImages ? "no-image" : ""}" data-delivery="${escapeHtml(event.presentation?.type)}" data-event-type="story_event">
+          ${visual}
+          <div class="card-body">
+            <div class="event-footer"><span class="chip source-kind">Story event</span><span class="chip">${escapeHtml(event.id)}</span><span class="chip minigame">Engine · ${escapeHtml(entry.activity_label)}</span>${entry.authoring_status ? statusBadge(entry.authoring_status) : ""}</div>
+            <h3>${escapeHtml(event.original_caption)}</h3>
+            ${originalEffect}
+            <div class="event-footer">${statusBadge(adaptation.support)}<span class="chip">${escapeHtml(adaptation.current_primitive)}</span></div>
+            <details class="details"><summary>View proposed adaptation</summary><p>${escapeHtml(adaptation.proposed_version)}</p>${activityContentSummary(event) ? `<p><strong>Event Builder content:</strong> ${escapeHtml(activityContentSummary(event))}</p>` : ""}${entry.base_coin_reward_comment ? `<p>${escapeHtml(entry.base_coin_reward_comment)}</p>` : ""}</details>
+            ${renderCommentEditor(entry)}
+          </div>
+        </article>`;
+      }
+
+      function renderTriviaEvent(entry) {
+        const question = entry.raw;
+        return `<article class="card trivia-card" data-event-type="trivia">
+          <div class="event-footer"><span class="chip source-kind">Trivia</span><span class="chip">${escapeHtml(question.id)}</span><span class="chip minigame">Engine · ${escapeHtml(entry.activity_label)}</span>${statusBadge(entry.authoring_status)}</div>
+          <h3>${escapeHtml(question.question)}</h3>
+          <ol class="choices">${question.choices.map((choice) => `<li class="choice"><span class="choice-label">${escapeHtml(choice.label)}</span><span>${escapeHtml(choice.text)}</span></li>`).join("")}</ol>
+          <p class="reward-comment"><strong>Authoring check:</strong> ${escapeHtml(question.content_authoring_note)}</p>
+          ${entry.base_coin_reward_comment ? `<p class="reward-comment">${escapeHtml(entry.base_coin_reward_comment)}</p>` : ""}
+          ${renderCommentEditor(entry)}
+        </article>`;
+      }
+
+      function renderCardVoteEvent(entry) {
+        const set = entry.raw;
+        return `<article class="card cardvote-event-card" data-event-type="card_vote">
+          <div class="event-footer"><span class="chip source-kind">CardVote</span><span class="chip">${escapeHtml(set.id)}</span><span class="chip minigame">Engine · ${escapeHtml(entry.activity_label)}</span>${statusBadge(entry.authoring_status)}</div>
+          <h3>${escapeHtml(set.name)}</h3>
+          <ol class="choices">${set.cards.map((card, index) => `<li class="choice"><span class="choice-label">${String(index + 1).padStart(2, "0")}</span><span>${escapeHtml(card.sentence)}</span></li>`).join("")}</ol>
+          ${entry.base_coin_reward_comment ? `<p class="reward-comment">${escapeHtml(entry.base_coin_reward_comment)}</p>` : ""}
+          ${renderCommentEditor(entry)}
+        </article>`;
+      }
+
+      function renderTemplateAudit() {
+        const templates = eventTemplates();
+        const mismatches = templates.filter((template) => template.engine_fit === "mismatch");
+        const referenceOnly = templates.filter((template) => template.production_status === "reference_only");
+        return `<details class="engine-audit">
+          <summary>Content-template audit · ${templates.length} checked · ${mismatches.length} engine mismatch · ${referenceOnly.length} reference-only</summary>
+          <div class="template-audit-grid">${templates.map((template) => `<article class="template-audit-item" data-fit="${escapeHtml(template.engine_fit)}"><strong>${escapeHtml(template.short_name)} · engine ${escapeHtml(template.activity_type)}</strong><span>${escapeHtml(template.engine_fit_note)}</span></article>`).join("")}</div>
+        </details>`;
+      }
+
       function renderEvents() {
-        const events = state.data.events.filter((event) => matches(event) && (!state.mediaOnly || event.media_asset_id));
-        resultCount.textContent = `${events.length} of ${state.data.events.length} event cards`;
-        if (!events.length) return empty("No events match this filter.");
-        return `<div class="event-grid">${events.map((event) => {
-          const image = imageFor(event.media_asset_id);
-          const adaptation = event.proposed_adaptation;
-          const originalEffect = event.original_effect_proposed ? `<p class="effect"><strong>Original effect:</strong> ${escapeHtml(event.original_effect_proposed)}</p>` : "";
-          const visual = image
-            ? `<button class="image-button" type="button" data-image="${escapeHtml(image)}" data-alt="${escapeHtml(event.original_caption)}"><img loading="lazy" src="${escapeHtml(image)}" alt="${escapeHtml(event.original_caption)}" /></button>`
-            : `<div class="image-placeholder">No linked image</div>`;
-          return `<article class="card event-card" data-delivery="${escapeHtml(event.presentation.type)}">
-            ${visual}
-            <div class="card-body">
-              <div class="event-footer"><span class="chip">${escapeHtml(event.id)}</span>${event.presentation.suggested_minigame_id ? `<span class="chip minigame">${escapeHtml(event.presentation.suggested_minigame_id)}</span>` : ""}</div>
-              <h3>${escapeHtml(event.original_caption)}</h3>
-              ${originalEffect}
-              <div class="event-footer">${statusBadge(adaptation.support)}<span class="chip">${escapeHtml(adaptation.current_primitive)}</span></div>
-              <details class="details"><summary>View proposed adaptation</summary><p>${escapeHtml(adaptation.proposed_version)}</p></details>
-            </div>
-          </article>`;
-        }).join("")}</div>`;
+        const allEvents = catalogEvents();
+        const typeAndSearchMatches = allEvents.filter((event) => matches(event.raw) && (state.eventType === "all" || event.source_kind === state.eventType));
+        const visible = typeAndSearchMatches.filter((event) => state.engineFilter === "all" || event.activity_type === state.engineFilter);
+        const engines = activityEngines();
+        const usage = new Map(engines.map((engine) => [engine.id, typeAndSearchMatches.filter((event) => event.activity_type === engine.id).length]));
+        resultCount.textContent = `${visible.length} of ${allEvents.length} unified events`;
+        const engineWall = `<div class="engine-wall">
+          <div class="engine-wall-header"><h3>Current Event Builder activity types</h3><p>Counts group proposals by the real activity.type engine. Click one to filter.</p></div>
+          <div class="engine-model-note"><strong>Engine ≠ content template.</strong> “Más probable,” “Quién dijo,” and “Dos verdades” were authored event examples. They are not separate engines. The current <code>vote</code> engine always asks players to select a player.</div>
+          ${renderTemplateAudit()}
+          <div class="engine-usage-grid">${engines.map((engine) => {
+            const count = usage.get(engine.id) ?? 0;
+            return `<button class="engine-meter" type="button" data-engine-filter="${escapeHtml(engine.id)}" aria-pressed="${String(state.engineFilter === engine.id)}"><span>${escapeHtml(engine.label)}<small>activity.type · ${escapeHtml(engine.id)}</small></span><span class="engine-meter-count ${count === 0 ? "empty" : ""}">${count}</span></button>`;
+          }).join("")}</div>
+        </div>`;
+        const reviewWorkspace = renderReviewWorkspace();
+        if (!visible.length) return `${reviewWorkspace}${engineWall}${empty("No events match these filters.")}`;
+        return `${reviewWorkspace}${engineWall}<div class="event-grid">${visible.map((entry) => ({ story_event: renderStoryEvent, trivia: renderTriviaEvent, card_vote: renderCardVoteEvent })[entry.source_kind](entry)).join("")}</div>`;
       }
 
       function renderTraits() {
@@ -470,13 +818,13 @@
             <h4>${escapeHtml(trait.kind)}</h4>
             <p>${escapeHtml(trait.original)}</p>
             <p class="proposal">${statusBadge(trait.proposed_adaptation.support)} ${escapeHtml(trait.proposed_adaptation.current_best_fit)}</p>
-            ${trait.proposed_adaptation.reason ? `<details class="details"><summary>Why this needs work</summary><p>${escapeHtml(trait.proposed_adaptation.reason)}</p></details>` : ""}
+            ${trait.proposed_adaptation.reason ? `<details class="details"><summary>${trait.proposed_adaptation.support === "supported" ? "Implementation notes" : "Why this needs work"}</summary><p>${escapeHtml(trait.proposed_adaptation.reason)}</p></details>` : ""}
           </section>`).join("")}
         </article>`).join("")}</div>`;
       }
 
       function renderArtifacts() {
-        const artifacts = state.data.artifacts.filter((artifact) => matches(artifact) && (!state.mediaOnly || artifact.media_asset_ids.length));
+        const artifacts = state.data.artifacts.filter(matches);
         resultCount.textContent = `${artifacts.length} artifacts`;
         if (!artifacts.length) return empty("No artifacts match this filter.");
         return `<div class="artifact-grid">${artifacts.map((artifact) => {
@@ -491,114 +839,32 @@
         }).join("")}</div>`;
       }
 
-      function renderTrivia() {
-        const trivia = state.data.trivia.filter(matches);
-        resultCount.textContent = `${trivia.length} questions · image-answer question 4 excluded`;
-        if (!trivia.length) return empty("No trivia matches this filter.");
-        return `<div class="trivia-grid">${trivia.map((question) => `<article class="card trivia-card">
-          <span class="chip">${escapeHtml(question.id)}</span>
-          <h3>${escapeHtml(question.question)}</h3>
-          <ol class="choices">${question.choices.map((choice) => `<li class="choice"><span class="choice-label">${escapeHtml(choice.label)}</span><span>${escapeHtml(choice.text)}</span></li>`).join("")}</ol>
-        </article>`).join("")}</div>`;
-      }
+      function syncEventFilters() {
+        const isEvents = state.view === "events";
+        eventTypeFilterWrap.hidden = !isEvents;
+        engineFilterWrap.hidden = !isEvents;
+        hideImagesWrap.hidden = !isEvents;
+        if (!isEvents) return;
 
-      function renderCardVote() {
-        const sets = state.data.card_vote_sets.filter(matches);
-        const cardCount = sets.reduce((count, set) => count + set.cards.length, 0);
-        resultCount.textContent = `${cardCount} cards across ${sets.length} CardVote set${sets.length === 1 ? "" : "s"}`;
-        if (!sets.length) return empty("No CardVote sets match this filter.");
-        return `<div class="cardvote-list">${sets.map((set) => `<article class="cardvote-stage">
-          <header class="cardvote-header">
-            <div>
-              <span class="eyebrow">CardVote · ${escapeHtml(set.status.replaceAll("_", " "))}</span>
-              <h3>${escapeHtml(set.name)}</h3>
-              <p>${escapeHtml(set.purpose)}</p>
-            </div>
-            <div class="cardvote-meta"><span class="chip">${set.cards.length} cards</span><span class="chip">no self-vote</span><span class="chip">shared ties</span></div>
-          </header>
-          <div class="cardvote-deck">${set.cards.map((card, index) => `<article class="cardvote-card" style="--tilt: ${[-2, 1.2, -0.6, 1.8, -1.3][index % 5]}deg"><span class="cardvote-card-number">CARD ${String(index + 1).padStart(2, "0")}</span><p>${escapeHtml(card.sentence)}</p></article>`).join("")}</div>
-        </article>`).join("")}</div>`;
-      }
-
-      function minigameTemplates() {
-        return state.data.minigame_templates ?? [];
-      }
-
-      function playableEvents() {
-        const templates = new Map(minigameTemplates().map((template) => [template.id, template]));
-        const asPlayable = ({ id, sourceKind, sourceId, title, minigameId }) => {
-          const template = minigameId ? templates.get(minigameId) : null;
-          return {
-            id,
-            source_kind: sourceKind,
-            source_id: sourceId,
-            title,
-            minigame_id: minigameId ?? "prompt",
-            minigame_name: template?.name ?? "Prompt / story",
-            activity_type: template?.activity_type ?? "prompt",
-            base_coin_reward_comment: template?.base_coin_reward_comment ?? "No es un minijuego: no tiene comentario de recompensa base."
-          };
-        };
-
-        return [
-          ...state.data.events.map((event) => asPlayable({
-            id: `playable-${event.id}`,
-            sourceKind: "story_event",
-            sourceId: event.id,
-            title: event.original_caption,
-            minigameId: event.presentation?.suggested_minigame_id ?? null
-          })),
-          ...state.data.trivia.map((question) => asPlayable({
-            id: `playable-${question.id}`,
-            sourceKind: "trivia",
-            sourceId: question.id,
-            title: question.question,
-            minigameId: question.minigame_template_id ?? "trivia-novio-1"
-          })),
-          ...state.data.card_vote_sets.map((set) => asPlayable({
-            id: `playable-${set.id}`,
-            sourceKind: "card-vote",
-            sourceId: set.id,
-            title: set.name,
-            minigameId: "card-vote"
-          }))
-        ];
-      }
-
-      function syncEngineFilter() {
-        const isPlayable = state.view === "playable";
-        engineFilterWrap.hidden = !isPlayable;
-        if (!isPlayable) return;
-        const items = playableEvents();
-        const usage = new Map(minigameTemplates().map((template) => [template.id, items.filter((item) => item.minigame_id === template.id).length]));
-        engineFilter.innerHTML = [
-          `<option value="all">All playable events</option>`,
-          `<option value="prompt">Prompt / story (${items.filter((item) => item.minigame_id === "prompt").length})</option>`,
-          ...minigameTemplates().map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)} (${usage.get(template.id) ?? 0})</option>`)
+        const allEvents = catalogEvents();
+        const typeCounts = new Map(["story_event", "trivia", "card_vote"].map((type) => [type, allEvents.filter((event) => event.source_kind === type).length]));
+        eventTypeFilter.innerHTML = [
+          `<option value="all">All event types (${allEvents.length})</option>`,
+          `<option value="story_event">Story events (${typeCounts.get("story_event")})</option>`,
+          `<option value="trivia">Trivia (${typeCounts.get("trivia")})</option>`,
+          `<option value="card_vote">CardVote (${typeCounts.get("card_vote")})</option>`
         ].join("");
-        if (!["all", "prompt", ...minigameTemplates().map((template) => template.id)].includes(state.engineFilter)) state.engineFilter = "all";
-        engineFilter.value = state.engineFilter;
-      }
+        eventTypeFilter.value = state.eventType;
 
-      function renderPlayable() {
-        const allItems = playableEvents();
-        const templates = minigameTemplates();
-        const usage = new Map(templates.map((template) => [template.id, allItems.filter((item) => item.minigame_id === template.id).length]));
-        const visible = allItems.filter((item) => matches(item) && (state.engineFilter === "all" || item.minigame_id === state.engineFilter));
-        resultCount.textContent = `${visible.length} of ${allItems.length} unified playable events`;
-        return `<div class="engine-wall">
-          <div class="engine-wall-header"><h3>Engine usage</h3><p>Click an engine to filter; a 0 means the catalog has no proposed use yet.</p></div>
-          <div class="engine-usage-grid">${templates.map((template) => {
-            const count = usage.get(template.id) ?? 0;
-            return `<button class="engine-meter" type="button" data-engine-filter="${escapeHtml(template.id)}" aria-pressed="${String(state.engineFilter === template.id)}"><span>${escapeHtml(template.name)}<small>${escapeHtml(template.activity_type)}</small></span><span class="engine-meter-count ${count === 0 ? "empty" : ""}">${count}</span></button>`;
-          }).join("")}</div>
-        </div>
-        ${visible.length ? `<div class="playable-grid">${visible.map((item) => `<article class="card playable-card" data-source-kind="${escapeHtml(item.source_kind)}">
-          <div class="event-footer"><span class="chip">${escapeHtml(item.source_kind.replaceAll("_", " "))}</span><span class="chip minigame">${escapeHtml(item.minigame_name)}</span></div>
-          <h3>${escapeHtml(item.title)}</h3>
-          <p class="mono">${escapeHtml(item.source_id)}</p>
-          <p class="reward-comment">${escapeHtml(item.base_coin_reward_comment)}</p>
-        </article>`).join("")}</div>` : empty("No playable events match this minigame filter.")}`;
+        const typeAndSearchMatches = allEvents.filter((event) => matches(event.raw) && (state.eventType === "all" || event.source_kind === state.eventType));
+        const engines = activityEngines();
+        const usage = new Map(engines.map((engine) => [engine.id, typeAndSearchMatches.filter((event) => event.activity_type === engine.id).length]));
+        engineFilter.innerHTML = [
+          `<option value="all">All activity engines (${typeAndSearchMatches.length})</option>`,
+          ...engines.map((engine) => `<option value="${escapeHtml(engine.id)}">${escapeHtml(engine.label)} (${usage.get(engine.id) ?? 0})</option>`)
+        ].join("");
+        if (!["all", ...engines.map((engine) => engine.id)].includes(state.engineFilter)) state.engineFilter = "all";
+        engineFilter.value = state.engineFilter;
       }
 
       function renderSolutions() {
@@ -617,24 +883,97 @@
         if (!state.data) return;
         viewTitle.textContent = titleByView[state.view];
         document.querySelectorAll(".tab").forEach((button) => button.setAttribute("aria-selected", String(button.dataset.view === state.view)));
-        syncEngineFilter();
-        content.innerHTML = ({ events: renderEvents, traits: renderTraits, artifacts: renderArtifacts, trivia: renderTrivia, cardvote: renderCardVote, playable: renderPlayable, solutions: renderSolutions })[state.view]();
+        syncEventFilters();
+        content.innerHTML = ({ events: renderEvents, traits: renderTraits, artifacts: renderArtifacts, solutions: renderSolutions })[state.view]();
+        if (state.view === "events") syncReviewControls();
       }
 
       document.querySelector(".tabs").addEventListener("click", (event) => {
         const button = event.target.closest("[data-view]");
         if (!button) return;
         state.view = button.dataset.view;
-        state.mediaOnly = false;
-        document.querySelector("#media-only").checked = false;
+        state.eventType = "all";
+        state.engineFilter = "all";
         render();
       });
 
       document.querySelector("#search").addEventListener("input", (event) => { state.query = event.target.value.trim(); render(); });
-      document.querySelector("#media-only").addEventListener("change", (event) => { state.mediaOnly = event.target.checked; render(); });
+      document.querySelector("#hide-images").addEventListener("change", (event) => { state.hideImages = event.target.checked; render(); });
+      eventTypeFilter.addEventListener("change", (event) => { state.eventType = event.target.value; state.engineFilter = "all"; render(); });
       engineFilter.addEventListener("change", (event) => { state.engineFilter = event.target.value; render(); });
 
-      content.addEventListener("click", (event) => {
+      content.addEventListener("input", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLTextAreaElement)) return;
+        if (target.matches("[data-event-comment]")) {
+          const eventId = target.dataset.eventComment;
+          if (!eventId) return;
+          if (target.value.trim()) state.annotations.comments[eventId] = target.value;
+          else delete state.annotations.comments[eventId];
+          persistAnnotations();
+          syncReviewControls();
+          return;
+        }
+        if (target.matches("[data-new-event-draft]")) {
+          state.newEventDraft = target.value;
+          return;
+        }
+        if (target.matches("[data-new-event-note]")) {
+          const note = state.annotations.newEvents.find((item) => item.id === target.dataset.newEventNote);
+          if (!note) return;
+          note.text = target.value;
+          persistAnnotations();
+          syncReviewControls();
+        }
+      });
+
+      content.addEventListener("keydown", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLTextAreaElement) || !target.matches("[data-new-event-draft]")) return;
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          content.querySelector("[data-add-new-event]")?.click();
+        }
+      });
+
+      content.addEventListener("click", async (event) => {
+        const addNewEvent = event.target.closest("[data-add-new-event]");
+        if (addNewEvent) {
+          const text = state.newEventDraft.trim();
+          if (!text) {
+            setReviewStatus("Write a natural-language event idea first.", true);
+            return;
+          }
+          const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `new-event-${Date.now()}`;
+          state.annotations.newEvents.push({ id, text });
+          state.newEventDraft = "";
+          persistAnnotations();
+          render();
+          setReviewStatus("New event note added and saved locally.");
+          return;
+        }
+        const deleteNewEvent = event.target.closest("[data-delete-new-event]");
+        if (deleteNewEvent) {
+          state.annotations.newEvents = state.annotations.newEvents.filter((note) => note.id !== deleteNewEvent.dataset.deleteNewEvent);
+          persistAnnotations();
+          render();
+          setReviewStatus("New event note deleted.");
+          return;
+        }
+        const copyReview = event.target.closest("[data-copy-review]");
+        if (copyReview) {
+          const brief = buildReviewBrief();
+          if (!brief) {
+            setReviewStatus("Add at least one comment or new event note before copying.", true);
+            return;
+          }
+          const copied = await copyText(brief);
+          const counts = annotationCounts();
+          setReviewStatus(copied
+            ? `Copied ${counts.comments} event comment${counts.comments === 1 ? "" : "s"} and ${counts.newEvents} new event note${counts.newEvents === 1 ? "" : "s"}.`
+            : "Copy was blocked by the browser. Select the notes manually and try again.", !copied);
+          return;
+        }
         const engineButton = event.target.closest("[data-engine-filter]");
         if (engineButton) {
           state.engineFilter = engineButton.dataset.engineFilter;

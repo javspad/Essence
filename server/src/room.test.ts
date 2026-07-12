@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import type { GameContent, ServerToClientEvents } from "@essence/shared";
 import { validateGameContent } from "@essence/shared/contentValidation";
-import { normalizeGameContentEvents, resolveEventMediaRefs } from "@essence/shared/events";
+import { effectConditionMatches } from "@essence/shared/consequences";
+import { normalizeGameContentEvents, resolveEventMediaRefs, resolveTileEventForPlayer } from "@essence/shared/events";
 import { resolveActivityResults } from "./activities/index";
 import { GameRoom } from "./room";
 
@@ -18,6 +19,19 @@ assert.deepEqual(
   ),
   [{ assetId: "portrait", caption: "Portrait", placement: "both" }]
 );
+
+{
+  const pooledContent = normalizeGameContentEvents({
+    board: [{ id: 0, type: "minigame", eventIds: ["first", "second"] }],
+    events: {
+      first: { name: "First", activity: { type: "prompt" } },
+      second: { name: "Second", activity: { type: "prompt" } },
+    },
+    players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+  });
+  assert.equal(resolveTileEventForPlayer(pooledContent, pooledContent.board[0], pooledContent.players[0], () => 0)?.id, "first");
+  assert.equal(resolveTileEventForPlayer(pooledContent, pooledContent.board[0], pooledContent.players[0], () => 0.999)?.id, "second");
+}
 
 function createIoRecorder(): { io: unknown; events: EmittedEvent[] } {
   const events: EmittedEvent[] = [];
@@ -565,6 +579,128 @@ await withRolls([4], async () => {
   assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction" && action.requiresConfirmation), true);
   assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "move" && action.value === -1), true);
 });
+
+assert.equal(
+  effectConditionMatches(
+    { rollTotal: { turns: 2, gte: 11 } },
+    { hook: "afterMovement", rollHistory: [2, 6, 5] }
+  ),
+  true,
+  "roll-total traits can react to the target player's last two rolls"
+);
+assert.equal(
+  effectConditionMatches(
+    { rankingPositionGte: 4, activityTypesNone: ["prompt"] },
+    { hook: "onActivityResult", targetPlayerId: "nico", ranking: ["alice", "bob", "carla", "nico"], activityType: "reaction" }
+  ),
+  true,
+  "outside-top-three traits match the effect owner's ranking position"
+);
+assert.equal(
+  effectConditionMatches(
+    { rankingPositionGte: 4, activityTypesNone: ["prompt"] },
+    { hook: "onActivityResult", targetPlayerId: "nico", ranking: ["alice", "bob", "carla", "nico"], activityType: "prompt" }
+  ),
+  false,
+  "minigame traits ignore prompt results"
+);
+
+{
+  const { io } = createIoRecorder();
+  const preTurnContent: GameContent = normalizeGameContentEvents({
+    board: Array.from({ length: 8 }, (_, id) => ({ id, type: id === 7 ? "finish" as const : "start" as const })),
+    events: {},
+    players: [{ id: "javi", name: "Javi", color: "#f59e0b" }],
+    characters: { javi: { id: "javi", displayName: "Javi", defaultTraits: ["false-abstemious"] } },
+    characterTraits: {
+      "false-abstemious": { id: "false-abstemious", name: "Falso abstemio", effectId: "two-starting-shots" },
+    },
+    effects: {
+      "two-starting-shots": {
+        id: "two-starting-shots",
+        name: "Two starting shots",
+        duration: { mode: "turns", value: 2 },
+        consequences: [{ type: "offlineAction", hook: "onTurnStart", action: "takeShot", text: "Take a shot before playing." }],
+      },
+    },
+  });
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "PRE1", "Turn-start traits", preTurnContent);
+  room.join("socket-javi", "Javi");
+  room.startGame("socket-javi");
+
+  assert.equal(room.getState().phase, "event");
+  assert.equal(room.getState().activeEvent?.actions?.[0]?.offlineAction, "takeShot");
+  room.next("socket-javi");
+  assert.equal(room.getState().phase, "turn", "confirming a turn-start action resumes the same turn");
+
+  const internals = room as unknown as { advanceTurn: () => void };
+  internals.advanceTurn();
+  assert.equal(room.getState().phase, "event", "the second turn starts with the second shot");
+  room.next("socket-javi");
+  internals.advanceTurn();
+  assert.equal(room.getState().phase, "turn", "the two-turn trait expires before the third turn");
+}
+
+{
+  const { io } = createIoRecorder();
+  const rankedTraitContent: GameContent = normalizeGameContentEvents({
+    board: Array.from({ length: 8 }, (_, id) => ({ id, type: id === 7 ? "finish" as const : "start" as const })),
+    events: {},
+    players: [
+      { id: "alice", name: "Alice", color: "#f87171" },
+      { id: "bob", name: "Bob", color: "#60a5fa" },
+      { id: "carla", name: "Carla", color: "#34d399" },
+      { id: "nico", name: "Nico", color: "#f59e0b" },
+    ],
+    characters: {
+      alice: { id: "alice", displayName: "Alice" },
+      bob: { id: "bob", displayName: "Bob" },
+      carla: { id: "carla", displayName: "Carla" },
+      nico: { id: "nico", displayName: "Nico", defaultTraits: ["outside-top-three-bonus"] },
+    },
+    characterTraits: {
+      "outside-top-three-bonus": { id: "outside-top-three-bonus", name: "Frustración", effectId: "outside-top-three-coin" },
+    },
+    effects: {
+      "outside-top-three-coin": {
+        id: "outside-top-three-coin",
+        name: "Outside top three coin",
+        duration: { mode: "game" },
+        consequences: [{
+          type: "coins",
+          hook: "onActivityResult",
+          when: { rankingPositionGte: 4, activityTypesNone: ["prompt"] },
+          value: 1,
+          text: "Outside the top three: gain 1 coin.",
+        }],
+      },
+    },
+  });
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "RNK1", "Rank traits", rankedTraitContent);
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.join("socket-carla", "Carla");
+  room.join("socket-nico", "Nico");
+  room.startGame("socket-alice");
+
+  const internals = room as unknown as {
+    applyEffectHook: (hook: string, context: Record<string, unknown>) => unknown[];
+  };
+  internals.applyEffectHook("onActivityResult", {
+    ranking: ["alice", "bob", "carla", "nico"],
+    activityType: "reaction",
+    actingPlayerId: "alice",
+    landingPlayerId: "alice",
+  });
+  assert.equal(room.getState().players.find((player) => player.id === "nico")?.coins, 1);
+  internals.applyEffectHook("onActivityResult", {
+    ranking: ["alice", "bob", "carla", "nico"],
+    activityType: "prompt",
+    actingPlayerId: "alice",
+    landingPlayerId: "alice",
+  });
+  assert.equal(room.getState().players.find((player) => player.id === "nico")?.coins, 1, "prompt results do not pay the rank trait");
+}
 
 {
   const { io } = createIoRecorder();
@@ -1677,3 +1813,43 @@ await withRolls([1], async () => {
     ["alice", 1],
   ]);
 });
+
+{
+  const { io } = createIoRecorder();
+  const movementContent: GameContent = normalizeGameContentEvents({
+    board: Array.from({ length: 10 }, (_, id) => ({ id, type: id === 9 ? "finish" as const : "start" as const })),
+    events: {},
+    players: [
+      { id: "alice", name: "Alice", color: "#f87171" },
+      { id: "bob", name: "Bob", color: "#60a5fa" },
+    ],
+  });
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "MOVE", "Character movement", movementContent);
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.startGame("socket-alice");
+  const state = room.getState();
+  state.players.find((player) => player.id === "alice")!.position = 2;
+  state.players.find((player) => player.id === "bob")!.position = 7;
+
+  const internals = room as unknown as {
+    applyAction: (action: any, targetPlayerIds: string[], context?: any) => any;
+    advanceTurn: () => void;
+  };
+  const moved = internals.applyAction(
+    { type: "moveToPlayerPosition", withTarget: { playerId: "bob" } },
+    ["alice"],
+    { landingPlayerId: "alice", actingPlayerId: "alice" }
+  );
+  assert.equal(state.players.find((player) => player.id === "alice")?.position, 7);
+  assert.equal(moved.tileId, 7);
+
+  const skipped = internals.applyAction({ type: "skipTurn", turns: 2 }, ["bob"], { landingPlayerId: "alice" });
+  assert.equal(skipped.value, 2);
+  internals.advanceTurn();
+  assert.equal(state.players[state.activeIndex]?.id, "alice", "Bob's first skipped turn returns play to Alice");
+  internals.advanceTurn();
+  assert.equal(state.players[state.activeIndex]?.id, "alice", "Bob's second skipped turn returns play to Alice");
+  internals.advanceTurn();
+  assert.equal(state.players[state.activeIndex]?.id, "bob", "Bob becomes active after both skipped turns are consumed");
+}

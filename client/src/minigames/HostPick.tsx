@@ -8,7 +8,7 @@ export default function HostPick({ content, players, onFinish }: MinigameProps) 
   const title = content?.title ?? content?.label ?? "Elección del host";
   const prompt = content?.prompt ?? content?.story?.prompt ?? "Elegí quién gana o pierde esta ronda.";
   const [sent, setSent] = useState(false);
-  const [pickMode, setPickMode] = useState<"winner" | "loser">("loser");
+  const [pickMode, setPickMode] = useState<"winner" | "loser">(content?.defaultPick === "winner" ? "winner" : "loser");
 
   const pickPlayer = (playerId: string) => {
     if (sent) return;

@@ -750,6 +750,10 @@ function validateAction(
   }
   if (action.type === "move" && !Number.isFinite(action.delta)) error(`${path}.delta`, "must be a finite number");
   if (action.type === "moveTo" && !Number.isInteger(action.tileId)) error(`${path}.tileId`, "must be an integer board cell id");
+  if (action.type === "moveToPlayerPosition") validateTarget(`${path}.withTarget`, action.withTarget, playerIds, error);
+  if (action.type === "skipTurn" && action.turns !== undefined && (!Number.isInteger(action.turns) || action.turns < 1)) {
+    error(`${path}.turns`, "must be a positive integer");
+  }
   if (action.type === "applyEffect" && !effectIds.has(action.effectId)) error(`${path}.effectId`, `references missing effect ${action.effectId}`);
   if (action.type === "movementMultiplier") {
     if (!Number.isFinite(action.multiplier) || action.multiplier < 0) error(`${path}.multiplier`, "must be a non-negative finite number");
@@ -795,7 +799,23 @@ function validateCondition(path: string, condition: NonNullable<EventAction["whe
     if (condition.movementTotal.lte !== undefined && !Number.isFinite(condition.movementTotal.lte)) error(`${path}.movementTotal.lte`, "must be finite");
     if (condition.movementTotal.gte !== undefined && !Number.isFinite(condition.movementTotal.gte)) error(`${path}.movementTotal.gte`, "must be finite");
   }
+  if (condition.rollTotal) {
+    if (!Number.isInteger(condition.rollTotal.turns) || condition.rollTotal.turns < 1) error(`${path}.rollTotal.turns`, "must be a positive integer");
+    if (condition.rollTotal.lte !== undefined && !Number.isFinite(condition.rollTotal.lte)) error(`${path}.rollTotal.lte`, "must be finite");
+    if (condition.rollTotal.gte !== undefined && !Number.isFinite(condition.rollTotal.gte)) error(`${path}.rollTotal.gte`, "must be finite");
+  }
   if (condition.cellTagsAny && !condition.cellTagsAny.every((tag) => tag.trim())) error(`${path}.cellTagsAny`, "must include non-empty tags");
+  for (const [key, activityTypes] of [["activityTypesAny", condition.activityTypesAny], ["activityTypesNone", condition.activityTypesNone]] as const) {
+    if (activityTypes && (!activityTypes.length || activityTypes.some((type) => !EVENT_ACTIVITY_TYPES.includes(type)))) {
+      error(`${path}.${key}`, "must include supported activity types");
+    }
+  }
+  if (condition.rankingPositionGte !== undefined && (!Number.isInteger(condition.rankingPositionGte) || condition.rankingPositionGte < 1)) {
+    error(`${path}.rankingPositionGte`, "must be a positive integer");
+  }
+  if (condition.rankingPositionLte !== undefined && (!Number.isInteger(condition.rankingPositionLte) || condition.rankingPositionLte < 1)) {
+    error(`${path}.rankingPositionLte`, "must be a positive integer");
+  }
 }
 
 function validateTarget(
