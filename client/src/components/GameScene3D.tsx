@@ -23,8 +23,9 @@ import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 import { cn } from "@/lib/utils";
 import { artifactUseMessage, effectEndedMessage } from "../artifactPresentation";
-import { AudioRuntimeControls, useAudioRuntime } from "../audio";
+import { useAudioRuntime } from "../audio";
 import { applyCameraIntent, resolveTileCamera, supportsWebGL, type BoardCameraState, type CameraIntent } from "../board3d";
+import { isProductionMode } from "../featureFlags";
 import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
 import type { EffectNotice } from "../useGame";
 import ActivityMediaStrip from "./ActivityMedia";
@@ -513,7 +514,7 @@ function SceneChrome({
 }) {
   const active = state.players.find((player) => player.id === activeId);
   const sorted = rankPlayersByProgress(state.players);
-  const debugToolsEnabled = isDevBuild() || (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debugTools"));
+  const debugToolsEnabled = !isProductionMode() && (isDevBuild() || (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debugTools")));
   const showTurnPanel =
     state.phase !== "reveal" &&
     state.phase !== "finished" &&
@@ -539,7 +540,6 @@ function SceneChrome({
         {state.phase !== "finished" && (
           <div className="relative z-30 ml-0 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
             <ShopButton onOpen={onOpenCosmeticShop} />
-            <AudioRuntimeControls />
             {isHost && debugToolsEnabled && (
               <DebugEffectTool
                 players={state.players}

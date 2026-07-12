@@ -52,6 +52,18 @@ export const EVENT_ACTIVITY_TYPES: EventActivityType[] = [
   "redlight",
 ];
 
+const FALLBACK_ACTIVITY_TYPES_BY_TILE: Partial<Record<Tile["type"], readonly EventActivityType[]>> = {
+  minigame: ["hostPick", "selfTap", "cardVote", "timing", "whack", "maze", "flappy", "snake", "horserace", "redlight"],
+  trivia: ["buzzer"],
+  vote: ["vote"],
+  judge: ["judge"],
+  dare: ["prompt"],
+  fate: ["prompt"],
+  groom: ["prompt"],
+  reaction: ["reaction"],
+  estimate: ["estimate", "prompt"],
+};
+
 export function normalizeGameContentEvents(content: GameContent): GameContent {
   const effects = normalizeEffectCatalog(content.effects);
   const effectIds = new Set(Object.keys(effects));
@@ -114,9 +126,11 @@ export function resolveTileEventForPlayer(
   player: Pick<PlayerDef, "id">,
   random: () => number = Math.random
 ): ResolvedGameEvent | null {
+  const assignedIds = eventIdsForTile(tile);
+  const eventIds = assignedIds.length ? assignedIds : fallbackEventIdsForTile(content, tile);
   let bestScore = 0;
   const candidates: string[] = [];
-  for (const id of eventIdsForTile(tile)) {
+  for (const id of eventIds) {
     const event = content.events[id];
     if (!event) continue;
     const score = eventTriggerScore(event, player);
@@ -132,6 +146,15 @@ export function resolveTileEventForPlayer(
   if (!candidates.length) return null;
   const index = Math.min(candidates.length - 1, Math.max(0, Math.floor(random() * candidates.length)));
   return resolveEventForPlayer(content, candidates[index], player);
+}
+
+function fallbackEventIdsForTile(content: GameContent, tile: Tile): string[] {
+  const activityTypes = FALLBACK_ACTIVITY_TYPES_BY_TILE[tile.type];
+  if (!activityTypes?.length) return [];
+  return Object.entries(content.events).flatMap(([id, event]) => {
+    if (event.trigger && event.trigger.type !== "anyPlayer") return [];
+    return event.activity && activityTypes.includes(event.activity.type) ? [id] : [];
+  });
 }
 
 export function resolveEventActionTargetIds(

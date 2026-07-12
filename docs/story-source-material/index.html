@@ -829,10 +829,14 @@
         if (!artifacts.length) return empty("No artifacts match this filter.");
         return `<div class="artifact-grid">${artifacts.map((artifact) => {
           const image = imageFor(artifact.media_asset_ids[0]);
+          const canonicalName = artifact.canonical_name || artifact.original_name;
+          const productionId = artifact.production_artifact_id || artifact.id;
           return `<article class="card artifact-card">
-            <div class="artifact-image">${image ? `<button class="image-button" type="button" data-image="${escapeHtml(image)}" data-alt="${escapeHtml(artifact.original_name)}"><img loading="lazy" src="${escapeHtml(image)}" alt="${escapeHtml(artifact.original_name)}" /></button>` : `<div class="image-placeholder">Artifact</div>`}</div>
-            <div class="card-body"><span class="chip">${escapeHtml(artifact.id)}</span><h3>${escapeHtml(artifact.original_name)}</h3>
-              <p class="effect">${escapeHtml(artifact.original_effect_proposed)}</p>
+            <div class="artifact-image">${image ? `<button class="image-button" type="button" data-image="${escapeHtml(image)}" data-alt="${escapeHtml(canonicalName)}"><img loading="lazy" src="${escapeHtml(image)}" alt="${escapeHtml(canonicalName)}" /></button>` : `<div class="image-placeholder">Artifact</div>`}</div>
+            <div class="card-body"><span class="chip">${escapeHtml(productionId)}</span><h3>${escapeHtml(canonicalName)}</h3>
+              ${canonicalName !== artifact.original_name ? `<p class="muted"><strong>Source name:</strong> ${escapeHtml(artifact.original_name)}</p>` : ""}
+              <p class="effect"><strong>Original effect:</strong> ${escapeHtml(artifact.original_effect_proposed || "No source effect supplied")}</p>
+              <p class="proposal"><strong>Production adaptation:</strong> ${escapeHtml(artifact.proposed_adaptation.proposed_version)}</p>
               <div class="event-footer">${statusBadge(artifact.proposed_adaptation.support)}<span class="chip">${escapeHtml(artifact.proposed_adaptation.current_primitive)}</span></div>
             </div>
           </article>`;

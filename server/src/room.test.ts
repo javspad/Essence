@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { GameContent, ServerToClientEvents } from "@essence/shared";
 import { validateGameContent } from "@essence/shared/contentValidation";
 import { effectConditionMatches } from "@essence/shared/consequences";
@@ -641,6 +642,86 @@ assert.equal(
   assert.equal(room.getState().phase, "turn", "the two-turn trait expires before the third turn");
 }
 
+await withRolls([1], async () => {
+  const { io } = createIoRecorder();
+  const landingEffectContent: GameContent = normalizeGameContentEvents({
+    board: [
+      { id: 0, type: "start" },
+      { id: 1, type: "reaction" },
+      { id: 2, type: "reaction", eventId: "explicit-reaction" },
+      { id: 3, type: "finish" },
+    ],
+    events: {
+      "fallback-reaction": {
+        name: "Fallback reaction",
+        kind: "activity",
+        story: { title: "Fallback reaction", prompt: "React now." },
+        activity: { type: "reaction", content: { label: "React now." } },
+      },
+      "explicit-reaction": {
+        name: "Explicit reaction",
+        kind: "activity",
+        story: { title: "Explicit reaction", prompt: "This pool is authored." },
+        activity: { type: "reaction", content: { label: "This pool is authored." } },
+      },
+      "javi-personal-reaction": {
+        name: "Javi personal reaction",
+        kind: "activity",
+        trigger: { type: "player", playerId: "javi" },
+        story: { title: "Javi personal reaction", prompt: "Only from an authored pool." },
+        activity: { type: "reaction", content: { label: "Only from an authored pool." } },
+      },
+    },
+    players: [{ id: "javi", name: "Javi", color: "#f59e0b" }],
+    characters: {
+      javi: {
+        id: "javi",
+        displayName: "Javi",
+        defaultTraits: ["false-abstemious", "roll-bonus"],
+      },
+    },
+    characterTraits: {
+      "false-abstemious": { id: "false-abstemious", name: "Falso abstemio", effectId: "starting-shot" },
+      "roll-bonus": { id: "roll-bonus", name: "Roll bonus", effectId: "roll-bonus-effect" },
+    },
+    effects: {
+      "starting-shot": {
+        id: "starting-shot",
+        name: "Starting shot",
+        duration: { mode: "turns", value: 2 },
+        consequences: [{ type: "offlineAction", hook: "onTurnStart", action: "takeShot", text: "Take a shot before playing." }],
+      },
+      "roll-bonus-effect": {
+        id: "roll-bonus-effect",
+        name: "Roll bonus",
+        duration: { mode: "game" },
+        consequences: [{ type: "coins", hook: "beforeRoll", value: 1, text: "Gain a coin before rolling." }],
+      },
+    },
+  });
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "LAND", "Landing effects", landingEffectContent);
+  room.join("socket-javi", "Javi");
+  room.startGame("socket-javi");
+
+  assert.equal(room.getState().phase, "event", "Javi's turn-start effect keeps its confirmation window");
+  assert.equal(room.getState().activeEvent?.actions?.[0]?.offlineAction, "takeShot");
+  room.next("socket-javi");
+  assert.equal(room.getState().phase, "turn", "confirming the effect window resumes Javi's turn");
+
+  room.roll("socket-javi", 1);
+  assert.equal(room.getState().players[0]?.coins, 1, "Javi's before-roll effect still resolves");
+  assert.equal(room.getState().phase, "minigame", "an unassigned typed cell starts a catalog event");
+  assert.equal(room.getState().activeMinigame?.eventId, "fallback-reaction");
+  assert.deepEqual(room.getState().activeEffects.map((effect) => effect.effectId).sort(), ["roll-bonus-effect", "starting-shot"]);
+
+  const explicitRoom = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "LAND2", "Explicit landing effects", landingEffectContent);
+  explicitRoom.join("socket-javi-explicit", "Javi");
+  explicitRoom.startGame("socket-javi-explicit");
+  explicitRoom.next("socket-javi-explicit");
+  explicitRoom.roll("socket-javi-explicit", 2);
+  assert.equal(explicitRoom.getState().activeMinigame?.eventId, "explicit-reaction", "authored event pools stay authoritative");
+});
+
 {
   const { io } = createIoRecorder();
   const rankedTraitContent: GameContent = normalizeGameContentEvents({
@@ -816,6 +897,44 @@ const artifactShopContent: GameContent = normalizeGameContentEvents({
   ],
 });
 
+const productionArtifactContent = JSON.parse(
+  readFileSync(new URL("../../shared/content.json", import.meta.url), "utf8")
+) as GameContent;
+
+function focusedProductionArtifactContent(artifactId: string): GameContent {
+  const artifact = productionArtifactContent.artifacts?.[artifactId];
+  assert.ok(artifact, `production artifact ${artifactId} exists`);
+  return normalizeGameContentEvents({
+    board: [
+      { id: 0, type: "start" },
+      { id: 1, type: "shop" },
+      ...Array.from({ length: 8 }, (_, index) => ({ id: index + 2, type: "minigame" as const })),
+      { id: 10, type: "finish" },
+    ],
+    events: {},
+    artifactRarityRates: { common: 100, epic: 0, legendary: 0 },
+    artifacts: {
+      [artifactId]: { ...artifact, price: 0, rarity: "common" },
+    },
+    effects: productionArtifactContent.effects,
+    players: [
+      { id: "alice", name: "Alice", color: "#f87171" },
+      { id: "bob", name: "Bob", color: "#60a5fa" },
+      { id: "frang", name: "FranG", color: "#3b82f6" },
+    ],
+  });
+}
+
+function buyFocusedArtifact(room: GameRoom, artifactId: string) {
+  const roll = room.rollArtifactShop("socket-alice");
+  assert.equal(roll.ok, true);
+  const offer = room.getState().artifactShop?.offers.find((candidate) => candidate.artifactId === artifactId);
+  assert.ok(offer, `${artifactId} appears in its focused shop`);
+  const result = room.buyArtifact("socket-alice", offer.id);
+  assert.equal(result.ok, true);
+  return result;
+}
+
 {
   const { io } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "ART0", "Artifact shop crossing", artifactShopContent);
@@ -892,6 +1011,97 @@ const artifactShopContent: GameContent = normalizeGameContentEvents({
   assert.equal(room.getState().lastMovement, 1);
   assert.equal(room.getState().phase, "shop");
   assert.equal(room.getState().activeEvent?.actions?.some((action) => action.type === "offlineAction"), true);
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(
+    io as ConstructorParameters<typeof GameRoom>[0],
+    "ART2",
+    "Tarjeta Silver",
+    focusedProductionArtifactContent("tarjeta-silver")
+  );
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.getState().players.find((player) => player.id === "bob")!.position = 3;
+  room.startGame("socket-alice");
+  room.roll("socket-alice", 1);
+  buyFocusedArtifact(room, "tarjeta-silver");
+  assert.equal(room.getState().activeEffects[0]?.effectId, "artifact-tarjeta-silver-income");
+
+  room.next("socket-alice");
+  room.roll("socket-bob", 1);
+  assert.equal(room.getState().phase, "event", "Tarjeta Silver pays before Alice's next turn");
+  assert.equal(room.getState().players.find((player) => player.id === "alice")?.coins, 5);
+
+  room.next("socket-alice");
+  room.roll("socket-alice", 1);
+  room.roll("socket-bob", 1);
+  assert.equal(room.getState().players.find((player) => player.id === "alice")?.coins, 10, "Tarjeta Silver pays on two turn starts");
+  assert.equal(room.getState().activeEffects.some((effect) => effect.effectId === "artifact-tarjeta-silver-income"), false);
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(
+    io as ConstructorParameters<typeof GameRoom>[0],
+    "ART3",
+    "Shampoo de vodka",
+    focusedProductionArtifactContent("shampoo-de-vodka")
+  );
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  room.startGame("socket-alice");
+  room.roll("socket-alice", 1);
+  const result = buyFocusedArtifact(room, "shampoo-de-vodka") as { ok: true; requiresTarget: boolean };
+  assert.equal(result.requiresTarget, true);
+  assert.deepEqual(room.useArtifact("socket-alice", "bob"), { ok: true });
+  assert.equal(room.getState().players.find((player) => player.id === "bob")?.position, 3);
+  assert.equal(room.getState().activeEvent?.actions?.filter((action) => action.type === "offlineAction").length, 2);
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(
+    io as ConstructorParameters<typeof GameRoom>[0],
+    "ART4",
+    "Helado",
+    focusedProductionArtifactContent("helado")
+  );
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-frang", "FranG");
+  room.getState().players.find((player) => player.id === "frang")!.position = 5;
+  room.startGame("socket-alice");
+  room.roll("socket-alice", 1);
+  buyFocusedArtifact(room, "helado");
+  assert.equal(room.getState().players.find((player) => player.id === "alice")?.position, 5);
+  assert.equal(room.getState().players.find((player) => player.id === "frang")?.position, 1);
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(
+    io as ConstructorParameters<typeof GameRoom>[0],
+    "ART5",
+    "Palo de Hockey",
+    focusedProductionArtifactContent("palo-hockey")
+  );
+
+  room.join("socket-alice", "Alice");
+  room.join("socket-bob", "Bob");
+  const bob = room.getState().players.find((player) => player.id === "bob")!;
+  bob.coins = 10;
+  bob.position = 3;
+  room.startGame("socket-alice");
+  room.roll("socket-alice", 1);
+  buyFocusedArtifact(room, "palo-hockey");
+  assert.deepEqual(room.useArtifact("socket-alice", "bob"), { ok: true });
+  assert.equal(bob.coins, 5);
+  room.next("socket-alice");
+  assert.equal(room.getState().turnOrder[room.getState().activeIndex], "alice", "Palo de Hockey skips Bob's next turn");
 }
 
 await withRolls([1, 1, 2], async () => {

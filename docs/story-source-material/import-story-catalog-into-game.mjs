@@ -56,6 +56,7 @@ for (const trivia of extraction.trivia ?? []) {
 
 normalizePlayerVoteEvents(extraction);
 normalizeExtractedTraitProposals(extraction);
+normalizeExtractedArtifactProposals(extraction);
 markImplementedStoryCapabilities(extraction);
 
 canonicalizeGaston(content);
@@ -81,6 +82,7 @@ for (const asset of extraction.image_assets ?? []) {
 
 content.effects = { ...(content.effects ?? {}) };
 ensureCatalogEffects(content.effects);
+ensureExtractedArtifacts(content);
 ensureExtractedTraits(content);
 
 const importedEvents = {};
@@ -107,6 +109,7 @@ console.log(JSON.stringify({
   importedEvents: Object.keys(importedEvents).length,
   totalEvents: Object.keys(content.events).length,
   characters: Object.keys(content.characters ?? {}).length,
+  artifacts: Object.keys(content.artifacts ?? {}).length,
   mediaAssets: Object.keys(content.mediaAssets ?? {}).length,
   triviaAnswers: triviaAnswers.size,
   importedCounts,
@@ -241,6 +244,399 @@ function normalizeExtractedTraitProposals(data) {
   for (const proposal of data.implementation_proposals ?? []) {
     if (proposalUpdates[proposal.id]) Object.assign(proposal, proposalUpdates[proposal.id]);
   }
+}
+
+function normalizeExtractedArtifactProposals(data) {
+  const proposals = {
+    "artifact-disco-de-meo": {
+      production_artifact_id: "disco-de-meo",
+      canonical_name: "Disco de meo",
+      current_primitive: "applyEffect → movementMultiplier",
+      proposed_version: "El jugador elegido se mueve a 0,5x durante sus próximos 2 turnos.",
+    },
+    "artifact-tarjeta-silver-de-american-express-la-q-tiene-javi": {
+      production_artifact_id: "tarjeta-silver",
+      canonical_name: "Tarjeta Silver",
+      current_primitive: "applyEffect → coins onTurnStart",
+      proposed_version: "Quien la compra gana 5 monedas al comienzo de cada uno de sus próximos 2 turnos.",
+    },
+    "artifact-combi-de-carlitos": {
+      production_artifact_id: "combi-de-carlitos",
+      canonical_name: "Combi de Carlitos",
+      current_primitive: "move",
+      proposed_version: "Quien la compra avanza 5 casilleros.",
+    },
+    "artifact-tronco-que-subimos-a-la-clase-moverse-hasta-jugador-mas-durazno": {
+      production_artifact_id: "tronco-de-la-clase",
+      canonical_name: "Tronco de la clase",
+      current_primitive: "choosePlayer + moveToPlayerPosition",
+      proposed_version: "Elegí un jugador y avanzá hasta su posición; no se consulta quién es el más durazno.",
+    },
+    "artifact-preworkout-c4": {
+      production_artifact_id: "preworkout-c4",
+      canonical_name: "Preworkout C4",
+      current_primitive: "applyEffect → movementMultiplier",
+      proposed_version: "Quien lo compra se mueve a 2x durante su próximo turno.",
+    },
+    "artifact-saga-de-peliculas-de-harry-potter": {
+      production_artifact_id: "saga-harry-potter",
+      canonical_name: "Saga de Harry Potter",
+      current_primitive: "applyEffect → diceBias",
+      proposed_version: "La cara 5 pasa a tener 55% de probabilidad durante los próximos 3 tiros.",
+    },
+    "artifact-bolso-de-ikea": {
+      production_artifact_id: "bolso-de-ikea",
+      canonical_name: "Bolso / Mochila de Ikea",
+      current_primitive: "applyEffect → movementMultiplier",
+      proposed_version: "Bolso de Ikea y Mochila de Ikea son el mismo artifact. El jugador elegido avanza solamente 1 casillero por tiro durante 2 turnos.",
+    },
+    "artifact-carpeta-con-chulitos": {
+      production_artifact_id: "carpeta-con-chulitos",
+      canonical_name: "Carpeta con chulitos",
+      current_primitive: "extraTurn",
+      proposed_version: "Quien la compra gana un turno extra.",
+    },
+    "artifact-bols-de-melon": {
+      production_artifact_id: "bols-de-melon",
+      canonical_name: "Bols de melón",
+      current_primitive: "choosePlayer + swapPositions",
+      proposed_version: "Elegí un jugador e intercambiá posiciones con esa persona.",
+    },
+    "artifact-trypanosoma-cruzi-vinchuca": {
+      production_artifact_id: "trypanosoma-cruzi",
+      canonical_name: "Trypanosoma cruzi",
+      current_primitive: "skipTurn",
+      proposed_version: "El jugador elegido pierde su próximo turno.",
+    },
+    "artifact-shampoo-de-bob-esponja-con-vodka-adentro": {
+      production_artifact_id: "shampoo-de-vodka",
+      canonical_name: "Shampoo de Bob Esponja con vodka",
+      current_primitive: "choosePlayer + move + offlineAction",
+      proposed_version: "El jugador elegido avanza 3 casilleros y toma 2 shots.",
+    },
+    "artifact-mousse-helado-es-mousse": {
+      production_artifact_id: "helado",
+      canonical_name: "Helado",
+      current_primitive: "swapPositions",
+      proposed_version: "Quien lo compra intercambia posiciones con FranG.",
+    },
+    "artifact-versace-eros-blue-seduction-de-antonio-banderas-perfumes-q-usaba-javi": {
+      production_artifact_id: "blue-seduction",
+      canonical_name: "Blue Seduction",
+      current_primitive: "move",
+      proposed_version: "Quien lo compra avanza 5 casilleros.",
+    },
+    "artifact-essence-by-l-frang": {
+      production_artifact_id: "essence-by-l-frang",
+      canonical_name: "Essence by L´Frang",
+      current_primitive: "moveToPlayerPosition",
+      proposed_version: "Quien lo compra avanza hasta la posición de FranG.",
+    },
+    "artifact-palo-de-hockey": {
+      production_artifact_id: "palo-hockey",
+      canonical_name: "Palo de Hockey",
+      current_primitive: "coins + skipTurn",
+      proposed_version: "El jugador elegido pierde 5 monedas y su próximo turno.",
+    },
+  };
+  for (const artifact of data.artifacts ?? []) {
+    const proposal = proposals[artifact.id];
+    if (!proposal) continue;
+    artifact.production_artifact_id = proposal.production_artifact_id;
+    artifact.canonical_name = proposal.canonical_name;
+    artifact.proposed_adaptation = {
+      current_primitive: proposal.current_primitive,
+      support: "supported",
+      proposed_version: proposal.proposed_version,
+    };
+  }
+
+  const perfumeEvent = (data.events ?? []).find((event) => event.id === "event-100");
+  if (perfumeEvent) {
+    perfumeEvent.proposed_adaptation = {
+      current_primitive: "moveToPlayerPosition",
+      support: "supported",
+      proposed_version: "Encontrás Essence by L´Frang y avanzás hasta la posición de FranG.",
+    };
+  }
+}
+
+function ensureExtractedArtifacts(gameContent) {
+  const retiredPrototypeIds = [
+    "fernet-coin",
+    "taxi-nocturno",
+    "brindis-obligatorio",
+    "bomba-humo",
+    "lazo-monedas",
+    "corona-del-rico",
+    "vaquita-comunista",
+  ];
+  gameContent.artifacts = { ...(gameContent.artifacts ?? {}) };
+  for (const id of retiredPrototypeIds) delete gameContent.artifacts[id];
+
+  Object.assign(gameContent.effects, {
+    "artifact-disco-de-meo-slow": {
+      id: "artifact-disco-de-meo-slow",
+      name: "Disco de meo",
+      description: "Durante los próximos 2 turnos, el jugador se mueve a la mitad.",
+      icon: "💿",
+      duration: { mode: "turns", value: 2 },
+      consequences: [{
+        type: "movementMultiplier",
+        hook: "beforeMovement",
+        multiplier: 0.5,
+        rounding: "ceil",
+        text: "Disco de meo: movimiento x0,5.",
+      }],
+      visualAssetId: "botherlands-disc",
+    },
+    "artifact-tarjeta-silver-income": {
+      id: "artifact-tarjeta-silver-income",
+      name: "Tarjeta Silver",
+      description: "Al comienzo de cada uno de los próximos 2 turnos, gana 5 monedas.",
+      icon: "💳",
+      duration: { mode: "uses", value: 2 },
+      consequences: [{
+        type: "coins",
+        hook: "onTurnStart",
+        value: 5,
+        text: "Tarjeta Silver: ganás 5 monedas.",
+      }],
+    },
+    "artifact-preworkout-c4-speed": {
+      id: "artifact-preworkout-c4-speed",
+      name: "Preworkout C4",
+      description: "Durante el próximo turno, el jugador se mueve al doble.",
+      icon: "×2",
+      duration: { mode: "turns", value: 1 },
+      consequences: [{
+        type: "movementMultiplier",
+        hook: "beforeMovement",
+        multiplier: 2,
+        rounding: "ceil",
+        text: "Preworkout C4: movimiento x2.",
+      }],
+    },
+    "artifact-harry-potter-five-bias": {
+      id: "artifact-harry-potter-five-bias",
+      name: "Saga de Harry Potter",
+      description: "La cara 5 tiene 55% de probabilidad durante los próximos 3 tiros.",
+      icon: "⚄",
+      duration: { mode: "uses", value: 3 },
+      consequences: [{
+        type: "diceBias",
+        hook: "beforeRoll",
+        face: 5,
+        chanceDeltaPercent: 38.33,
+        text: "Saga de Harry Potter: 55% de probabilidad de sacar 5.",
+      }],
+    },
+    "artifact-ikea-bag-slow": {
+      id: "artifact-ikea-bag-slow",
+      name: "Bolso / Mochila de Ikea",
+      description: "Durante los próximos 2 turnos, cada tiro permite avanzar solamente 1 casillero.",
+      icon: "🛍️",
+      duration: { mode: "turns", value: 2 },
+      consequences: [{
+        type: "movementMultiplier",
+        hook: "beforeMovement",
+        multiplier: 0.1,
+        rounding: "ceil",
+        text: "Bolso / Mochila de Ikea: avanzás solamente 1 casillero.",
+      }],
+      visualAssetId: "blue-ikea-bag",
+    },
+  });
+
+  Object.assign(gameContent.artifacts, {
+    "disco-de-meo": {
+      id: "disco-de-meo",
+      name: "Disco de meo",
+      description: "Elegí un jugador: se mueve a 0,5x durante sus próximos 2 turnos.",
+      price: 5,
+      rarity: "common",
+      targetMode: "choosePlayer",
+      useFlow: "targeted",
+      consequences: [{ type: "applyEffect", effectId: "artifact-disco-de-meo-slow", target: "target", text: "El Disco de meo reduce el movimiento del jugador elegido." }],
+      visual: { assetId: "botherlands-disc", anchorType: "token", label: "💿", color: "#84cc16" },
+      weightOverrides: { shop: 1 },
+    },
+    "tarjeta-silver": {
+      id: "tarjeta-silver",
+      name: "Tarjeta Silver",
+      description: "Ganás 5 monedas al comienzo de cada uno de tus próximos 2 turnos.",
+      price: 8,
+      rarity: "legendary",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "applyEffect", effectId: "artifact-tarjeta-silver-income", target: "acting", text: "Tarjeta Silver habilitada por 2 rondas." }],
+      visual: { anchorType: "token", label: "💳", color: "#cbd5e1" },
+      weightOverrides: { shop: 1 },
+    },
+    "combi-de-carlitos": {
+      id: "combi-de-carlitos",
+      name: "Combi de Carlitos",
+      description: "Avanzá 5 casilleros inmediatamente.",
+      price: 6,
+      rarity: "epic",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "move", delta: 5, target: "acting", text: "Combi de Carlitos: avanzás 5 casilleros." }],
+      visual: { assetId: "party-van", anchorType: "token", label: "🚐", color: "#38bdf8" },
+      weightOverrides: { shop: 1 },
+    },
+    "tronco-de-la-clase": {
+      id: "tronco-de-la-clase",
+      name: "Tronco de la clase",
+      description: "Elegí un jugador y movete hasta su posición.",
+      price: 6,
+      rarity: "epic",
+      targetMode: "choosePlayer",
+      useFlow: "targeted",
+      consequences: [{ type: "moveToPlayerPosition", target: "acting", withTarget: "target", text: "Tronco de la clase: avanzás hasta el jugador elegido." }],
+      visual: { assetId: "classroom-giant-log", anchorType: "token", label: "🪵", color: "#92400e" },
+      weightOverrides: { shop: 1 },
+    },
+    "preworkout-c4": {
+      id: "preworkout-c4",
+      name: "Preworkout C4",
+      description: "Durante tu próximo turno, te movés a 2x.",
+      price: 6,
+      rarity: "epic",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "applyEffect", effectId: "artifact-preworkout-c4-speed", target: "acting", text: "Preworkout C4: próximo movimiento x2." }],
+      visual: { anchorType: "token", label: "C4", color: "#f97316" },
+      weightOverrides: { shop: 1 },
+    },
+    "saga-harry-potter": {
+      id: "saga-harry-potter",
+      name: "Saga de Harry Potter",
+      description: "La cara 5 tiene 55% de probabilidad durante tus próximos 3 tiros.",
+      price: 10,
+      rarity: "legendary",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "applyEffect", effectId: "artifact-harry-potter-five-bias", target: "acting", text: "Saga de Harry Potter: la cara 5 queda encantada por 3 tiros." }],
+      visual: { anchorType: "token", label: "⚡", color: "#7c3aed" },
+      weightOverrides: { shop: 1 },
+    },
+    "bolso-de-ikea": {
+      id: "bolso-de-ikea",
+      name: "Bolso / Mochila de Ikea",
+      description: "Elegí un jugador: avanza solamente 1 casillero por tiro durante 2 turnos.",
+      price: 5,
+      rarity: "common",
+      targetMode: "choosePlayer",
+      useFlow: "targeted",
+      consequences: [{ type: "applyEffect", effectId: "artifact-ikea-bag-slow", target: "target", text: "Bolso / Mochila de Ikea: el jugador elegido queda cargadísimo." }],
+      visual: { assetId: "blue-ikea-bag", anchorType: "body", anchorId: "chest", label: "IKEA", color: "#2563eb" },
+      weightOverrides: { shop: 1 },
+    },
+    "carpeta-con-chulitos": {
+      id: "carpeta-con-chulitos",
+      name: "Carpeta con chulitos",
+      description: "Ganás un turno extra.",
+      price: 8,
+      rarity: "legendary",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "extraTurn", target: "acting", text: "Carpeta con chulitos: ganás un turno extra." }],
+      visual: { anchorType: "token", label: "✓✓", color: "#f8fafc" },
+      weightOverrides: { shop: 1 },
+    },
+    "bols-de-melon": {
+      id: "bols-de-melon",
+      name: "Bols de melón",
+      description: "Elegí un jugador e intercambiá posiciones con esa persona.",
+      price: 6,
+      rarity: "epic",
+      targetMode: "choosePlayer",
+      useFlow: "targeted",
+      consequences: [{ type: "swapPositions", target: "acting", withTarget: "target", text: "Bols de melón: intercambiás posiciones con el jugador elegido." }],
+      visual: { anchorType: "token", label: "🍈", color: "#a3e635" },
+      weightOverrides: { shop: 1 },
+    },
+    "trypanosoma-cruzi": {
+      id: "trypanosoma-cruzi",
+      name: "Trypanosoma cruzi",
+      description: "Elegí un jugador: pierde su próximo turno.",
+      price: 7,
+      rarity: "epic",
+      targetMode: "choosePlayer",
+      useFlow: "targeted",
+      consequences: [{ type: "skipTurn", turns: 1, target: "target", text: "Trypanosoma cruzi: el jugador elegido pierde su próximo turno." }],
+      visual: { assetId: "vinchuca-jar", anchorType: "token", label: "🪲", color: "#78350f" },
+      weightOverrides: { shop: 1 },
+    },
+    "shampoo-de-vodka": {
+      id: "shampoo-de-vodka",
+      name: "Shampoo de Bob Esponja con vodka",
+      description: "Elegí un jugador: avanza 3 casilleros y toma 2 shots.",
+      price: 7,
+      rarity: "epic",
+      targetMode: "choosePlayer",
+      useFlow: "targeted",
+      consequences: [
+        { type: "move", delta: 3, target: "target", text: "Shampoo de vodka: avanzás 3 casilleros." },
+        { type: "offlineAction", action: "takeShot", target: "target", text: "Shampoo de vodka: shot 1 de 2." },
+        { type: "offlineAction", action: "takeShot", target: "target", text: "Shampoo de vodka: shot 2 de 2." },
+      ],
+      visual: { assetId: "vodka-bottle", anchorType: "token", label: "🧴", color: "#facc15" },
+      weightOverrides: { shop: 1 },
+    },
+    "helado": {
+      id: "helado",
+      name: "Helado",
+      description: "Intercambiá posiciones con FranG.",
+      price: 7,
+      rarity: "epic",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "swapPositions", target: "acting", withTarget: { playerId: "frang" }, text: "Helado: intercambiás posiciones con FranG." }],
+      visual: { anchorType: "token", label: "🍨", color: "#f9a8d4" },
+      weightOverrides: { shop: 1 },
+    },
+    "blue-seduction": {
+      id: "blue-seduction",
+      name: "Blue Seduction",
+      description: "Avanzá 5 casilleros inmediatamente.",
+      price: 6,
+      rarity: "epic",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "move", delta: 5, target: "acting", text: "Blue Seduction: avanzás 5 casilleros." }],
+      visual: { anchorType: "token", label: "BS", color: "#0ea5e9" },
+      weightOverrides: { shop: 1 },
+    },
+    "essence-by-l-frang": {
+      id: "essence-by-l-frang",
+      name: "Essence by L´Frang",
+      description: "Movete hasta la posición de FranG.",
+      price: 6,
+      rarity: "epic",
+      targetMode: "self",
+      useFlow: "immediate",
+      consequences: [{ type: "moveToPlayerPosition", target: "acting", withTarget: { playerId: "frang" }, text: "Essence by L´Frang: avanzás hasta FranG." }],
+      visual: { anchorType: "token", label: "E", color: "#ec4899" },
+      weightOverrides: { shop: 1 },
+    },
+    "palo-hockey": {
+      id: "palo-hockey",
+      name: "Palo de Hockey",
+      description: "Elegí un jugador: pierde 5 monedas y su próximo turno.",
+      price: 8,
+      rarity: "legendary",
+      targetMode: "choosePlayer",
+      useFlow: "targeted",
+      consequences: [
+        { type: "coins", value: -5, target: "target", text: "Palo de Hockey: perdés 5 monedas." },
+        { type: "skipTurn", turns: 1, target: "target", text: "Palo de Hockey: perdés tu próximo turno." },
+      ],
+      visual: { assetId: "hockey-stick", anchorType: "body", anchorId: "rightHand", label: "🏑", color: "#d6a15d" },
+      weightOverrides: { shop: 1 },
+    },
+  });
 }
 
 function markImplementedStoryCapabilities(data) {
@@ -811,7 +1207,12 @@ function unstructuredRules(id, effects) {
     "event-093": [rule("landing", [{ type: "moveToPlayerPosition", withTarget: "winner" }])],
     "event-094-a": landing([skip(2)]), "event-094-b": landing([skip(2)]), "event-094-c": landing([skip(2)]), "event-094-d": landing([skip(2)]),
     "event-095": landing([move(-3)]), "event-096": winner([move(6)]), "event-097": landing([apply("story-event-097-movement")]),
-    "event-098": landing([move(4)]), "event-099": landing([move(-5)]), "event-100": landing([{ type: "coins", value: 5 }]),
+    "event-098": landing([move(4)]), "event-099": landing([move(-5)]),
+    "event-100": landing([{
+      type: "moveToPlayerPosition",
+      withTarget: { playerId: "frang" },
+      text: "Encontrás Essence by L´Frang y avanzás hasta la posición de FranG.",
+    }]),
     "event-101": landing([move(-2020)]), "event-102": landing([move(11)]),
   };
   return direct[id] ?? [];

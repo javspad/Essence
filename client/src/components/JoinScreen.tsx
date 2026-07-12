@@ -8,14 +8,14 @@ import { Input } from "@/components/ui/8bit/input";
 
 interface Props {
   error: string | null;
+  showDeveloperTools: boolean;
   onCreate: (name: string, roomName: string, characterId?: string, mapId?: string) => void;
   onJoin: (code: string, name: string, characterId?: string) => void;
 }
 
 type Mode = "menu" | "create" | "join";
 
-export default function JoinScreen({ error, onCreate, onJoin }: Props) {
-  const [name, setName] = useState("");
+export default function JoinScreen({ error, showDeveloperTools, onCreate, onJoin }: Props) {
   const [mode, setMode] = useState<Mode>("menu");
 
   return (
@@ -28,21 +28,12 @@ export default function JoinScreen({ error, onCreate, onJoin }: Props) {
         </CardHeader>
 
         <CardContent font="normal" className="flex flex-col gap-5">
-          <Input
-            font="normal"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Tu nombre"
-            maxLength={16}
-            className="h-14 w-full bg-[#100b1a] text-center text-lg font-black text-[#fff8d6]"
-          />
-
-          {mode === "menu" && <MenuView setMode={setMode} />}
+          {mode === "menu" && <MenuView showDeveloperTools={showDeveloperTools} setMode={setMode} />}
           {mode === "create" && (
-            <CreateView name={name} error={error} onCreate={onCreate} onBack={() => setMode("menu")} />
+            <CreateView error={error} onCreate={onCreate} onBack={() => setMode("menu")} />
           )}
           {mode === "join" && (
-            <JoinView name={name} error={error} onJoin={onJoin} onBack={() => setMode("menu")} />
+            <JoinView error={error} onJoin={onJoin} onBack={() => setMode("menu")} />
           )}
 
           {mode === "menu" && error && <p className="animate-pop text-center font-semibold text-[#fb7185]">{error}</p>}
@@ -52,7 +43,7 @@ export default function JoinScreen({ error, onCreate, onJoin }: Props) {
   );
 }
 
-function MenuView({ setMode }: { setMode: (m: Mode) => void }) {
+function MenuView({ showDeveloperTools, setMode }: { showDeveloperTools: boolean; setMode: (m: Mode) => void }) {
   return (
     <div className="flex w-full flex-col gap-4">
       <Button
@@ -71,25 +62,25 @@ function MenuView({ setMode }: { setMode: (m: Mode) => void }) {
         <LogIn data-icon="inline-start" />
         Unirme
       </Button>
-      <Button
-        type="button"
-        onClick={() => { window.location.href = "/tools"; }}
-        className="h-11 w-full bg-[#fbbf24] text-[11px] uppercase text-[#211505]"
-      >
-        <Wrench data-icon="inline-start" />
-        Tools
-      </Button>
+      {showDeveloperTools && (
+        <Button
+          type="button"
+          onClick={() => { window.location.href = "/tools"; }}
+          className="h-11 w-full bg-[#fbbf24] text-[11px] uppercase text-[#211505]"
+        >
+          <Wrench data-icon="inline-start" />
+          Tools
+        </Button>
+      )}
     </div>
   );
 }
 
 function CreateView({
-  name,
   error,
   onCreate,
   onBack,
 }: {
-  name: string;
   error: string | null;
   onCreate: (name: string, roomName: string, characterId?: string, mapId?: string) => void;
   onBack: () => void;
@@ -129,7 +120,7 @@ function CreateView({
 
   const selectedCharacter = characters?.find((slot) => slot.id === characterId) ?? characters?.[0] ?? null;
   const selectedMap = maps?.find((map) => map.id === mapId) ?? maps?.find((map) => map.active) ?? maps?.[0] ?? null;
-  const createName = name.trim() || selectedCharacter?.displayName || "";
+  const createName = selectedCharacter?.displayName ?? "";
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -227,12 +218,10 @@ function CreateView({
 }
 
 function JoinView({
-  name,
   error,
   onJoin,
   onBack,
 }: {
-  name: string;
   error: string | null;
   onJoin: (code: string, name: string, characterId?: string) => void;
   onBack: () => void;
@@ -260,6 +249,9 @@ function JoinView({
 
   const joinable = (rooms ?? []).filter((r) => r.phase === "lobby" && r.players < r.maxPlayers);
   const inProgress = (rooms ?? []).filter((r) => r.phase !== "lobby");
+  const manualRoom = code.length === 4
+    ? (rooms ?? []).find((room) => room.code.toUpperCase() === code.toUpperCase())
+    : undefined;
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -320,19 +312,13 @@ function JoinView({
                         slot={slot}
                         disabled={Boolean(slot.claimedByPlayerId)}
                         selected={false}
-                        onClick={() => onJoin(r.code, name.trim() || slot.displayName, slot.id)}
+                        onClick={() => onJoin(r.code, slot.displayName, slot.id)}
                       />
                     ))
                   ) : (
-                    <Button
-                      type="button"
-                      onClick={() => name.trim() && onJoin(r.code, name.trim())}
-                      disabled={!name.trim()}
-                      className="col-span-2 h-10 w-full bg-[#f5d547] text-xs uppercase text-[#201507]"
-                    >
-                      <LogIn data-icon="inline-start" />
-                      Entrar
-                    </Button>
+                    <p className="col-span-2 border border-dashed border-[#fff4bf]/20 p-2 text-center text-xs font-bold text-[#c7bddc]">
+                      Esta sala no tiene personajes disponibles.
+                    </p>
                   )}
                 </div>
                 {availableSlots.length === 0 && (
@@ -368,15 +354,29 @@ function JoinView({
               maxLength={4}
               className="h-14 w-full bg-[#100b1a] text-center text-2xl font-black uppercase text-[#fff8d6]"
             />
-            <Button
-              type="button"
-              onClick={() => name.trim() && code.trim() && onJoin(code.trim(), name.trim())}
-              disabled={!name.trim() || code.length < 4}
-              className="h-12 w-full bg-[#f5d547] text-sm uppercase text-[#201507]"
-            >
-              <LogIn data-icon="inline-start" />
-              Entrar
-            </Button>
+            {code.length === 4 && manualRoom?.phase === "lobby" && (
+              <div className="grid grid-cols-2 gap-2">
+                {(manualRoom.characterSlots ?? []).map((slot) => (
+                  <CharacterSlotButton
+                    key={slot.id}
+                    slot={slot}
+                    disabled={Boolean(slot.claimedByPlayerId)}
+                    selected={false}
+                    onClick={() => onJoin(manualRoom.code, slot.displayName, slot.id)}
+                  />
+                ))}
+              </div>
+            )}
+            {code.length === 4 && rooms !== null && !manualRoom && (
+              <p className="border border-[#fb7185]/35 bg-[#fb7185]/10 p-2 text-center text-xs font-bold text-[#fecdd3]">
+                No encontramos una sala abierta con ese código.
+              </p>
+            )}
+            {manualRoom && manualRoom.phase !== "lobby" && (
+              <p className="border border-[#fff4bf]/20 bg-[#0d1829] p-2 text-center text-xs font-bold text-[#c7bddc]">
+                Esa sala ya está jugando.
+              </p>
+            )}
           </div>
         )}
       </div>

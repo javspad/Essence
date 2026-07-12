@@ -12,9 +12,13 @@ const MAX_SAVE_BYTES = 10_000_000;
 const backendPort = process.env.API_PORT ?? process.env.SERVER_PORT ?? process.env.PORT ?? "3001";
 const backendTarget = process.env.VITE_API_TARGET ?? `http://localhost:${backendPort}`;
 const clientPort = Number(process.env.CLIENT_PORT ?? process.env.VITE_PORT ?? 5173);
+const productionMode = /^(1|true|yes)$/i.test(process.env.PRODUCTION ?? "");
 
 export default defineConfig({
-  plugins: [localContentSavePlugin(), react(), tailwindcss()],
+  define: {
+    "import.meta.env.ESSENCE_PRODUCTION": JSON.stringify(productionMode),
+  },
+  plugins: [...(productionMode ? [] : [localContentSavePlugin()]), react(), tailwindcss()],
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),

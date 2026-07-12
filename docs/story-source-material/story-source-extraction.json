@@ -3553,9 +3553,9 @@
         "prompt_caption": "Comprás un perfume de lujo"
       },
       "proposed_adaptation": {
-        "current_primitive": "coins",
+        "current_primitive": "moveToPlayerPosition",
         "support": "supported",
-        "proposed_version": "Reemplazar la entrega de un Essence por ganar 5 monedas."
+        "proposed_version": "Encontrás Essence by L´Frang y avanzás hasta la posición de FranG."
       }
     },
     {
@@ -3731,8 +3731,10 @@
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
         "support": "supported",
-        "proposed_version": "0,5x movimiento quien lo tenga"
-      }
+        "proposed_version": "El jugador elegido se mueve a 0,5x durante sus próximos 2 turnos."
+      },
+      "production_artifact_id": "disco-de-meo",
+      "canonical_name": "Disco de meo"
     },
     {
       "id": "artifact-tarjeta-silver-de-american-express-la-q-tiene-javi",
@@ -3740,10 +3742,12 @@
       "original_effect_proposed": "5 monedas",
       "media_asset_ids": [],
       "proposed_adaptation": {
-        "current_primitive": "coins",
+        "current_primitive": "applyEffect → coins onTurnStart",
         "support": "supported",
-        "proposed_version": "5 monedas"
-      }
+        "proposed_version": "Quien la compra gana 5 monedas al comienzo de cada uno de sus próximos 2 turnos."
+      },
+      "production_artifact_id": "tarjeta-silver",
+      "canonical_name": "Tarjeta Silver"
     },
     {
       "id": "artifact-combi-de-carlitos",
@@ -3753,8 +3757,10 @@
       "proposed_adaptation": {
         "current_primitive": "move",
         "support": "supported",
-        "proposed_version": "mover 5 casilleros"
-      }
+        "proposed_version": "Quien la compra avanza 5 casilleros."
+      },
+      "production_artifact_id": "combi-de-carlitos",
+      "canonical_name": "Combi de Carlitos"
     },
     {
       "id": "artifact-tronco-que-subimos-a-la-clase-moverse-hasta-jugador-mas-durazno",
@@ -3762,10 +3768,12 @@
       "original_effect_proposed": null,
       "media_asset_ids": [],
       "proposed_adaptation": {
-        "current_primitive": "text or offlineAction",
-        "support": "partial",
-        "proposed_version": "Mostrar la consecuencia y confirmarla en mesa; si se necesita estado automático, añadir una acción específica."
-      }
+        "current_primitive": "choosePlayer + moveToPlayerPosition",
+        "support": "supported",
+        "proposed_version": "Elegí un jugador y avanzá hasta su posición; no se consulta quién es el más durazno."
+      },
+      "production_artifact_id": "tronco-de-la-clase",
+      "canonical_name": "Tronco de la clase"
     },
     {
       "id": "artifact-preworkout-c4",
@@ -3775,8 +3783,10 @@
       "proposed_adaptation": {
         "current_primitive": "applyEffect → movementMultiplier",
         "support": "supported",
-        "proposed_version": "2x movimiento"
-      }
+        "proposed_version": "Quien lo compra se mueve a 2x durante su próximo turno."
+      },
+      "production_artifact_id": "preworkout-c4",
+      "canonical_name": "Preworkout C4"
     },
     {
       "id": "artifact-saga-de-peliculas-de-harry-potter",
@@ -3785,9 +3795,11 @@
       "media_asset_ids": [],
       "proposed_adaptation": {
         "current_primitive": "applyEffect → diceBias",
-        "support": "partial",
-        "proposed_version": "Modelar como diceBias por turnos; la distribución exacta de una cara requiere verificar el sesgo que se quiera."
-      }
+        "support": "supported",
+        "proposed_version": "La cara 5 pasa a tener 55% de probabilidad durante los próximos 3 tiros."
+      },
+      "production_artifact_id": "saga-harry-potter",
+      "canonical_name": "Saga de Harry Potter"
     },
     {
       "id": "artifact-bolso-de-ikea",
@@ -3795,10 +3807,12 @@
       "original_effect_proposed": "0,1x movimiento",
       "media_asset_ids": [],
       "proposed_adaptation": {
-        "current_primitive": "text or offlineAction",
-        "support": "partial",
-        "proposed_version": "Mostrar la consecuencia y confirmarla en mesa; si se necesita estado automático, añadir una acción específica."
-      }
+        "current_primitive": "applyEffect → movementMultiplier",
+        "support": "supported",
+        "proposed_version": "Bolso de Ikea y Mochila de Ikea son el mismo artifact. El jugador elegido avanza solamente 1 casillero por tiro durante 2 turnos."
+      },
+      "production_artifact_id": "bolso-de-ikea",
+      "canonical_name": "Bolso / Mochila de Ikea"
     },
     {
       "id": "artifact-carpeta-con-chulitos",
@@ -3806,10 +3820,12 @@
       "original_effect_proposed": "turno extra",
       "media_asset_ids": [],
       "proposed_adaptation": {
-        "current_primitive": "text or offlineAction",
-        "support": "partial",
-        "proposed_version": "Mostrar la consecuencia y confirmarla en mesa; si se necesita estado automático, añadir una acción específica."
-      }
+        "current_primitive": "extraTurn",
+        "support": "supported",
+        "proposed_version": "Quien la compra gana un turno extra."
+      },
+      "production_artifact_id": "carpeta-con-chulitos",
+      "canonical_name": "Carpeta con chulitos"
     },
     {
       "id": "artifact-bols-de-melon",
@@ -3817,10 +3833,12 @@
       "original_effect_proposed": "cambio de posición con el más borracho",
       "media_asset_ids": [],
       "proposed_adaptation": {
-        "current_primitive": "swapPositions",
+        "current_primitive": "choosePlayer + swapPositions",
         "support": "supported",
-        "proposed_version": "cambio de posición con el más borracho"
-      }
+        "proposed_version": "Elegí un jugador e intercambiá posiciones con esa persona."
+      },
+      "production_artifact_id": "bols-de-melon",
+      "canonical_name": "Bols de melón"
     },
     {
       "id": "artifact-trypanosoma-cruzi-vinchuca",
@@ -3830,8 +3848,10 @@
       "proposed_adaptation": {
         "current_primitive": "skipTurn",
         "support": "supported",
-        "proposed_version": "perdés el turno"
-      }
+        "proposed_version": "El jugador elegido pierde su próximo turno."
+      },
+      "production_artifact_id": "trypanosoma-cruzi",
+      "canonical_name": "Trypanosoma cruzi"
     },
     {
       "id": "artifact-shampoo-de-bob-esponja-con-vodka-adentro",
@@ -3839,10 +3859,12 @@
       "original_effect_proposed": "avanzar hacia Mendoza",
       "media_asset_ids": [],
       "proposed_adaptation": {
-        "current_primitive": "move",
+        "current_primitive": "choosePlayer + move + offlineAction",
         "support": "supported",
-        "proposed_version": "avanzar hacia Mendoza"
-      }
+        "proposed_version": "El jugador elegido avanza 3 casilleros y toma 2 shots."
+      },
+      "production_artifact_id": "shampoo-de-vodka",
+      "canonical_name": "Shampoo de Bob Esponja con vodka"
     },
     {
       "id": "artifact-mousse-helado-es-mousse",
@@ -3850,10 +3872,12 @@
       "original_effect_proposed": "cambiar posiciones con Bilbo/Nico",
       "media_asset_ids": [],
       "proposed_adaptation": {
-        "current_primitive": "text or offlineAction",
-        "support": "partial",
-        "proposed_version": "Mostrar la consecuencia y confirmarla en mesa; si se necesita estado automático, añadir una acción específica."
-      }
+        "current_primitive": "swapPositions",
+        "support": "supported",
+        "proposed_version": "Quien lo compra intercambia posiciones con FranG."
+      },
+      "production_artifact_id": "helado",
+      "canonical_name": "Helado"
     },
     {
       "id": "artifact-versace-eros-blue-seduction-de-antonio-banderas-perfumes-q-usaba-javi",
@@ -3863,8 +3887,10 @@
       "proposed_adaptation": {
         "current_primitive": "move",
         "support": "supported",
-        "proposed_version": "avanza 11 casilleros"
-      }
+        "proposed_version": "Quien lo compra avanza 5 casilleros."
+      },
+      "production_artifact_id": "blue-seduction",
+      "canonical_name": "Blue Seduction"
     },
     {
       "id": "artifact-essence-by-l-frang",
@@ -3875,9 +3901,11 @@
       ],
       "proposed_adaptation": {
         "current_primitive": "moveToPlayerPosition",
-        "support": "planned",
-        "proposed_version": "Move to Frang's selected player position when the artifact is used; no trait or proximity query is needed."
-      }
+        "support": "supported",
+        "proposed_version": "Quien lo compra avanza hasta la posición de FranG."
+      },
+      "production_artifact_id": "essence-by-l-frang",
+      "canonical_name": "Essence by L´Frang"
     },
     {
       "id": "artifact-palo-de-hockey",
@@ -3885,10 +3913,12 @@
       "original_effect_proposed": "Perdés 5 monedas",
       "media_asset_ids": [],
       "proposed_adaptation": {
-        "current_primitive": "coins",
+        "current_primitive": "coins + skipTurn",
         "support": "supported",
-        "proposed_version": "Perdés 5 monedas"
-      }
+        "proposed_version": "El jugador elegido pierde 5 monedas y su próximo turno."
+      },
+      "production_artifact_id": "palo-hockey",
+      "canonical_name": "Palo de Hockey"
     }
   ],
   "card_vote_sets": [

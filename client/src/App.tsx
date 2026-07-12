@@ -3,6 +3,7 @@ import { useGame } from "./useGame";
 import JoinScreen from "./components/JoinScreen";
 import ConnectedGame from "./components/ConnectedGame";
 import { Badge } from "@/components/ui/8bit/badge";
+import { isProductionMode } from "./featureFlags";
 
 const MapBuilder = lazy(() => import("./components/MapBuilder"));
 const EventBuilder = lazy(() => import("./components/EventBuilder"));
@@ -17,16 +18,17 @@ const ToolsHub = lazy(() => import("./components/ToolsHub"));
 export default function App() {
   const path = typeof window !== "undefined" ? window.location.pathname : "/";
   const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const developerFeaturesEnabled = !isProductionMode();
   const builderMode =
-    path === "/map-builder" || search.has("mapBuilder");
-  const eventBuilderMode = path === "/event-builder" || search.has("eventBuilder");
-  const mediaAssetLibraryMode = path === "/asset-library" || search.has("assetLibrary");
-  const characterBuilderMode = path === "/character-builder" || search.has("characterBuilder");
-  const cosmeticBuilderMode = path === "/cosmetic-builder" || search.has("cosmeticBuilder");
-  const artifactBuilderMode = path === "/artifact-builder" || search.has("artifactBuilder");
-  const effectBuilderMode = path === "/effect-builder" || search.has("effectBuilder");
-  const soundBuilderMode = path === "/sound-builder" || path === "/audio-tool" || search.has("soundBuilder") || search.has("audioTool");
-  const toolsMode = path === "/tools";
+    developerFeaturesEnabled && (path === "/map-builder" || search.has("mapBuilder"));
+  const eventBuilderMode = developerFeaturesEnabled && (path === "/event-builder" || search.has("eventBuilder"));
+  const mediaAssetLibraryMode = developerFeaturesEnabled && (path === "/asset-library" || search.has("assetLibrary"));
+  const characterBuilderMode = developerFeaturesEnabled && (path === "/character-builder" || search.has("characterBuilder"));
+  const cosmeticBuilderMode = developerFeaturesEnabled && (path === "/cosmetic-builder" || search.has("cosmeticBuilder"));
+  const artifactBuilderMode = developerFeaturesEnabled && (path === "/artifact-builder" || search.has("artifactBuilder"));
+  const effectBuilderMode = developerFeaturesEnabled && (path === "/effect-builder" || search.has("effectBuilder"));
+  const soundBuilderMode = developerFeaturesEnabled && (path === "/sound-builder" || path === "/audio-tool" || search.has("soundBuilder") || search.has("audioTool"));
+  const toolsMode = developerFeaturesEnabled && path === "/tools";
 
   if (toolsMode) {
     return (
@@ -100,10 +102,10 @@ export default function App() {
     );
   }
 
-  return <GameApp />;
+  return <GameApp showDeveloperTools={developerFeaturesEnabled} />;
 }
 
-function GameApp() {
+function GameApp({ showDeveloperTools }: { showDeveloperTools: boolean }) {
   const { connected, state, me, activeId, isHost, error, effectNotices, dismissEffectNotice, actions } = useGame();
 
   // Sin identidad todavía → pantalla de ingreso.
@@ -111,7 +113,7 @@ function GameApp() {
     return (
       <>
         {!connected && <ConnBadge connected={connected} />}
-        <JoinScreen error={error} onCreate={actions.create} onJoin={actions.join} />
+        <JoinScreen error={error} showDeveloperTools={showDeveloperTools} onCreate={actions.create} onJoin={actions.join} />
       </>
     );
   }
