@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "test": "tsx src/audio.test.ts && tsx src/boardView.test.ts && tsx src/cardVoteEditor.test.ts && tsx src/cardVotePlaytest.test.ts && tsx src/joinRooms.test.ts && tsx src/mapBuilder.test.ts && tsx src/mapSimulation.test.ts && tsx src/useGame.test.ts",
+    "dev": "ENABLE_DEV_TOOLS=1 vite",
+    "test": "tsx src/featureFlags.test.ts && tsx src/devContentSaveBoundary.test.ts && tsx src/effectBuilderRoute.test.ts && tsx src/audio.test.ts && tsx src/boardView.test.ts && tsx src/cardVoteEditor.test.ts && tsx src/cardVotePlaytest.test.ts && tsx src/joinRooms.test.ts && tsx src/mapBuilder.test.ts && tsx src/mapSimulation.test.ts && tsx src/useGame.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -33,7 +34,6 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "playwright": "^1.61.1",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.3"

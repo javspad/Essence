@@ -18,6 +18,7 @@ import type {
   TileType,
   EventActivityType,
 } from "@essence/shared";
+import { TILE_TYPES } from "@essence/shared";
 import seedContent from "@shared/content.json";
 import {
   assetProjectionRadius,
@@ -39,7 +40,6 @@ import {
   TERRACE_ELEVATION_PRESETS,
   TERRACE_SURFACES,
   TERRAIN_TYPES,
-  TILE_TYPES,
   validateMap,
   type BuilderContent,
   type BuilderSelection,
@@ -661,85 +661,6 @@ function MapIconButton({
   );
 }
 
-function TestPanel({
-  map,
-  enabled,
-  cellId,
-  onToggle,
-  onCellChange,
-  onOpen3D,
-}: {
-  map: MapDefinition;
-  enabled: boolean;
-  cellId: number;
-  onToggle: () => void;
-  onCellChange: (id: number) => void;
-  onOpen3D: () => void;
-}) {
-  const current = map.board.find((tile) => tile.id === cellId) ?? map.board[0];
-  const outgoing = current
-    ? map.routes.filter((route) => route.from === current.id || (route.bidirectional && route.to === current.id))
-    : [];
-
-  return (
-    <section className={`mb-4 rounded-lg border p-3 ${enabled ? "border-emerald-300/45 bg-emerald-300/10" : "border-white/10 bg-white/[0.03]"}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Test mode</h2>
-        <div className="flex gap-1">
-          <button type="button" onClick={onOpen3D} className="builder-button compact">
-            3D
-          </button>
-          <button type="button" onClick={onToggle} className={`builder-button compact ${enabled ? "active" : ""}`}>
-            {enabled ? "Stop" : "Play"}
-          </button>
-        </div>
-      </div>
-
-      <label className="block text-xs font-bold text-slate-300">
-        Cell
-        <select
-          value={String(current?.id ?? "")}
-          disabled={!enabled || map.board.length === 0}
-          onChange={(event) => onCellChange(Number(event.target.value))}
-          className="mt-1 w-full rounded-md border border-white/10 bg-[#0d120d] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300 disabled:opacity-50"
-        >
-          {map.board.map((tile) => (
-            <option key={tile.id} value={tile.id}>
-              {tile.id} · {tile.label ?? TILE_LABEL[tile.type]}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {current && (
-        <div className="mt-2 rounded-md border border-white/10 bg-black/20 px-2 py-2 text-xs font-bold text-slate-200">
-          <span className="text-emerald-200">{TILE_LABEL[current.type]}</span>
-          {current.eventId && <span className="ml-1 text-slate-400">· {current.eventId}</span>}
-        </div>
-      )}
-
-      <div className="mt-3 grid gap-2">
-        {outgoing.map((route) => {
-          const destination = route.from === current?.id ? route.to : route.from;
-          return (
-            <button
-              key={route.id}
-              type="button"
-              disabled={!enabled}
-              onClick={() => onCellChange(destination)}
-              className="builder-route-button disabled:opacity-45"
-            >
-              <span>{route.choiceLabel || route.label || `Go to ${destination}`}</span>
-              <span style={{ backgroundColor: TERRAIN_COLOR[route.terrain] }}>{route.terrain}</span>
-            </button>
-          );
-        })}
-        {outgoing.length === 0 && <p className="text-xs font-bold text-slate-500">No outgoing routes</p>}
-      </div>
-    </section>
-  );
-}
-
 function FloatingToolBar({
   state,
   dispatch,
@@ -967,63 +888,6 @@ function MapDetailsModal({ map, dispatch, onClose }: { map: MapDefinition; dispa
         <TextArea label="Description" value={map.description ?? ""} onChange={(description) => dispatch({ type: "update_map", patch: { description } })} />
       </section>
     </div>
-  );
-}
-
-function ExportPanel({
-  active,
-  exportJson,
-  importText,
-  setImportText,
-  onCopy,
-  onDownload,
-  onImport,
-  onReset,
-}: {
-  active: boolean;
-  exportJson: string;
-  importText: string;
-  setImportText: (value: string) => void;
-  onCopy: () => void;
-  onDownload: () => void;
-  onImport: () => void;
-  onReset: () => void;
-}) {
-  return (
-    <section className={active ? "" : "opacity-80"}>
-      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">JSON</h2>
-      <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={onCopy} className="builder-button">
-          Copy
-        </button>
-        <button type="button" onClick={onDownload} className="builder-button">
-          Download
-        </button>
-      </div>
-      <textarea
-        aria-label="Map import JSON"
-        value={importText}
-        onChange={(event) => setImportText(event.target.value)}
-        placeholder="Pegá un content.json para importar"
-        className="mt-2 h-28 w-full resize-none rounded-md border border-white/10 bg-[#0d120d] p-2 font-mono text-xs text-slate-100 outline-none focus:border-emerald-300"
-      />
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <button type="button" onClick={onImport} disabled={!importText.trim()} className="builder-button disabled:opacity-40">
-          Import
-        </button>
-        <button type="button" onClick={onReset} className="builder-button danger">
-          Reset
-        </button>
-      </div>
-      {active && (
-        <textarea
-          aria-label="Map export JSON"
-          readOnly
-          value={exportJson}
-          className="mt-2 h-40 w-full resize-none rounded-md border border-white/10 bg-black/30 p-2 font-mono text-[0.65rem] text-slate-200"
-        />
-      )}
-    </section>
   );
 }
 

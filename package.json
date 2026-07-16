@@ -13,16 +13,27 @@
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
     "build": "npm run build -w client",
+    "test": "npm run test -w client && npm run test -w server",
+    "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
+    "fallow:full": "fallow",
+    "fallow:audit": "fallow audit",
+    "fallow:list": "fallow list",
+    "check": "npm run test && npm run typecheck && npm run build && npm run fallow:audit",
     "start": "npm run start -w server",
-    "party": "PRODUCTION=true npm run build && NODE_ENV=production PRODUCTION=true npm run start",
+    "party": "npm run build && NODE_ENV=production npm run start",
     "optimize:assets": "node scripts/externalize-inline-assets.mjs && node scripts/optimize-public-assets.mjs",
     "smoke:lan": "node scripts/lan-multiplayer-smoke.mjs",
     "smoke:reconnect-ui": "node scripts/qa/reconnect-ui-smoke.mjs",
     "smoke": "tsx scripts/smoke.mjs"
   },
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
+  },
   "devDependencies": {
     "@types/three": "^0.171.0",
     "concurrently": "^9.1.0",
+    "fallow": "3.6.0",
+    "playwright": "^1.61.1",
     "sharp": "^0.34.5"
   },
   "engines": {

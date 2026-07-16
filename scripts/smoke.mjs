@@ -7,7 +7,7 @@ const clients = [];
 let code = null;
 let started = false;
 let turns = 0;
-const MAX_TURNS = 40;
+const MAX_TURNS = 80;
 const reveals = [];
 
 function log(...a) {
@@ -38,13 +38,16 @@ function makeClient(name, isCreator) {
       log(`[join] ${name} entró (${self.id})`);
       if (clients.every((c) => c.id) && !started) {
         started = true;
-        setTimeout(() => clients[0].socket.emit("game:start"), 200);
+        setTimeout(() => clients[0].socket.emit("game:start", (res) => {
+          if (!res.ok) { log("start failed", res.error); process.exit(1); }
+        }), 200);
       }
     });
   };
 
   socket.on("minigame:start", (mg) => {
     // cada cliente juega local y reporta
+    if (mg.type === "cardVote") return;
     let score = Math.random() * 1000;
     let payload = {};
     if (mg.type === "vote") {
@@ -62,38 +65,7 @@ function makeClient(name, isCreator) {
     setTimeout(() => socket.emit("minigame:result", { score, payload }), 50 + Math.random() * 100);
   });
 
-  socket.on("state", (state) => {
-    const me = state.players.find((p) => p.id === self.id);
-    const activeId = state.turnOrder[state.activeIndex];
-    const amActive = me && me.id === activeId;
-    const amHost = me?.isHost;
-
-    if (state.phase === "turn" && amActive) {
-      turns++;
-      if (turns > MAX_TURNS) return;
-      setTimeout(() => socket.emit("turn:roll"), 60);
-    }
-    // host avanza desde reveal / event
-    if ((state.phase === "reveal" || state.phase === "event") && amHost) {
-      setTimeout(() => socket.emit("turn:next"), 120);
-    }
-    if (state.phase === "finished" && amHost) {
-      const ranked = rankPlayersForFinishedGame(state.players, state.winnerId);
-      log("\n=== FIN ===");
-      ranked.forEach((p, i) =>
-        log(`${i + 1}. ${p.name}  cell ${p.position} 🪙${p.coins}`)
-      );
-      log(`\nReveals jugados: ${reveals.length}`);
-      // chequeo de rig
-      const bostezoRanks = reveals.filter((r) => r.skin === "bostezo");
-      const lujanRanks = reveals.filter((r) => r.skin === "lujan");
-      const nicoNeverFirstBostezo = bostezoRanks.every((r) => r.ranking[0] !== "nico");
-      const frangNeverFirstLujan = lujanRanks.every((r) => r.ranking[0] !== "frang");
-      log(`\nRIG bostezo (${bostezoRanks.length} jugados): Nico nunca 1ro = ${nicoNeverFirstBostezo}`);
-      log(`RIG lujan (${lujanRanks.length} jugados): FranG nunca 1ro = ${frangNeverFirstLujan}`);
-      setTimeout(() => process.exit(0), 200);
-    }
-  });
+  socket.on("state", (state) => handleState(socket, self, state));
 
   socket.on("minigame:reveal", (r) => {
     if (isCreator) {
@@ -105,9 +77,59 @@ function makeClient(name, isCreator) {
   return self;
 }
 
+function handleState(socket, self, state) {
+  const me = state.players.find((player) => player.id === self.id);
+  if (!me) return;
+  handleTurn(socket, state, me);
+  handleShop(socket, state, me);
+  handleAdvance(socket, state, me);
+  handleMultiStageMinigame(socket, state, me);
+  handleFinished(state, me);
+}
+
+function handleTurn(socket, state, me) {
+  if (state.phase !== "turn" || me.id !== state.turnOrder[state.activeIndex]) return;
+  turns++;
+  if (turns > MAX_TURNS) return;
+  setTimeout(() => socket.emit("turn:roll"), 60);
+}
+
+function handleShop(socket, state, me) {
+  if (state.phase !== "shop" || me.id !== state.turnOrder[state.activeIndex]) return;
+  setTimeout(() => socket.emit("artifact:skipShop", {}, (res) => {
+    if (!res.ok) { log("skip shop failed", res.error); process.exit(1); }
+  }), 60);
+}
+
+function handleAdvance(socket, state, me) {
+  if (!["reveal", "event"].includes(state.phase) || !me.isHost) return;
+  setTimeout(() => socket.emit("turn:next"), 120);
+}
+
+function handleMultiStageMinigame(socket, state, me) {
+  if (state.phase !== "minigame") return;
+  if (!me.isHost) return;
+  if (["cardVote", "judge"].includes(state.activeMinigame.type)) socket.emit("minigame:force");
+}
+
+function handleFinished(state, me) {
+  if (state.phase !== "finished" || !me.isHost) return;
+  const ranked = rankPlayersForFinishedGame(state.players, state.winnerId);
+  log("\n=== FIN ===");
+  ranked.forEach((player, index) => log(`${index + 1}. ${player.name}  cell ${player.position} 🪙${player.coins}`));
+  log(`\nReveals jugados: ${reveals.length}`);
+  const bostezoRanks = reveals.filter((reveal) => reveal.skin === "bostezo");
+  const lujanRanks = reveals.filter((reveal) => reveal.skin === "lujan");
+  const nicoNeverFirstBostezo = bostezoRanks.every((reveal) => reveal.ranking[0] !== "nico");
+  const frangNeverFirstLujan = lujanRanks.every((reveal) => reveal.ranking[0] !== "frang");
+  log(`\nRIG bostezo (${bostezoRanks.length} jugados): Nico nunca 1ro = ${nicoNeverFirstBostezo}`);
+  log(`RIG lujan (${lujanRanks.length} jugados): FranG nunca 1ro = ${frangNeverFirstLujan}`);
+  setTimeout(() => process.exit(0), 200);
+}
+
 names.forEach((n, i) => clients.push(makeClient(n, i === 0)));
 
 setTimeout(() => {
   log("\n⏰ timeout — no terminó en tiempo");
   process.exit(1);
-}, 25000);
+}, 60000);

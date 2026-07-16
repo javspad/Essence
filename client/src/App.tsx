@@ -3,7 +3,7 @@ import { useGame } from "./useGame";
 import JoinScreen from "./components/JoinScreen";
 import ConnectedGame from "./components/ConnectedGame";
 import { Badge } from "@/components/ui/8bit/badge";
-import { isProductionMode } from "./featureFlags";
+import { developerToolsEnabled } from "./featureFlags";
 
 const MapBuilder = lazy(() => import("./components/MapBuilder"));
 const EventBuilder = lazy(() => import("./components/EventBuilder"));
@@ -18,7 +18,7 @@ const ToolsHub = lazy(() => import("./components/ToolsHub"));
 export default function App() {
   const path = typeof window !== "undefined" ? window.location.pathname : "/";
   const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
-  const developerFeaturesEnabled = !isProductionMode();
+  const developerFeaturesEnabled = developerToolsEnabled();
   const builderMode =
     developerFeaturesEnabled && (path === "/map-builder" || search.has("mapBuilder"));
   const eventBuilderMode = developerFeaturesEnabled && (path === "/event-builder" || search.has("eventBuilder"));

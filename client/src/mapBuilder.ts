@@ -88,29 +88,14 @@ export type MapBuilderEvent =
   | { type: "delete_selected" }
   | { type: "replace_content"; content: BuilderContent };
 
-export const TILE_TYPES: TileType[] = [
-  "start",
-  "finish",
-  "minigame",
-  "trivia",
-  "vote",
-  "judge",
-  "dare",
-  "fate",
-  "groom",
-  "reaction",
-  "estimate",
-  "shop",
-];
-
 export const TERRAIN_TYPES: MapTerrain[] = ["stone", "grass", "sand", "water", "asphalt", "magic"];
 
 export const TERRACE_SURFACES: MapTerraceSurface[] = ["grass", "sand", "water", "stone", "plaza"];
 
 /** Elevación por defecto de una meseta nueva y saltos rápidos del inspector. */
-export const DEFAULT_TERRACE_ELEVATION = 0.55;
+const DEFAULT_TERRACE_ELEVATION = 0.55;
 export const TERRACE_ELEVATION_PRESETS = [0.55, 1.1, 1.7];
-export const MAX_TERRACE_ELEVATION = 3;
+const MAX_TERRACE_ELEVATION = 3;
 
 const DEFAULT_ASSETS: MapAssetDef[] = [
   { id: "oak-tree", name: "Pino", kind: "tree", defaultScale: 1 },
@@ -1198,7 +1183,7 @@ function roundLayout(layout: TileLayout): TileLayout {
   };
 }
 
-export function round(value: number, step = 0.25): number {
+function round(value: number, step = 0.25): number {
   return Math.round(value / step) * step;
 }
 

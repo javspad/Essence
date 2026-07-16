@@ -18,12 +18,13 @@ client/   Vite + React + TS + Tailwind: lobby, tablero, motores de minijuego
 
 ```bash
 npm install
-npm run dev        # server :3001  +  cliente :5173 (con proxy de socket)
+npm run dev        # server :3001 + cliente :5173 + herramientas de desarrollo habilitadas
 ```
 
 Abrí http://localhost:5173 en cada compu/pestaña. Uno crea la sala (código de 4 letras), el resto entra con ese código. El que crea es el **host**.
 
 > 💡 En la misma red (Plan B LAN): los demás entran a `http://IP-DEL-HOST:5173`.
+> El juego sigue disponible desde la LAN, pero el endpoint que guarda `shared/content.json` acepta escrituras solo desde la máquina host.
 
 ### Juez IA (opcional)
 
@@ -76,3 +77,4 @@ Agregar un minijuego = un Event con `activity` en `content.json` sobre un motor 
 4. Build command: `npm install && npm run build` · Start command: `npm start`.
 
 El server sirve el `client/dist` ya buildeado en el mismo puerto, así que con un solo servicio alcanza.
+El build y el server normales dejan builders, playtest y comandos de debug deshabilitados. Solo en un deployment de QA confiable se puede definir `ENABLE_DEV_TOOLS=1`; la variable debe estar presente tanto durante el build como al iniciar el server.

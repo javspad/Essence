@@ -3,8 +3,14 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "node:path";
 import { writeFile } from "node:fs/promises";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ServerResponse } from "node:http";
 import { normalizeContentSchema, validateGameContent } from "../shared/contentValidation";
+import { isDeveloperToolsEnabled } from "../shared/devTools";
+import {
+  ContentPayloadTooLargeError,
+  isLoopbackAddress,
+  readUtf8Body,
+} from "./src/devContentSaveBoundary";
 
 const CONTENT_FILE_PATH = resolve(__dirname, "../shared/content.json");
 const MAX_SAVE_BYTES = 10_000_000;
@@ -12,13 +18,13 @@ const MAX_SAVE_BYTES = 10_000_000;
 const backendPort = process.env.API_PORT ?? process.env.SERVER_PORT ?? process.env.PORT ?? "3001";
 const backendTarget = process.env.VITE_API_TARGET ?? `http://localhost:${backendPort}`;
 const clientPort = Number(process.env.CLIENT_PORT ?? process.env.VITE_PORT ?? 5173);
-const productionMode = /^(1|true|yes)$/i.test(process.env.PRODUCTION ?? "");
+const developerToolsEnabled = isDeveloperToolsEnabled(process.env.ENABLE_DEV_TOOLS);
 
 export default defineConfig({
   define: {
-    "import.meta.env.ESSENCE_PRODUCTION": JSON.stringify(productionMode),
+    "import.meta.env.ESSENCE_DEV_TOOLS": JSON.stringify(developerToolsEnabled),
   },
-  plugins: [...(productionMode ? [] : [localContentSavePlugin()]), react(), tailwindcss()],
+  plugins: [...(developerToolsEnabled ? [localContentSavePlugin()] : []), react(), tailwindcss()],
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
@@ -42,6 +48,11 @@ function localContentSavePlugin(): Plugin {
     name: "essence-local-content-save",
     configureServer(server) {
       server.middlewares.use("/api/dev/content", async (req, res) => {
+        if (!isLoopbackAddress(req.socket.remoteAddress)) {
+          sendJson(res, 403, { ok: false, error: "Local content writes require a loopback connection." });
+          return;
+        }
+
         if (req.method === "OPTIONS") {
           sendJson(res, 204, {});
           return;
@@ -59,7 +70,7 @@ function localContentSavePlugin(): Plugin {
         }
 
         try {
-          const body = await readBody(req);
+          const body = await readUtf8Body(req, MAX_SAVE_BYTES);
           const parsed = JSON.parse(body);
           const validation = validateGameContent(parsed);
           if (!validation.ok) {
@@ -82,6 +93,10 @@ function localContentSavePlugin(): Plugin {
             warnings: validation.warnings,
           });
         } catch (error) {
+          if (error instanceof ContentPayloadTooLargeError) {
+            sendJson(res, 413, { ok: false, error: error.message });
+            return;
+          }
           sendJson(res, 500, {
             ok: false,
             error: error instanceof Error ? error.message : "Unable to save local content.",
@@ -90,18 +105,6 @@ function localContentSavePlugin(): Plugin {
       });
     },
   };
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolveBody, reject) => {
-    let body = "";
-    req.setEncoding("utf8");
-    req.on("data", (chunk) => {
-      body += chunk;
-    });
-    req.on("end", () => resolveBody(body));
-    req.on("error", reject);
-  });
 }
 
 function sendJson(res: ServerResponse, statusCode: number, payload: unknown) {

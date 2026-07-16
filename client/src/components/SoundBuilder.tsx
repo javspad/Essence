@@ -19,7 +19,7 @@ import {
 import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";
 import { eventTitle } from "@essence/shared/events";
 import seedContent from "@shared/content.json";
-import { Copy, Download, GripVertical, Pause, Play, Plus, RotateCcw, Save, Scissors, Square, Trash2, Upload, Volume2, Wrench, X } from "lucide-react";
+import { Copy, Download, GripVertical, Pause, Play, Plus, RotateCcw, Save, Scissors, Square, Trash2, Upload, Wrench, X } from "lucide-react";
 import { AudioTriggerProvider, useAudioRuntime } from "../audio";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 

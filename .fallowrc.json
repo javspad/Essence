@@ -1,0 +1,30 @@
+{
+  // This file is JSONC: fallow reads these comments; generic JSON tools may not.
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "src/index.{ts,tsx,js,jsx,mjs}",
+    "src/main.{ts,tsx,js,jsx,mjs}",
+    "scripts/**/*.mjs",
+    "client/essence_*.mjs",
+    "docs/story-source-material/*.mjs"
+  ],
+  "ignorePatterns": [
+    "docs/story-source-material/viewer-data.js"
+  ],
+  "ignoreDependencies": [
+    "@shared/content.json"
+  ],
+  "workspaces": {
+    "patterns": [
+      "shared",
+      "server",
+      "client"
+    ]
+  },
+  "duplicates": {
+    // Hide pair-only clones; focus on widespread copy-paste
+    // worth refactoring. Lower to 2 to report every duplicate pair.
+    "minOccurrences": 3
+  },
+  "rules": {}
+}

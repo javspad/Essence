@@ -20,7 +20,9 @@ socket.on("connect", () => {
     });
     b.emit("room:join", { code, name: "Checker" }, () => {
       // start the game so a state broadcast fires with the active map
-      socket.emit("game:start");
+      socket.emit("game:start", (start) => {
+        if (!start.ok) { console.log("start failed", start.error); process.exit(1); }
+      });
     });
   });
 });
