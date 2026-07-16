@@ -125,6 +125,7 @@ function GameApp({ showDeveloperTools }: { showDeveloperTools: boolean }) {
       me={me}
       activeId={activeId}
       isHost={isHost}
+      error={error}
       effectNotices={effectNotices}
       onDismissEffectNotice={dismissEffectNotice}
       actions={actions}

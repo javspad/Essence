@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { networkInterfaces } from "node:os";
 import { existsSync } from "node:fs";
 import express from "express";
 import cors from "cors";
@@ -22,6 +23,12 @@ const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: { origin: "*" },
   maxHttpBufferSize: 10_000_000,
+  pingInterval: 10_000,
+  pingTimeout: 20_000,
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: true,
+  },
 });
 
 // --- Salas en memoria -------------------------------------------------------
@@ -42,7 +49,7 @@ function genCode(): string {
 function listRooms(): RoomSummary[] {
   const out: RoomSummary[] = [];
   for (const room of rooms.values()) {
-    if (room.isEmpty || room.isPlaytest) continue;
+    if (room.isPlaytest || room.shouldExpire()) continue;
     out.push(room.summary());
   }
   return out.sort((a, b) => Number(a.phase !== "lobby") - Number(b.phase !== "lobby"));
@@ -137,10 +144,10 @@ io.on("connection", (socket) => {
       ack(res);
       return;
     }
-    ack({ ok: true, playerId: res.playerId, code });
+    ack({ ok: true, playerId: res.playerId, code, reconnectToken: res.reconnectToken });
   });
 
-  socket.on("room:join", ({ code, name, characterId }, ack) => {
+  socket.on("room:join", ({ code, name, characterId, reconnectToken }, ack) => {
     const room = rooms.get(code.toUpperCase());
     if (!room) {
       ack({ ok: false, error: "Sala inexistente" });
@@ -148,14 +155,20 @@ io.on("connection", (socket) => {
     }
     socket.join(room.code);
     socketIndex.set(socket.id, room.code);
-    const res = room.join(socket.id, name, { characterId });
+    const res = room.join(socket.id, name, { characterId, reconnectToken });
     if (!res.ok) {
       socket.leave(room.code);
       socketIndex.delete(socket.id);
       ack(res);
       return;
     }
-    ack({ ok: true, playerId: res.playerId, code: room.code });
+    if (res.replacedSocketId) {
+      socketIndex.delete(res.replacedSocketId);
+      const replacedSocket = io.sockets.sockets.get(res.replacedSocketId);
+      replacedSocket?.emit("session:replaced", { message: "Esta sesión se recuperó desde otro dispositivo." });
+      replacedSocket?.disconnect(true);
+    }
+    ack({ ok: true, playerId: res.playerId, code: room.code, reconnectToken: res.reconnectToken });
   });
 
   const withRoom = (fn: (room: GameRoom) => void) => {
@@ -187,7 +200,11 @@ io.on("connection", (socket) => {
     socketIndex.delete(socket.id);
   });
 
-  socket.on("game:start", () => withRoom((r) => r.startGame(socket.id)));
+  socket.on("game:start", (ack) => {
+    const code = socketIndex.get(socket.id);
+    const room = code ? rooms.get(code) : undefined;
+    ack(room ? room.startGame(socket.id) : { ok: false, error: "No estás en una sala" });
+  });
   socket.on("turn:roll", () => withRoom((r) => r.roll(socket.id)));
   socket.on("turn:next", () => withRoom((r) => r.next(socket.id)));
   socket.on("reveal:next", () => withRoom((r) => r.next(socket.id)));
@@ -330,7 +347,7 @@ io.on("connection", (socket) => {
 
 // Limpieza de salas vacías cada 5 min.
 setInterval(() => {
-  for (const [code, room] of rooms) if (room.isEmpty) rooms.delete(code);
+  for (const [code, room] of rooms) if (room.shouldExpire()) rooms.delete(code);
 }, 5 * 60 * 1000);
 
 // --- Salud + estáticos (producción) -----------------------------------------
@@ -366,5 +383,12 @@ if (existsSync(clientDist)) {
 
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`🎲 Essence server escuchando en 0.0.0.0:${PORT} (LAN accesible)`);
+  for (const address of lanAddresses()) console.log(`   LAN: http://${address}:${PORT}/`);
   console.log(`   Anthropic API: ${process.env.ANTHROPIC_API_KEY ? "configurada ✅" : "sin key (judge usa fallback)"}`);
 });
+
+function lanAddresses(): string[] {
+  return [...new Set(Object.values(networkInterfaces()).flatMap((entries) =>
+    (entries ?? []).flatMap((entry) => entry.family === "IPv4" && !entry.internal ? [entry.address] : [])
+  ))];
+}

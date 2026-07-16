@@ -1,4 +1,0 @@
-interface:
-  display_name: "Codex Handoff"
-  short_description: "Prepare handoffs for new Codex goal sessions"
-  default_prompt: "Use $codex-handoff to prepare a handoff prompt for a new Codex session with a concrete goal and next slice."

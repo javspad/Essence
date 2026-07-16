@@ -38,6 +38,8 @@ export const AUDIO_SCOPE_TYPES = [
 
 export interface AudioTriggerContext {
   trigger: AudioTriggerId;
+  /** Shared id for one authoritative playback event. Equal ids pick the same weighted variant on every client. */
+  playbackId?: string;
   playerId?: string;
   minigameId?: string;
   artifactId?: string;
@@ -72,6 +74,7 @@ export function audioTriggerLabel(trigger: AudioTriggerId | string): string {
 
 export function audioScopeLabel(scope?: AudioTriggerScope): string {
   if (!scope || scope.type === "global") return "Default";
+  if (scope.type === "minigame") return `Activity/event: ${scope.id ?? "missing"}`;
   return `${titleFromId(scope.type)}: ${scope.id ?? "missing"}`;
 }
 
@@ -80,8 +83,8 @@ export function audioScopeKey(scope?: AudioTriggerScope): string {
   return `${scope.type}:${scope.id ?? ""}`;
 }
 
-export function audioBindingId(binding: Pick<AudioTriggerBindingDef, "trigger" | "scope">, index = 0): string {
-  return `${binding.trigger}:${audioScopeKey(binding.scope)}:${index}`;
+export function audioBindingId(binding: Pick<AudioTriggerBindingDef, "trigger" | "scope" | "playerId">, index = 0): string {
+  return `${binding.trigger}:${audioScopeKey(binding.scope)}:player:${binding.playerId ?? "any"}:${index}`;
 }
 
 export function audioTriggerCandidates(
@@ -89,7 +92,12 @@ export function audioTriggerCandidates(
   context: AudioTriggerContext
 ): AudioTriggerCandidate[] {
   return (bindings ?? [])
-    .filter((binding) => binding.enabled !== false && binding.trigger === context.trigger && audioScopeMatchesContext(binding.scope, context))
+    .filter((binding) =>
+      binding.enabled !== false &&
+      binding.trigger === context.trigger &&
+      (!binding.playerId || binding.playerId === context.playerId) &&
+      audioScopeMatchesContext(binding.scope, context)
+    )
     .flatMap(audioBindingCandidates);
 }
 
@@ -135,6 +143,16 @@ export function pickWeightedAudioCandidate<T extends { weight?: number }>(
     if (cursor <= 0) return entry.candidate;
   }
   return weighted[weighted.length - 1]?.candidate ?? null;
+}
+
+/** Stable pseudo-random value for multiplayer audio cues that must resolve identically on every client. */
+export function audioRandomFromPlaybackId(playbackId: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < playbackId.length; index += 1) {
+    hash ^= playbackId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967296;
 }
 
 export function audioScopeMatchesContext(scope: AudioTriggerScope | undefined, context: AudioTriggerContext): boolean {

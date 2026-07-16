@@ -42,6 +42,14 @@ export interface Tile {
   eventId?: string;
   /** candidatos de eventos para este casillero; se elige el mejor para el jugador que cae */
   eventIds?: string[];
+  /**
+   * Shared shuffle bag used by every cell with the same activity types.
+   * When eventId/eventIds are also present they are exhausted first, allowing
+   * a cinematic first visit before later visits draw from the larger queue.
+   */
+  eventQueue?: {
+    activityTypes: EventActivityType[];
+  };
   /** authoring tags for zones and reusable effect conditions */
   tags?: string[];
   /** Per-cell presentation framing used when a player lands here. */
@@ -836,6 +844,8 @@ export interface AudioTriggerVariantDef {
 export interface AudioTriggerBindingDef {
   id?: string;
   trigger: AudioTriggerId;
+  /** Optional player-context filter, independent from the activity/artifact scope. */
+  playerId?: string;
   scope?: AudioTriggerScope;
   variants: AudioTriggerVariantDef[];
   enabled?: boolean;
@@ -848,7 +858,6 @@ export interface AudioTriggerBindingDef {
 }
 
 export interface AudioSettingsDef {
-  muted?: boolean;
   masterVolume?: number;
   musicVolume?: number;
   sfxVolume?: number;
@@ -931,6 +940,8 @@ export type Phase =
 
 export interface ActiveMinigame {
   eventId: string;
+  /** Authoritative server timestamp used to identify this activity instance across clients. */
+  startedAt?: number;
   protagonistId?: string;
   type: EventActivityType;
   skin?: string;
@@ -1122,16 +1133,16 @@ export interface ContentMapSummary {
 
 export interface ClientToServerEvents {
   "room:join": (
-    payload: { code: string; name?: string; characterId?: string },
-    ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
+    payload: { code: string; name?: string; characterId?: string; reconnectToken?: string },
+    ack: (res: { ok: true; playerId: string; code: string; reconnectToken: string } | { ok: false; error: string }) => void
   ) => void;
   "room:create": (
     payload: { name?: string; roomName: string; characterId?: string; mapId?: string },
-    ack: (res: { ok: true; playerId: string; code: string } | { ok: false; error: string }) => void
+    ack: (res: { ok: true; playerId: string; code: string; reconnectToken: string } | { ok: false; error: string }) => void
   ) => void;
   /** El jugador abandona la sala voluntariamente. */
   "room:leave": () => void;
-  "game:start": () => void;
+  "game:start": (ack: (res: { ok: true } | { ok: false; error: string }) => void) => void;
   "turn:roll": () => void;
   "turn:next": () => void;
   "minigame:action": (payload: unknown) => void;
@@ -1192,9 +1203,11 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   state: (state: GameState) => void;
   "room:closed": (payload: { message: string }) => void;
+  "session:replaced": (payload: { message: string }) => void;
   "effect:ended": (payload: { effectInstance: EffectInstance; reason: "expired" | "triggered" }) => void;
   "minigame:start": (payload: {
     id: string;
+    startedAt?: number;
     type: EventActivityType;
     skin?: string;
     content: unknown;

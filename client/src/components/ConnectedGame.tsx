@@ -15,6 +15,7 @@ interface ConnectedGameProps {
   me: Player;
   activeId: string | null;
   isHost: boolean;
+  error?: string | null;
   effectNotices: ReturnType<typeof useGame>["effectNotices"];
   onDismissEffectNotice: ReturnType<typeof useGame>["dismissEffectNotice"];
   actions: ReturnType<typeof useGame>["actions"];
@@ -27,6 +28,7 @@ export default function ConnectedGame({
   me,
   activeId,
   isHost,
+  error,
   effectNotices,
   onDismissEffectNotice,
   actions,
@@ -81,7 +83,7 @@ export default function ConnectedGame({
               <GameConnectionBadge connected={connected} code={state.code} roomName={state.roomName} />
             )}
 
-            {state.phase === "lobby" && <Lobby state={state} isHost={isHost} onStart={actions.start} onLeave={actions.leave} />}
+            {state.phase === "lobby" && <Lobby state={state} isHost={isHost} error={error} onStart={actions.start} onLeave={actions.leave} />}
 
             {presentation.showMinigame && (
               <MinigameHost

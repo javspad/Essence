@@ -110,6 +110,16 @@ export function eventIdsForTile(tile: Tile): string[] {
   return [...new Set(ids.filter(Boolean))];
 }
 
+export function sharedEventIdsForTile(content: GameContent, tile: Tile): string[] {
+  const activityTypes = tile.eventQueue?.activityTypes;
+  if (!activityTypes?.length) return [];
+  const anchoredIds = new Set(content.board.flatMap(eventIdsForTile));
+  return Object.entries(content.events).flatMap(([id, event]) => {
+    const activityType = event.activity?.type ?? "prompt";
+    return !anchoredIds.has(id) && activityTypes.includes(activityType) ? [id] : [];
+  });
+}
+
 export function eventTriggerScore(event: GameEventDef, player: Pick<PlayerDef, "id">): number {
   if (!event.trigger || event.trigger.type === "anyPlayer") return 1;
   if (event.trigger.type === "player" && event.trigger.playerId === player.id) return 2;
@@ -124,13 +134,122 @@ export function resolveTileEventForPlayer(
   content: GameContent,
   tile: Tile,
   player: Pick<PlayerDef, "id">,
-  random: () => number = Math.random
+  random: () => number = Math.random,
+  excludedEventIds: ReadonlySet<string> = new Set()
 ): ResolvedGameEvent | null {
   const assignedIds = eventIdsForTile(tile);
-  const eventIds = assignedIds.length ? assignedIds : fallbackEventIdsForTile(content, tile);
+  const sharedIds = sharedEventIdsForTile(content, tile);
+  const eventIds = assignedIds.length ? assignedIds : sharedIds.length ? sharedIds : fallbackEventIdsForTile(content, tile);
   let bestScore = 0;
   const candidates: string[] = [];
   for (const id of eventIds) {
+    if (excludedEventIds.has(id)) continue;
+    const event = content.events[id];
+    if (!event) continue;
+    const score = eventTriggerScore(event, player);
+    if (score <= 0) continue;
+    if (score > bestScore) {
+      bestScore = score;
+      candidates.length = 0;
+      candidates.push(id);
+    } else if (score === bestScore) {
+      candidates.push(id);
+    }
+  }
+  if (!candidates.length) return null;
+  const index = Math.min(candidates.length - 1, Math.max(0, Math.floor(random() * candidates.length)));
+  return resolveEventForPlayer(content, candidates[index], player);
+}
+
+/**
+ * Per-room shuffle bags for local and shared event pools. Local candidates run
+ * first; shared activity queues then avoid every event already seen anywhere
+ * in the room until that activity catalog is exhausted.
+ */
+export class TileEventQueue {
+  private readonly stateByTile = new Map<number, { signature: string; used: Set<string>; lastEventId?: string }>();
+  private readonly seenEventIds = new Set<string>();
+  private readonly lastSharedEventByQueue = new Map<string, string>();
+  private readonly sharedEventIdsByQueue = new Map<string, string[]>();
+
+  resolve(
+    content: GameContent,
+    tile: Tile,
+    player: Pick<PlayerDef, "id">,
+    random: () => number = Math.random
+  ): ResolvedGameEvent | null {
+    const assignedIds = eventIdsForTile(tile);
+    const sharedKey = [...(tile.eventQueue?.activityTypes ?? [])].sort().join("\u0000");
+    let sharedIds = this.sharedEventIdsByQueue.get(sharedKey) ?? [];
+    if (sharedKey && !this.sharedEventIdsByQueue.has(sharedKey)) {
+      sharedIds = sharedEventIdsForTile(content, tile);
+      this.sharedEventIdsByQueue.set(sharedKey, sharedIds);
+    }
+    const signature = `${tile.type}:${assignedIds.join("\u0000")}:${tile.eventQueue?.activityTypes.join("\u0000") ?? ""}`;
+    let state = this.stateByTile.get(tile.id);
+    if (!state || state.signature !== signature) {
+      state = { signature, used: new Set() };
+      this.stateByTile.set(tile.id, state);
+    }
+
+    let event = assignedIds.length
+      ? resolveEventFromIds(content, assignedIds, player, random, new Set([...state.used, ...this.seenEventIds]))
+      : null;
+    if (!event && assignedIds.length && state.used.size && !sharedIds.length) {
+      const previousEventId = state.lastEventId;
+      state.used.clear();
+      for (const id of assignedIds) this.seenEventIds.delete(id);
+      event = resolveEventFromIds(content, assignedIds, player, random, previousEventId ? new Set([previousEventId]) : new Set());
+    }
+    if (!event && sharedIds.length) event = this.resolveShared(content, tile, sharedIds, player, random);
+    // A singleton cell without a shared fallback is allowed to repeat.
+    if (!event && assignedIds.length && !sharedIds.length) event = resolveEventFromIds(content, assignedIds, player, random);
+    if (!event && !assignedIds.length && !sharedIds.length) event = resolveTileEventForPlayer(content, tile, player, random);
+    if (!event) return null;
+
+    state.used.add(event.id);
+    state.lastEventId = event.id;
+    this.seenEventIds.add(event.id);
+    return event;
+  }
+
+  private resolveShared(
+    content: GameContent,
+    tile: Tile,
+    eventIds: string[],
+    player: Pick<PlayerDef, "id">,
+    random: () => number
+  ): ResolvedGameEvent | null {
+    const key = [...(tile.eventQueue?.activityTypes ?? [])].sort().join("\u0000");
+    let event = resolveEventFromIds(content, eventIds, player, random, this.seenEventIds);
+    if (!event) {
+      for (const id of eventIds) this.seenEventIds.delete(id);
+      const previousEventId = this.lastSharedEventByQueue.get(key);
+      event = resolveEventFromIds(content, eventIds, player, random, previousEventId ? new Set([previousEventId]) : new Set());
+    }
+    if (event) this.lastSharedEventByQueue.set(key, event.id);
+    return event;
+  }
+
+  reset(): void {
+    this.stateByTile.clear();
+    this.seenEventIds.clear();
+    this.lastSharedEventByQueue.clear();
+    this.sharedEventIdsByQueue.clear();
+  }
+}
+
+function resolveEventFromIds(
+  content: GameContent,
+  eventIds: readonly string[],
+  player: Pick<PlayerDef, "id">,
+  random: () => number,
+  excludedEventIds: ReadonlySet<string> = new Set()
+): ResolvedGameEvent | null {
+  let bestScore = 0;
+  const candidates: string[] = [];
+  for (const id of eventIds) {
+    if (excludedEventIds.has(id)) continue;
     const event = content.events[id];
     if (!event) continue;
     const score = eventTriggerScore(event, player);

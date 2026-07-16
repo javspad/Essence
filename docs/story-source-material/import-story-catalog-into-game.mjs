@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import sharp from "sharp";
+import { authorDespedidaMap } from "./author-despedida-map.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
@@ -68,8 +70,11 @@ const captionByAssetId = new Map(
 );
 content.mediaAssets = { ...(content.mediaAssets ?? {}) };
 for (const asset of extraction.image_assets ?? []) {
-  const fileName = path.basename(asset.local_path);
-  fs.copyFileSync(path.join(here, asset.local_path), path.join(publicImageDir, fileName));
+  const fileName = `${path.parse(asset.local_path).name}.webp`;
+  await sharp(path.join(here, asset.local_path))
+    .rotate()
+    .webp({ quality: 88, alphaQuality: 95, effort: 6, smartSubsample: true })
+    .toFile(path.join(publicImageDir, fileName));
   content.mediaAssets[asset.id] = {
     id: asset.id,
     type: "image",
@@ -96,6 +101,7 @@ importedEvents["trait-event-beltro-europa-universalis"] = beltroEuropaUniversali
 
 content.events = { ...content.events, ...importedEvents };
 distributeImportedEvents(content, Object.keys(importedEvents));
+authorDespedidaMap(content);
 
 fs.writeFileSync(extractionPath, `${JSON.stringify(extraction, null, 2)}\n`);
 fs.writeFileSync(contentPath, `${JSON.stringify(content, null, 2)}\n`);
@@ -1280,7 +1286,10 @@ function distributeAcrossBoard(board, importedIds) {
     .map((tile, index) => ({ tile, index }))
     .filter(({ tile }) => tile.type !== "shop" && (tile.eventId || tile.eventIds?.length))
     .map(({ index }) => index);
-  if (!poolIndexes.length) throw new Error("The active board has no event cells for the imported story catalog");
+  // Shared-queue maps intentionally have no explicit pool to redistribute.
+  // Their activity queues resolve the imported catalog by type, and authored
+  // maps such as Despedida are rebuilt immediately after this pass.
+  if (!poolIndexes.length) return next;
   importedIds.forEach((eventId, index) => {
     const tile = next[poolIndexes[index % poolIndexes.length]];
     tile.eventIds = [...new Set([...(tile.eventIds ?? []), eventId])];

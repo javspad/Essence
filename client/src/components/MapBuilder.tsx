@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type Dispatch, type PointerEvent, type ReactNode } from "react";
-import { Camera, Copy, Map as MapIcon, MapPin, MousePointer2, Pencil, Plus, RotateCcw, Save, Target, Trash2, User, X } from "lucide-react";
+import { Activity, Camera, Copy, Map as MapIcon, MapPin, MousePointer2, Pencil, Plus, RotateCcw, Save, Target, Trash2, User, X } from "lucide-react";
 import type {
   CameraFramingDef,
   GameContent,
@@ -16,6 +16,7 @@ import type {
   Tile,
   TileLayout,
   TileType,
+  EventActivityType,
 } from "@essence/shared";
 import seedContent from "@shared/content.json";
 import {
@@ -47,16 +48,18 @@ import {
   type TerraceCorner,
 } from "../mapBuilder";
 import { assertValidGameContent, normalizeContentSchema } from "@essence/shared/contentValidation";
-import { eventTitle, resolveTileEventForPlayer } from "@essence/shared/events";
+import { eventTitle, resolveTileEventForPlayer, sharedEventIdsForTile } from "@essence/shared/events";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 import { DEFAULT_CAMERA_FRAMING, resolveTileCamera } from "../board3d";
 import Board3DShell from "./Board3DShell";
 import MapPlaytest from "./MapPlaytest";
+import MapSimulationPanel from "./MapSimulationPanel";
+import type { MapSimulationResult, SimulationCellStats } from "../mapSimulation";
 
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 const STORAGE_KEY = "essence:map-builder:draft";
 type DraftSaveStatus = "saved" | "dirty" | "saving" | "browser" | "error";
-type InspectorTab = "selection" | "camera" | "map";
+type InspectorTab = "selection" | "camera" | "map" | "simulation";
 type CameraAuthoringScope = "default" | "cell";
 
 const TILE_LABEL: Record<TileType, string> = {
@@ -276,6 +279,7 @@ export default function MapBuilder() {
   const [saveStatus, setSaveStatus] = useState<DraftSaveStatus>("saved");
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("selection");
   const [cameraScope, setCameraScope] = useState<CameraAuthoringScope>("default");
+  const [simulationResult, setSimulationResult] = useState<MapSimulationResult | null>(null);
   const exportContent = useMemo(() => builderContentToGameContent(BASE_CONTENT, state.content), [state.content]);
   const exportJson = useMemo(() => JSON.stringify(exportContent, null, 2), [exportContent]);
   const draftJson = useMemo(() => JSON.stringify(state.content), [state.content]);
@@ -297,6 +301,15 @@ export default function MapBuilder() {
   useEffect(() => {
     if (!selectedNode && cameraScope === "cell") setCameraScope("default");
   }, [cameraScope, selectedNode]);
+
+  useEffect(() => {
+    setSimulationResult(null);
+  }, [activeMap.id, draftJson]);
+
+  const simulationCells = useMemo(() => {
+    if (inspectorTab !== "simulation" || !simulationResult) return undefined;
+    return new Map(simulationResult.cells.map((cell) => [cell.tileId, cell]));
+  }, [inspectorTab, simulationResult]);
 
   const inspectorPreviewCamera = useMemo(() => {
     if (inspectorTab !== "camera") return undefined;
@@ -440,11 +453,12 @@ export default function MapBuilder() {
               testMode={testMode}
               testCellId={testCellId}
               onTestCellChange={setTestCellId}
+              simulationCells={simulationCells}
             />
 
             {/* Mientras un overlay 3D a pantalla completa está abierto, desmontamos
                 el preview chico: un solo canvas WebGL. */}
-            {!playtest3DOpen && !galleryOpen && (
+            {!playtest3DOpen && !galleryOpen && inspectorTab !== "simulation" && (
               <Floating3DPreview
                 map={activeMap}
                 assetCatalog={state.content.assetCatalog}
@@ -485,6 +499,13 @@ export default function MapBuilder() {
             onTabChange={changeInspectorTab}
             cameraScope={cameraScope}
             onCameraScopeChange={setCameraScope}
+            content={exportContent}
+            simulationResult={simulationResult}
+            onSimulationResult={setSimulationResult}
+            onSelectSimulationCell={(tileId) => {
+              setTestCellId(tileId);
+              dispatch({ type: "select", selection: { kind: "node", id: tileId } });
+            }}
           />
         </aside>
       </div>
@@ -1015,6 +1036,7 @@ function MapCanvas({
   testMode,
   testCellId,
   onTestCellChange,
+  simulationCells,
 }: {
   state: MapBuilderState;
   map: MapDefinition;
@@ -1024,6 +1046,7 @@ function MapCanvas({
   testMode: boolean;
   testCellId: number;
   onTestCellChange: (id: number) => void;
+  simulationCells?: ReadonlyMap<number, SimulationCellStats>;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const drag = useRef<DragTarget | null>(null);
@@ -1031,6 +1054,10 @@ function MapCanvas({
   const bounds = useMemo(() => canvasBounds(map), [map]);
   const gridLines = useMemo(() => buildGrid(bounds), [bounds]);
   const terraceToolActive = state.tool === "terrace" && !testMode;
+  const simulationHeatMax = useMemo(
+    () => Math.max(0, ...[...(simulationCells?.values() ?? [])].map((cell) => cell.landings)),
+    [simulationCells]
+  );
 
   const pointFromEvent = (event: PointerEvent<SVGElement>): TileLayout => {
     const svg = svgRef.current;
@@ -1243,6 +1270,8 @@ function MapCanvas({
           tool={state.tool}
           pendingRouteFrom={state.pendingRouteFrom}
           testMode={testMode}
+          simulationStats={simulationCells?.get(tile.id)}
+          simulationHeatMax={simulationHeatMax}
           onTestCellChange={onTestCellChange}
           onDragStart={() => {
             drag.current = { kind: "node", id: tile.id };
@@ -1528,6 +1557,8 @@ function NodeShape({
   tool,
   pendingRouteFrom,
   testMode,
+  simulationStats,
+  simulationHeatMax,
   dispatch,
   onTestCellChange,
   onDragStart,
@@ -1539,19 +1570,29 @@ function NodeShape({
   tool: BuilderTool;
   pendingRouteFrom: number | null;
   testMode: boolean;
+  simulationStats?: SimulationCellStats;
+  simulationHeatMax: number;
   dispatch: Dispatch<any>;
   onTestCellChange: (id: number) => void;
   onDragStart: () => void;
 }) {
   const layout = tile.layout ?? { x: 0, y: 0 };
+  const heat = simulationStats && simulationHeatMax > 0 ? simulationStats.landings / simulationHeatMax : 0;
   return (
     <g
+      data-map-cell-id={tile.id}
+      data-selected={selected ? "true" : "false"}
       transform={`translate(${layout.x} ${layout.y}) rotate(${layout.rot ?? 0})`}
       filter="url(#nodeShadow)"
       className="cursor-pointer"
       onPointerDown={(event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (simulationStats) {
+          onTestCellChange(tile.id);
+          dispatch({ type: "select", selection: { kind: "node", id: tile.id } });
+          return;
+        }
         if (testMode) {
           onTestCellChange(tile.id);
           dispatch({ type: "select", selection: { kind: "node", id: tile.id } });
@@ -1566,6 +1607,22 @@ function NodeShape({
         onDragStart();
       }}
     >
+      {simulationStats && (
+        <circle
+          data-heat-cell-id={tile.id}
+          cx="0"
+          cy="0"
+          r={0.48 + heat * 0.22}
+          fill={heat > 0.66 ? "#fb7185" : heat > 0.33 ? "#fb923c" : "#facc15"}
+          fillOpacity={0.12 + heat * 0.48}
+          stroke="#fff7d6"
+          strokeOpacity={0.24 + heat * 0.46}
+          strokeWidth="0.035"
+          pointerEvents="none"
+        >
+          <title>{`Cell ${tile.id}: ${simulationStats.landings.toLocaleString()} trigger landings (${simulationStats.landingsPerGame.toFixed(2)} per game), ${simulationStats.passThroughs.toLocaleString()} pass-throughs, ${simulationStats.consequenceArrivals.toLocaleString()} consequence arrivals.`}</title>
+        </circle>
+      )}
       <rect
         x="-0.36"
         y="-0.28"
@@ -1871,6 +1928,10 @@ function Inspector({
   onTabChange,
   cameraScope,
   onCameraScopeChange,
+  content,
+  simulationResult,
+  onSimulationResult,
+  onSelectSimulationCell,
 }: {
   state: MapBuilderState;
   map: MapDefinition;
@@ -1885,6 +1946,10 @@ function Inspector({
   onTabChange: (tab: InspectorTab) => void;
   cameraScope: CameraAuthoringScope;
   onCameraScopeChange: (scope: CameraAuthoringScope) => void;
+  content: GameContent;
+  simulationResult: MapSimulationResult | null;
+  onSimulationResult: (result: MapSimulationResult) => void;
+  onSelectSimulationCell: (tileId: number) => void;
 }) {
   const selectionLabel = selectedNode
     ? `Cell ${selectedNode.id} · ${TILE_LABEL[selectedNode.type]}`
@@ -1899,6 +1964,7 @@ function Inspector({
     { id: "selection", label: "Selection", icon: MousePointer2 },
     { id: "camera", label: "Camera", icon: Camera },
     { id: "map", label: "Map", icon: MapIcon },
+    { id: "simulation", label: "Simulation", icon: Activity },
   ];
 
   return (
@@ -1914,7 +1980,7 @@ function Inspector({
             title={validation.length ? `${validation.length} validation issue${validation.length === 1 ? "" : "s"}` : "Map is valid"}
           />
         </div>
-        <div role="tablist" aria-label="Map inspector" className="grid grid-cols-3 rounded-md border border-white/10 bg-black/20 p-1">
+        <div role="tablist" aria-label="Map inspector" className="grid grid-cols-4 rounded-md border border-white/10 bg-black/20 p-1">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -1937,7 +2003,7 @@ function Inspector({
 
       {activeTab === "selection" && (
         <div className="grid gap-4">
-          {selectedNode && <NodeInspector tile={selectedNode} dispatch={dispatch} />}
+          {selectedNode && <NodeInspector tile={selectedNode} map={map} content={content} dispatch={dispatch} />}
           {selectedRoute && <RouteInspector route={selectedRoute} board={map.board} dispatch={dispatch} />}
           {selectedArtifact && <ArtifactInspector artifact={selectedArtifact} assetCatalog={assetCatalog} dispatch={dispatch} />}
           {selectedTerrace && <TerraceInspector terrace={selectedTerrace} dispatch={dispatch} />}
@@ -1985,6 +2051,19 @@ function Inspector({
             )}
           </section>
         </div>
+      )}
+
+      {activeTab === "simulation" && (
+        <MapSimulationPanel
+          key={map.id}
+          content={content}
+          map={map}
+          result={simulationResult}
+          onResult={onSimulationResult}
+          selectedCellId={selectedNode?.id}
+          onSelectCell={onSelectSimulationCell}
+          onEditSelected={() => onTabChange("selection")}
+        />
       )}
     </div>
   );
@@ -2168,12 +2247,19 @@ function CameraReadout({ camera }: { camera: CameraFramingDef }) {
   );
 }
 
-function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any> }) {
+function NodeInspector({ tile, map, content, dispatch }: { tile: Tile; map: MapDefinition; content: GameContent; dispatch: Dispatch<any> }) {
   const layout = tile.layout ?? { x: 0, y: 0 };
-  const [previewPlayerId, setPreviewPlayerId] = useState(BASE_CONTENT.players[0]?.id ?? "");
-  const previewPlayer = BASE_CONTENT.players.find((player) => player.id === previewPlayerId) ?? BASE_CONTENT.players[0];
-  const resolvedEvent = previewPlayer ? resolveTileEventForPlayer(BASE_CONTENT, tile, previewPlayer) : null;
-  const eventOptions = [{ value: "", label: "None" }, ...Object.keys(BASE_CONTENT.events).map((id) => ({ value: id, label: eventTitle(BASE_CONTENT.events[id]) }))];
+  const previewContent = useMemo(() => ({ ...content, board: map.board }), [content, map.board]);
+  const [previewPlayerId, setPreviewPlayerId] = useState(() => content.players[0]?.id ?? "");
+  const previewPlayer = content.players.find((player) => player.id === previewPlayerId) ?? content.players[0];
+  const resolvedEvent = previewPlayer ? resolveTileEventForPlayer(previewContent, tile, previewPlayer) : null;
+  const eventOptions = [{ value: "", label: "None" }, ...Object.keys(content.events).map((id) => ({ value: id, label: eventTitle(content.events[id]) }))];
+  const queueActivityTypes = useMemo(
+    () => [...new Set(Object.values(content.events).map((event) => event.activity?.type ?? "prompt"))] as EventActivityType[],
+    [content.events]
+  );
+  const queueType = tile.eventQueue?.activityTypes[0] ?? "";
+  const sharedPoolSize = sharedEventIdsForTile(previewContent, tile).length;
 
   return (
     <div className="grid gap-4">
@@ -2187,22 +2273,48 @@ function NodeInspector({ tile, dispatch }: { tile: Tile; dispatch: Dispatch<any>
         <TextInput label="Label" value={tile.label ?? ""} onChange={(label) => dispatch({ type: "update_node", id: tile.id, patch: { label: label || undefined } })} />
       </InspectorGroup>
 
-      <InspectorGroup title="Content" description="Choose the event this cell runs, then preview it for a player.">
+      <InspectorGroup title="Content" description="Anchor a cinematic event, draw from a shared activity queue, or combine both.">
         <SelectInput
-          label="Event"
+          label="Anchored event"
           value={tile.eventId ?? ""}
           options={optionsWithOrphan(tile.eventId ?? "", eventOptions)}
-          onChange={(eventId) => dispatch({ type: "update_node", id: tile.id, patch: { eventId: eventId || undefined } })}
+          onChange={(eventId) => dispatch({ type: "update_node", id: tile.id, patch: { eventId: eventId || undefined, eventIds: undefined } })}
         />
-        {tile.eventId && (
+        <div className="mt-3">
+          <SelectInput
+            label="Shared activity queue"
+            value={queueType}
+            options={[
+              { value: "", label: "None" },
+              ...queueActivityTypes.map((type) => ({ value: type, label: activityLabel(type) })),
+            ]}
+            onChange={(activityType) => dispatch({
+              type: "update_node",
+              id: tile.id,
+              patch: { eventQueue: activityType ? { activityTypes: [activityType as EventActivityType] } : undefined },
+            })}
+          />
+        </div>
+        {(tile.eventIds?.length ?? 0) > 0 && (
+          <p className="mt-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-2 text-[0.68rem] font-bold leading-4 text-slate-400">
+            This cell also has a local authored pool of {tile.eventIds!.length} events. It runs before the shared queue.
+          </p>
+        )}
+        {tile.eventQueue && (
+          <p className="mt-2 rounded-md border border-amber-300/20 bg-amber-300/[0.07] px-2.5 py-2 text-[0.68rem] font-bold leading-4 text-amber-100/80">
+            {sharedPoolSize} unanchored {activityLabel(queueType)} events share one no-repeat queue across the map.
+            {tile.eventId || tile.eventIds?.length ? " The anchored or local event plays first on this cell." : ""}
+          </p>
+        )}
+        {(tile.eventId || tile.eventIds?.length || tile.eventQueue) && (
           <div className="mt-3 rounded-md border border-cyan-300/20 bg-cyan-300/[0.07] p-3">
             <SelectInput
               label="Preview as"
               value={previewPlayerId}
-              options={BASE_CONTENT.players.map((player) => ({ value: player.id, label: player.name }))}
+              options={content.players.map((player) => ({ value: player.id, label: player.name }))}
               onChange={setPreviewPlayerId}
             />
-            <p className="mt-2 text-sm font-black leading-5 text-white">{resolvedEvent ? eventTitle(resolvedEvent) : tile.eventId}</p>
+            <p className="mt-2 text-sm font-black leading-5 text-white">{resolvedEvent ? eventTitle(resolvedEvent) : tile.eventId ?? "No eligible event"}</p>
             {resolvedEvent?.story.prompt && <p className="mt-1 text-xs font-bold leading-5 text-cyan-100/80">{resolvedEvent.story.prompt}</p>}
             {resolvedEvent?.activity && <p className="mt-2 text-[0.62rem] font-black uppercase tracking-[0.12em] text-cyan-200">{activityLabel(resolvedEvent.activity.type)}</p>}
             {!resolvedEvent && <p className="mt-1 text-xs font-bold leading-5 text-cyan-100">No event matches this player.</p>}
@@ -2742,12 +2854,18 @@ function activityLabel(type: string): string {
   if (type === "hostPick") return "Host pick";
   if (type === "selfTap") return "Self tap";
   if (type === "vote") return "Vote";
+  if (type === "cardVote") return "Card vote";
   if (type === "judge") return "Judge";
   if (type === "timing") return "Timing";
   if (type === "reaction") return "Reaction";
   if (type === "buzzer") return "Buzzer";
   if (type === "estimate") return "Estimate";
   if (type === "whack") return "Whack";
+  if (type === "maze") return "Laberinto";
+  if (type === "flappy") return "Flappy bird";
+  if (type === "snake") return "Snake";
+  if (type === "horserace") return "Carrera de caballos";
+  if (type === "redlight") return "Luz roja, luz verde";
   return type;
 }
 

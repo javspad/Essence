@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/c
 interface Props {
   state: GameState;
   isHost: boolean;
+  error?: string | null;
   onStart: () => void;
   onLeave: () => void;
 }
 
-export default function Lobby({ state, isHost, onStart, onLeave }: Props) {
+export default function Lobby({ state, isHost, error, onStart, onLeave }: Props) {
   const connected = state.players.filter((p) => p.connected);
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center p-6">
@@ -82,6 +83,12 @@ export default function Lobby({ state, isHost, onStart, onLeave }: Props) {
             </Button>
           ) : (
             <p className="animate-pulse text-center text-sm font-black text-[#c7bddc]">Esperando que el host arranque...</p>
+          )}
+
+          {error && (
+            <p role="alert" className="border border-[#fb7185]/40 bg-[#fb7185]/10 px-3 py-2 text-center text-xs font-black leading-5 text-[#fecdd3]">
+              {error}
+            </p>
           )}
 
           <Button

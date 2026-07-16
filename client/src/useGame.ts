@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ArtifactOffer, CoinTransaction, EffectDef, EffectInstance, GameContent, GameState, RevealPayload, ServerToClientEvents } from "@essence/shared";
 import { normalizeGameState } from "./gameState";
-import { socket } from "./socket";
+import { socket, socketEndpoint } from "./socket";
 
 type MinigameStart = Parameters<ServerToClientEvents["minigame:start"]>[0];
 
@@ -13,6 +13,7 @@ interface Session {
   name: string;
   playerId: string;
   characterId?: string;
+  reconnectToken?: string;
 }
 
 export interface EffectNotice {
@@ -29,7 +30,8 @@ function parseSession(raw: string | null): Session | null {
       typeof parsed.code === "string" &&
       typeof parsed.name === "string" &&
       typeof parsed.playerId === "string" &&
-      (parsed.characterId === undefined || typeof parsed.characterId === "string")
+      (parsed.characterId === undefined || typeof parsed.characterId === "string") &&
+      (parsed.reconnectToken === undefined || typeof parsed.reconnectToken === "string")
     ) {
       return parsed as Session;
     }
@@ -42,6 +44,14 @@ function parseSession(raw: string | null): Session | null {
 function clearSession() {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
+function persistSession(session: Session) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  } catch {
+    // Reconnection remains available in memory for this page even if storage is unavailable.
+  }
 }
 
 function loadSession(): Session | null {
@@ -69,18 +79,55 @@ export function useGame({ autoReconnect = true }: { autoReconnect?: boolean } = 
   const [effectNotices, setEffectNotices] = useState<EffectNotice[]>([]);
 
   useEffect(() => {
+    const reconnectTimers = new Set<number>();
+    let handledSocketId: string | undefined;
+    const rejoinSession = (session: Session, attempt = 0) => {
+      socket.emit("room:join", {
+        code: session.code,
+        name: session.name,
+        characterId: session.characterId,
+        reconnectToken: session.reconnectToken,
+      }, (res) => {
+        if (res.ok) {
+          setPlayerId(res.playerId);
+          persistSession({ ...session, playerId: res.playerId, reconnectToken: res.reconnectToken });
+          setError(null);
+          return;
+        }
+        if (/ocupado/i.test(res.error) && attempt < 3) {
+          const timer = window.setTimeout(() => {
+            reconnectTimers.delete(timer);
+            rejoinSession(session, attempt + 1);
+          }, 500 * (attempt + 1));
+          reconnectTimers.add(timer);
+          return;
+        }
+        if (/sala inexistente/i.test(res.error)) {
+          clearSession();
+          setPlayerId(null);
+          setState(null);
+        }
+        setError(`No pude recuperar la sala: ${res.error}`);
+      });
+    };
     const onConnect = () => {
+      if (socket.id && handledSocketId === socket.id) return;
+      handledSocketId = socket.id;
       setConnected(true);
+      setError(null);
       // Reconexión automática si había sesión.
       const s = autoReconnect ? loadSession() : null;
-      if (s) {
-        socket.emit("room:join", { code: s.code, name: s.name, characterId: s.characterId }, (res) => {
-          if (res.ok) setPlayerId(res.playerId);
-          else clearSession();
-        });
-      }
+      if (s) rejoinSession(s);
     };
-    const onDisconnect = () => setConnected(false);
+    const onDisconnect = (reason: string) => {
+      handledSocketId = undefined;
+      setConnected(false);
+      if (reason !== "io client disconnect") setError("Conexión interrumpida. Reintentando…");
+    };
+    const onConnectError = (connectionError: Error) => {
+      setConnected(false);
+      setError(`No pude conectar con ${socketEndpoint}: ${connectionError.message}`);
+    };
     const onState = (s: GameState) => {
       const nextState = normalizeGameState(s);
       setState(nextState);
@@ -105,21 +152,35 @@ export function useGame({ autoReconnect = true }: { autoReconnect?: boolean } = 
       setEffectNotices([]);
       setError(payload.message);
     };
+    const onSessionReplaced = (payload: { message: string }) => {
+      clearSession();
+      setPlayerId(null);
+      setState(null);
+      setMinigameStart(null);
+      setEffectNotices([]);
+      setError(payload.message);
+    };
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
     socket.on("state", onState);
     socket.on("room:closed", onRoomClosed);
+    socket.on("session:replaced", onSessionReplaced);
     socket.on("minigame:start", onMinigameStart);
     socket.on("minigame:reveal", onReveal);
     socket.on("effect:ended", onEffectEnded);
     socket.on("error", onError);
+    if (socket.connected) onConnect();
 
     return () => {
+      for (const timer of reconnectTimers) window.clearTimeout(timer);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
       socket.off("state", onState);
       socket.off("room:closed", onRoomClosed);
+      socket.off("session:replaced", onSessionReplaced);
       socket.off("minigame:start", onMinigameStart);
       socket.off("minigame:reveal", onReveal);
       socket.off("effect:ended", onEffectEnded);
@@ -127,16 +188,12 @@ export function useGame({ autoReconnect = true }: { autoReconnect?: boolean } = 
     };
   }, [autoReconnect]);
 
-  const persist = (code: string, name: string, pid: string, characterId?: string) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ code, name, playerId: pid, characterId }));
-  };
-
   const create = useCallback((name: string, roomName: string, characterId?: string, mapId?: string) => {
     setError(null);
     socket.emit("room:create", { name, roomName, characterId, mapId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
-        persist(res.code, name, res.playerId, characterId ?? res.playerId);
+        persistSession({ code: res.code, name, playerId: res.playerId, characterId: characterId ?? res.playerId, reconnectToken: res.reconnectToken });
       } else setError(res.error);
     });
   }, []);
@@ -146,7 +203,7 @@ export function useGame({ autoReconnect = true }: { autoReconnect?: boolean } = 
     socket.emit("room:join", { code: code.toUpperCase(), name, characterId }, (res) => {
       if (res.ok) {
         setPlayerId(res.playerId);
-        persist(res.code, name, res.playerId, characterId ?? res.playerId);
+        persistSession({ code: res.code, name, playerId: res.playerId, characterId: characterId ?? res.playerId, reconnectToken: res.reconnectToken });
       } else setError(res.error);
     });
   }, []);
@@ -156,6 +213,19 @@ export function useGame({ autoReconnect = true }: { autoReconnect?: boolean } = 
     clearSession();
     setPlayerId(null);
     setState(null);
+  }, []);
+
+  const start = useCallback(() => {
+    setError(null);
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (!settled) setError("El servidor no confirmó el inicio. Revisá la conexión del host.");
+    }, 8_000);
+    socket.emit("game:start", (res) => {
+      settled = true;
+      window.clearTimeout(timer);
+      if (!res.ok) setError(res.error);
+    });
   }, []);
 
   const buyCosmetic = useCallback((cosmeticId: string, onResult?: (res: { ok: true; transaction?: CoinTransaction } | { ok: false; error: string }) => void) => {
@@ -277,7 +347,7 @@ export function useGame({ autoReconnect = true }: { autoReconnect?: boolean } = 
       create,
       join,
       leave,
-      start: () => socket.emit("game:start"),
+      start,
       roll: () => socket.emit("turn:roll"),
       next: () => socket.emit("turn:next"),
       debugApplyEffect: (playerId: string, effect: EffectDef) => socket.emit("debug:applyEffect", { playerId, effectId: effect.id, effect }),

@@ -4,16 +4,16 @@ import {
   audioAssetPlaybackRange,
   audioBindingCandidates,
   audioBindingId,
+  audioRandomFromPlaybackId,
   audioScopeKey,
   audioTriggerCandidates,
   pickWeightedAudioCandidate,
   type AudioTriggerContext,
   type AudioTriggerCandidate,
 } from "@essence/shared/audio";
-import { LockKeyhole, Music, Radio, Volume2, VolumeX, Waves } from "lucide-react";
+import { LockKeyhole, Music, Radio, Volume2, Waves } from "lucide-react";
 
 interface RuntimeAudioSettings {
-  muted: boolean;
   masterVolume: number;
   musicVolume: number;
   sfxVolume: number;
@@ -21,7 +21,7 @@ interface RuntimeAudioSettings {
 
 type AudioPlayResult =
   | { ok: true; assetId: string; trigger: AudioTriggerId }
-  | { ok: false; reason: "missing" | "locked" | "muted" | "cooldown" | "voice-limit" | "blocked" };
+  | { ok: false; reason: "missing" | "locked" | "cooldown" | "voice-limit" | "blocked" };
 
 interface AudioRuntime {
   unlocked: boolean;
@@ -44,7 +44,6 @@ interface ActiveVoice {
 
 const STORAGE_KEY = "essence:audio-settings:v1";
 const DEFAULT_SETTINGS: RuntimeAudioSettings = {
-  muted: false,
   masterVolume: 0.8,
   musicVolume: 0.55,
   sfxVolume: 0.85,
@@ -65,11 +64,15 @@ export function AudioTriggerProvider({
   const [unlocked, setUnlocked] = useState(false);
   const settingsRef = useRef(settings);
   const unlockedRef = useRef(false);
+  const assetsRef = useRef(assets);
+  const bindingsRef = useRef(bindings);
   const activeVoicesRef = useRef(new Map<string, ActiveVoice[]>());
   const loopsRef = useRef(new Map<string, ActiveVoice>());
   const lastPlayedRef = useRef(new Map<string, number>());
 
   settingsRef.current = settings;
+  assetsRef.current = assets;
+  bindingsRef.current = bindings;
 
   useEffect(() => {
     persistAudioSettings(settings);
@@ -96,13 +99,22 @@ export function AudioTriggerProvider({
   }, [unlock]);
 
   const stop = useCallback((trigger?: AudioTriggerId) => {
-    for (const [loopKey, voice] of loopsRef.current.entries()) {
-      if (trigger && !loopKey.startsWith(`${trigger}:`)) continue;
-      stopVoice(voice);
-      removeActiveVoice(activeVoicesRef.current, voice);
-      loopsRef.current.delete(loopKey);
+    for (const [voiceKey, voices] of activeVoicesRef.current.entries()) {
+      const remaining: ActiveVoice[] = [];
+      for (const voice of voices) {
+        if (trigger && voice.candidate.binding.trigger !== trigger) {
+          remaining.push(voice);
+          continue;
+        }
+        stopVoice(voice);
+        if (voice.loopKey) loopsRef.current.delete(voice.loopKey);
+      }
+      if (remaining.length) activeVoicesRef.current.set(voiceKey, remaining);
+      else activeVoicesRef.current.delete(voiceKey);
     }
   }, []);
+
+  useEffect(() => () => stop(), [stop]);
 
   const playCandidate = useCallback(
     async (
@@ -111,9 +123,8 @@ export function AudioTriggerProvider({
       context: Omit<AudioTriggerContext, "trigger"> = {}
     ): Promise<AudioPlayResult> => {
       const now = Date.now();
-      const asset = assets[candidate.variant.assetId];
+      const asset = assetsRef.current[candidate.variant.assetId];
       if (!asset?.src) return { ok: false, reason: "missing" };
-      if (settingsRef.current.muted) return { ok: false, reason: "muted" };
       if (!unlockedRef.current) return { ok: false, reason: "locked" };
 
       const voiceKey = candidateVoiceKey(candidate);
@@ -160,28 +171,37 @@ export function AudioTriggerProvider({
         return { ok: false, reason: "blocked" };
       }
     },
-    [assets]
+    []
   );
 
   const play = useCallback(
     async (trigger: AudioTriggerId, context: Omit<AudioTriggerContext, "trigger"> = {}): Promise<AudioPlayResult> => {
       const now = Date.now();
-      const playableCandidates = audioTriggerCandidates(bindings, { ...context, trigger }).filter((candidate) => Boolean(assets[candidate.variant.assetId]?.src));
-      const candidates = playableCandidates.filter((candidate) => {
+      const playableCandidates = audioTriggerCandidates(bindingsRef.current, { ...context, trigger }).filter((candidate) => Boolean(assetsRef.current[candidate.variant.assetId]?.src));
+      const cooldownReadyCandidates = playableCandidates.filter((candidate) => {
         const lastPlayed = lastPlayedRef.current.get(candidateVoiceKey(candidate)) ?? 0;
         return !candidate.cooldownMs || now - lastPlayed >= candidate.cooldownMs;
       });
-      const candidate = pickWeightedAudioCandidate(candidates);
+      // A synchronized cue must never choose a different fallback because one browser has
+      // slightly different local cooldown history. The chosen candidate can skip locally,
+      // but every client resolves the same weighted variant.
+      const candidates = context.playbackId ? playableCandidates : cooldownReadyCandidates;
+      const candidate = pickWeightedAudioCandidate(
+        candidates,
+        context.playbackId
+          ? () => audioRandomFromPlaybackId(`${trigger}:${context.playbackId}`)
+          : undefined
+      );
       if (candidate) return playCandidate(candidate, trigger, context);
       return { ok: false, reason: playableCandidates.length ? "cooldown" : "missing" };
     },
-    [assets, bindings, playCandidate]
+    [playCandidate]
   );
 
   const playBinding = useCallback(
     async (binding: AudioTriggerBindingDef): Promise<AudioPlayResult> => {
       const now = Date.now();
-      const playableCandidates = audioBindingCandidates(binding).filter((candidate) => Boolean(assets[candidate.variant.assetId]?.src));
+      const playableCandidates = audioBindingCandidates(binding).filter((candidate) => Boolean(assetsRef.current[candidate.variant.assetId]?.src));
       const candidates = playableCandidates.filter((candidate) => {
         const lastPlayed = lastPlayedRef.current.get(candidateVoiceKey(candidate)) ?? 0;
         return !candidate.cooldownMs || now - lastPlayed >= candidate.cooldownMs;
@@ -190,7 +210,7 @@ export function AudioTriggerProvider({
       if (candidate) return playCandidate(candidate, binding.trigger);
       return { ok: false, reason: playableCandidates.length ? "cooldown" : "missing" };
     },
-    [assets, playCandidate]
+    [playCandidate]
   );
 
   const playFirst = useCallback(
@@ -229,15 +249,6 @@ export function AudioRuntimeControls() {
       className="pointer-events-auto flex items-center gap-1.5 rounded-sm border border-[#67e8f9]/30 bg-[#061923]/88 px-2 py-1.5 text-[#ecfeff] shadow-[0_8px_24px_rgb(0_0_0/0.35)] backdrop-blur-xl"
       data-audio-runtime-controls="true"
     >
-      <button
-        type="button"
-        aria-label={audio.settings.muted ? "Unmute audio" : "Mute audio"}
-        title={audio.settings.muted ? "Unmute audio" : "Mute audio"}
-        onClick={() => audio.setSettings((settings) => ({ ...settings, muted: !settings.muted }))}
-        className="grid size-8 place-items-center rounded-sm border border-white/10 bg-white/5 text-[#a5f3fc] hover:bg-white/10"
-      >
-        {audio.settings.muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-      </button>
       <button
         type="button"
         aria-label="Unlock audio"
@@ -370,7 +381,7 @@ function clearVoiceTimer(voice: ActiveVoice) {
 
 function applyVoiceVolume(voice: ActiveVoice, settings: RuntimeAudioSettings) {
   const categoryVolume = voice.candidate.category === "music" ? settings.musicVolume : settings.sfxVolume;
-  voice.audio.volume = clamp01(settings.muted ? 0 : settings.masterVolume * categoryVolume * voice.candidate.volume);
+  voice.audio.volume = clamp01(settings.masterVolume * categoryVolume * voice.candidate.volume);
 }
 
 function loadAudioSettings(): RuntimeAudioSettings {
@@ -393,7 +404,6 @@ function persistAudioSettings(settings: RuntimeAudioSettings) {
 
 function normalizeAudioSettings(settings: RuntimeAudioSettings): RuntimeAudioSettings {
   return {
-    muted: Boolean(settings.muted),
     masterVolume: clamp01(settings.masterVolume),
     musicVolume: clamp01(settings.musicVolume),
     sfxVolume: clamp01(settings.sfxVolume),

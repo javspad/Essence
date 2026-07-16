@@ -22,24 +22,37 @@ export default function MinigameHost({ state, me, isHost, onFinish, onAction, on
   const mg = state.activeMinigame;
   const [finishedMinigameKey, setFinishedMinigameKey] = useState<string | null>(null);
   const { play: playAudio, stop: stopAudio } = useAudioRuntime();
+  const audioPlayerId = mg?.protagonistId ?? state.turnOrder[state.activeIndex];
+  const musicPlaybackId = mg
+    ? `${mg.eventId}:${mg.startedAt ?? `${state.round}:${state.activeIndex}`}`
+    : null;
+  const durationMs = minigameDurationMs(mg?.content);
 
   useEffect(() => {
-    if (!mg) return;
-    void playAudio("minigame.music", { playerId: me.id, minigameId: mg.eventId });
+    if (!mg || !musicPlaybackId) return;
+    void playAudio("minigame.music", {
+      playerId: audioPlayerId,
+      minigameId: mg.eventId,
+      playbackId: musicPlaybackId,
+    });
     return () => stopAudio("minigame.music");
-  }, [me.id, mg?.eventId, playAudio, stopAudio]);
+  }, [audioPlayerId, mg?.eventId, musicPlaybackId, playAudio, stopAudio]);
 
   useEffect(() => {
-    if (!mg) return;
-    const durationMs = minigameDurationMs(mg.content);
-    if (!durationMs || durationMs < 3500) return;
-    const timers = [3000, 2000, 1000].map((remaining) =>
-      window.setTimeout(() => {
-        void playAudio("minigame.timeTick", { playerId: me.id, minigameId: mg.eventId });
-      }, Math.max(0, durationMs - remaining))
-    );
+    if (!mg || !durationMs || durationMs < 3500 || !musicPlaybackId) return;
+    const timers = [3000, 2000, 1000].flatMap((remaining) => {
+      const delayMs = durationMs - remaining;
+      if (delayMs < 0) return [];
+      return [window.setTimeout(() => {
+        void playAudio("minigame.timeTick", {
+          playerId: audioPlayerId,
+          minigameId: mg.eventId,
+          playbackId: `${musicPlaybackId}:tick:${remaining}`,
+        });
+      }, delayMs)];
+    });
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [me.id, mg?.content, mg?.eventId, playAudio]);
+  }, [audioPlayerId, durationMs, mg?.eventId, musicPlaybackId, playAudio]);
 
   if (!mg) return null;
 

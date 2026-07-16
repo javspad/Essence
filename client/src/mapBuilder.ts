@@ -989,6 +989,8 @@ function cloneTiles(board: Tile[]): Tile[] {
     ...tile,
     layout: tile.layout ? { ...tile.layout } : undefined,
     tags: tile.tags ? [...tile.tags] : undefined,
+    eventIds: tile.eventIds ? [...tile.eventIds] : undefined,
+    eventQueue: tile.eventQueue ? { activityTypes: [...tile.eventQueue.activityTypes] } : undefined,
     camera: cloneCamera(tile.camera),
   }));
 }

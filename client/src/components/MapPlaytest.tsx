@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { GameContent, GameState, Tile } from "@essence/shared";
+import { sharedEventIdsForTile } from "@essence/shared/events";
 import { ChevronDown, Dice5, LogOut, MapPin, RotateCcw, Users } from "lucide-react";
 import { useGame } from "../useGame";
 import ConnectedGame from "./ConnectedGame";
@@ -94,12 +95,14 @@ export default function MapPlaytest({ content, mapId, onClose }: MapPlaytestProp
         me={me}
         activeId={activeId}
         isHost={isHost}
+        error={error}
         effectNotices={effectNotices}
         onDismissEffectNotice={dismissEffectNotice}
         actions={playtestActions}
         overlay={
           <PlaytestDirector
           state={state}
+          content={content}
           meId={me.id}
           error={error}
           busy={directorAction}
@@ -136,6 +139,7 @@ export default function MapPlaytest({ content, mapId, onClose }: MapPlaytestProp
 
 function PlaytestDirector({
   state,
+  content,
   meId,
   error,
   busy,
@@ -147,6 +151,7 @@ function PlaytestDirector({
   onClose,
 }: {
   state: GameState;
+  content: GameContent;
   meId: string;
   error: string | null;
   busy: DirectorAction;
@@ -276,7 +281,7 @@ function PlaytestDirector({
                 >
                   {state.board.map((tile) => (
                     <option key={tile.id} value={tile.id}>
-                      {tileOptionLabel(tile)}
+                      {tileOptionLabel(tile, content)}
                     </option>
                   ))}
                 </select>
@@ -301,8 +306,11 @@ function validRollValue(value: string): boolean {
   return Number.isFinite(numeric) && numeric >= 1;
 }
 
-function tileOptionLabel(tile: Tile): string {
+function tileOptionLabel(tile: Tile, content: GameContent): string {
   const name = tile.label?.trim() || tile.type;
-  const eventCount = tile.eventIds?.length ?? (tile.eventId ? 1 : 0);
-  return `#${tile.id} · ${name}${eventCount ? ` · ${eventCount} event${eventCount === 1 ? "" : "s"}` : ""}`;
+  const localEventCount = tile.eventIds?.length ?? (tile.eventId ? 1 : 0);
+  const sharedEventCount = sharedEventIdsForTile(content, tile).length;
+  const eventCount = localEventCount + sharedEventCount;
+  const source = sharedEventCount ? " shared" : "";
+  return `#${tile.id} · ${name}${eventCount ? ` · ${eventCount}${source} event${eventCount === 1 ? "" : "s"}` : ""}`;
 }

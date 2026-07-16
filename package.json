@@ -14,11 +14,16 @@
     "dev:client": "npm run dev -w client",
     "build": "npm run build -w client",
     "start": "npm run start -w server",
+    "party": "PRODUCTION=true npm run build && NODE_ENV=production PRODUCTION=true npm run start",
+    "optimize:assets": "node scripts/externalize-inline-assets.mjs && node scripts/optimize-public-assets.mjs",
+    "smoke:lan": "node scripts/lan-multiplayer-smoke.mjs",
+    "smoke:reconnect-ui": "node scripts/qa/reconnect-ui-smoke.mjs",
     "smoke": "tsx scripts/smoke.mjs"
   },
   "devDependencies": {
     "@types/three": "^0.171.0",
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "sharp": "^0.34.5"
   },
   "engines": {
     "node": ">=20"

@@ -25,6 +25,7 @@ import { saveContentJsonToDisk } from "../lib/contentDiskSave";
 
 const STORAGE_KEY = "essence:sound-builder:draft:v1";
 const AUDIO_ASSET_DRAG_TYPE = "application/x-essence-audio-asset";
+const PLAYER_FILTER_TRIGGER_IDS = new Set<AudioTriggerId>(["activity.playerWon", "game.finalWinner", "minigame.playerLost"]);
 const BASE_CONTENT = normalizeContentSchema(seedContent);
 
 type SoundBuilderDraft = Pick<GameContent, "audioAssets" | "audioTriggers"> & {
@@ -479,7 +480,9 @@ export default function SoundBuilder() {
                 >
                   <p className="truncate text-xs font-black text-white">When {audioTriggerLabel(binding.trigger)}</p>
                   <p className="mt-1 truncate text-[0.58rem] font-black uppercase text-slate-500">
-                    {audioScopeLabel(binding.scope)} · {binding.variants.length} {binding.variants.length === 1 ? "sound" : "sounds"}
+                    {audioScopeLabel(binding.scope)}
+                    {binding.playerId ? ` · ${content.players.find((player) => player.id === binding.playerId)?.name ?? binding.playerId}` : ""}
+                    {` · ${binding.variants.length} ${binding.variants.length === 1 ? "sound" : "sounds"}`}
                   </p>
                 </button>
               ))}
@@ -707,6 +710,7 @@ function BindingEditor({
   const assetOptions = audioAssetOptions(content, selectedAssetId);
   const scopeType = binding.scope?.type ?? "global";
   const scopeOptions = scopeIdOptions(content, scopeType, binding.scope?.id);
+  const supportsPlayerFilter = PLAYER_FILTER_TRIGGER_IDS.has(binding.trigger);
 
   useEffect(() => {
     if (!testStatus) return;
@@ -788,8 +792,22 @@ function BindingEditor({
           label="Trigger"
           value={binding.trigger}
           options={AUDIO_TRIGGER_IDS.map((trigger) => ({ value: trigger, label: audioTriggerLabel(trigger) }))}
-          onChange={(trigger) => onChange((current) => ({ ...current, trigger: trigger as AudioTriggerId }))}
+          onChange={(trigger) => onChange((current) => {
+            const nextTrigger = trigger as AudioTriggerId;
+            return { ...current, trigger: nextTrigger, playerId: PLAYER_FILTER_TRIGGER_IDS.has(nextTrigger) ? current.playerId : undefined };
+          })}
         />
+        {supportsPlayerFilter && (
+          <SelectInput
+            label={binding.trigger === "minigame.playerLost" ? "Losing player" : "Winning player"}
+            value={binding.playerId ?? ""}
+            options={[
+              { value: "", label: binding.trigger === "minigame.playerLost" ? "Any losing player" : "Any winning player" },
+              ...content.players.map((player) => ({ value: player.id, label: player.name })),
+            ]}
+            onChange={(playerId) => onChange((current) => ({ ...current, playerId: playerId || undefined }))}
+          />
+        )}
         <SelectInput
           label="Category"
           value={binding.category ?? "sfx"}
@@ -823,14 +841,14 @@ function BindingEditor({
           <div />
         ) : scopeOptions.length ? (
           <SelectInput
-            label="Scope id"
+            label={scopeIdLabel(scopeType)}
             value={binding.scope?.id ?? scopeOptions[0]?.value ?? ""}
             options={scopeOptions}
             onChange={(id) => onChange((current) => ({ ...current, scope: { type: scopeType, id } }))}
           />
         ) : (
           <TextInput
-            label="Scope id"
+            label={scopeIdLabel(scopeType)}
             value={binding.scope?.id ?? ""}
             onChange={(id) => onChange((current) => ({ ...current, scope: { type: scopeType, id } }))}
           />
@@ -1073,7 +1091,14 @@ function firstScopeId(content: GameContent, scopeType: AudioTriggerScopeType): s
 
 function scopeTypeLabel(type: AudioTriggerScopeType): string {
   if (type === "global") return "Default";
+  if (type === "minigame") return "Activity / event";
   return type.slice(0, 1).toUpperCase() + type.slice(1);
+}
+
+function scopeIdLabel(type: AudioTriggerScopeType): string {
+  if (type === "minigame") return "Activity / event";
+  if (type === "player") return "Player";
+  return `${scopeTypeLabel(type)} id`;
 }
 
 function emptyAudioAsset(id: string): AudioAssetDef {
@@ -1280,10 +1305,9 @@ function formatTime(valueMs: number): string {
   return `${minutes}:${seconds.toFixed(2).padStart(5, "0")}`;
 }
 
-function audioTestResultLabel(reason: "missing" | "locked" | "muted" | "cooldown" | "voice-limit" | "blocked"): string {
+function audioTestResultLabel(reason: "missing" | "locked" | "cooldown" | "voice-limit" | "blocked"): string {
   if (reason === "cooldown") return "Cooldown active";
   if (reason === "voice-limit") return "Voice limit reached";
-  if (reason === "muted") return "Audio is muted";
   if (reason === "locked") return "Click again to unlock";
   if (reason === "blocked") return "Playback blocked";
   return "Add a playable sound";

@@ -32,7 +32,6 @@ export default defineConfig({
     // permitir importar /shared (fuera de la raíz del cliente)
     fs: { allow: [".."] },
     proxy: {
-      "/socket.io": { target: backendTarget, ws: true },
       "/api": { target: backendTarget },
     },
   },

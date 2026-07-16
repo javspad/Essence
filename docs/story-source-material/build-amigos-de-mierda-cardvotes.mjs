@@ -57,7 +57,7 @@ data.card_vote_sets = Array.from({ length: playablePrompts.length / deckSize }, 
         participants: "everyone",
         subjects: "everyone",
         content: {
-          allowSelfVote: false,
+          allowSelfVote: true,
           tieMode: "shared",
           cards: cards.map((card) => card.sentence)
         }

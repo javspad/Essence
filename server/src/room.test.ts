@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import type { GameContent, ServerToClientEvents } from "@essence/shared";
 import { validateGameContent } from "@essence/shared/contentValidation";
 import { effectConditionMatches } from "@essence/shared/consequences";
-import { normalizeGameContentEvents, resolveEventMediaRefs, resolveTileEventForPlayer } from "@essence/shared/events";
+import { normalizeGameContentEvents, resolveEventMediaRefs, resolveTileEventForPlayer, TileEventQueue } from "@essence/shared/events";
 import { resolveActivityResults } from "./activities/index";
-import { GameRoom } from "./room";
+import { GameRoom, ROOM_RECONNECT_TTL_MS } from "./room";
 
 type EmittedEvent = {
   room: string;
@@ -32,6 +32,62 @@ assert.deepEqual(
   });
   assert.equal(resolveTileEventForPlayer(pooledContent, pooledContent.board[0], pooledContent.players[0], () => 0)?.id, "first");
   assert.equal(resolveTileEventForPlayer(pooledContent, pooledContent.board[0], pooledContent.players[0], () => 0.999)?.id, "second");
+
+  const queue = new TileEventQueue();
+  pooledContent.board[0].eventIds = ["first", "second", "third"];
+  pooledContent.events.third = { name: "Third", activity: { type: "prompt" } };
+  assert.deepEqual(
+    Array.from({ length: 4 }, () => queue.resolve(pooledContent, pooledContent.board[0], pooledContent.players[0], () => 0)?.id),
+    ["first", "second", "third", "first"],
+    "pooled cells exhaust every event before refilling and do not repeat at the cycle boundary"
+  );
+}
+
+{
+  const sharedContent = normalizeGameContentEvents({
+    board: [
+      { id: 0, type: "fate", eventQueue: { activityTypes: ["prompt"] } },
+      { id: 1, type: "fate", eventQueue: { activityTypes: ["prompt"] } },
+    ],
+    events: {
+      first: { name: "First", activity: { type: "prompt" } },
+      second: { name: "Second", activity: { type: "prompt" } },
+      third: { name: "Third", activity: { type: "prompt" } },
+    },
+    players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+  });
+  const queue = new TileEventQueue();
+  assert.deepEqual(
+    [
+      queue.resolve(sharedContent, sharedContent.board[0], sharedContent.players[0], () => 0)?.id,
+      queue.resolve(sharedContent, sharedContent.board[1], sharedContent.players[0], () => 0)?.id,
+      queue.resolve(sharedContent, sharedContent.board[0], sharedContent.players[0], () => 0)?.id,
+      queue.resolve(sharedContent, sharedContent.board[1], sharedContent.players[0], () => 0)?.id,
+    ],
+    ["first", "second", "third", "first"],
+    "activity queue cells share one room-wide shuffle bag and avoid a repeat at the cycle boundary"
+  );
+  queue.reset();
+  assert.equal(queue.resolve(sharedContent, sharedContent.board[1], sharedContent.players[0], () => 0)?.id, "first");
+}
+
+{
+  const anchoredContent = normalizeGameContentEvents({
+    board: [
+      { id: 0, type: "fate", eventId: "hero", eventQueue: { activityTypes: ["prompt"] } },
+      { id: 1, type: "fate", eventQueue: { activityTypes: ["prompt"] } },
+    ],
+    events: {
+      hero: { name: "Hero", activity: { type: "prompt" } },
+      sharedA: { name: "Shared A", activity: { type: "prompt" } },
+      sharedB: { name: "Shared B", activity: { type: "prompt" } },
+    },
+    players: [{ id: "alice", name: "Alice", color: "#f87171" }],
+  });
+  const queue = new TileEventQueue();
+  assert.equal(queue.resolve(anchoredContent, anchoredContent.board[0], anchoredContent.players[0], () => 0)?.id, "hero");
+  assert.equal(queue.resolve(anchoredContent, anchoredContent.board[0], anchoredContent.players[0], () => 0)?.id, "sharedA");
+  assert.equal(queue.resolve(anchoredContent, anchoredContent.board[1], anchoredContent.players[0], () => 0)?.id, "sharedB");
 }
 
 function createIoRecorder(): { io: unknown; events: EmittedEvent[] } {
@@ -342,8 +398,8 @@ const players = [
 {
   const { io, events } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "QUIT", "Leave test", content);
-  assert.deepEqual(room.join("socket-alice", "Alice"), { ok: true, playerId: "alice" });
-  assert.deepEqual(room.join("socket-bob", "Bob"), { ok: true, playerId: "bob" });
+  assert.equal(room.join("socket-alice", "Alice").ok, true);
+  assert.equal(room.join("socket-bob", "Bob").ok, true);
 
   assert.deepEqual(room.leave("socket-bob"), { closed: false });
   assert.equal(room.getState().players.find((player) => player.id === "bob")?.connected, false);
@@ -355,6 +411,106 @@ const players = [
     event: "room:closed",
     payload: { message: "El host cerró la sala." },
   });
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "BACK", "Reconnect turn order", content);
+  assert.equal(room.join("socket-alice", "Alice").ok, true);
+  assert.equal(room.join("socket-bob", "Bob").ok, true);
+  assert.deepEqual(room.startGame("socket-alice"), { ok: true });
+
+  room.disconnect("socket-bob");
+  (room as unknown as { advanceTurn(): void }).advanceTurn();
+  assert.ok(room.getState().turnOrder.includes("bob"), "temporary disconnects must not permanently remove a player from turn order");
+
+  const bobBefore = room.getState().players.find((player) => player.id === "bob");
+  assert.ok(bobBefore);
+  bobBefore.position = 7;
+  bobBefore.coins = 11;
+  assert.equal(room.join("socket-bob-2", "Bob", { characterId: "bob" }).ok, true);
+  const bobAfter = room.getState().players.find((player) => player.id === "bob");
+  assert.equal(bobAfter?.connected, true);
+  assert.equal(bobAfter?.position, 7);
+  assert.equal(bobAfter?.coins, 11);
+  assert.deepEqual(room.join("socket-new", "New", { characterId: "alice" }), { ok: false, error: "Ese personaje ya está ocupado" });
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "HOST", "Host recovery", content);
+  assert.equal(room.join("socket-alice", "Alice").ok, true);
+  assert.equal(room.join("socket-bob", "Bob").ok, true);
+  assert.deepEqual(room.startGame("socket-alice"), { ok: true });
+  assert.deepEqual(
+    room.leave("socket-alice"),
+    { closed: false },
+    "leaving a started game must not destroy the room when the host disconnects"
+  );
+  assert.equal(room.getState().players.find((player) => player.id === "alice")?.connected, false);
+  assert.equal(room.join("socket-alice-new", "Alice", { characterId: "alice" }).ok, true);
+  assert.equal(room.getState().players.find((player) => player.id === "alice")?.isHost, true);
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TOKN", "Token recovery", content);
+  const firstJoin = room.join("socket-alice", "Alice");
+  if (!firstJoin.ok) throw new Error(firstJoin.error);
+  assert.equal(firstJoin.ok, true);
+
+  assert.deepEqual(room.join("socket-duplicate", "Alice", { characterId: "alice" }), {
+    ok: false,
+    error: "Ese personaje ya está ocupado",
+  });
+  const takeover = room.join("socket-alice-new", "Alice", {
+    characterId: "alice",
+    reconnectToken: firstJoin.reconnectToken,
+  });
+  if (!takeover.ok) throw new Error(takeover.error);
+  assert.equal(takeover.ok, true, "a valid private token can reclaim a seat before the stale socket times out");
+  assert.notEqual(takeover.reconnectToken, firstJoin.reconnectToken, "reconnect tokens rotate after every reclaim");
+  assert.deepEqual(room.join("socket-stale", "Alice", {
+    characterId: "alice",
+    reconnectToken: firstJoin.reconnectToken,
+  }), { ok: false, error: "Ese personaje ya está ocupado" });
+
+  const disconnectedAt = Date.now();
+  room.disconnect("socket-alice-new");
+  assert.equal(room.shouldExpire(disconnectedAt + ROOM_RECONNECT_TTL_MS - 100), false);
+  assert.equal(room.shouldExpire(disconnectedAt + ROOM_RECONNECT_TTL_MS + 100), true);
+}
+
+{
+  const { io } = createIoRecorder();
+  const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "MGBK", "Minigame recovery", content);
+  assert.equal(room.join("socket-alice", "Alice").ok, true);
+  assert.equal(room.join("socket-bob", "Bob").ok, true);
+  assert.deepEqual(room.startGame("socket-alice"), { ok: true });
+
+  const activity = { type: "reaction" as const, content: { durationMs: 5_000 } };
+  const event = {
+    id: "reaction-recovery",
+    name: "Reaction recovery",
+    kind: "activity" as const,
+    story: { title: "Reaction recovery", prompt: "Tap when ready." },
+    activity,
+  };
+  const alice = room.getState().players.find((player) => player.id === "alice");
+  assert.ok(alice);
+  (room as any).startActivity(event, alice, activity);
+  assert.equal(room.getState().phase, "minigame");
+  const startedAt = room.getState().activeMinigame?.startedAt;
+  assert.equal(typeof startedAt, "number", "a minigame gets one authoritative audio start time");
+
+  await room.submitResult("socket-bob", { score: 42, payload: { timeMs: 420 } });
+  assert.deepEqual(room.getState().activeMinigame?.submitted, ["bob"]);
+  room.disconnect("socket-bob");
+  assert.equal(room.join("socket-bob-new", "Bob", { characterId: "bob" }).ok, true);
+  assert.equal(room.getState().phase, "minigame");
+  assert.equal(room.getState().activeMinigame?.eventId, "reaction-recovery");
+  assert.equal(room.getState().activeMinigame?.startedAt, startedAt, "reconnects keep the same audio instance id and timeline");
+  assert.deepEqual(room.getState().activeMinigame?.submitted, ["bob"], "a reconnect preserves an already submitted minigame result");
 }
 
 {
@@ -448,7 +604,7 @@ const players = [
     activity: { type: "vote", content: { question: "¿Quién la rompió?" } },
     results: [
       { playerId: "alice", score: 0, payload: { votedFor: "bob" } },
-      { playerId: "bob", score: 0, payload: { votedFor: "carla" } },
+      { playerId: "bob", score: 0, payload: { votedFor: "bob" } },
       { playerId: "carla", score: 0, payload: { votedFor: "bob" } },
     ],
     participants: ["alice", "bob", "carla"],
@@ -457,10 +613,10 @@ const players = [
     coinPayout: [10, 0, 0],
   });
 
-  assert.deepEqual(reveal.ranking, ["bob", "carla", "alice"]);
-  assert.equal(reveal.entries[0].resultLabel, "2 votos");
-  assert.equal(reveal.entries[0].detailLabel, "Votos de Alice, Carla");
-  assert.deepEqual(reveal.entries[0].payload, { votes: 2, voters: ["alice", "carla"], votedFor: "carla" });
+  assert.deepEqual(reveal.ranking, ["bob", "alice", "carla"]);
+  assert.equal(reveal.entries[0].resultLabel, "3 votos");
+  assert.equal(reveal.entries[0].detailLabel, "Votos de Alice, Bob, Carla");
+  assert.deepEqual(reveal.entries[0].payload, { votes: 3, voters: ["alice", "bob", "carla"], votedFor: "bob" });
 }
 
 {
@@ -490,8 +646,8 @@ const players = [
   const { io } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "TST1", "Test room", content);
 
-  assert.deepEqual(room.join("socket-alice", "Alice"), { ok: true, playerId: "alice" });
-  assert.deepEqual(room.join("socket-bob", "Bob"), { ok: true, playerId: "bob" });
+  assert.equal(room.join("socket-alice", "Alice").ok, true);
+  assert.equal(room.join("socket-bob", "Bob").ok, true);
 
   for (const player of room.getState().players) {
     assert.equal("stars" in player, false, "players expose coins, not deprecated stars");
@@ -502,10 +658,9 @@ const players = [
   const { io } = createIoRecorder();
   const room = new GameRoom(io as ConstructorParameters<typeof GameRoom>[0], "CHAR", "Characters", characterContent);
 
-  assert.deepEqual((room as any).join("socket-guest", "Whoever", { characterId: "guest" }), {
-    ok: true,
-    playerId: "guest",
-  });
+  const guestJoin = (room as any).join("socket-guest", "Whoever", { characterId: "guest" });
+  assert.equal(guestJoin.ok, true);
+  assert.equal(guestJoin.playerId, "guest");
   assert.equal(room.getState().characterSlots?.find((slot) => slot.id === "guest")?.claimedByPlayerId, "guest");
   assert.equal(room.getState().players.find((player) => player.id === "guest")?.name, "Guest");
   assert.equal(room.getState().players.find((player) => player.id === "guest")?.color, "#38bdf8");
@@ -521,10 +676,9 @@ const players = [
     error: "Ese personaje ya está ocupado",
   });
 
-  assert.deepEqual((room as any).join("socket-groom", "Host", { characterId: "groom" }), {
-    ok: true,
-    playerId: "groom",
-  });
+  const groomJoin = (room as any).join("socket-groom", "Host", { characterId: "groom" });
+  assert.equal(groomJoin.ok, true);
+  assert.equal(groomJoin.playerId, "groom");
   assert.equal(room.getState().players.find((player) => player.id === "groom")?.groom, true);
   assert.deepEqual((room as any).join("socket-full", "Full"), { ok: false, error: "La sala está llena" });
 }
@@ -900,6 +1054,32 @@ const artifactShopContent: GameContent = normalizeGameContentEvents({
 const productionArtifactContent = JSON.parse(
   readFileSync(new URL("../../shared/content.json", import.meta.url), "utf8")
 ) as GameContent;
+
+{
+  const recorder = createIoRecorder();
+  const room = new GameRoom(recorder.io as never, "SIZE", "Payload budget", productionArtifactContent, { mapId: "map-2" });
+  const stateBytes = Buffer.byteLength(JSON.stringify(room.getState()));
+  assert.ok(stateBytes < 500_000, `multiplayer state must stay below the 500 KB LAN budget, received ${stateBytes}`);
+}
+
+{
+  const map = productionArtifactContent.maps?.find((candidate) => candidate.id === "map-2");
+  assert.ok(map, "production Despedida map exists");
+  const assignedEventIds = map.board.flatMap((tile) => [tile.eventId, ...(tile.eventIds ?? [])]).filter((id): id is string => Boolean(id));
+  assert.equal(map.board.length, 65);
+  assert.equal(map.board.filter((tile) => tile.type === "shop").length, 7);
+  const queuedActivityTypes = new Set(map.board.flatMap((tile) => tile.eventQueue?.activityTypes ?? []));
+  const reachableEvents = Object.entries(productionArtifactContent.events).filter(([id, event]) =>
+    assignedEventIds.includes(id) || queuedActivityTypes.has(event.activity?.type ?? "prompt")
+  );
+  assert.equal(reachableEvents.length, Object.keys(productionArtifactContent.events).length, "Despedida can reach every production event");
+  const duplicateAnchors = assignedEventIds.filter((id, index) => assignedEventIds.indexOf(id) !== index);
+  assert.ok(duplicateAnchors.every((id) => ["event-098", "event-101", "event-102"].includes(id)), "only finale-core events may be anchored on multiple runway cells");
+  assert.equal(new Set(map.mapProps?.map((prop) => prop.assetId)).size, productionArtifactContent.assetCatalog?.length, "Despedida displays every map prop asset type");
+  assert.ok(map.board.some((tile) => (tile.eventIds?.length ?? 0) > 1), "Despedida contains event queue cells");
+  assert.ok(map.board.some((tile) => Boolean(tile.eventId) && !tile.eventIds?.length), "Despedida preserves singleton cinematic events");
+  assert.ok(map.board.filter((tile) => tile.eventQueue?.activityTypes.includes("timing")).length >= 2, "Despedida gives timing multiple shared-queue cells");
+}
 
 function focusedProductionArtifactContent(artifactId: string): GameContent {
   const artifact = productionArtifactContent.artifacts?.[artifactId];
@@ -1652,6 +1832,7 @@ const cardVoteContent: GameContent = normalizeGameContentEvents({
         subjects: "everyone",
         content: {
           cards: ["Would miss a flight while already at the airport", "Would turn a quiet dinner into a party"],
+          allowSelfVote: true,
           tieMode: "shared",
         },
       },
@@ -1682,12 +1863,12 @@ await withRolls([1], async () => {
   await room.submitResult("socket-alice", { score: 0, payload: { votedFor: "bob" } });
   await room.submitResult("socket-bob", { score: 0, payload: { votedFor: "missing" } });
   assert.deepEqual(room.getState().activeMinigame?.submitted, ["alice"], "invalid card votes are ignored");
-  await room.submitResult("socket-bob", { score: 0, payload: { votedFor: "carla" } });
+  await room.submitResult("socket-bob", { score: 0, payload: { votedFor: "bob" } });
   await room.submitResult("socket-carla", { score: 0, payload: { votedFor: "bob" } });
 
   assert.equal(room.getState().activeMinigame?.cardVote?.phase, "result");
   assert.deepEqual(room.getState().activeMinigame?.cardVote?.roundResult?.winnerIds, ["bob"]);
-  assert.deepEqual(room.getState().activeMinigame?.cardVote?.roundResult?.votersByPlayer.bob, ["alice", "carla"]);
+  assert.deepEqual(room.getState().activeMinigame?.cardVote?.roundResult?.votersByPlayer.bob, ["alice", "bob", "carla"]);
   assert.equal(room.getState().activeMinigame?.cardVote?.cardCounts.bob, 1);
 
   await room.minigameAction("socket-bob", { type: "cardVote:next" });

@@ -57,6 +57,20 @@ assert.equal(builder.maps[0].routes[0].from, 0);
 assert.equal(builder.maps[0].routes[0].to, 1);
 assert.equal(builder.maps[0].board[1].eventId, "event-quiz");
 
+const sharedQueueContent: GameContent = {
+  ...content,
+  board: [board[0], { ...board[1], eventId: undefined, eventQueue: { activityTypes: ["vote"] } }, board[2]],
+};
+const sharedQueueBuilder = normalizeBuilderContent(sharedQueueContent);
+assert.deepEqual(sharedQueueBuilder.maps[0].board[1].eventQueue, { activityTypes: ["vote"] });
+const sharedQueueRoundTrip = builderContentToGameContent(sharedQueueContent, sharedQueueBuilder);
+assert.deepEqual(sharedQueueRoundTrip.board[1].eventQueue, { activityTypes: ["vote"] });
+const invalidSharedQueue = validateGameContent({
+  ...sharedQueueContent,
+  board: [board[0], { ...board[1], eventId: undefined, eventQueue: { activityTypes: ["legacy-vote"] } }, board[2]],
+} as unknown as GameContent);
+assert.ok(invalidSharedQueue.errors.some((error) => error.includes("eventQueue.activityTypes[0]")));
+
 assert.equal(content.events["event-quiz"].activity?.type, "vote");
 
 const legacyEventConfigInput = {

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Server } from "socket.io";
 import type {
   ActiveMinigame,
@@ -53,7 +54,7 @@ import {
   resolveActivitySubjectIds,
   resolveEventActionTargetIds,
   resolveEventMediaRefs,
-  resolveTileEventForPlayer,
+  TileEventQueue,
   type ResolvedGameEvent,
 } from "@essence/shared/events";
 import {
@@ -74,7 +75,14 @@ const PLAYTEST_STARTING_COINS = 20;
 
 interface JoinOptions {
   characterId?: string;
+  reconnectToken?: string;
 }
+
+type JoinResult =
+  | { ok: true; playerId: string; reconnectToken: string; replacedSocketId?: string }
+  | { ok: false; error: string };
+
+export const ROOM_RECONNECT_TTL_MS = 30 * 60 * 1000;
 
 interface GameRoomOptions {
   mapId?: string;
@@ -108,18 +116,21 @@ export class GameRoom {
   private appliedCharacterTraitKeys = new Set<string>();
   private rollHistory = new Map<string, number[]>();
   private movementHistory = new Map<string, number[]>();
+  private tileEventQueue = new TileEventQueue();
   private eventContinuation: "advanceTurn" | "beginTurn" | "resumeTurn" = "advanceTurn";
+  private reconnectTokens = new Map<string, string>();
+  private emptySince: number | null = null;
 
   constructor(io: IO, code: string, name: string, content: GameContent, options: GameRoomOptions = {}) {
     this.io = io;
     this.code = code;
     this.name = name;
     this.isPlaytest = options.playtest === true;
-    this.content = content;
     const activeMap =
       content.maps?.find((map) => map.id === options.mapId) ??
       content.maps?.find((map) => map.id === content.activeMapId) ??
       content.maps?.[0];
+    this.content = activeMap ? { ...content, board: activeMap.board } : content;
     this.state = {
       code,
       roomName: name,
@@ -165,6 +176,10 @@ export class GameRoom {
     return this.state.players.every((p) => !p.connected);
   }
 
+  shouldExpire(now = Date.now()): boolean {
+    return this.isEmpty && this.emptySince !== null && now - this.emptySince >= ROOM_RECONNECT_TTL_MS;
+  }
+
   getState(): GameState {
     this.refreshCharacterSlots();
     return this.state;
@@ -197,27 +212,40 @@ export class GameRoom {
   // --- Lobby ---------------------------------------------------------------
 
   /** Reclama un personaje de la sala, con compatibilidad de reconexión por nombre. */
-  join(socketId: string, name = "", options: JoinOptions = {}): { ok: true; playerId: string } | { ok: false; error: string } {
+  join(socketId: string, name = "", options: JoinOptions = {}): JoinResult {
     const trimmed = name.trim();
     const requestedCharacterId = options.characterId?.trim();
     if (!trimmed && !requestedCharacterId) return { ok: false, error: "Elegí un personaje" };
 
+    const existing = requestedCharacterId
+      ? this.state.players.find((player) => player.id === requestedCharacterId)
+      : this.state.players.find((player) => player.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) {
+      const currentToken = this.reconnectTokens.get(existing.id);
+      const authorizedTakeover = Boolean(options.reconnectToken && currentToken === options.reconnectToken);
+      if (existing.connected && !authorizedTakeover) return { ok: false, error: "Ese personaje ya está ocupado" };
+      const replacedSocketId = authorizedTakeover && existing.socketId !== socketId ? existing.socketId ?? undefined : undefined;
+      existing.socketId = socketId;
+      existing.connected = true;
+      this.emptySince = null;
+      const reconnectToken = this.rotateReconnectToken(existing.id);
+      this.broadcast();
+      return { ok: true, playerId: existing.id, reconnectToken, replacedSocketId };
+    }
+
+    if (this.state.phase !== "lobby") {
+      return { ok: false, error: "La partida ya arrancó; solo podés reconectar un jugador desconectado" };
+    }
+
     const character = this.claimableCharacter(trimmed, requestedCharacterId);
     if (!character.ok) return character;
 
-    const existing = this.state.players.find((p) => p.id === character.def.id);
-    if (existing) {
-      existing.socketId = socketId;
-      existing.connected = true;
-      this.broadcast();
-      return { ok: true, playerId: existing.id };
-    }
-
     const player = this.playerFromCharacter(character.def, socketId);
     this.state.players.push(player);
-    if (this.state.phase !== "lobby") this.applyDefaultTraitsForPlayer(player.id);
+    this.emptySince = null;
+    const reconnectToken = this.rotateReconnectToken(player.id);
     this.broadcast();
-    return { ok: true, playerId: character.def.id };
+    return { ok: true, playerId: character.def.id, reconnectToken };
   }
 
   disconnect(socketId: string) {
@@ -225,13 +253,20 @@ export class GameRoom {
     if (!p) return;
     p.connected = false;
     p.socketId = null;
+    if (this.isEmpty && this.emptySince === null) this.emptySince = Date.now();
     this.broadcast();
+  }
+
+  private rotateReconnectToken(playerId: string): string {
+    const token = randomUUID();
+    this.reconnectTokens.set(playerId, token);
+    return token;
   }
 
   leave(socketId: string): { closed: boolean } {
     const player = this.playerBySocket(socketId);
     if (!player) return { closed: false };
-    if (player.isHost) {
+    if (player.isHost && this.state.phase === "lobby") {
       for (const p of this.state.players) {
         p.connected = false;
         p.socketId = null;
@@ -458,18 +493,20 @@ export class GameRoom {
 
   // --- Inicio --------------------------------------------------------------
 
-  startGame(socketId: string) {
+  startGame(socketId: string): { ok: true } | { ok: false; error: string } {
     const p = this.playerBySocket(socketId);
-    if (!p?.isHost) return;
-    if (this.state.phase !== "lobby") return;
+    if (!p?.isHost) return { ok: false, error: "Solo el host puede arrancar la partida" };
+    if (this.state.phase !== "lobby") return { ok: false, error: "La partida ya arrancó" };
     const order = this.connectedPlayers().map((x) => x.id);
-    if (order.length === 0) return;
+    if (order.length === 0) return { ok: false, error: "No hay jugadores conectados" };
+    this.tileEventQueue.reset();
     this.state.turnOrder = order;
     this.state.activeIndex = 0;
     this.state.round = 1;
     this.state.phase = "turn";
     this.applyDefaultTraitsForPlayers(order);
     this.beginActiveTurn();
+    return { ok: true };
   }
 
   /** Seed a private builder playtest and start it immediately. */
@@ -717,7 +754,7 @@ export class GameRoom {
       this.startArtifactShop(tile, active, preludeActions);
       return;
     }
-    const event = resolveTileEventForPlayer(this.content, tile, active);
+    const event = this.tileEventQueue.resolve(this.content, tile, active);
     if (event) {
       this.startEvent(event, active, preludeActions);
       return;
@@ -869,6 +906,7 @@ export class GameRoom {
     }
     const active: ActiveMinigame = {
       eventId: event.id,
+      startedAt: Date.now(),
       protagonistId: activePlayer.id,
       type: activity.type,
       skin: activity.skin,
@@ -886,6 +924,7 @@ export class GameRoom {
     this.broadcast();
     this.io.to(this.code).emit("minigame:start", {
       id: event.id,
+      startedAt: active.startedAt,
       type: activity.type,
       skin: activity.skin,
       content: active.content,
@@ -1230,12 +1269,10 @@ export class GameRoom {
     this.state.lastRoll = null;
     this.state.lastMovement = null;
 
-    const order = this.state.turnOrder.filter((id) => {
-      const pl = this.state.players.find((p) => p.id === id);
-      return pl?.connected;
-    });
-    if (order.length === 0) {
-      this.state.phase = "lobby";
+    const order = this.state.turnOrder.filter((id) => this.state.players.some((player) => player.id === id));
+    const connectedIds = new Set(this.connectedPlayers().map((player) => player.id));
+    if (connectedIds.size === 0) {
+      this.state.phase = "turn";
       this.broadcast();
       return;
     }
@@ -1244,7 +1281,7 @@ export class GameRoom {
     if (this.extraTurnPlayerId) {
       const extraIndex = order.indexOf(this.extraTurnPlayerId);
       this.extraTurnPlayerId = null;
-      if (extraIndex >= 0) {
+      if (extraIndex >= 0 && connectedIds.has(order[extraIndex])) {
         if (endingPlayerId) this.tickEffectDurations(endingPlayerId, false);
         this.state.activeIndex = extraIndex;
         this.beginActiveTurn();
@@ -1261,6 +1298,7 @@ export class GameRoom {
         advancedRound = true;
       }
       const nextId = order[nextIndex];
+      if (!connectedIds.has(nextId)) continue;
       const skipped = this.skippedTurns.get(nextId) ?? 0;
       if (skipped <= 0) break;
       if (skipped === 1) this.skippedTurns.delete(nextId);

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/8bit/card";
 import { Input } from "@/components/ui/8bit/input";
+import { joinableCharacterSlots } from "../joinRooms";
 
 interface Props {
   error: string | null;
@@ -247,8 +248,7 @@ function JoinView({
     return () => clearInterval(id);
   }, [refresh]);
 
-  const joinable = (rooms ?? []).filter((r) => r.phase === "lobby" && r.players < r.maxPlayers);
-  const inProgress = (rooms ?? []).filter((r) => r.phase !== "lobby");
+  const joinable = (rooms ?? []).filter((room) => joinableCharacterSlots(room).length > 0);
   const manualRoom = code.length === 4
     ? (rooms ?? []).find((room) => room.code.toUpperCase() === code.toUpperCase())
     : undefined;
@@ -278,8 +278,8 @@ function JoinView({
       ) : (
         <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
           {joinable.map((r) => {
-            const slots = r.characterSlots ?? [];
-            const availableSlots = slots.filter((slot) => !slot.claimedByPlayerId);
+            const slots = joinableCharacterSlots(r);
+            const reconnecting = r.phase !== "lobby";
             return (
               <div key={r.code} data-room-code={r.code} className="border-2 border-[#fff4bf]/20 bg-[#0d1829] p-3 text-left">
                 <div className="grid grid-cols-[1fr_auto] items-start gap-3">
@@ -289,6 +289,11 @@ function JoinView({
                       <Badge className="border-[#fde68a] bg-[#f5d547] px-1.5 py-0.5 text-[8px] uppercase text-[#201507]">
                         {r.code}
                       </Badge>
+                      {reconnecting && (
+                        <Badge className="border-[#7dd3fc] bg-[#0c4a6e] px-1.5 py-0.5 text-[8px] uppercase text-[#e0f2fe]">
+                          En juego · reconectar
+                        </Badge>
+                      )}
                     </span>
                     <span className="mt-0.5 block truncate text-[11px] text-[#c7bddc]">
                       {r.host ? `Host: ${r.host}` : "Sin host"}
@@ -310,7 +315,7 @@ function JoinView({
                       <CharacterSlotButton
                         key={slot.id}
                         slot={slot}
-                        disabled={Boolean(slot.claimedByPlayerId)}
+                        disabled={false}
                         selected={false}
                         onClick={() => onJoin(r.code, slot.displayName, slot.id)}
                       />
@@ -321,19 +326,15 @@ function JoinView({
                     </p>
                   )}
                 </div>
-                {availableSlots.length === 0 && (
-                  <p className="mt-2 text-center text-[10px] font-bold uppercase text-[#fb7185]">Sala completa</p>
+                {reconnecting && (
+                  <p className="mt-2 text-center text-[10px] font-bold uppercase text-[#7dd3fc]">
+                    Elegí el jugador desconectado para volver a la partida
+                  </p>
                 )}
               </div>
             );
           })}
         </div>
-      )}
-
-      {inProgress.length > 0 && (
-        <p className="text-center text-[10px] text-[#c7bddc]/70">
-          {inProgress.length} sala{inProgress.length > 1 ? "s" : ""} en juego no aparece{inProgress.length > 1 ? "n" : ""} en la lista
-        </p>
       )}
 
       <div className="mt-1 border-t border-[#fff4bf]/15 pt-3">
@@ -354,13 +355,13 @@ function JoinView({
               maxLength={4}
               className="h-14 w-full bg-[#100b1a] text-center text-2xl font-black uppercase text-[#fff8d6]"
             />
-            {code.length === 4 && manualRoom?.phase === "lobby" && (
+            {code.length === 4 && manualRoom && joinableCharacterSlots(manualRoom).length > 0 && (
               <div className="grid grid-cols-2 gap-2">
-                {(manualRoom.characterSlots ?? []).map((slot) => (
+                {joinableCharacterSlots(manualRoom).map((slot) => (
                   <CharacterSlotButton
                     key={slot.id}
                     slot={slot}
-                    disabled={Boolean(slot.claimedByPlayerId)}
+                    disabled={false}
                     selected={false}
                     onClick={() => onJoin(manualRoom.code, slot.displayName, slot.id)}
                   />
@@ -372,9 +373,11 @@ function JoinView({
                 No encontramos una sala abierta con ese código.
               </p>
             )}
-            {manualRoom && manualRoom.phase !== "lobby" && (
+            {manualRoom && joinableCharacterSlots(manualRoom).length === 0 && (
               <p className="border border-[#fff4bf]/20 bg-[#0d1829] p-2 text-center text-xs font-bold text-[#c7bddc]">
-                Esa sala ya está jugando.
+                {manualRoom.phase === "lobby"
+                  ? "No quedan personajes disponibles en esa sala."
+                  : "La partida está en curso, pero no hay jugadores desconectados para recuperar."}
               </p>
             )}
           </div>
@@ -449,6 +452,8 @@ function CharacterSlotButton({
         <Check className="h-4 w-4 text-[#f5d547]" />
       ) : disabled ? (
         <span className="text-[9px] font-black uppercase text-[#fb7185]">Ocupado</span>
+      ) : slot.claimedByPlayerId && slot.connected === false ? (
+        <span className="text-[9px] font-black uppercase text-[#7dd3fc]">Reconectar</span>
       ) : (
         <span className="text-[9px] font-black uppercase text-[#34d399]">Libre</span>
       )}

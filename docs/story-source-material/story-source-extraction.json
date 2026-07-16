@@ -1735,6 +1735,11 @@
       "media_asset_id": "story-image-035",
       "presentation": {
         "type": "prompt",
+        "suggested_activity_type": "timing",
+        "suggested_activity_content": {
+          "label": "Sacá la foto justo cuando la webcam te agarre en la pose perfecta.",
+          "windowMs": 420
+        },
         "pre_minigame_caption": null,
         "prompt_caption": "Te quedás un toque probando la webcam: 50% chance de sacar 4 por los siguientes 4 turnos"
       },
@@ -3495,6 +3500,11 @@
       "media_asset_id": "story-image-102",
       "presentation": {
         "type": "prompt",
+        "suggested_activity_type": "timing",
+        "suggested_activity_content": {
+          "label": "Clavá el movimiento justo en el centro para completar el muscle-up.",
+          "windowMs": 380
+        },
         "pre_minigame_caption": null,
         "prompt_caption": "Lograste tu primer muscle-up , pero se te jodió el hombro para siempre"
       },
@@ -3945,7 +3955,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "¿A quién le gustaría que fuéramos a una playa nudista para vernos?",
@@ -3988,9 +3998,7 @@
           "source_sentence_number": 5,
           "sentence": "¿Al velorio de quién no va a ir prácticamente nadie?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-02",
@@ -4015,7 +4023,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "¿Quién le revisa el celular a su pareja?",
@@ -4058,9 +4066,7 @@
           "source_sentence_number": 10,
           "sentence": "A uno de nosotros le importan un culo los pobres. ¿A quién?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-03",
@@ -4085,7 +4091,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "Uno de nosotros SIEMPRE tiene una excusa. ¿Quién?",
@@ -4128,9 +4134,7 @@
           "source_sentence_number": 15,
           "sentence": "¿Quién recibe mucho más afecto del que da?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-04",
@@ -4155,7 +4159,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "Uno de nosotros siempre cuenta las mismas anécdotas. ¿Quién?",
@@ -4198,9 +4202,7 @@
           "source_sentence_number": 20,
           "sentence": "¿Quién es el menos preparado para afrontar una situación difícil y se derrumbaría al toque?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-05",
@@ -4225,7 +4227,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "¿Quién de nosotros es inimputable?",
@@ -4268,9 +4270,7 @@
           "source_sentence_number": 25,
           "sentence": "¿Quién de nosotros quiere prohibir el fútbol femenino?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-06",
@@ -4295,7 +4295,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "Arrancamos un laburo nuevo. ¿Quién no espera ni un día para serrucharle el piso al jefe?",
@@ -4338,9 +4338,7 @@
           "source_sentence_number": 30,
           "sentence": "Tenemos acá a la típica persona que vive prometiendo que va a empezar el gimnasio o la dieta y nunca lo hace. ¿Quién es?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-07",
@@ -4365,7 +4363,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "¿Quién les pega o les va a pegar a sus hijos?",
@@ -4408,9 +4406,7 @@
           "source_sentence_number": 35,
           "sentence": "Uno de nosotros siente más vergüenza que el resto a la hora de hablar de sexo."
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-08",
@@ -4435,7 +4431,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "¿A quién le hubiera venido bien hacer el servicio militar?",
@@ -4478,9 +4474,7 @@
           "source_sentence_number": 40,
           "sentence": "Y el premio al más caprichoso de nosotros es para..."
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-09",
@@ -4505,7 +4499,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "¿Quién se va de mambo con el alcohol y nos arruina a todos la salida?",
@@ -4548,9 +4542,7 @@
           "source_sentence_number": 45,
           "sentence": "A la cuenta de 3, todos señalamos al que de chico le robaba guita a sus padres. A la una, a las dos, y a las tres."
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-10",
@@ -4575,7 +4567,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "Hoy me masturbé pensando en alguien de ustedes. Me refiero obviamente a...",
@@ -4618,9 +4610,7 @@
           "source_sentence_number": 50,
           "sentence": "¿Quién es absolutamente incapaz de reconocer que se equivocó?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-11",
@@ -4645,7 +4635,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "¿Quién de nosotros logró más cosas por ojete que por talento?",
@@ -4688,9 +4678,7 @@
           "source_sentence_number": 55,
           "sentence": "Uno de nosotros pensó seriamente en usar Burundanga alguna vez. ¡O PEOR, LA USÓ! ¿Quién?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     },
     {
       "id": "card-vote-amigos-de-mierda-ronda-12",
@@ -4715,7 +4703,7 @@
           "participants": "everyone",
           "subjects": "everyone",
           "content": {
-            "allowSelfVote": false,
+            "allowSelfVote": true,
             "tieMode": "shared",
             "cards": [
               "¿A quién se nota que en realidad no le gusta coger?",
@@ -4758,9 +4746,7 @@
           "source_sentence_number": 60,
           "sentence": "¿Quién de nosotros garronea comida y bebida sistemáticamente?"
         }
-      ],
-      "suggested_activity_type": "cardVote",
-      "production_status": "reference_only_not_seeded"
+      ]
     }
   ],
   "trivia": [

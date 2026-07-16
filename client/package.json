@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "tsx src/audio.test.ts && tsx src/boardView.test.ts && tsx src/cardVoteEditor.test.ts && tsx src/cardVotePlaytest.test.ts && tsx src/mapBuilder.test.ts && tsx src/useGame.test.ts",
+    "test": "tsx src/audio.test.ts && tsx src/boardView.test.ts && tsx src/cardVoteEditor.test.ts && tsx src/cardVotePlaytest.test.ts && tsx src/joinRooms.test.ts && tsx src/mapBuilder.test.ts && tsx src/mapSimulation.test.ts && tsx src/useGame.test.ts",
     "build": "vite build",
     "preview": "vite preview"
   },

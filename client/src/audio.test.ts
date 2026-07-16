@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { AudioTriggerBindingDef, GameContent } from "@essence/shared";
 import {
+  audioRandomFromPlaybackId,
   audioAssetPlaybackRange,
   audioTriggerCandidates,
   pickWeightedAudioCandidate,
@@ -58,6 +59,21 @@ test("audio trigger candidates combine default and scoped bindings additively", 
   assert.deepEqual(nico.map((candidate) => candidate.variant.assetId), ["default-click"]);
 });
 
+test("winner audio bindings can filter player and activity independently", () => {
+  const bindings: AudioTriggerBindingDef[] = [
+    {
+      trigger: "activity.playerWon",
+      playerId: "javi",
+      scope: { type: "minigame", id: "maze" },
+      variants: [{ assetId: "javi-maze-win" }],
+    },
+  ];
+
+  assert.equal(audioTriggerCandidates(bindings, { trigger: "activity.playerWon", playerId: "javi", minigameId: "maze" }).length, 1);
+  assert.equal(audioTriggerCandidates(bindings, { trigger: "activity.playerWon", playerId: "nico", minigameId: "maze" }).length, 0);
+  assert.equal(audioTriggerCandidates(bindings, { trigger: "activity.playerWon", playerId: "javi", minigameId: "other" }).length, 0);
+});
+
 test("weighted audio selection honors candidate weights", () => {
   const candidates = [
     { id: "quiet", weight: 1 },
@@ -66,6 +82,21 @@ test("weighted audio selection honors candidate weights", () => {
 
   assert.equal(pickWeightedAudioCandidate(candidates, () => 0.1)?.id, "quiet");
   assert.equal(pickWeightedAudioCandidate(candidates, () => 0.8)?.id, "loud");
+});
+
+test("multiplayer audio playback ids resolve weighted variants deterministically", () => {
+  const candidates = [
+    { id: "one", weight: 1 },
+    { id: "two", weight: 1 },
+    { id: "three", weight: 1 },
+  ];
+  const playbackId = "minigame.music:event-050:1720000000000";
+  const firstClient = pickWeightedAudioCandidate(candidates, () => audioRandomFromPlaybackId(playbackId));
+  const secondClient = pickWeightedAudioCandidate(candidates, () => audioRandomFromPlaybackId(playbackId));
+
+  assert.equal(firstClient?.id, secondClient?.id);
+  assert.equal(audioRandomFromPlaybackId(playbackId), audioRandomFromPlaybackId(playbackId));
+  assert.notEqual(audioRandomFromPlaybackId(playbackId), audioRandomFromPlaybackId(`${playbackId}:next`));
 });
 
 test("audio asset playback ranges preserve non-destructive trims", () => {
@@ -95,6 +126,11 @@ test("content validation catches missing audio assets and invalid scoped ids", (
         trigger: "not.real",
         variants: [{ assetId: "click" }],
       },
+      {
+        trigger: "activity.playerWon",
+        playerId: "missing-player",
+        variants: [{ assetId: "click" }],
+      },
     ],
   });
 
@@ -102,6 +138,7 @@ test("content validation catches missing audio assets and invalid scoped ids", (
   assert(result.errors.some((error) => error.includes("references missing player missing-player")));
   assert(result.errors.some((error) => error.includes("references missing audio asset missing-asset")));
   assert(result.errors.some((error) => error.includes("must be a supported audio trigger id")));
+  assert(result.errors.some((error) => error.includes("playerId references missing player missing-player")));
 });
 
 test("content validation rejects inverted and out-of-range audio trims", () => {
@@ -133,6 +170,7 @@ test("normalizeContentSchema preserves audio assets and trigger bindings", () =>
     audioTriggers: [
       {
         trigger: "player.clicked",
+        playerId: "javi",
         scope: { type: "player", id: "javi" },
         category: "sfx",
         variants: [{ assetId: "click", weight: 2 }],
@@ -145,5 +183,6 @@ test("normalizeContentSchema preserves audio assets and trigger bindings", () =>
   assert.equal(content.audioAssets?.click?.trimStartMs, 125);
   assert.equal(content.audioAssets?.click?.trimEndMs, 875);
   assert.equal(content.audioTriggers?.[0]?.scope?.id, "javi");
+  assert.equal(content.audioTriggers?.[0]?.playerId, "javi");
   assert.equal(content.audioTriggers?.[0]?.variants[0]?.weight, 2);
 });

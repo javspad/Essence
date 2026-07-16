@@ -320,6 +320,7 @@ const AudioTriggerBindingDefSchema = z
   .object({
     id: z.string().min(1).optional(),
     trigger: z.string().min(1),
+    playerId: z.string().min(1).optional(),
     scope: AudioTriggerScopeSchema.optional(),
     variants: z.array(AudioTriggerVariantDefSchema).min(1),
     enabled: z.boolean().optional(),
@@ -905,6 +906,14 @@ function validateTile(
   tile.eventIds?.forEach((eventId, index) => {
     if (!eventIds.has(eventId)) error(`${path}.eventIds[${index}]`, `references missing event ${eventId}`);
   });
+  if (tile.eventQueue) {
+    if (!tile.eventQueue.activityTypes.length) error(`${path}.eventQueue.activityTypes`, "must include at least one activity type");
+    tile.eventQueue.activityTypes.forEach((activityType, index) => {
+      if (!EVENT_ACTIVITY_TYPES.includes(activityType)) {
+        error(`${path}.eventQueue.activityTypes[${index}]`, `is not a supported activity type: ${activityType}`);
+      }
+    });
+  }
   if (tile.cameraPresetId && !cameraPresetIds.has(tile.cameraPresetId)) {
     error(`${path}.cameraPresetId`, `references missing camera preset ${tile.cameraPresetId}`);
   }
@@ -1086,6 +1095,7 @@ function validateAudioContent(
       }
     }
     if (!AUDIO_TRIGGER_ID_SET.has(binding.trigger)) error(`${path}.trigger`, `must be a supported audio trigger id`);
+    if (binding.playerId && !ids.players.has(binding.playerId)) error(`${path}.playerId`, `references missing player ${binding.playerId}`);
     validateAudioScope(`${path}.scope`, binding.scope, ids, error);
     if (!binding.variants?.length) error(`${path}.variants`, "must include at least one variant");
     binding.variants?.forEach((variant, variantIndex) => {
@@ -1531,6 +1541,7 @@ function cloneTiles(board: Tile[]): Tile[] {
     label: tile.label,
     eventId: tile.eventId,
     eventIds: tile.eventIds ? [...tile.eventIds] : undefined,
+    eventQueue: tile.eventQueue ? { activityTypes: [...tile.eventQueue.activityTypes] } : undefined,
     tags: tile.tags ? [...tile.tags] : undefined,
     cameraPresetId: tile.cameraPresetId,
     camera: cloneCamera(tile.camera),
