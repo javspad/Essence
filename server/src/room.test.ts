@@ -1054,6 +1054,8 @@ const artifactShopContent: GameContent = normalizeGameContentEvents({
 const productionArtifactContent = JSON.parse(
   readFileSync(new URL("../../shared/content.json", import.meta.url), "utf8")
 ) as GameContent;
+const productionContentValidation = validateGameContent(productionArtifactContent);
+assert.equal(productionContentValidation.ok, true, productionContentValidation.errors.join("\n"));
 
 {
   const recorder = createIoRecorder();

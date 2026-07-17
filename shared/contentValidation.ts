@@ -387,14 +387,36 @@ export function normalizeContentSchema(input: unknown): GameContent {
   };
 }
 
+type GameContentValidation = {
+  normalized?: GameContent;
+  result: ContentValidationResult;
+};
+type ValidationError = (path: string, message: string) => void;
+type ValidationWarning = (path: string, message: string) => void;
+
 export function validateGameContent(content: unknown): ContentValidationResult {
-  const normalized = normalizeContentSchema(content);
+  return validateAndNormalizeGameContent(content).result;
+}
+
+function validateAndNormalizeGameContent(content: unknown): GameContentValidation {
   const issues: ContentValidationIssue[] = [];
   const error = (path: string, message: string) => issues.push({ severity: "error", path, message });
   const warning = (path: string, message: string) => issues.push({ severity: "warning", path, message });
-  if (!isRecord(content) || !isRecord(content.events)) error("events", "must be an object");
-  validateRemovedEventConfiguration(content, error);
+  if (!validateContentContainerShapes(content, error)) return { result: contentValidationResult(issues) };
 
+  let normalized: GameContent;
+  try {
+    normalized = normalizeContentSchema(content);
+  } catch {
+    error("content", "contains malformed nested containers");
+    return { result: contentValidationResult(issues) };
+  }
+  validateRemovedEventConfiguration(content, error);
+  validateNormalizedGameContent(normalized, error, warning);
+  return { normalized, result: contentValidationResult(issues) };
+}
+
+function validateNormalizedGameContent(normalized: GameContent, error: ValidationError, warning: ValidationWarning) {
   const legacyPlayerIds = validatePlayers(normalized.players, error);
   const characterIds = validateCharacters(normalized.characters, error);
   const playerIds = new Set([...legacyPlayerIds, ...characterIds]);
@@ -404,10 +426,7 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   const traitIds = validateCharacterTraits(normalized.characterTraits, effectIds, error);
   const eventIds = new Set(Object.keys(normalized.events));
   validatePlayerStories(normalized.playerStories, playerIds, eventIds, effectIds, error);
-
-  for (const [id, event] of Object.entries(normalized.events)) {
-    validateEvent(`events.${id}`, event, playerIds, effectIds, mediaAssetIds, error);
-  }
+  validateEventCatalog(normalized.events, playerIds, effectIds, mediaAssetIds, error);
 
   validateCatalogIds(normalized.cosmetics, "cosmetics", error);
   validateCosmetics(normalized.cosmetics, characterIds, error, warning);
@@ -428,8 +447,23 @@ export function validateGameContent(content: unknown): ContentValidationResult {
     },
     error
   );
-  validateFutureCatalogReferences(normalized, traitIds, error, warning);
+  validateFutureCatalogReferences(normalized, traitIds, error);
+  validateMapCatalog(normalized, assetIds, eventIds, error);
+}
 
+function validateEventCatalog(
+  events: Record<string, GameEventDef>,
+  playerIds: Set<string>,
+  effectIds: Set<string>,
+  mediaAssetIds: Set<string>,
+  error: ValidationError
+) {
+  for (const [id, event] of Object.entries(events)) {
+    validateEvent(`events.${id}`, event, playerIds, effectIds, mediaAssetIds, error);
+  }
+}
+
+function validateMapCatalog(normalized: GameContent, assetIds: Set<string>, eventIds: Set<string>, error: ValidationError) {
   const maps = normalized.maps ?? [
     {
       id: "board",
@@ -446,19 +480,94 @@ export function validateGameContent(content: unknown): ContentValidationResult {
   for (const map of maps) {
     validateMapDefinition(map, assetIds, eventIds, error);
   }
-
-  const errors = issues.filter((issue) => issue.severity === "error").map(formatIssue);
-  const warnings = issues.filter((issue) => issue.severity === "warning").map(formatIssue);
-  return { ok: errors.length === 0, errors, warnings, issues };
 }
 
 export function assertValidGameContent(content: unknown, label = "content.json"): GameContent {
-  const normalized = normalizeContentSchema(content);
-  const result = validateGameContent(normalized);
+  const { normalized, result } = validateAndNormalizeGameContent(content);
   if (!result.ok) {
     throw new Error(`${label}:\n${result.errors.map((line) => `  - ${line}`).join("\n")}`);
   }
-  return normalized;
+  return normalized!;
+}
+
+function validateContentContainerShapes(
+  content: unknown,
+  error: ValidationError
+): content is Record<string, unknown> {
+  if (!isRecord(content)) {
+    error("content", "must be an object");
+    return false;
+  }
+
+  let canNormalize = true;
+  const requireArray = (path: string, value: unknown) => {
+    if (Array.isArray(value)) return;
+    error(path, "must be an array");
+    canNormalize = false;
+  };
+  const requireRecord = (path: string, value: unknown) => {
+    if (isRecord(value)) return;
+    error(path, "must be an object");
+    canNormalize = false;
+  };
+
+  if (content.events === undefined) error("events", "must be an object");
+  else requireRecord("events", content.events);
+  requireArray("board", content.board);
+  for (const field of ["players", "assetCatalog", "audioTriggers", "characterCosmetics", "coinPayout"] as const) {
+    if (content[field] !== undefined) requireArray(field, content[field]);
+  }
+  for (const field of [
+    "mediaAssets",
+    "playerStories",
+    "characters",
+    "characterTraits",
+    "cosmetics",
+    "artifactRarities",
+    "artifactRarityRates",
+    "artifacts",
+    "effects",
+    "audioAssets",
+    "audioSettings",
+  ] as const) {
+    if (content[field] !== undefined) requireRecord(field, content[field]);
+  }
+  if (!validateMapContainerShapes(content.maps, error, requireArray, requireRecord)) canNormalize = false;
+  return canNormalize;
+}
+
+function validateMapContainerShapes(
+  maps: unknown,
+  error: ValidationError,
+  requireArray: (path: string, value: unknown) => void,
+  requireRecord: (path: string, value: unknown) => void
+): boolean {
+  if (maps === undefined) return true;
+  requireArray("maps", maps);
+  if (!Array.isArray(maps)) return false;
+
+  let valid = true;
+  maps.forEach((map, index) => {
+    if (!isRecord(map)) {
+      error(`maps[${index}]`, "must be an object");
+      valid = false;
+      return;
+    }
+    requireArray(`maps[${index}].board`, map.board);
+    for (const field of ["routes", "artifacts", "mapProps", "terraces"] as const) {
+      if (map[field] !== undefined) requireArray(`maps[${index}].${field}`, map[field]);
+    }
+    for (const field of ["boardShape", "theme", "defaultCamera", "cameraPresets"] as const) {
+      if (map[field] !== undefined) requireRecord(`maps[${index}].${field}`, map[field]);
+    }
+  });
+  return valid;
+}
+
+function contentValidationResult(issues: ContentValidationIssue[]): ContentValidationResult {
+  const errors = issues.filter((issue) => issue.severity === "error").map(formatIssue);
+  const warnings = issues.filter((issue) => issue.severity === "warning").map(formatIssue);
+  return { ok: errors.length === 0, errors, warnings, issues };
 }
 
 function normalizeMapDefinition(map: MapDefinitionImport): MapDefinition {
@@ -744,12 +853,12 @@ function validateAction(
   error: (path: string, message: string) => void
 ) {
   if ("target" in action && action.target) validateTarget(`${path}.target`, action.target, playerIds, error);
-  if (action.type === "coins" && !Number.isFinite(action.value)) error(`${path}.value`, "must be a finite number");
+  if (action.type === "coins" && !Number.isInteger(action.value)) error(`${path}.value`, "must be an integer");
   if (action.type === "coinTransfer" || action.type === "coinRedistribute") {
-    if (!Number.isFinite(action.amount) || action.amount < 0) error(`${path}.amount`, "must be a non-negative finite number");
+    if (!Number.isInteger(action.amount) || action.amount < 0) error(`${path}.amount`, "must be a non-negative integer");
     validateTarget(`${path}.from`, action.from, playerIds, error);
   }
-  if (action.type === "move" && !Number.isFinite(action.delta)) error(`${path}.delta`, "must be a finite number");
+  if (action.type === "move" && !Number.isInteger(action.delta)) error(`${path}.delta`, "must be an integer");
   if (action.type === "moveTo" && !Number.isInteger(action.tileId)) error(`${path}.tileId`, "must be an integer board cell id");
   if (action.type === "moveToPlayerPosition") validateTarget(`${path}.withTarget`, action.withTarget, playerIds, error);
   if (action.type === "skipTurn" && action.turns !== undefined && (!Number.isInteger(action.turns) || action.turns < 1)) {
@@ -1149,8 +1258,7 @@ function validateAudioScope(
 function validateFutureCatalogReferences(
   content: GameContent,
   traitIds: Set<string>,
-  error: (path: string, message: string) => void,
-  warning: (path: string, message: string) => void
+  error: (path: string, message: string) => void
 ) {
   const cosmeticIds = new Set(Object.keys(content.cosmetics ?? {}));
   const effectIds = new Set(Object.keys(content.effects ?? {}));

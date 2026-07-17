@@ -843,30 +843,6 @@ function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: strin
   );
 }
 
-function TextInput({
-  label,
-  value,
-  disabled = false,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  disabled?: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-      {label}
-      <input
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-md border border-white/15 bg-[#151922] px-3 py-2 text-sm font-bold text-white outline-none focus:border-amber-300 disabled:opacity-55"
-      />
-    </label>
-  );
-}
-
 function NumberInput({
   label,
   value,

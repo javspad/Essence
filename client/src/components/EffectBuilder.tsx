@@ -4,6 +4,7 @@ import type { EffectDef, GameContent } from "@essence/shared";
 import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";
 import seedContent from "@shared/content.json";
 import { saveContentJsonToDisk } from "../lib/contentDiskSave";
+import { sameOriginReturnRoute } from "../effectBuilderRoute";
 import {
   EffectBuilderSurface,
   defaultCustomEffect,
@@ -358,7 +359,7 @@ function requestedEffectIdFromUrl(): string | undefined {
 function fromRoute(): string | undefined {
   if (typeof window === "undefined") return undefined;
   const from = new URLSearchParams(window.location.search).get("from");
-  return from && from.startsWith("/") ? from : undefined;
+  return sameOriginReturnRoute(from, window.location.origin);
 }
 
 function isFullContent(value: unknown): value is GameContent {

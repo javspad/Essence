@@ -10,11 +10,15 @@ import { Server } from "socket.io";
 import type { CharacterSlot, ClientToServerEvents, ContentMapSummary, GameContent, MapDefinition, RoomSummary, ServerToClientEvents } from "@essence/shared";
 import { characterSlotsForContent } from "@essence/shared/characters";
 import { assertValidGameContent } from "@essence/shared/contentValidation";
+import { isDeveloperToolsEnabled } from "@essence/shared/devTools";
+import { socketPayloadSchemas } from "@essence/shared/socketSchemas";
 import { loadContent } from "./content.js";
 import { GameRoom } from "./room.js";
+import { isSocketAck, parseSocketInput, parseSocketRequest } from "./socketInput.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3001;
+const developerToolsEnabled = isDeveloperToolsEnabled(process.env.ENABLE_DEV_TOOLS);
 
 const app = express();
 app.use(cors());
@@ -113,7 +117,10 @@ io.on("connection", (socket) => {
     rooms.delete(code);
   };
 
-  socket.on("room:create", ({ name, roomName, characterId, mapId }, ack) => {
+  socket.on("room:create", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["room:create"], payload, ack);
+    if (!input) return;
+    const { name, roomName, characterId, mapId } = input;
     const trimmedRoom = (roomName ?? "").trim();
     if (!trimmedRoom) {
       ack({ ok: false, error: "Poné un nombre a la sala" });
@@ -147,7 +154,10 @@ io.on("connection", (socket) => {
     ack({ ok: true, playerId: res.playerId, code, reconnectToken: res.reconnectToken });
   });
 
-  socket.on("room:join", ({ code, name, characterId, reconnectToken }, ack) => {
+  socket.on("room:join", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["room:join"], payload, ack);
+    if (!input) return;
+    const { code, name, characterId, reconnectToken } = input;
     const room = rooms.get(code.toUpperCase());
     if (!room) {
       ack({ ok: false, error: "Sala inexistente" });
@@ -177,6 +187,13 @@ io.on("connection", (socket) => {
     const room = rooms.get(code);
     if (room) fn(room);
   };
+  const currentPlaytestRoom = (ack: (response: { ok: false; error: string }) => void): GameRoom | undefined => {
+    const code = socketIndex.get(socket.id);
+    const room = code ? rooms.get(code) : undefined;
+    if (room?.isPlaytest) return room;
+    ack({ ok: false, error: "No hay un playtest activo" });
+    return undefined;
+  };
 
   socket.on("room:leave", async () => {
     const code = socketIndex.get(socket.id);
@@ -201,6 +218,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("game:start", (ack) => {
+    if (!isSocketAck(ack)) return;
     const code = socketIndex.get(socket.id);
     const room = code ? rooms.get(code) : undefined;
     ack(room ? room.startGame(socket.id) : { ok: false, error: "No estás en una sala" });
@@ -209,57 +227,82 @@ io.on("connection", (socket) => {
   socket.on("turn:next", () => withRoom((r) => r.next(socket.id)));
   socket.on("reveal:next", () => withRoom((r) => r.next(socket.id)));
   socket.on("minigame:action", (data) => withRoom((r) => r.minigameAction(socket.id, data)));
-  socket.on("minigame:result", (payload) => withRoom((r) => void r.submitResult(socket.id, payload)));
-  socket.on("cosmetic:buy", ({ cosmeticId }, ack) =>
+  socket.on("minigame:result", (payload) => {
+    const input = parseSocketInput(socketPayloadSchemas["minigame:result"], payload);
+    if (!input) return;
+    withRoom((r) => void r.submitResult(socket.id, { score: input.score, payload: input.payload, outcome: input.outcome }));
+  });
+  socket.on("cosmetic:buy", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["cosmetic:buy"], payload, ack);
+    if (!input) return;
     withRoom((r) => {
-      const result = r.buyCosmetic(socket.id, cosmeticId);
+      const result = r.buyCosmetic(socket.id, input.cosmeticId);
       ack(result);
       if (!result.ok) socket.emit("error", { message: result.error });
-    })
-  );
-  socket.on("cosmetic:equip", ({ cosmeticId, equipped }, ack) =>
+    });
+  });
+  socket.on("cosmetic:equip", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["cosmetic:equip"], payload, ack);
+    if (!input) return;
     withRoom((r) => {
-      const result = r.equipCosmetic(socket.id, cosmeticId, equipped);
+      const result = r.equipCosmetic(socket.id, input.cosmeticId, input.equipped);
       ack(result);
       if (!result.ok) socket.emit("error", { message: result.error });
-    })
-  );
-  socket.on("artifact:rollShop", (_payload, ack) =>
+    });
+  });
+  socket.on("artifact:rollShop", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["artifact:rollShop"], payload, ack);
+    if (!input) return;
     withRoom((r) => {
       const result = r.rollArtifactShop(socket.id);
       ack(result);
       if (!result.ok) socket.emit("error", { message: result.error });
-    })
-  );
-  socket.on("artifact:buy", ({ offerId }, ack) =>
+    });
+  });
+  socket.on("artifact:buy", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["artifact:buy"], payload, ack);
+    if (!input) return;
     withRoom((r) => {
-      const result = r.buyArtifact(socket.id, offerId);
+      const result = r.buyArtifact(socket.id, input.offerId);
       ack(result);
       if (!result.ok) socket.emit("error", { message: result.error });
-    })
-  );
-  socket.on("artifact:use", ({ targetPlayerId }, ack) =>
+    });
+  });
+  socket.on("artifact:use", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["artifact:use"], payload, ack);
+    if (!input) return;
     withRoom((r) => {
-      const result = r.useArtifact(socket.id, targetPlayerId);
+      const result = r.useArtifact(socket.id, input.targetPlayerId);
       ack(result);
       if (!result.ok) socket.emit("error", { message: result.error });
-    })
-  );
-  socket.on("artifact:skipShop", (_payload, ack) =>
+    });
+  });
+  socket.on("artifact:skipShop", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["artifact:skipShop"], payload, ack);
+    if (!input) return;
     withRoom((r) => {
       const result = r.skipArtifactShop(socket.id);
       ack(result);
       if (!result.ok) socket.emit("error", { message: result.error });
-    })
-  );
+    });
+  });
   socket.on("minigame:force", () => withRoom((r) => void r.forceResolve(socket.id)));
-  socket.on("debug:applyEffect", (payload) => withRoom((r) => r.debugApplyEffect(socket.id, payload)));
+  if (developerToolsEnabled) {
+    socket.on("debug:applyEffect", (payload) => {
+      const input = parseSocketInput(socketPayloadSchemas["debug:applyEffect"], payload);
+      if (!input) return;
+      withRoom((r) => r.debugApplyEffect(socket.id, input));
+    });
+  }
 
-  socket.on("playtest:start", async ({ content: rawContent, mapId }, ack) => {
-    if (process.env.NODE_ENV === "production" && process.env.ENABLE_PLAYTEST !== "1") {
+  socket.on("playtest:start", async (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["playtest:start"], payload, ack);
+    if (!input) return;
+    if (!developerToolsEnabled) {
       ack({ ok: false, error: "El playtest del builder está deshabilitado en producción" });
       return;
     }
+    const { content: rawContent, mapId } = input;
     const currentCode = socketIndex.get(socket.id);
     const currentRoom = currentCode ? rooms.get(currentCode) : undefined;
     if (currentRoom && !currentRoom.isPlaytest) {
@@ -298,37 +341,32 @@ io.on("connection", (socket) => {
     ack(result);
   });
 
-  socket.on("playtest:selectPlayer", ({ playerId }, ack) => {
-    const code = socketIndex.get(socket.id);
-    const room = code ? rooms.get(code) : undefined;
-    if (!room?.isPlaytest) {
-      ack({ ok: false, error: "No hay un playtest activo" });
-      return;
-    }
-    ack(room.selectPlaytestPlayer(socket.id, playerId));
+  socket.on("playtest:selectPlayer", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["playtest:selectPlayer"], payload, ack);
+    if (!input) return;
+    const room = currentPlaytestRoom(ack);
+    if (!room) return;
+    ack(room.selectPlaytestPlayer(socket.id, input.playerId));
   });
 
-  socket.on("playtest:roll", ({ value }, ack) => {
-    const code = socketIndex.get(socket.id);
-    const room = code ? rooms.get(code) : undefined;
-    if (!room?.isPlaytest) {
-      ack({ ok: false, error: "No hay un playtest activo" });
-      return;
-    }
-    ack(room.rollPlaytest(socket.id, value));
+  socket.on("playtest:roll", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["playtest:roll"], payload, ack);
+    if (!input) return;
+    const room = currentPlaytestRoom(ack);
+    if (!room) return;
+    ack(room.rollPlaytest(socket.id, input.value));
   });
 
-  socket.on("playtest:land", ({ tileId }, ack) => {
-    const code = socketIndex.get(socket.id);
-    const room = code ? rooms.get(code) : undefined;
-    if (!room?.isPlaytest) {
-      ack({ ok: false, error: "No hay un playtest activo" });
-      return;
-    }
-    ack(room.landPlaytest(socket.id, tileId));
+  socket.on("playtest:land", (payload, ack) => {
+    const input = parseSocketRequest(socketPayloadSchemas["playtest:land"], payload, ack);
+    if (!input) return;
+    const room = currentPlaytestRoom(ack);
+    if (!room) return;
+    ack(room.landPlaytest(socket.id, input.tileId));
   });
 
   socket.on("playtest:stop", async (ack) => {
+    if (!isSocketAck(ack)) return;
     await closeCurrentPlaytest();
     ack({ ok: true });
   });

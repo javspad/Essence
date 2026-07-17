@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ArtifactDef, ArtifactRarity, ArtifactRarityDef, ArtifactTargetMode, ArtifactUseFlow, CosmeticAnchorType, EventAction, EventActionTarget, GameContent, ImmediateConsequenceDef } from "@essence/shared";
+import type { ArtifactDef, ArtifactRarity, ArtifactRarityDef, ArtifactTargetMode, ArtifactUseFlow, CosmeticAnchorType, EventActionTarget, GameContent, ImmediateConsequenceDef } from "@essence/shared";
 import { artifactActionsForUse, artifactRarityDefinitions, artifactRarityRatesFromDefinitions, rollArtifactShopOffers } from "@essence/shared/artifacts";
 import { consequenceLabel } from "@essence/shared/consequences";
 import { normalizeContentSchema, validateGameContent } from "@essence/shared/contentValidation";

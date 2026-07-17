@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "test": "tsx src/room.test.ts",
+    "dev": "ENABLE_DEV_TOOLS=1 tsx watch src/index.ts",
+    "test": "tsx src/socketInput.test.ts && tsx src/room.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "tsx src/index.ts"
   },

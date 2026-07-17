@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 import { Badge as ShadcnBadge } from "@/components/ui/badge";
 
-export const badgeVariants = cva("", {
+const badgeVariants = cva("", {
   variants: {
     font: {
       normal: "",
@@ -22,7 +22,7 @@ export const badgeVariants = cva("", {
   },
 });
 
-export interface BitButtonProps
+export interface BitBadgeProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof badgeVariants> {
   asChild?: boolean;
@@ -35,7 +35,7 @@ function Badge({
   variant,
   asChild: _asChild,
   ...props
-}: BitButtonProps) {
+}: BitBadgeProps) {
   const color = badgeVariants({ variant, font });
 
   const classes = className.split(" ");

@@ -42,7 +42,9 @@ function bot(name, isCreator) {
     // Arranca cuando el viewer (3er jugador) entró
     if (isCreator && !started && state.phase === "lobby" && state.players.length >= 3) {
       started = true;
-      setTimeout(() => socket.emit("game:start"), 1200);
+      setTimeout(() => socket.emit("game:start", (res) => {
+        if (!res.ok) { console.error("start fail", res.error); process.exit(1); }
+      }), 1200);
     }
     const activeId = state.turnOrder[state.activeIndex];
     if (state.phase === "turn" && me.id === activeId) {

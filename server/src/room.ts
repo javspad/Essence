@@ -481,6 +481,7 @@ export class GameRoom {
     return this.resolveArtifactUse(player, artifact, resolvedTargetId);
   }
 
+  // fallow-ignore-next-line unused-class-member -- Called by the server socket handler.
   skipArtifactShop(socketId: string): { ok: true } | { ok: false; error: string } {
     const context = this.activeArtifactShopContext(socketId);
     if (!context.ok) return context;
@@ -1861,10 +1862,6 @@ export class GameRoom {
     };
   }
 
-  private effectTargetName(instance: EffectInstance): string {
-    return this.state.players.find((player) => player.id === instance.targetPlayerId)?.name ?? instance.targetPlayerId;
-  }
-
   private endGame(winnerId: string) {
     this.state.winnerId = winnerId;
     this.state.phase = "finished";
@@ -1945,11 +1942,6 @@ function eventText(event: ResolvedGameEvent): string {
 
 function namesFor(ids: string[], players: Player[]): string {
   return ids.map((id) => players.find((p) => p.id === id)?.name ?? id).join(", ");
-}
-
-function valueText(ids: string[], players: Player[], value: number, noun: string): string {
-  const verb = value >= 0 ? "gana" : "pierde";
-  return `${namesFor(ids, players)} ${verb} ${Math.abs(value)} ${noun}(s)`;
 }
 
 function coinTotalsByPlayer(transactions: CoinTransaction[]): Record<string, number> {

@@ -17,14 +17,13 @@ import { localAssetProjection } from "../artifactProjection";
 import { BOARD_GRID_SPACING, layoutToWorldPosition, type Board3DMapBounds, type Vec3 } from "../board3d";
 
 // ── Paleta del diorama (ver spec de restructura de mapa) ─────────────────────
-export const GRASS_TOP = "#7ccf63";
-export const BASE_FIELD = "#6fbe54";
-export const STRATA = ["#d9a05f", "#b97a45", "#8a5a3b"] as const;
-export const SAND = "#ecd9a8";
-export const STONE_TOP = "#e6cf9d";
-export const STONE_SIDE = "#c9a86a";
-export const WATER = "#5bc4ea";
-export const FOAM = "#bae6fd";
+const GRASS_TOP = "#7ccf63";
+const STRATA = ["#d9a05f", "#b97a45", "#8a5a3b"] as const;
+const SAND = "#ecd9a8";
+const STONE_TOP = "#e6cf9d";
+const STONE_SIDE = "#c9a86a";
+const WATER = "#5bc4ea";
+const FOAM = "#bae6fd";
 
 function shade(hex: string, factor: number): string {
   return `#${new Color(hex).multiplyScalar(factor).getHexString()}`;
@@ -1531,15 +1530,6 @@ function MiniLabel({
     <mesh>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} side={DoubleSide} />
-    </mesh>
-  );
-}
-
-function MiniPlane({ color, width, height }: { color: string; width: number; height: number }) {
-  return (
-    <mesh>
-      <planeGeometry args={[width, height]} />
-      <meshStandardMaterial color={color} roughness={0.62} side={DoubleSide} />
     </mesh>
   );
 }

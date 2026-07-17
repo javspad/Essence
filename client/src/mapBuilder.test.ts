@@ -50,6 +50,91 @@ const content: GameContent = {
   players: [{ id: "p1", name: "P1" }],
 };
 
+const malformedContentCases: Array<{ name: string; value: unknown; expectedError: string }> = [
+  { name: "null root", value: null, expectedError: "content must be an object" },
+  { name: "array root", value: [], expectedError: "content must be an object" },
+  { name: "missing events", value: { board, players: content.players }, expectedError: "events must be an object" },
+  { name: "array events", value: { ...content, events: [null] }, expectedError: "events must be an object" },
+  { name: "non-array players", value: { ...content, players: {} }, expectedError: "players must be an array" },
+  { name: "non-array board", value: { ...content, board: "bad" }, expectedError: "board must be an array" },
+  { name: "non-array maps", value: { ...content, maps: {} }, expectedError: "maps must be an array" },
+  {
+    name: "non-array asset catalog",
+    value: { ...content, assetCatalog: {} },
+    expectedError: "assetCatalog must be an array",
+  },
+  {
+    name: "non-array audio triggers",
+    value: { ...content, audioTriggers: {} },
+    expectedError: "audioTriggers must be an array",
+  },
+  {
+    name: "non-array map board",
+    value: { ...content, maps: [{ id: "bad-map", name: "Bad map", board: "bad", routes: [] }] },
+    expectedError: "maps[0].board must be an array",
+  },
+  {
+    name: "non-array map routes",
+    value: { ...content, maps: [{ id: "bad-map", name: "Bad map", board, routes: "bad" }] },
+    expectedError: "maps[0].routes must be an array",
+  },
+  {
+    name: "non-array map terraces",
+    value: { ...content, maps: [{ id: "bad-map", name: "Bad map", board, routes: [], terraces: {} }] },
+    expectedError: "maps[0].terraces must be an array",
+  },
+];
+
+for (const malformed of malformedContentCases) {
+  let result: ReturnType<typeof validateGameContent> | undefined;
+  assert.doesNotThrow(() => {
+    result = validateGameContent(malformed.value);
+  }, malformed.name);
+  assert.equal(result?.ok, false, malformed.name);
+  assert.equal(result?.errors.includes(malformed.expectedError), true, malformed.name);
+}
+
+function contentWithDiscreteActions(actions: unknown[]): unknown {
+  return {
+    ...content,
+    events: {
+      ...content.events,
+      "discrete-actions": {
+        name: "Discrete actions",
+        story: { title: "Discrete actions" },
+        consequences: [{ appliesTo: "landing", actions }],
+      },
+    },
+  };
+}
+
+const invalidDiscreteActions: Array<{ action: unknown; field: string }> = [
+  { action: { type: "coins", value: 1.5 }, field: "value" },
+  { action: { type: "coins", value: Number.NaN }, field: "value" },
+  { action: { type: "coinTransfer", amount: 1.5, from: "landing" }, field: "amount" },
+  { action: { type: "coinRedistribute", amount: -1.5, from: "landing" }, field: "amount" },
+  { action: { type: "move", delta: -1.5 }, field: "delta" },
+];
+
+for (const invalid of invalidDiscreteActions) {
+  const result = validateGameContent(contentWithDiscreteActions([invalid.action]));
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.errors.some((error) => error.startsWith(`events.discrete-actions.consequences[0].actions[0].${invalid.field} `)),
+    true
+  );
+}
+
+const validDiscreteActions = validateGameContent(
+  contentWithDiscreteActions([
+    { type: "coins", value: -1 },
+    { type: "coinTransfer", amount: 0, from: "landing" },
+    { type: "coinRedistribute", amount: 2, from: "landing" },
+    { type: "move", delta: 0 },
+  ])
+);
+assert.equal(validDiscreteActions.ok, true, validDiscreteActions.errors.join("\n"));
+
 const builder = normalizeBuilderContent(content);
 assert.equal(builder.maps.length, 1);
 assert.equal(builder.maps[0].routes.length, 2);
@@ -133,17 +218,19 @@ assert.equal(
   true
 );
 
-const migratedCharacters = normalizeContentSchema({
+const legacyPlayerContent = {
   ...content,
   players: [
     { id: "javi", name: "Javi", groom: true, color: "#f59e0b" },
     { id: "nico", name: "Nico", color: "#ef4444" },
   ],
-});
+};
+const migratedCharacters = normalizeContentSchema(legacyPlayerContent);
 assert.deepEqual(Object.keys(migratedCharacters.characters ?? {}), ["javi", "nico"]);
 assert.equal(migratedCharacters.characters?.javi.displayName, "Javi");
 assert.equal(migratedCharacters.characters?.javi.groom, true);
 assert.equal("characterSets" in migratedCharacters, false);
+assert.equal(validateGameContent(legacyPlayerContent).ok, true);
 
 const authoredCharactersAreSourceOfTruth = normalizeContentSchema({
   ...content,

@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { artifactUseMessage, effectEndedMessage } from "../artifactPresentation";
 import { useAudioRuntime } from "../audio";
 import { applyCameraIntent, resolveTileCamera, supportsWebGL, type BoardCameraState, type CameraIntent } from "../board3d";
-import { isProductionMode } from "../featureFlags";
+import { developerToolsEnabled } from "../featureFlags";
 import type { BoardActiveMotion, BoardDiceCue } from "../gamePresentationMachine";
 import type { EffectNotice } from "../useGame";
 import ActivityMediaStrip from "./ActivityMedia";
@@ -514,7 +514,7 @@ function SceneChrome({
 }) {
   const active = state.players.find((player) => player.id === activeId);
   const sorted = rankPlayersByProgress(state.players);
-  const debugToolsEnabled = !isProductionMode() && (isDevBuild() || (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debugTools")));
+  const debugToolsEnabled = developerToolsEnabled() && (isDevBuild() || (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debugTools")));
   const showTurnPanel =
     state.phase !== "reveal" &&
     state.phase !== "finished" &&

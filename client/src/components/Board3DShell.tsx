@@ -1312,80 +1312,6 @@ export function PlayerTokenPawn({
   );
 }
 
-/** Ids de cosméticos conocidos, para el catálogo/galería. */
-export const COSMETIC_IDS = [
-  "party-goggles",
-  "big-mustache",
-  "mustache-handlebar",
-  "mustache-pencil",
-  "mustache-chaplin",
-  "party-hat",
-  "top-hat",
-  "cap",
-  "field-hat",
-  "coin-crown",
-  "gold-chain",
-  "dice-necklace",
-  "wristwatch",
-  "tuxedo",
-  "pet-dog",
-  "pet-cat",
-  "corona-rey",
-  "sombrero-mariachi",
-  "gorro-bufon",
-  "casco-vikingo",
-  "corona-laurel",
-  "aureola",
-  "cuernos-diablo",
-  "gorro-hongo",
-  "helice-gorro",
-  "corona-flores",
-  "casco-obra",
-  "sombrero-bruja",
-  "cresta-punk",
-  "fez",
-  "aleta-tiburon",
-  "pulpo-sombrero",
-  "banana-cabeza",
-  "lentes-corazon",
-  "lentes-estrella",
-  "monoculo",
-  "lentes-3d",
-  "antifaz",
-  "parche-pirata",
-  "lentes-pixel",
-  "nariz-payaso",
-  "ojos-saltones",
-  "chupete",
-  "puro",
-  "pipa",
-  "diente-oro",
-  "barba-vikinga",
-  "globo-chicle",
-  "banda-novio",
-  "medalla-oro",
-  "armadura-caballero",
-  "chaleco-salvavidas",
-  "bandolera",
-  "corbata-luces",
-  "collar-hawaiano",
-  "mochila-jet",
-  "alas-angel",
-  "alas-demonio",
-  "caparazon-tortuga",
-  "capa-super",
-  "tanque-buzo",
-  "alas-hada",
-  "guantes-boxeo",
-  "sable-laser",
-  "varita-magica",
-  "maracas",
-  "copa-champan",
-  "jarra-cerveza",
-  "antorcha",
-  "globo-perro",
-] as const;
-
 function TokenCosmetics({
   cosmeticIds,
   cosmetics,
@@ -2770,7 +2696,7 @@ function TokenCosmetic({
               <boxGeometry args={[0.185, 0.07, 0.014]} />
               <meshStandardMaterial color={black} roughness={0.8} metalness={0.05} transparent opacity={opacity} />
             </mesh>
-            {eyes.map((p, i) => {
+            {eyes.map((_, i) => {
               const side = i === 0 ? -1 : 1;
               return (
                 <mesh key={`peak-${i}`} position={[side * 0.082, 0.036, 0.002]} rotation={[0, 0, side * -0.6]}>
@@ -2791,7 +2717,7 @@ function TokenCosmetic({
                 <meshStandardMaterial color={gold} metalness={0.9} roughness={0.25} emissive={gold} emissiveIntensity={0.2} transparent opacity={opacity} toneMapped={false} />
               </mesh>
             ))}
-            {eyes.map((p, i) => {
+            {eyes.map((_, i) => {
               const side = i === 0 ? -1 : 1;
               return (
                 <mesh key={`strap-${i}`} position={[side * 0.11, 0.006, -0.022]} rotation={[0, side * 0.5, 0]}>
@@ -2841,7 +2767,7 @@ function TokenCosmetic({
         const rows = [1.5, 0.5, -0.5, -1.5];
         return (
           <group position={[cx, cy, cz]}>
-            {[a.leftEye, a.rightEye].map((p, side) => {
+            {[a.leftEye, a.rightEye].map((_, side) => {
               const dir = side === 0 ? -1 : 1;
               const lensX = dir * Math.abs(lensCX);
               const cols = [-1.5, -0.5, 0.5, 1.5];
